@@ -1,6 +1,7 @@
 <template>
   <div v-if="isInMemory" class="warning-banner">
-    ⚠ In-memory database — all data will be lost on restart. Use <code>--db ./research.db</code> for persistence.
+    ⚠ <strong>In-memory mode</strong> — data will be lost on restart.
+    Run with <code>--db ./research.db</code> to persist data.
   </div>
 </template>
 

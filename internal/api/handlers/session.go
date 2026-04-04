@@ -40,7 +40,27 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Group questions by status for the frontend
+	grouped := make(map[string][]map[string]any)
+	for _, q := range result.Questions {
+		grouped[string(q.Status)] = append(grouped[string(q.Status)], map[string]any{
+			"id":        q.ID,
+			"text":      q.Text,
+			"area":      q.Area,
+			"rationale": q.Rationale,
+			"priority":  q.Priority,
+			"status":    q.Status,
+			"answer":    q.Answer,
+			"parent_id": q.ParentID,
+			"position":  q.Position,
+		})
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"data": result,
+		"data": map[string]any{
+			"session":   result.Session,
+			"questions": grouped,
+			"progress":  result.Progress,
+		},
 	})
 }

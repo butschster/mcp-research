@@ -52,8 +52,8 @@ func NewServer(
 	mux.HandleFunc("GET /api/researches/{id}/sessions", sh.ListByResearch)
 	mux.HandleFunc("GET /api/sessions/{id}", sh.Get)
 
-	// WebSocket
-	mux.HandleFunc("GET /ws", ws.HandleWebSocket(hub))
+	// WebSocket (no method prefix — upgrade needs raw handler)
+	mux.HandleFunc("/ws", ws.HandleWebSocket(hub))
 
 	// Health check
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +85,12 @@ func (s *Server) Start(ctx context.Context) error {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip CORS for WebSocket upgrade
+		if r.Header.Get("Upgrade") == "websocket" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")

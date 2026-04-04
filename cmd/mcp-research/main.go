@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/butschster/mcp-research/internal/api"
+	"github.com/butschster/mcp-research/internal/api/ws"
 	"github.com/butschster/mcp-research/internal/config"
 	mcpserver "github.com/butschster/mcp-research/internal/mcp"
 	"github.com/butschster/mcp-research/internal/service"
@@ -37,6 +38,10 @@ func main() {
 	}
 	defer db.Close()
 
+	// WebSocket hub + event notifier
+	hub := ws.NewHub(log)
+	events := ws.NewHubNotifier(hub)
+
 	// Repositories
 	researchRepo := storage.NewResearchRepository(db)
 	sectionRepo := storage.NewSectionRepository(db)
@@ -46,11 +51,11 @@ func main() {
 	taskRepo := storage.NewTaskRepository(db)
 
 	// Services
-	researchSvc := service.NewResearchService(researchRepo, sectionRepo, log)
-	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, log)
-	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, log)
-	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, log)
-	taskSvc := service.NewTaskService(taskRepo, researchRepo, log)
+	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
+	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, events, log)
+	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, events, log)
+	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, events, log)
+	taskSvc := service.NewTaskService(taskRepo, researchRepo, events, log)
 
 	// MCP Server
 	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log, version)
@@ -65,8 +70,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start REST API server in background
-	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, cfg.DBPath == "", log)
+	// Start REST API + WebSocket server in background
+	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, hub, cfg.DBPath == "", log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

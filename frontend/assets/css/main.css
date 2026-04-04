@@ -1,4 +1,5 @@
 :root {
+  /* Colors */
   --color-bg: #0f172a;
   --color-surface: #1e293b;
   --color-surface-hover: #334155;
@@ -11,6 +12,21 @@
   --color-error: #f87171;
   --color-info: #60a5fa;
   --radius: 8px;
+
+  /* Spacing scale (8px base) */
+  --space-1: 0.25rem;   /* 4px  */
+  --space-2: 0.5rem;    /* 8px  */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
 }
 
 * {
@@ -197,33 +213,85 @@ a:hover {
 }
 
 /* Markdown content */
-.markdown-content h1 { font-size: 1.5rem; margin: 1.5rem 0 0.75rem; }
-.markdown-content h2 { font-size: 1.25rem; margin: 1.25rem 0 0.625rem; }
-.markdown-content h3 { font-size: 1.125rem; margin: 1rem 0 0.5rem; }
+.markdown-content h1 { font-size: 1.5rem; font-weight: 700; margin: 2rem 0 0.75rem; padding-bottom: 0.375rem; border-bottom: 1px solid var(--color-border); }
+.markdown-content h2 { font-size: 1.25rem; font-weight: 600; margin: 1.75rem 0 0.625rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--color-border); }
+.markdown-content h3 { font-size: 1.125rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
+.markdown-content h4 { font-size: 1rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+.markdown-content h1:first-child, .markdown-content h2:first-child, .markdown-content h3:first-child { margin-top: 0; }
 .markdown-content p { margin: 0.75rem 0; }
-.markdown-content ul, .markdown-content ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+.markdown-content ul, .markdown-content ol { padding-left: 1.75rem; margin: 0.75rem 0; }
+.markdown-content li { margin: 0.25rem 0; }
+.markdown-content li > ul, .markdown-content li > ol { margin: 0.25rem 0; }
+.markdown-content strong { font-weight: 600; color: var(--color-text); }
+.markdown-content hr { border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0; }
 .markdown-content code {
   background: var(--color-surface-hover);
-  padding: 0.125rem 0.375rem;
+  padding: 0.15rem 0.4rem;
   border-radius: 4px;
-  font-size: 0.875em;
+  font-size: 0.85em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 .markdown-content pre {
   background: var(--color-surface-hover);
-  padding: 1rem;
+  padding: 1.125rem 1.25rem;
   border-radius: var(--radius);
   overflow-x: auto;
-  margin: 1rem 0;
+  margin: 1.25rem 0;
+  line-height: 1.5;
 }
 .markdown-content pre code {
   background: none;
   padding: 0;
+  font-size: 0.8125rem;
 }
 .markdown-content blockquote {
   border-left: 3px solid var(--color-primary);
-  padding-left: 1rem;
+  padding: 0.5rem 1rem;
   color: var(--color-text-muted);
   margin: 1rem 0;
+  background: rgba(56, 189, 248, 0.04);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.markdown-content blockquote p { margin: 0.25rem 0; }
+/* Tables */
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 0.875rem;
+}
+.markdown-content thead th {
+  text-align: left;
+  font-weight: 600;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 2px solid var(--color-border);
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+.markdown-content tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.markdown-content tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+.markdown-content tbody tr:last-child td {
+  border-bottom: none;
+}
+/* Images */
+.markdown-content img {
+  max-width: 100%;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+}
+/* Links in markdown */
+.markdown-content a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.markdown-content a:hover {
+  text-decoration: underline;
 }
 
 /* Filter bar */
@@ -308,5 +376,86 @@ nav .logo {
   }
   .markdown-content pre {
     background: #f5f5f5;
+  }
+}
+
+/* ─── Utility Classes ───────────────────────────────────────────────────── */
+
+/* Flexbox helpers */
+.flex         { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-start   { display: flex; align-items: flex-start; }
+.flex-center  { display: flex; align-items: center; justify-content: center; }
+.items-center { align-items: center; }
+.flex-wrap    { flex-wrap: wrap; }
+
+/* Gap helpers */
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+
+/* Margin helpers */
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-6 { margin-bottom: var(--space-6); }
+
+/* Text helpers */
+.text-muted  { color: var(--color-text-muted); }
+.text-sm     { font-size: 0.875rem; }
+.text-xs     { font-size: 0.75rem; }
+.font-medium { font-weight: 500; }
+.font-bold   { font-weight: 700; }
+
+/* Misc */
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.w-full   { width: 100%; }
+.ml-auto  { margin-left: auto; }
+
+/* ─── Responsive Breakpoints ─────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .layout-sidebar {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+  }
+  .container {
+    padding: 0 1rem;
+  }
+  .page-title {
+    font-size: 1.375rem;
+  }
+  /* Hide WS label on very small screens */
+  .ws-label {
+    display: none;
+  }
+  .entry-nav-btn {
+    font-size: 0.75rem;
+    max-width: 48%;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+  .filter-bar select {
+    flex: 1;
+    min-width: 0;
+  }
+  .progress-stats {
+    gap: 0.75rem;
+    font-size: 0.8125rem;
   }
 }

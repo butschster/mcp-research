@@ -1,311 +1,257 @@
 <template>
-  <div v-if="pending" class="empty-state">Loading...</div>
-  <div v-else-if="!research" class="empty-state">Research not found.</div>
-  <div v-else>
-    <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+  <div v-if="pending" class="skeleton-page">
+    <div class="skeleton-card" style="height:60px;margin-bottom:1.5rem;"></div>
+    <div class="layout-sidebar">
+      <div class="skeleton-card" style="height:300px;"></div>
       <div>
-        <Breadcrumbs :crumbs="[
-          { label: 'Research', to: '/' },
-          { label: research.name },
-          ...(selectedSection ? [{ label: selectedSection.display_name || selectedSection.name }] : []),
-        ]" />
-        <h1 class="page-title" style="margin-top: 0.25rem;">{{ research.name }}</h1>
-        <p v-if="research.goal" class="card-meta" style="margin-top: 0.25rem;">{{ research.goal }}</p>
-      </div>
-      <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <StatusBadge :status="research.status" />
-        <PrintButton />
+        <div v-for="i in 3" :key="i" class="skeleton-card" style="height:120px;margin-bottom:1rem;"></div>
       </div>
     </div>
+  </div>
 
-    <!-- Active Session Widget -->
-    <div v-if="activeSession" class="card" style="margin-bottom: 1.5rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <h3 style="font-size: 1rem;">{{ activeSession.title }}</h3>
+  <div v-else-if="research">
+    <!-- Header -->
+    <div class="page-header">
+      <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: research.name }]" />
+      <div class="flex-between" style="margin-top:0.25rem;">
+        <h1 class="page-title">{{ research.name }}</h1>
+        <StatusBadge :status="research.status" />
+      </div>
+      <p v-if="research.goal" class="card-meta" style="margin-top:0.25rem;">{{ research.goal }}</p>
+    </div>
+
+    <!-- Active session widget -->
+    <div v-if="activeSession" class="card session-widget">
+      <div class="flex-between" style="margin-bottom:0.5rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span class="card-meta">Active Session</span>
           <StatusBadge :status="activeSession.status" />
         </div>
-        <NuxtLink :to="`/research/${research.id}/session/${activeSession.id}`" class="btn" style="font-size: 0.75rem;">
-          Full session &rarr;
+        <NuxtLink :to="`/research/${id}/session/${activeSession.id}`" class="btn" style="font-size:0.75rem;">
+          View questions →
         </NuxtLink>
       </div>
-      <p v-if="activeSession.focus" class="card-meta" style="margin-bottom: 0.75rem;">Focus: {{ activeSession.focus }}</p>
-
-      <!-- Progress bar -->
-      <div v-if="sessionData" style="margin-bottom: 0.75rem;">
-        <div class="progress-bar" style="margin-bottom: 0.375rem;">
-          <div class="progress-bar-fill" :style="{ width: sessionProgress + '%' }" />
-        </div>
-        <span class="card-meta">{{ sessionData.progress?.answered ?? 0 }} / {{ sessionData.progress?.total ?? 0 }} answered</span>
-      </div>
-
-      <!-- Question checklist -->
-      <div v-if="sessionQuestions.length" class="todo-list">
-        <div v-for="q in sessionQuestions" :key="q.id" class="todo-item">
-          <span :class="['todo-check', `todo-${q.status}`]">
-            <template v-if="q.status === 'answered'">&#10003;</template>
-            <template v-else-if="q.status === 'skipped'">&times;</template>
-            <template v-else-if="q.status === 'deferred'">&rarr;</template>
-            <template v-else>&#9675;</template>
-          </span>
-          <span :class="['todo-text', { 'todo-done': q.status === 'answered' }]">{{ q.text }}</span>
-          <StatusBadge v-if="q.priority === 'high'" status="high" />
-        </div>
+      <h3 style="font-size:1rem;">{{ activeSession.title }}</h3>
+      <p v-if="activeSession.focus" class="card-meta" style="margin-top:0.25rem;">{{ activeSession.focus }}</p>
+      <div v-if="sessionProgress" style="margin-top:0.625rem;">
+        <ProgressBar :value="sessionProgress.answered" :total="sessionProgress.total" />
+        <span class="card-meta" style="font-size:0.8125rem;">
+          {{ sessionProgress.answered }} / {{ sessionProgress.total }} questions answered
+        </span>
       </div>
     </div>
 
-    <!-- Tasks Panel -->
-    <div v-if="tasks.length" class="card" style="margin-bottom: 1.5rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <h3 style="font-size: 1rem;">Todo</h3>
-        <span class="card-meta">{{ tasksDone }} / {{ tasks.length }}</span>
+    <!-- Tasks widget -->
+    <div v-if="tasks.length" class="card task-widget">
+      <div class="flex-between" style="margin-bottom:0.75rem;">
+        <h3 style="font-size:1rem;">Tasks</h3>
+        <span class="card-meta">{{ completedTasks }} / {{ tasks.length }}</span>
       </div>
-      <div class="progress-bar" style="margin-bottom: 0.75rem;">
-        <div class="progress-bar-fill" :style="{ width: tasksProgress + '%' }" />
-      </div>
-      <div class="todo-list">
+      <ProgressBar :value="completedTasks" :total="tasks.length" />
+      <div class="todo-list" style="margin-top:0.75rem;">
         <div v-for="t in tasks" :key="t.id" class="todo-item">
           <span :class="['todo-check', `todo-${t.status}`]">
-            <template v-if="t.status === 'completed'">&#10003;</template>
-            <template v-else-if="t.status === 'failed'">&times;</template>
-            <template v-else-if="t.status === 'blocked'">&#9632;</template>
-            <template v-else-if="t.status === 'deferred'">&rarr;</template>
-            <template v-else-if="t.status === 'in_progress'">&#9654;</template>
-            <template v-else>&#9675;</template>
+            <template v-if="t.status === 'completed'">✓</template>
+            <template v-else-if="t.status === 'failed'">×</template>
+            <template v-else-if="t.status === 'blocked'">■</template>
+            <template v-else-if="t.status === 'deferred'">→</template>
+            <template v-else-if="t.status === 'in_progress'">▶</template>
+            <template v-else>○</template>
           </span>
-          <div style="flex: 1; min-width: 0;">
+          <div style="flex:1;min-width:0;">
             <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
-            <div v-if="t.result" class="card-meta" style="font-size: 0.75rem; margin-top: 0.125rem;">{{ t.result }}</div>
+            <div v-if="t.result" class="card-meta" style="font-size:0.75rem;margin-top:0.125rem;">{{ t.result }}</div>
           </div>
-          <StatusBadge v-if="t.priority === 'high'" status="high" />
+          <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
           <StatusBadge :status="t.status" />
         </div>
       </div>
     </div>
 
+    <!-- Sidebar layout: sections + entries -->
     <div class="layout-sidebar">
-      <!-- Section Sidebar -->
+      <!-- Sidebar -->
       <div class="sidebar">
-        <h3 style="font-size: 0.875rem; color: var(--color-text-muted); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
-          Sections
-        </h3>
-        <div v-for="section in sections" :key="section.id"
-          :class="['sidebar-item', { active: selectedSectionId === section.id }]"
-          @click="selectedSectionId = section.id">
+        <h3 class="sidebar-label">Sections</h3>
+        <div
+          v-for="section in sections"
+          :key="section.id"
+          :class="['sidebar-item', { active: activeSection === section.id }]"
+          @click="activeSection = section.id"
+        >
           <span>{{ section.display_name || section.name }}</span>
           <span class="card-meta">{{ section.entries_count }}</span>
         </div>
       </div>
 
-      <!-- Section Content -->
+      <!-- Main: entries -->
       <div>
-        <div v-if="!selectedSection" class="empty-state">
-          Select a section from the sidebar.
-        </div>
-        <div v-else>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h2>{{ selectedSection.display_name || selectedSection.name }}</h2>
-            <StatusBadge :status="selectedSection.status" />
+        <template v-if="currentSection">
+          <div class="flex-between" style="margin-bottom:1rem;">
+            <h2>{{ currentSection.display_name || currentSection.name }}</h2>
+            <StatusBadge :status="currentSection.status" />
           </div>
-          <p v-if="selectedSection.description" class="card-meta" style="margin-bottom: 1rem;">
-            {{ selectedSection.description }}
+          <p v-if="currentSection.description" class="card-meta" style="margin-bottom:1rem;">
+            {{ currentSection.description }}
           </p>
 
-          <!-- Tags panel -->
-          <div v-if="allEntryTags.length" class="tags-panel">
+          <!-- Tag filter for entries -->
+          <div v-if="entryTags.length" class="tags-panel" style="margin-bottom:1rem;">
             <span
-              v-for="tag in allEntryTags"
+              v-for="tag in entryTags"
               :key="tag"
-              :class="['tag', 'tag-clickable', { 'tag-active': entryTagFilter === tag }]"
-              @click="entryTagFilter = entryTagFilter === tag ? '' : tag"
+              :class="['tag', 'tag-clickable', { 'tag-active': activeTag === tag }]"
+              @click="activeTag = activeTag === tag ? '' : tag"
             >{{ tag }}</span>
           </div>
 
-          <div v-if="entriesPending" class="empty-state">Loading entries...</div>
-          <div v-else-if="!filteredEntries?.length" class="empty-state">
-            No entries in this section yet.
+          <!-- Entries loading -->
+          <div v-if="entriesPending">
+            <div v-for="i in 3" :key="i" class="skeleton-card" style="height:90px;margin-bottom:0.75rem;"></div>
           </div>
-          <div v-else class="grid" style="grid-template-columns: 1fr;">
-            <NuxtLink v-for="entry in filteredEntries" :key="entry.id"
-              :to="`/research/${research.id}/entry/${entry.id}`"
-              class="card" style="display: block; text-decoration: none; color: inherit;">
-              <div style="display: flex; justify-content: space-between; align-items: start;">
+
+          <div v-else-if="filteredEntries.length" class="grid" style="grid-template-columns:1fr;">
+            <NuxtLink
+              v-for="entry in filteredEntries"
+              :key="entry.id"
+              :to="`/research/${id}/entry/${entry.id}`"
+              class="card entry-card"
+            >
+              <div class="flex-between">
                 <h3 class="card-title">{{ entry.title }}</h3>
                 <StatusBadge :status="entry.status" />
               </div>
-              <p v-if="entry.description" class="card-meta" style="margin-top: 0.25rem;">{{ entry.description }}</p>
-              <div v-if="entry.tags?.length" style="margin-top: 0.5rem; display: flex; gap: 0.375rem; flex-wrap: wrap;">
-                <span
-                  v-for="tag in entry.tags"
-                  :key="tag"
-                  class="tag tag-clickable"
-                  @click.prevent.stop="entryTagFilter = tag"
-                >{{ tag }}</span>
+              <p v-if="entry.description" class="card-meta" style="margin-top:0.25rem;">{{ entry.description }}</p>
+              <div v-if="entry.tags?.length" style="margin-top:0.5rem;display:flex;gap:0.375rem;flex-wrap:wrap;">
+                <span v-for="tag in entry.tags" :key="tag" class="tag">{{ tag }}</span>
               </div>
             </NuxtLink>
           </div>
-        </div>
+
+          <EmptyState
+            v-else
+            icon="📄"
+            title="No entries yet"
+            description="Claude will populate this section with research entries."
+          />
+        </template>
+
+        <EmptyState
+          v-else
+          icon="👈"
+          title="Select a section"
+          description="Choose a section from the sidebar to view its entries."
+        />
       </div>
     </div>
   </div>
+
+  <EmptyState v-else icon="🔍" title="Research not found" />
 </template>
 
 <script setup lang="ts">
 const route = useRoute()
-const router = useRouter()
 const id = route.params.id as string
 
-const { data, pending } = await useApi<{ data: { research: any; sections: any[]; active_session: any } }>(`/api/researches/${id}`)
+// Research data
+const { data: researchData, pending } = await useApi<{ data: any }>(`/api/researches/${id}`)
 
-const research = computed(() => data.value?.data?.research)
-const sections = computed(() => data.value?.data?.sections ?? [])
-const activeSession = computed(() => data.value?.data?.active_session)
+const research = computed(() => researchData.value?.data?.research)
+const sections = computed(() => researchData.value?.data?.sections ?? [])
+const activeSession = computed(() => researchData.value?.data?.active_session)
 
-// Fetch tasks
-const { data: tasksResponse } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
-const tasks = computed(() => tasksResponse.value?.data ?? [])
-const tasksDone = computed(() => tasks.value.filter((t: any) => t.status === 'completed').length)
-const tasksProgress = computed(() => {
-  if (!tasks.value.length) return 0
-  return Math.round((tasksDone.value / tasks.value.length) * 100)
-})
+// Active section (default: first)
+const activeSection = ref(route.query.section as string || '')
+const router = useRouter()
 
-// Fetch active session questions
-const { data: sessionResponse } = useAsyncData(
-  'active-session',
-  () => {
-    if (!activeSession.value?.id) return Promise.resolve(null)
-    const config = useRuntimeConfig()
-    const baseURL = config.public.apiBase || ''
-    return $fetch<{ data: any }>(`${baseURL}/api/sessions/${activeSession.value.id}`)
-  },
-  { watch: [activeSession] },
-)
-
-const sessionData = computed(() => sessionResponse.value?.data)
-const sessionProgress = computed(() => {
-  const p = sessionData.value?.progress ?? sessionData.value?.Progress
-  if (!p?.total) return 0
-  return Math.round((p.answered / p.total) * 100)
-})
-const sessionQuestions = computed(() => {
-  const qs = sessionData.value?.questions ?? sessionData.value?.Questions ?? {}
-  const order = ['pending', 'in_progress', 'answered', 'deferred', 'skipped']
-  const all: any[] = []
-  for (const status of order) {
-    for (const q of qs[status] ?? []) {
-      all.push({ ...q, status })
-    }
-  }
-  return all
-})
-
-// Restore selected section from query param, fall back to first section
-const initialSectionId = (route.query.section as string) || sections.value?.[0]?.id || ''
-const selectedSectionId = ref<string>(initialSectionId)
-
-// Sync to URL query param
-watch(selectedSectionId, (val) => {
+watch(activeSection, (val) => {
   router.replace({ query: { ...route.query, section: val || undefined } })
 })
 
-const selectedSection = computed(() =>
-  sections.value.find((s: any) => s.id === selectedSectionId.value) ?? null
-)
+watch(sections, (secs) => {
+  if (!activeSection.value && secs.length) activeSection.value = secs[0].id
+}, { immediate: true })
 
-const entriesUrl = computed(() => {
-  if (!selectedSectionId.value) return null
-  return `/api/researches/${id}/sections/${selectedSectionId.value}/entries`
+const currentSection = computed(() => sections.value.find((s: any) => s.id === activeSection.value) ?? null)
+
+// Entries
+const entriesUrl = computed(() =>
+  activeSection.value ? `/api/researches/${id}/sections/${activeSection.value}/entries` : null
+)
+const { data: entriesData, pending: entriesPending } = useApi<{ data: any[] }>(
+  computed(() => entriesUrl.value ?? '/api/researches/__none__/sections/__none__/entries')
+)
+const entries = computed(() => activeSection.value ? (entriesData.value?.data ?? []) : [])
+
+// Entry tag filter
+const activeTag = ref('')
+watch(activeSection, () => { activeTag.value = '' })
+
+const entryTags = computed(() => {
+  const set = new Set<string>()
+  for (const e of entries.value) for (const t of (e.tags ?? [])) set.add(t)
+  return [...set].sort()
 })
 
-const { data: entriesResponse, pending: entriesPending } = useAsyncData(
-  () => {
-    if (!entriesUrl.value) return Promise.resolve(null)
-    const config = useRuntimeConfig()
-    const baseURL = config.public.apiBase || ''
-    return $fetch<{ data: any[] }>(`${baseURL}${entriesUrl.value}`)
-  },
-  { watch: [entriesUrl] },
+const filteredEntries = computed(() =>
+  activeTag.value ? entries.value.filter((e: any) => e.tags?.includes(activeTag.value)) : entries.value
 )
 
-const entries = computed(() => entriesResponse.value?.data ?? [])
+// Tasks
+const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
+const tasks = computed(() => tasksData.value?.data ?? [])
+const completedTasks = computed(() => tasks.value.filter((t: any) => t.status === 'completed').length)
 
-const entryTagFilter = ref('')
+// Active session progress
+const { data: sessionData } = useApi<{ data: any }>(
+  computed(() => activeSession.value?.id ? `/api/sessions/${activeSession.value.id}` : '/api/sessions/__none__')
+)
+const sessionProgress = computed(() => sessionData.value?.data?.progress ?? null)
 
-// Reset tag filter when switching sections
-watch(selectedSectionId, () => { entryTagFilter.value = '' })
+// Real-time updates
+useRealtimeUpdates(async (event) => {
+  if (event.research_id && event.research_id !== id) return
+  const config = useRuntimeConfig()
+  const base = config.public.apiBase || ''
 
-const allEntryTags = computed(() => {
-  const tags = new Set<string>()
-  for (const e of entries.value) {
-    for (const t of e.tags ?? []) {
-      tags.add(t)
-    }
+  if (['research', 'section', 'session'].includes(event.entity)) {
+    const res = await $fetch<any>(`${base}/api/researches/${id}`)
+    researchData.value = res
   }
-  return [...tags].sort()
-})
-
-const filteredEntries = computed(() => {
-  if (!entryTagFilter.value) return entries.value
-  return entries.value.filter((e: any) => e.tags?.includes(entryTagFilter.value))
+  if (event.entity === 'entry' && entriesUrl.value) {
+    const res = await $fetch<any>(`${base}${entriesUrl.value}`)
+    entriesData.value = res
+  }
+  if (event.entity === 'task') {
+    const res = await $fetch<any>(`${base}/api/researches/${id}/tasks`)
+    tasksData.value = res
+  }
+  if (['question', 'session'].includes(event.entity) && activeSession.value?.id) {
+    const res = await $fetch<any>(`${base}/api/sessions/${activeSession.value.id}`)
+    sessionData.value = res
+  }
 })
 </script>
 
 <style scoped>
-.tags-panel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  padding: 0.75rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  margin-bottom: 1rem;
-}
-.tag-clickable {
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
-}
-.tag-clickable:hover {
-  background: rgba(56, 189, 248, 0.15);
-  color: var(--color-primary);
-}
-.tag-active {
-  background: rgba(56, 189, 248, 0.2);
-  color: var(--color-primary);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-}
-.todo-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.todo-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0;
-  font-size: 0.875rem;
-}
-.todo-check {
-  flex-shrink: 0;
-  width: 1.25rem;
-  text-align: center;
-  font-size: 0.8125rem;
-}
-.todo-pending { color: var(--color-text-muted); }
-.todo-in_progress { color: var(--color-warning); }
-.todo-completed, .todo-answered { color: var(--color-success); }
-.todo-blocked { color: var(--color-error); }
-.todo-failed { color: var(--color-error); }
-.todo-deferred { color: var(--color-text-muted); }
-.todo-skipped { color: var(--color-error); }
-.todo-text {
-  flex: 1;
-}
-.todo-done {
-  text-decoration: line-through;
-  color: var(--color-text-muted);
-}
+.flex-between   { display: flex; justify-content: space-between; align-items: center; }
+.sidebar-label  { font-size: 0.8125rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+.session-widget { margin-bottom: 1.5rem; border-color: rgba(56,189,248,0.3); }
+.task-widget    { margin-bottom: 1.5rem; }
+.entry-card     { display: block; text-decoration: none; color: inherit; }
+.entry-card:hover { border-color: var(--color-primary); }
+.tags-panel     { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.tag-active     { background: rgba(56,189,248,0.15); color: var(--color-primary); }
+.todo-list      { display: flex; flex-direction: column; gap: 0.5rem; }
+.todo-item      { display: flex; align-items: center; gap: 0.625rem; font-size: 0.875rem; }
+.todo-check     { width: 1.25rem; text-align: center; flex-shrink: 0; color: var(--color-text-muted); }
+.todo-done      { text-decoration: line-through; color: var(--color-text-muted); }
+.skeleton-page  {}
+.skeleton-card  { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); animation: shimmer 1.5s infinite; }
+@keyframes shimmer { 0%,100%{opacity:.6} 50%{opacity:1} }
+
+.todo-completed .todo-check { color: var(--color-success); }
+.todo-failed    .todo-check { color: var(--color-error); }
+.todo-blocked   .todo-check { color: var(--color-error); }
+.todo-in_progress .todo-check { color: var(--color-warning); }
 </style>

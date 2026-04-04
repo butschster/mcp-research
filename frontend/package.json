@@ -9,6 +9,7 @@
     "preview": "nuxt preview"
   },
   "dependencies": {
+    "marked": "^17.0.5",
     "nuxt": "^4.0.0"
   },
   "devDependencies": {

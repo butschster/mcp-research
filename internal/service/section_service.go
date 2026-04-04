@@ -19,11 +19,12 @@ type UpdateSectionRequest struct {
 type SectionService struct {
 	sections *storage.SectionRepository
 	entries  *storage.EntryRepository
+	events   EventNotifier
 	log      *slog.Logger
 }
 
-func NewSectionService(sections *storage.SectionRepository, entries *storage.EntryRepository, log *slog.Logger) *SectionService {
-	return &SectionService{sections: sections, entries: entries, log: log}
+func NewSectionService(sections *storage.SectionRepository, entries *storage.EntryRepository, events EventNotifier, log *slog.Logger) *SectionService {
+	return &SectionService{sections: sections, entries: entries, events: events, log: log}
 }
 
 func (s *SectionService) List(ctx context.Context, researchID string) ([]*domain.Section, error) {
@@ -50,7 +51,6 @@ func (s *SectionService) Update(ctx context.Context, id string, req UpdateSectio
 		return nil, ErrNotFound
 	}
 
-	// Guard: section can only be completed if it has entries
 	if req.Status != nil && *req.Status == domain.SectionCompleted {
 		count, err := s.entries.CountBySection(ctx, id)
 		if err != nil {
@@ -78,6 +78,7 @@ func (s *SectionService) Update(ctx context.Context, id string, req UpdateSectio
 		return nil, fmt.Errorf("update section: %w", err)
 	}
 
+	s.events.Notify(Event{Type: "section.updated", ResearchID: section.ResearchID, EntityID: section.ID, Entity: "section"})
 	return section, nil
 }
 

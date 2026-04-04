@@ -53,11 +53,12 @@ type SessionService struct {
 	db        *sql.DB
 	sessions  *storage.SessionRepository
 	questions *storage.QuestionRepository
+	events    EventNotifier
 	log       *slog.Logger
 }
 
-func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, log *slog.Logger) *SessionService {
-	return &SessionService{db: db, sessions: sessions, questions: questions, log: log}
+func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, events EventNotifier, log *slog.Logger) *SessionService {
+	return &SessionService{db: db, sessions: sessions, questions: questions, events: events, log: log}
 }
 
 func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (*domain.Session, []*domain.Question, error) {
@@ -108,6 +109,7 @@ func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (
 		return nil, nil, fmt.Errorf("commit: %w", err)
 	}
 
+	s.events.Notify(Event{Type: "session.created", ResearchID: session.ResearchID, EntityID: session.ID, Entity: "session"})
 	return session, questions, nil
 }
 
@@ -186,6 +188,7 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 		return nil, fmt.Errorf("update session: %w", err)
 	}
 
+	s.events.Notify(Event{Type: "session.updated", ResearchID: session.ResearchID, EntityID: session.ID, Entity: "session"})
 	return session, nil
 }
 
@@ -240,6 +243,7 @@ func (s *SessionService) AddQuestions(ctx context.Context, sessionID string, req
 		return nil, fmt.Errorf("create questions: %w", err)
 	}
 
+	s.events.Notify(Event{Type: "question.created", ResearchID: session.ResearchID, EntityID: sessionID, Entity: "question"})
 	return questions, nil
 }
 
@@ -268,6 +272,7 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 		return nil, fmt.Errorf("update question: %w", err)
 	}
 
+	s.events.Notify(Event{Type: "question.updated", EntityID: question.ID, Entity: "question"})
 	return question, nil
 }
 

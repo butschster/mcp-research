@@ -1,1 +1,0 @@
-import{j as t,o as a,c as e,s as n,t as o}from"./CSCLfRPp.js";const c=t({__name:"StatusBadge",props:{status:{}},setup(s){return(_,r)=>(a(),e("span",{class:n(["badge",`badge-${s.status}`])},o(s.status),3))}}),u=Object.assign(c,{__name:"StatusBadge"});export{u as _};

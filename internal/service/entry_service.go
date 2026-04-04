@@ -39,11 +39,12 @@ type EntryService struct {
 	entries    *storage.EntryRepository
 	sections   *storage.SectionRepository
 	researches *storage.ResearchRepository
+	events     EventNotifier
 	log        *slog.Logger
 }
 
-func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, log *slog.Logger) *EntryService {
-	return &EntryService{entries: entries, sections: sections, researches: researches, log: log}
+func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, events EventNotifier, log *slog.Logger) *EntryService {
+	return &EntryService{entries: entries, sections: sections, researches: researches, events: events, log: log}
 }
 
 func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*domain.Entry, error) {
@@ -107,6 +108,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		return nil, fmt.Errorf("create entry: %w", err)
 	}
 
+	s.events.Notify(Event{Type: "entry.created", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
 
@@ -166,6 +168,7 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		return nil, fmt.Errorf("update entry: %w", err)
 	}
 
+	s.events.Notify(Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
 
