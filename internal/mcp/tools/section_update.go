@@ -1,0 +1,52 @@
+package tools
+
+import (
+	"context"
+	"log/slog"
+
+	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/butschster/mcp-research/internal/service"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+type SectionUpdateInput struct {
+	SectionID   string  `json:"section_id" jsonschema:"ID of the section to update"`
+	DisplayName *string `json:"display_name" jsonschema:"New display name"`
+	Description *string `json:"description" jsonschema:"New description"`
+	Status      *string `json:"status" jsonschema:"New status: draft, active, completed, or archived. Note: completed requires at least one entry."`
+	Position    *int    `json:"position" jsonschema:"New sort position"`
+}
+
+func RegisterSectionUpdate(srv *mcp.Server, svc *service.SectionService, log *slog.Logger) {
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "section_update",
+		Description: "Updates a section's properties. Only provided fields are updated. Setting status to 'completed' requires the section to have at least one entry.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input SectionUpdateInput) (*mcp.CallToolResult, any, error) {
+		if input.SectionID == "" {
+			return validationErrorResult([]string{"section_id is required"})
+		}
+
+		var status *domain.SectionStatus
+		if input.Status != nil {
+			s := domain.SectionStatus(*input.Status)
+			status = &s
+		}
+
+		section, err := svc.Update(ctx, input.SectionID, service.UpdateSectionRequest{
+			DisplayName: input.DisplayName,
+			Description: input.Description,
+			Status:      status,
+			Position:    input.Position,
+		})
+		if err != nil {
+			return errorResult(err.Error())
+		}
+
+		return successResult(map[string]any{
+			"section_id":   section.ID,
+			"display_name": section.DisplayName,
+			"status":       section.Status,
+			"updated":      true,
+		})
+	})
+}

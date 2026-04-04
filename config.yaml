@@ -1,0 +1,6 @@
+# mcp-research configuration
+transport: stdio    # stdio or sse
+mcp_port: 8081      # MCP SSE port (only used when transport=sse)
+web_port: 8088      # REST API port
+db: ""              # SQLite path (empty = in-memory)
+log_level: info     # debug, info, warn, error

@@ -1,0 +1,1 @@
+import{_ as o,o as e,c as r}from"./CSCLfRPp.js";const s={};function _(t,n){return e(),r("button",{class:"btn",onClick:n[0]||(n[0]=()=>t.window.print())}," 🖨️ Export PDF ")}const a=Object.assign(o(s,[["render",_]]),{__name:"PrintButton"});export{a as _};

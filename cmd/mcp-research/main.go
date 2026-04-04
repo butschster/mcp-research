@@ -1,0 +1,102 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"github.com/butschster/mcp-research/internal/api"
+	"github.com/butschster/mcp-research/internal/config"
+	mcpserver "github.com/butschster/mcp-research/internal/mcp"
+	"github.com/butschster/mcp-research/internal/service"
+	"github.com/butschster/mcp-research/internal/storage"
+)
+
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
+func main() {
+	cfg := config.Load()
+
+	if cfg.Version {
+		fmt.Printf("mcp-research %s (commit: %s, built: %s)\n", version, commit, date)
+		os.Exit(0)
+	}
+
+	logLevel := parseLogLevel(cfg.LogLevel)
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
+
+	db, err := storage.NewDB(cfg, log)
+	if err != nil {
+		log.Error("failed to initialize database", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Repositories
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	sessionRepo := storage.NewSessionRepository(db)
+	questionRepo := storage.NewQuestionRepository(db)
+	taskRepo := storage.NewTaskRepository(db)
+
+	// Services
+	researchSvc := service.NewResearchService(researchRepo, sectionRepo, log)
+	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, log)
+	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, log)
+	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, log)
+	taskSvc := service.NewTaskService(taskRepo, researchRepo, log)
+
+	// MCP Server
+	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log, version)
+
+	log.Info("mcp-research started",
+		"version", version,
+		"transport", cfg.Transport,
+		"web_port", cfg.WebPort,
+		"db", cfg.DBPath,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start REST API server in background
+	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, cfg.DBPath == "", log)
+	go func() {
+		if err := apiSrv.Start(ctx); err != nil {
+			log.Error("API server error", "error", err)
+		}
+	}()
+
+	// Run MCP server (blocking)
+	switch cfg.Transport {
+	case "sse":
+		if err := srv.RunSSE(ctx, cfg.MCPPort); err != nil {
+			log.Error("SSE server error", "error", err)
+			os.Exit(1)
+		}
+	default:
+		if err := srv.RunStdio(ctx); err != nil {
+			log.Error("server error", "error", err)
+			os.Exit(1)
+		}
+	}
+}
+
+func parseLogLevel(s string) slog.Level {
+	switch s {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
