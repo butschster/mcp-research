@@ -66,9 +66,11 @@ func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *
 
 		return successResult(map[string]any{
 			"research_id":      research.ID,
+			"code":             research.Code,
 			"name":             research.Name,
 			"status":           research.Status,
 			"sections_created": len(createdSections),
+			"hint":             "Use [[" + research.Code + "]] to reference this research from other entries. Use [[" + research.Code + ":E1]] to reference a specific entry.",
 		})
 	})
 }

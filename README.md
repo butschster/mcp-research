@@ -31,6 +31,7 @@ mcp_port: 8081      # MCP SSE port (only used when transport=sse)
 web_port: 8088      # REST API + Web UI port
 db: ""              # SQLite path (empty = in-memory)
 log_level: info     # debug, info, warn, error
+api_token: ""       # Bearer token for write API (empty = write API disabled)
 ```
 
 ### CLI Flags
@@ -41,6 +42,7 @@ log_level: info     # debug, info, warn, error
 --web-port     Web/API port (default: 8088)
 --db           SQLite database path (default: in-memory)
 --log-level    Log level (default: info)
+--api-token    Bearer token for write API (default: disabled)
 --version      Print version and exit
 ```
 
@@ -50,6 +52,7 @@ log_level: info     # debug, info, warn, error
 MCP_RESEARCH_TRANSPORT
 MCP_RESEARCH_DB
 MCP_RESEARCH_LOG_LEVEL
+MCP_RESEARCH_API_TOKEN
 MCP_RESEARCH_CONFIG    # path to config.yaml (default: ./config.yaml)
 ```
 
@@ -172,10 +175,11 @@ Claude/Cursor ←→ stdio/SSE ←→ MCP Server ←→ SQLite
 
 - **Research** — top-level project with goal, instructions, memory, tags
 - **Section** — grouping within research (slug-based naming)
-- **Entry** — markdown content within a section (auto-title, auto-description)
+- **Entry** — markdown content within a section (auto-title, auto-description, short code `E1`)
 - **Session** — Q&A interview session with focus area
 - **Question** — individual question with priority, status, parent/child nesting (max 3 levels)
 - **Task** — self-managed todo item for AI planning
+- **CrossRef** — cross-references between entries, extracted from `[[E3]]` / `[[R2:E5]]` patterns in content
 
 ### Layers
 
@@ -188,15 +192,54 @@ internal/
 └── api/        # REST API + embedded frontend
 ```
 
+## Write API
+
+When `api_token` is configured, write endpoints mirror all MCP tools via REST:
+
+```bash
+# Enable write API
+./bin/mcp-research --db research.db --api-token my-secret-token
+
+# Create a research
+curl -X POST http://localhost:8088/api/researches \
+  -H "Authorization: Bearer my-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My Research","goal":"Investigate X","sections":[{"name":"overview","display_name":"Overview"}]}'
+
+# Create an entry
+curl -X POST http://localhost:8088/api/entries \
+  -H "Authorization: Bearer my-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"research_id":"...","section_id":"...","content":"# Title\n\nContent here. See [[E1]] for details."}'
+```
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/researches` | Create research + sections |
+| `PUT` | `/api/researches/{id}` | Update research |
+| `POST` | `/api/researches/{id}/sections` | Add section |
+| `PUT` | `/api/sections/{sectionId}` | Update section |
+| `POST` | `/api/entries` | Create entry |
+| `PUT` | `/api/entries/{id}` | Update entry (supports `text_replace`) |
+| `POST` | `/api/tasks` | Create task |
+| `PUT` | `/api/tasks/{id}` | Update task |
+| `DELETE` | `/api/tasks/{id}` | Delete task |
+| `POST` | `/api/sessions` | Create session + questions |
+| `POST` | `/api/researches/{id}/crossrefs/rebuild` | Rebuild cross-references |
+
+### Cross-References
+
+Entries auto-receive short codes (`E1`, `E2`, ...) and researches get global codes (`R1`, `R2`, ...). Use `[[E3]]` syntax in entry content to link entries within the same research, or `[[R2:E5]]` for cross-research links. References are stored in the database on every entry create/update. Use the rebuild endpoint to re-scan all entries when needed.
+
 ## Web UI
 
-The Nuxt 4 frontend is embedded into the Go binary. It provides a read-only view of:
+The Nuxt 4 frontend is embedded into the Go binary. It provides:
 
 - Research list with status and tag filters
 - Research detail with section sidebar, entry cards, tags panel
 - Entry detail with rendered markdown
-- Session detail with grouped questions and progress bar
-- Task todo list with completion tracking
+- Session detail with Questions + Tasks tabs and progress tracking
+- Interactive mindmap view (Vue Flow) with collapsible sections
 - PDF export via `window.print()`
 
 ### Development Mode

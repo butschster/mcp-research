@@ -13,6 +13,7 @@ const (
 
 type Entry struct {
 	ID          string      `json:"id"`
+	Code        string      `json:"code"`
 	ResearchID  string      `json:"research_id"`
 	SectionID   string      `json:"section_id"`
 	Title       string      `json:"title"`

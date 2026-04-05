@@ -49,11 +49,12 @@ func main() {
 	sessionRepo := storage.NewSessionRepository(db)
 	questionRepo := storage.NewQuestionRepository(db)
 	taskRepo := storage.NewTaskRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
 
 	// Services
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, events, log)
-	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, events, log)
+	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, events, log)
 	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, events, log)
 
@@ -71,7 +72,7 @@ func main() {
 	defer cancel()
 
 	// Start REST API + WebSocket server in background
-	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, hub, cfg.DBPath == "", log)
+	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, entryRepo, researchRepo, crossrefRepo, hub, cfg.DBPath == "", cfg.APIToken, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)
