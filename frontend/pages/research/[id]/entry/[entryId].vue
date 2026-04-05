@@ -186,7 +186,6 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 .entry-nav-placeholder { flex: 1; }
 
 /* Skeleton */
-.skeleton-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); opacity: 0.5; }
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
 .skeleton-content { height: 500px; }
 </style>

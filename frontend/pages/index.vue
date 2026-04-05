@@ -91,10 +91,6 @@ useRealtimeUpdates(async (event) => {
 }
 .skeleton-card {
   height: 110px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  opacity: 0.5;
 }
 .active-tag-filter {
   display: inline-flex;

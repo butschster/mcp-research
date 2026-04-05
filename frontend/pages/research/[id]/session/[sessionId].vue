@@ -96,7 +96,6 @@ useRealtimeUpdates(async (event) => {
 .stat-answered { color: var(--color-success); }
 .stat-pending  { color: var(--color-warning); }
 .stat-skipped  { color: var(--color-error); }
-.skeleton-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); opacity: 0.5; }
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
 .skeleton-progress { height: 100px; margin-bottom: var(--space-4); }
 .skeleton-questions { height: 300px; }

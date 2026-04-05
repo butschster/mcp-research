@@ -317,7 +317,6 @@ useRealtimeUpdates(async (event) => {
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 
 /* Skeleton */
-.skeleton-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); opacity: 0.5; }
 .skeleton-header { height: 60px; margin-bottom: var(--space-6); }
 .skeleton-sidebar { height: 300px; }
 .skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
