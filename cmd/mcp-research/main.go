@@ -13,6 +13,7 @@ import (
 	"github.com/butschster/mcp-research/internal/api/ws"
 	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/config"
+	"github.com/butschster/mcp-research/internal/domain"
 	mcpserver "github.com/butschster/mcp-research/internal/mcp"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
@@ -125,7 +126,23 @@ func main() {
 			os.Exit(1)
 		}
 	default:
-		if err := srv.RunStdio(ctx); err != nil {
+		// Resolve default user for stdio transport
+		var defaultUser *domain.User
+		if cfg.AuthEnabled && cfg.DefaultUser != "" {
+			userRepo := storage.NewUserRepository(db)
+			u, err := userRepo.FindByEmail(ctx, cfg.DefaultUser)
+			if err != nil {
+				log.Error("failed to find default user", "email", cfg.DefaultUser, "error", err)
+				os.Exit(1)
+			}
+			if u == nil {
+				log.Error("default user not found — register first via Web UI or API", "email", cfg.DefaultUser)
+				os.Exit(1)
+			}
+			defaultUser = u
+		}
+
+		if err := srv.RunStdio(ctx, defaultUser); err != nil {
 			log.Error("server error", "error", err)
 			os.Exit(1)
 		}
