@@ -73,6 +73,8 @@ func main() {
 	// Auth (optional)
 	var authSvc *service.AuthService
 	var oauthSvc *service.OAuthService
+	var defaultUser *domain.User
+	var autoLoginToken string
 	if cfg.AuthEnabled {
 		if cfg.JWTSecret == "" {
 			cfg.JWTSecret = generateRandomSecret()
@@ -86,6 +88,30 @@ func main() {
 
 		authSvc = service.NewAuthService(userRepo, apiKeyRepo, oauthRepo, researchRepo, jwtMgr, cfg.AllowRegistration, log)
 		oauthSvc = service.NewOAuthService(oauthRepo, log)
+
+		// Resolve or auto-create default user
+		if cfg.DefaultUser != "" {
+			u, err := userRepo.FindByEmail(context.Background(), cfg.DefaultUser)
+			if err != nil {
+				log.Error("failed to find default user", "email", cfg.DefaultUser, "error", err)
+				os.Exit(1)
+			}
+			if u == nil {
+				// Auto-create for local development
+				u, _, err = authSvc.Register(context.Background(), cfg.DefaultUser, generateRandomSecret(), "Default User")
+				if err != nil {
+					log.Error("failed to auto-create default user", "email", cfg.DefaultUser, "error", err)
+					os.Exit(1)
+				}
+				log.Info("auto-created default user", "email", cfg.DefaultUser, "id", u.ID)
+			}
+			defaultUser = u
+			// Generate auto-login token for Web UI
+			if token, err := jwtMgr.Generate(u.ID); err == nil {
+				autoLoginToken = token
+			}
+			log.Info("default user configured", "email", u.Email, "id", u.ID)
+		}
 	}
 
 	// MCP Server
@@ -104,12 +130,13 @@ func main() {
 
 	// Start REST API + WebSocket server in background
 	apiCfg := api.ServerConfig{
-		Port:        cfg.WebPort,
-		IsInMemory:  cfg.DBPath == "",
-		APIToken:    cfg.APIToken,
-		AuthEnabled: cfg.AuthEnabled,
-		BaseURL:     cfg.BaseURL,
-		OAuthSvc:    oauthSvc,
+		Port:           cfg.WebPort,
+		IsInMemory:     cfg.DBPath == "",
+		APIToken:       cfg.APIToken,
+		AuthEnabled:    cfg.AuthEnabled,
+		BaseURL:        cfg.BaseURL,
+		OAuthSvc:       oauthSvc,
+		AutoLoginToken: autoLoginToken,
 	}
 	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, hub, log)
 	go func() {
@@ -126,22 +153,6 @@ func main() {
 			os.Exit(1)
 		}
 	default:
-		// Resolve default user for stdio transport
-		var defaultUser *domain.User
-		if cfg.AuthEnabled && cfg.DefaultUser != "" {
-			userRepo := storage.NewUserRepository(db)
-			u, err := userRepo.FindByEmail(ctx, cfg.DefaultUser)
-			if err != nil {
-				log.Error("failed to find default user", "email", cfg.DefaultUser, "error", err)
-				os.Exit(1)
-			}
-			if u == nil {
-				log.Error("default user not found — register first via Web UI or API", "email", cfg.DefaultUser)
-				os.Exit(1)
-			}
-			defaultUser = u
-		}
-
 		if err := srv.RunStdio(ctx, defaultUser); err != nil {
 			log.Error("server error", "error", err)
 			os.Exit(1)
