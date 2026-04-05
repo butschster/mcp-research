@@ -14,7 +14,7 @@
         <span
           v-for="tag in research.tags"
           :key="tag"
-          class="tag tag-clickable"
+          :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tag)}`]"
           @click.prevent.stop="emit('tagClick', tag)"
         >{{ tag }}</span>
       </div>
@@ -38,6 +38,10 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ tagClick: [tag: string] }>()
+
+function tagHue(tag: string): number {
+  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
+}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()

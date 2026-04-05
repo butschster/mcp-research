@@ -82,8 +82,19 @@
           :class="['sidebar-item', { active: activeSection === section.id }]"
           @click="activeSection = section.id"
         >
-          <span>{{ section.display_name || section.name }}</span>
-          <span class="card-meta">{{ section.entries_count }}</span>
+          <div class="sidebar-item-content">
+            <span class="sidebar-item-name">{{ section.display_name || section.name }}</span>
+            <StatusBadge :status="section.status" />
+          </div>
+          <div class="sidebar-item-meta">
+            <span class="card-meta">{{ section.entries_count }} entries</span>
+          </div>
+          <div v-if="section.entries_count > 0" class="sidebar-progress">
+            <div
+              class="sidebar-progress-fill"
+              :style="{ width: sectionProgressWidth(section) }"
+            ></div>
+          </div>
         </div>
       </div>
 
@@ -103,7 +114,7 @@
             <span
               v-for="tag in entryTags"
               :key="tag"
-              :class="['tag', 'tag-clickable', { 'tag-active': activeTag === tag }]"
+              :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tag)}`, { 'tag-active': activeTag === tag }]"
               @click="activeTag = activeTag === tag ? '' : tag"
             >{{ tag }}</span>
           </div>
@@ -200,6 +211,19 @@ const filteredEntries = computed(() =>
   activeTag.value ? entries.value.filter((e: any) => e.tags?.includes(activeTag.value)) : entries.value
 )
 
+// Tag color
+function tagHue(tag: string): number {
+  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
+}
+
+// Section progress
+function sectionProgressWidth(section: any): string {
+  if (section.status === 'completed') return '100%'
+  if (section.status === 'active') return '50%'
+  if (section.status === 'draft') return '10%'
+  return '0%'
+}
+
 // Tasks
 const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
 const tasks = computed(() => tasksData.value?.data ?? [])
@@ -240,6 +264,9 @@ useRealtimeUpdates(async (event) => {
 <style scoped>
 .flex-between   { display: flex; justify-content: space-between; align-items: center; }
 .sidebar-label  { font-size: 0.8125rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+.sidebar-item-content { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.sidebar-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; }
+.sidebar-item-meta { font-size: 0.75rem; margin-top: 0.125rem; }
 .session-widget { margin-bottom: 1.5rem; border-color: rgba(56,189,248,0.3); }
 .task-widget    { margin-bottom: 1.5rem; }
 .task-header {

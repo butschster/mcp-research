@@ -1,9 +1,32 @@
+<script setup lang="ts">
+import { useKeyboardNav } from '~/composables/useKeyboardNav'
+
+const hasRecentUpdate = ref(false)
+let activityTimer: ReturnType<typeof setTimeout>
+
+useRealtimeUpdates(() => {
+  hasRecentUpdate.value = true
+  clearTimeout(activityTimer)
+  activityTimer = setTimeout(() => {
+    hasRecentUpdate.value = false
+  }, 5000)
+})
+
+useKeyboardNav()
+</script>
+
 <template>
   <div>
     <nav>
       <div class="container nav-inner">
         <NuxtLink to="/" class="logo">MCP Research</NuxtLink>
         <div class="nav-right">
+          <SearchModal />
+          <ActivityIndicator
+            :active="hasRecentUpdate"
+            label="Claude is working"
+          />
+          <span class="readonly-badge">Read-only view</span>
           <ConnectionStatus />
         </div>
       </div>

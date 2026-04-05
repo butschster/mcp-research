@@ -18,6 +18,9 @@
       </span>
     </div>
 
+    <!-- Onboarding -->
+    <GettingStartedBanner :has-researches="researches.length > 0" />
+
     <!-- Loading -->
     <div v-if="pending" class="skeleton-list">
       <div v-for="i in 4" :key="i" class="skeleton-card"></div>
@@ -38,7 +41,8 @@
       v-else
       icon="🔬"
       title="No research projects yet"
-      description="Use the research/initialize prompt in Claude to create one."
+      description="Type this into Claude to start your first research session:"
+      command="Use the research/initialize prompt to create a new research project"
     />
   </div>
 </template>
