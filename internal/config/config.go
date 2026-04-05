@@ -13,6 +13,7 @@ type Config struct {
 	WebPort   int    `yaml:"web_port"`
 	DBPath    string `yaml:"db"`
 	LogLevel  string `yaml:"log_level"`
+	APIToken  string `yaml:"api_token"`
 	Version   bool   `yaml:"-"`
 }
 
@@ -57,6 +58,9 @@ func Load() Config {
 	if v := os.Getenv("MCP_RESEARCH_LOG_LEVEL"); v != "" {
 		cfg.LogLevel = v
 	}
+	if v := os.Getenv("MCP_RESEARCH_API_TOKEN"); v != "" {
+		cfg.APIToken = v
+	}
 
 	// 3. Override with CLI flags (highest priority)
 	var configFlag string
@@ -66,6 +70,7 @@ func Load() Config {
 	flag.IntVar(&cfg.WebPort, "web-port", cfg.WebPort, "Web/API port")
 	flag.StringVar(&cfg.DBPath, "db", cfg.DBPath, "SQLite database path (empty = in-memory)")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "log level: debug, info, warn, error")
+	flag.StringVar(&cfg.APIToken, "api-token", cfg.APIToken, "Bearer token for write API endpoints (empty = write API disabled)")
 	flag.BoolVar(&cfg.Version, "version", false, "print version and exit")
 
 	flag.Parse()

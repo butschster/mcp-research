@@ -1,0 +1,16 @@
+# MCP Research
+
+> MCP Research is a self-contained server for structured AI-driven research sessions. Single Go binary with embedded Nuxt web UI, SQLite persistence, MCP protocol support, and REST API. Enables AI assistants to autonomously design research structures, conduct interactive Q&A sessions, manage tasks, create cross-referenced knowledge entries, and track progress.
+
+- GitHub: https://github.com/butschster/mcp-research
+- Install: download binary from GitHub Releases or `make build-all` from source
+- Run: `./mcp-research --db research.db`
+- Web UI: http://localhost:8088
+- Protocols: MCP (stdio/SSE), REST API (read + authenticated write), WebSocket (real-time events)
+- Data model: Research > Section > Entry (content), Research > Session > Question (interviews), Research > Task (todo), Entry > CrossRef (links via [[E1]] syntax)
+
+## Docs
+
+- [Configuration](/llms/configuration.md): Server configuration via config.yaml, environment variables, and CLI flags. Transport modes (stdio, SSE), ports, SQLite database path, API token for write endpoints. Priority: CLI flags > env vars > config.yaml > defaults.
+- [REST API — OpenAPI Specification](/api/openapi.yaml): Auto-generated OpenAPI 3.1 spec in YAML format for all REST endpoints. Read endpoints (no auth) and write endpoints (bearer token). Includes request/response schemas for every endpoint.
+- [Conducting Research](/llms/conducting-research.md): Step-by-step guide for AI assistants on how to initialize, conduct, and complete a research project. Interview workflow, entry creation with cross-references, task tracking, and best practices.

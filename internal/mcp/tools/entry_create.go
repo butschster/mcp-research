@@ -58,9 +58,11 @@ func RegisterEntryCreate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 
 		return successResult(map[string]any{
 			"entry_id":    entry.ID,
+			"code":        entry.Code,
 			"title":       entry.Title,
 			"description": entry.Description,
 			"status":      entry.Status,
+			"hint":        "Use [[" + entry.Code + "]] in other entries to cross-reference this entry.",
 		})
 	})
 }

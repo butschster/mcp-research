@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
 )
+
+var refPattern = regexp.MustCompile(`\[\[([^\]]+)\]\]`)
 
 type CreateEntryRequest struct {
 	ResearchID string
@@ -39,12 +42,13 @@ type EntryService struct {
 	entries    *storage.EntryRepository
 	sections   *storage.SectionRepository
 	researches *storage.ResearchRepository
+	crossrefs  *storage.CrossRefRepository
 	events     EventNotifier
 	log        *slog.Logger
 }
 
-func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, events EventNotifier, log *slog.Logger) *EntryService {
-	return &EntryService{entries: entries, sections: sections, researches: researches, events: events, log: log}
+func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, crossrefs *storage.CrossRefRepository, events EventNotifier, log *slog.Logger) *EntryService {
+	return &EntryService{entries: entries, sections: sections, researches: researches, crossrefs: crossrefs, events: events, log: log}
 }
 
 func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*domain.Entry, error) {
@@ -108,6 +112,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		return nil, fmt.Errorf("create entry: %w", err)
 	}
 
+	s.updateCrossRefs(ctx, entry)
 	s.events.Notify(Event{Type: "entry.created", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
@@ -168,8 +173,88 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		return nil, fmt.Errorf("update entry: %w", err)
 	}
 
+	s.updateCrossRefs(ctx, entry)
 	s.events.Notify(Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
+}
+
+// RebuildCrossRefs rescans all entries in a research and rebuilds cross-references.
+func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) (int, error) {
+	entries, err := s.entries.FindByResearchWithContent(ctx, researchID)
+	if err != nil {
+		return 0, fmt.Errorf("fetch entries: %w", err)
+	}
+
+	count := 0
+	for _, entry := range entries {
+		s.updateCrossRefs(ctx, entry)
+		count++
+	}
+	return count, nil
+}
+
+// updateCrossRefs parses [[...]] references from entry content and stores them.
+func (s *EntryService) updateCrossRefs(ctx context.Context, entry *domain.Entry) {
+	if s.crossrefs == nil {
+		return
+	}
+
+	matches := refPattern.FindAllStringSubmatch(entry.Content, -1)
+	var refs []domain.CrossRef
+
+	for _, m := range matches {
+		raw := m[1]
+		cr := domain.CrossRef{
+			SourceEntryID:    entry.ID,
+			SourceResearchID: entry.ResearchID,
+			TargetRef:        raw,
+		}
+
+		researchCode, entryCode := parseRef(raw)
+
+		if researchCode != "" {
+			// Cross-research reference
+			targetResearch, err := s.researches.FindByCode(ctx, researchCode)
+			if err == nil && targetResearch != nil {
+				cr.TargetResearchID = targetResearch.ID
+				if entryCode != "" {
+					targetEntry, err := s.entries.FindByCode(ctx, targetResearch.ID, entryCode)
+					if err == nil && targetEntry != nil {
+						cr.TargetEntryID = targetEntry.ID
+						cr.Resolved = true
+					}
+				} else {
+					cr.Resolved = true
+				}
+			}
+		} else if entryCode != "" {
+			// Same-research reference
+			cr.TargetResearchID = entry.ResearchID
+			targetEntry, err := s.entries.FindByCode(ctx, entry.ResearchID, entryCode)
+			if err == nil && targetEntry != nil {
+				cr.TargetEntryID = targetEntry.ID
+				cr.Resolved = true
+			}
+		}
+
+		refs = append(refs, cr)
+	}
+
+	if err := s.crossrefs.ReplaceForEntry(ctx, entry.ID, refs); err != nil {
+		s.log.Error("failed to update crossrefs", "entry_id", entry.ID, "error", err)
+	}
+}
+
+// parseRef splits "R2:E5" into (researchCode="R2", entryCode="E5"),
+// "E5" into ("", "E5"), "R2" into ("R2", "").
+func parseRef(ref string) (researchCode, entryCode string) {
+	if idx := strings.IndexByte(ref, ':'); idx >= 0 {
+		return ref[:idx], ref[idx+1:]
+	}
+	if len(ref) > 1 && ref[0] == 'R' {
+		return ref, ""
+	}
+	return "", ref
 }
 
 // autoTitle extracts title from the first non-empty line of content.

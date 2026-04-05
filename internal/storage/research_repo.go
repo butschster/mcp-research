@@ -23,10 +23,20 @@ func NewResearchRepository(db *sql.DB) *ResearchRepository {
 
 func (r *ResearchRepository) Create(ctx context.Context, research *domain.Research) error {
 	now := time.Now().UTC().Format(time.DateTime)
+
+	// Auto-assign short code
+	if research.Code == "" {
+		code, err := r.nextCode(ctx)
+		if err != nil {
+			return fmt.Errorf("generate code: %w", err)
+		}
+		research.Code = code
+	}
+
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO researches (id, name, description, goal, status, instruction, memory, tags, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		research.ID, research.Name, research.Description, research.Goal,
+		`INSERT INTO researches (id, code, name, description, goal, status, instruction, memory, tags, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		research.ID, research.Code, research.Name, research.Description, research.Goal,
 		research.Status, research.Instruction,
 		marshalJSON(research.Memory), marshalJSON(research.Tags),
 		now, now,
@@ -39,15 +49,26 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 	return nil
 }
 
+func (r *ResearchRepository) nextCode(ctx context.Context) (string, error) {
+	var maxNum int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COALESCE(MAX(CAST(SUBSTR(code, 2) AS INTEGER)), 0) FROM researches WHERE code LIKE 'R%'`,
+	).Scan(&maxNum)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("R%d", maxNum+1), nil
+}
+
 func (r *ResearchRepository) Update(ctx context.Context, research *domain.Research) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE researches SET name=?, description=?, goal=?, status=?, instruction=?, memory=?, tags=?, updated_at=?
+		`UPDATE researches SET name=?, description=?, goal=?, status=?, instruction=?, memory=?, tags=?, code=?, updated_at=?
 		 WHERE id=?`,
 		research.Name, research.Description, research.Goal,
 		research.Status, research.Instruction,
 		marshalJSON(research.Memory), marshalJSON(research.Tags),
-		now, research.ID,
+		research.Code, now, research.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update research: %w", err)
@@ -58,13 +79,20 @@ func (r *ResearchRepository) Update(ctx context.Context, research *domain.Resear
 
 func (r *ResearchRepository) FindByID(ctx context.Context, id string) (*domain.Research, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, description, goal, status, instruction, memory, tags, created_at, updated_at
+		`SELECT id, code, name, description, goal, status, instruction, memory, tags, created_at, updated_at
 		 FROM researches WHERE id=?`, id)
 	return r.scanResearch(row)
 }
 
+func (r *ResearchRepository) FindByCode(ctx context.Context, code string) (*domain.Research, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, code, name, description, goal, status, instruction, memory, tags, created_at, updated_at
+		 FROM researches WHERE code=?`, code)
+	return r.scanResearch(row)
+}
+
 func (r *ResearchRepository) FindAll(ctx context.Context, filter ResearchFilter) ([]*domain.Research, error) {
-	query := `SELECT id, name, description, goal, status, instruction, memory, tags, created_at, updated_at FROM researches`
+	query := `SELECT id, code, name, description, goal, status, instruction, memory, tags, created_at, updated_at FROM researches`
 	var args []any
 
 	if filter.Status != nil {
@@ -102,7 +130,7 @@ func (r *ResearchRepository) scanResearch(row *sql.Row) (*domain.Research, error
 	var memory, tags sql.NullString
 	var createdAt, updatedAt string
 	err := row.Scan(
-		&res.ID, &res.Name, &res.Description, &res.Goal,
+		&res.ID, &res.Code, &res.Name, &res.Description, &res.Goal,
 		&res.Status, &res.Instruction,
 		&memory, &tags,
 		&createdAt, &updatedAt,
@@ -125,7 +153,7 @@ func (r *ResearchRepository) scanResearchRow(rows *sql.Rows) (*domain.Research, 
 	var memory, tags sql.NullString
 	var createdAt, updatedAt string
 	err := rows.Scan(
-		&res.ID, &res.Name, &res.Description, &res.Goal,
+		&res.ID, &res.Code, &res.Name, &res.Description, &res.Goal,
 		&res.Status, &res.Instruction,
 		&memory, &tags,
 		&createdAt, &updatedAt,

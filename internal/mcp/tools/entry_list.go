@@ -40,6 +40,7 @@ func RegisterEntryList(srv *mcp.Server, svc *service.EntryService, log *slog.Log
 		for _, e := range entries {
 			items = append(items, map[string]any{
 				"id":          e.ID,
+				"code":        e.Code,
 				"title":       e.Title,
 				"description": e.Description,
 				"status":      e.Status,
