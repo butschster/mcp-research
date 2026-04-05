@@ -2,13 +2,25 @@ name: Build
 
 on:
   push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+    tags: ['v*']
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -43,15 +55,35 @@ jobs:
         run: go test ./...
 
       - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
         run: |
           VERSION=${GITHUB_REF_NAME:-dev}
           COMMIT=$(git rev-parse --short HEAD)
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           go build -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE" \
-            -o bin/mcp-research ./cmd/mcp-research
+            -o bin/mcp-research-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/mcp-research
 
-      - name: Upload binary
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mcp-research
-          path: bin/mcp-research
+          name: mcp-research-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/mcp-research-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*
