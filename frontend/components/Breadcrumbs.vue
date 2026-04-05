@@ -18,21 +18,22 @@ defineProps<{
 .breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  margin-bottom: 0.5rem;
+  gap: var(--space-2);
+  font-size: var(--type-xs);
+  margin-bottom: var(--space-3);
 }
 .breadcrumb-sep {
   color: var(--color-text-muted);
-  opacity: 0.5;
+  opacity: 0.4;
 }
 .breadcrumb-link {
   color: var(--color-text-muted);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
 .breadcrumb-link:hover {
   color: var(--color-primary);
-  text-decoration: underline;
+  text-decoration: none;
 }
 .breadcrumb-current {
   color: var(--color-text);

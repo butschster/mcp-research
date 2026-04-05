@@ -1,5 +1,3 @@
 <template>
-  <button class="btn" @click="() => window.print()">
-    🖨️ Export PDF
-  </button>
+  <button class="btn btn-sm" @click="() => window.print()">Export PDF</button>
 </template>

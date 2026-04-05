@@ -22,17 +22,14 @@ useKeyboardNav()
         <NuxtLink to="/" class="logo">MCP Research</NuxtLink>
         <div class="nav-right">
           <SearchModal />
-          <ActivityIndicator
-            :active="hasRecentUpdate"
-            label="Claude is working"
-          />
-          <span class="readonly-badge">Read-only view</span>
+          <ActivityIndicator :active="hasRecentUpdate" label="Updating" />
+          <span class="readonly-badge">Read-only</span>
           <ConnectionStatus />
         </div>
       </div>
     </nav>
 
-    <main class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <main class="container main-content">
       <WarningBanner />
       <NuxtPage />
     </main>
@@ -45,7 +42,7 @@ useKeyboardNav()
           target="_blank"
           rel="noopener"
           class="card-meta footer-link"
-        >GitHub ↗</a>
+        >GitHub &#x2197;</a>
       </div>
     </footer>
   </div>
@@ -53,9 +50,10 @@ useKeyboardNav()
 
 <style>
 .nav-inner  { display: flex; align-items: center; justify-content: space-between; }
-.nav-right  { display: flex; align-items: center; gap: 1rem; }
-.app-footer { border-top: 1px solid var(--color-border); padding: 0.875rem 0; margin-top: 2rem; }
+.nav-right  { display: flex; align-items: center; gap: var(--space-4); }
+.main-content { padding-top: var(--space-8); padding-bottom: var(--space-12); }
+.app-footer { border-top: 1px solid var(--color-border); padding: var(--space-4) 0; margin-top: var(--space-8); }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; }
-.footer-link  { text-decoration: none; transition: color 0.15s; }
-.footer-link:hover { color: var(--color-primary); }
+.footer-link  { text-decoration: none; transition: color var(--transition-fast); }
+.footer-link:hover { color: var(--color-primary); text-decoration: none; }
 </style>

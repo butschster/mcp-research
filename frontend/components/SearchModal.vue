@@ -1,14 +1,14 @@
 <template>
-  <button class="search-trigger" @click="open = true">
-    <span class="search-icon">&#x2315;</span>
-    <span class="search-hint">Search... <kbd>&#x2318;K</kbd></span>
+  <button class="btn btn-sm search-trigger" @click="open = true">
+    <span>&#x2315;</span>
+    <span class="search-hint">Search <kbd>&#x2318;K</kbd></span>
   </button>
 
   <Teleport to="body">
     <div v-if="open" class="search-overlay" @click.self="open = false">
       <div class="search-modal">
         <div class="search-input-wrap">
-          <span class="search-icon-lg">&#x2315;</span>
+          <span class="search-icon">&#x2315;</span>
           <input
             ref="inputRef"
             v-model="query"
@@ -19,7 +19,7 @@
             @keydown.down.prevent="moveDown"
             @keydown.enter="selectCurrent"
           />
-          <kbd class="search-esc">Esc</kbd>
+          <kbd class="search-kbd">Esc</kbd>
         </div>
 
         <div class="search-results" v-if="query.length > 1">
@@ -33,7 +33,6 @@
               @click="open = false"
               @mouseenter="cursor = i"
             >
-              <span class="result-icon">&#x1F52C;</span>
               <div class="result-content">
                 <span class="result-title" v-html="highlight(r.name, query)"></span>
                 <span class="result-meta">{{ r.goal }}</span>
@@ -108,61 +107,54 @@ function selectCurrent() {
 </script>
 
 <style scoped>
-.search-trigger {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  background: var(--color-surface-hover); border: 1px solid var(--color-border);
-  border-radius: var(--radius); color: var(--color-text-muted);
-  font-size: 0.8125rem; cursor: pointer; transition: all 0.15s;
-}
-.search-trigger:hover { border-color: var(--color-primary); color: var(--color-text); }
-.search-hint kbd { font-size: 0.6875rem; opacity: 0.7; }
+.search-trigger { gap: var(--space-2); }
+.search-hint kbd { font-size: 0.625rem; opacity: 0.6; margin-left: var(--space-1); }
 
 .search-overlay {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
   display: flex; align-items: flex-start; justify-content: center;
-  padding-top: 10vh;
+  padding-top: 12vh;
 }
 .search-modal {
-  width: 100%; max-width: 560px; margin: 0 1rem;
+  width: 100%; max-width: 560px; margin: 0 var(--space-4);
   background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: 12px; overflow: hidden;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+  border-radius: var(--radius); overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
 }
 .search-input-wrap {
-  display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.875rem 1rem; border-bottom: 1px solid var(--color-border);
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-4); border-bottom: 1px solid var(--color-border);
 }
-.search-icon-lg { font-size: 1.125rem; color: var(--color-text-muted); }
+.search-icon { font-size: var(--type-lg); color: var(--color-text-muted); }
 .search-input {
   flex: 1; background: none; border: none; outline: none;
-  color: var(--color-text); font-size: 1rem; font-family: inherit;
+  color: var(--color-text); font-size: var(--type-base); font-family: inherit;
 }
 .search-input::placeholder { color: var(--color-text-muted); }
-.search-esc {
-  font-size: 0.6875rem; padding: 0.25rem 0.5rem;
+.search-kbd {
+  font-size: 0.625rem; padding: var(--space-1) var(--space-2);
   background: var(--color-surface-hover); border: 1px solid var(--color-border);
-  border-radius: 4px; color: var(--color-text-muted);
+  border-radius: var(--radius); color: var(--color-text-muted);
+  font-family: inherit;
 }
 .search-results { max-height: 400px; overflow-y: auto; }
 .result-group-label {
-  font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--color-text-muted);
-  padding: 0.75rem 1rem 0.25rem;
+  font-size: var(--type-xs); font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--color-text-muted);
+  padding: var(--space-3) var(--space-4) var(--space-1);
 }
 .result-item {
-  display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.625rem 1rem; text-decoration: none; color: inherit;
-  transition: background 0.1s; cursor: pointer;
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); text-decoration: none; color: inherit;
+  transition: background var(--transition-fast); cursor: pointer;
 }
 .result-item:hover, .result-active { background: var(--color-surface-hover); }
-.result-icon { font-size: 1rem; flex-shrink: 0; }
 .result-content { flex: 1; min-width: 0; }
-.result-title { display: block; font-weight: 500; font-size: 0.875rem; }
-.result-meta { display: block; font-size: 0.75rem; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.result-empty { padding: 2rem; text-align: center; color: var(--color-text-muted); font-size: 0.875rem; }
-.search-hints { display: flex; gap: 1.5rem; padding: 0.75rem 1rem; }
-.hint-item { font-size: 0.75rem; color: var(--color-text-muted); display: flex; align-items: center; gap: 0.375rem; }
-.hint-item kbd { background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: 4px; padding: 0.125rem 0.375rem; font-size: 0.6875rem; }
+.result-title { display: block; font-weight: 500; font-size: var(--type-sm); }
+.result-meta { display: block; font-size: var(--type-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-empty { padding: var(--space-8); text-align: center; color: var(--color-text-muted); font-size: var(--type-sm); }
+.search-hints { display: flex; gap: var(--space-6); padding: var(--space-3) var(--space-4); }
+.hint-item { font-size: var(--type-xs); color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-2); }
+.hint-item kbd { background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: var(--radius); padding: var(--space-1) var(--space-2); font-size: 0.625rem; font-family: inherit; }
 </style>

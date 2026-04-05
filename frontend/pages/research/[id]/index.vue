@@ -1,10 +1,10 @@
 <template>
   <div v-if="pending" class="skeleton-page">
-    <div class="skeleton-card" style="height:60px;margin-bottom:1.5rem;"></div>
+    <div class="skeleton-card skeleton-header"></div>
     <div class="layout-sidebar">
-      <div class="skeleton-card" style="height:300px;"></div>
+      <div class="skeleton-card skeleton-sidebar"></div>
       <div>
-        <div v-for="i in 3" :key="i" class="skeleton-card" style="height:120px;margin-bottom:1rem;"></div>
+        <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
       </div>
     </div>
   </div>
@@ -13,29 +13,29 @@
     <!-- Header -->
     <div class="page-header">
       <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: research.name }]" />
-      <div class="flex-between" style="margin-top:0.25rem;">
+      <div class="research-header">
         <h1 class="page-title">{{ research.name }}</h1>
         <StatusBadge :status="research.status" />
       </div>
-      <p v-if="research.goal" class="card-meta" style="margin-top:0.25rem;">{{ research.goal }}</p>
+      <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
     </div>
 
     <!-- Active session widget -->
     <div v-if="activeSession" class="card session-widget">
-      <div class="flex-between" style="margin-bottom:0.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
+      <div class="session-widget-header">
+        <div class="flex items-center gap-2">
           <span class="card-meta">Active Session</span>
           <StatusBadge :status="activeSession.status" />
         </div>
-        <NuxtLink :to="`/research/${id}/session/${activeSession.id}`" class="btn" style="font-size:0.75rem;">
-          View questions →
+        <NuxtLink :to="`/research/${id}/session/${activeSession.id}`" class="btn btn-sm">
+          View questions &rarr;
         </NuxtLink>
       </div>
-      <h3 style="font-size:1rem;">{{ activeSession.title }}</h3>
-      <p v-if="activeSession.focus" class="card-meta" style="margin-top:0.25rem;">{{ activeSession.focus }}</p>
-      <div v-if="sessionProgress" style="margin-top:0.625rem;">
+      <h3 class="session-title">{{ activeSession.title }}</h3>
+      <p v-if="activeSession.focus" class="card-meta mt-2">{{ activeSession.focus }}</p>
+      <div v-if="sessionProgress" class="session-progress">
         <ProgressBar :value="sessionProgress.answered" :total="sessionProgress.total" />
-        <span class="card-meta" style="font-size:0.8125rem;">
+        <span class="card-meta">
           {{ sessionProgress.answered }} / {{ sessionProgress.total }} questions answered
         </span>
       </div>
@@ -44,26 +44,26 @@
     <!-- Tasks widget -->
     <div v-if="tasks.length" class="card task-widget">
       <button class="task-header" @click="tasksOpen = !tasksOpen">
-        <h3 style="font-size:1rem;">Tasks</h3>
+        <h3 class="task-header-title">Tasks</h3>
         <div class="task-header-right">
           <span class="card-meta">{{ completedTasks }} / {{ tasks.length }}</span>
-          <span class="task-chevron" :class="{ open: tasksOpen }">›</span>
+          <span class="task-chevron" :class="{ open: tasksOpen }">&rsaquo;</span>
         </div>
       </button>
       <ProgressBar :value="completedTasks" :total="tasks.length" />
-      <div v-show="tasksOpen" class="todo-list" style="margin-top:0.75rem;">
+      <div v-show="tasksOpen" class="todo-list">
         <div v-for="t in tasks" :key="t.id" class="todo-item">
           <span :class="['todo-check', `todo-${t.status}`]">
-            <template v-if="t.status === 'completed'">✓</template>
-            <template v-else-if="t.status === 'failed'">×</template>
-            <template v-else-if="t.status === 'blocked'">■</template>
-            <template v-else-if="t.status === 'deferred'">→</template>
-            <template v-else-if="t.status === 'in_progress'">▶</template>
-            <template v-else>○</template>
+            <template v-if="t.status === 'completed'">&check;</template>
+            <template v-else-if="t.status === 'failed'">&times;</template>
+            <template v-else-if="t.status === 'blocked'">&block;</template>
+            <template v-else-if="t.status === 'deferred'">&rarr;</template>
+            <template v-else-if="t.status === 'in_progress'">&triangleright;</template>
+            <template v-else>&cir;</template>
           </span>
-          <div style="flex:1;min-width:0;">
+          <div class="todo-content">
             <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
-            <div v-if="t.result" class="card-meta" style="font-size:0.75rem;margin-top:0.125rem;">{{ t.result }}</div>
+            <div v-if="t.result" class="card-meta todo-result">{{ t.result }}</div>
           </div>
           <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
           <StatusBadge :status="t.status" />
@@ -90,10 +90,7 @@
             <span class="card-meta">{{ section.entries_count }} entries</span>
           </div>
           <div v-if="section.entries_count > 0" class="sidebar-progress">
-            <div
-              class="sidebar-progress-fill"
-              :style="{ width: sectionProgressWidth(section) }"
-            ></div>
+            <div class="sidebar-progress-fill" :style="{ width: sectionProgressWidth(section) }"></div>
           </div>
         </div>
       </div>
@@ -101,16 +98,16 @@
       <!-- Main: entries -->
       <div>
         <template v-if="currentSection">
-          <div class="flex-between" style="margin-bottom:1rem;">
-            <h2>{{ currentSection.display_name || currentSection.name }}</h2>
+          <div class="section-header">
+            <h2 class="section-title">{{ currentSection.display_name || currentSection.name }}</h2>
             <StatusBadge :status="currentSection.status" />
           </div>
-          <p v-if="currentSection.description" class="card-meta" style="margin-bottom:1rem;">
+          <p v-if="currentSection.description" class="card-meta mb-4">
             {{ currentSection.description }}
           </p>
 
           <!-- Tag filter for entries -->
-          <div v-if="entryTags.length" class="tags-panel" style="margin-bottom:1rem;">
+          <div v-if="entryTags.length" class="tags-panel mb-4">
             <span
               v-for="tag in entryTags"
               :key="tag"
@@ -121,30 +118,30 @@
 
           <!-- Entries loading -->
           <div v-if="entriesPending">
-            <div v-for="i in 3" :key="i" class="skeleton-card" style="height:90px;margin-bottom:0.75rem;"></div>
+            <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
           </div>
 
-          <div v-else-if="filteredEntries.length" class="grid" style="grid-template-columns:1fr;">
+          <div v-else-if="filteredEntries.length" class="grid entries-grid">
             <NuxtLink
               v-for="entry in filteredEntries"
               :key="entry.id"
               :to="`/research/${id}/entry/${entry.id}`"
               class="card entry-card"
             >
-              <div class="flex-between">
+              <div class="entry-card-header">
                 <h3 class="card-title">{{ entry.title }}</h3>
                 <StatusBadge :status="entry.status" />
               </div>
-              <p v-if="entry.description" class="card-meta" style="margin-top:0.25rem;">{{ entry.description }}</p>
-              <div v-if="entry.tags?.length" style="margin-top:0.5rem;display:flex;gap:0.375rem;flex-wrap:wrap;">
-                <span v-for="tag in entry.tags" :key="tag" class="tag">{{ tag }}</span>
+              <p v-if="entry.description" class="card-meta mt-2">{{ entry.description }}</p>
+              <div v-if="entry.tags?.length" class="entry-tags">
+                <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
               </div>
             </NuxtLink>
           </div>
 
           <EmptyState
             v-else
-            icon="📄"
+            icon="&#x1F4C4;"
             title="No entries yet"
             description="Claude will populate this section with research entries."
           />
@@ -152,7 +149,7 @@
 
         <EmptyState
           v-else
-          icon="👈"
+          icon="&#x1F448;"
           title="Select a section"
           description="Choose a section from the sidebar to view its entries."
         />
@@ -160,7 +157,7 @@
     </div>
   </div>
 
-  <EmptyState v-else icon="🔍" title="Research not found" />
+  <EmptyState v-else icon="&#x1F50D;" title="Research not found" />
 </template>
 
 <script setup lang="ts">
@@ -262,54 +259,66 @@ useRealtimeUpdates(async (event) => {
 </script>
 
 <style scoped>
-.flex-between   { display: flex; justify-content: space-between; align-items: center; }
-.sidebar-label  { font-size: 0.8125rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
-.sidebar-item-content { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.sidebar-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; }
-.sidebar-item-meta { font-size: 0.75rem; margin-top: 0.125rem; }
-.session-widget { margin-bottom: 1.5rem; border-color: rgba(56,189,248,0.3); }
-.task-widget    { margin-bottom: 1.5rem; }
+/* Header */
+.research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
+
+/* Sidebar */
+.sidebar-label { font-size: var(--type-xs); font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--space-4); }
+.sidebar-item-content { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.sidebar-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-sm); }
+.sidebar-item-meta { font-size: var(--type-xs); margin-top: var(--space-1); }
+
+/* Session widget */
+.session-widget { margin-bottom: var(--space-6); border-color: rgba(56,189,248,0.2); }
+.session-widget-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
+.session-title { font-size: var(--type-base); font-weight: 600; }
+.session-progress { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Task widget */
+.task-widget { margin-bottom: var(--space-6); }
 .task-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 0;
-  margin-bottom: 0.75rem;
-  cursor: pointer;
-  color: var(--color-text);
-  text-align: left;
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; background: none; border: none; padding: 0; margin-bottom: var(--space-3);
+  cursor: pointer; color: var(--color-text); text-align: left;
 }
-.task-header:hover h3 { color: var(--color-primary); }
-.task-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
+.task-header:hover .task-header-title { color: var(--color-primary); }
+.task-header-title { font-size: var(--type-base); font-weight: 600; }
+.task-header-right { display: flex; align-items: center; gap: var(--space-3); }
 .task-chevron {
-  font-size: 1.125rem;
-  color: var(--color-text-muted);
-  transition: transform 0.2s;
-  display: inline-block;
-  line-height: 1;
+  font-size: var(--type-lg); color: var(--color-text-muted);
+  transition: transform var(--transition-base); display: inline-block; line-height: 1;
 }
 .task-chevron.open { transform: rotate(90deg); }
-.entry-card     { display: block; text-decoration: none; color: inherit; }
-.entry-card:hover { border-color: var(--color-primary); }
-.tags-panel     { display: flex; flex-wrap: wrap; gap: 0.375rem; }
-.tag-active     { background: rgba(56,189,248,0.15); color: var(--color-primary); }
-.todo-list      { display: flex; flex-direction: column; gap: 0.5rem; }
-.todo-item      { display: flex; align-items: center; gap: 0.625rem; font-size: 0.875rem; }
-.todo-check     { width: 1.25rem; text-align: center; flex-shrink: 0; color: var(--color-text-muted); }
-.todo-done      { text-decoration: line-through; color: var(--color-text-muted); }
-.skeleton-page  {}
-.skeleton-card  { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); animation: shimmer 1.5s infinite; }
-@keyframes shimmer { 0%,100%{opacity:.6} 50%{opacity:1} }
 
+/* Todo list */
+.todo-list { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+.todo-item { display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-sm); }
+.todo-check { width: var(--space-5); text-align: center; flex-shrink: 0; color: var(--color-text-muted); }
+.todo-content { flex: 1; min-width: 0; }
+.todo-done { text-decoration: line-through; color: var(--color-text-muted); }
+.todo-result { font-size: var(--type-xs); margin-top: var(--space-1); }
 .todo-completed .todo-check { color: var(--color-success); }
-.todo-failed    .todo-check { color: var(--color-error); }
-.todo-blocked   .todo-check { color: var(--color-error); }
+.todo-failed .todo-check { color: var(--color-error); }
+.todo-blocked .todo-check { color: var(--color-error); }
 .todo-in_progress .todo-check { color: var(--color-warning); }
+
+/* Sections + Entries */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+.section-title { font-size: var(--type-xl); font-weight: 600; }
+.tags-panel { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tag-active { background: rgba(56,189,248,0.15); color: var(--color-primary); }
+.tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
+.tag-clickable:hover { background: rgba(56,189,248,0.12); color: var(--color-primary); }
+
+.entries-grid { grid-template-columns: 1fr; }
+.entry-card { display: block; text-decoration: none; color: inherit; }
+.entry-card:hover { border-color: var(--color-primary); }
+.entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
+
+/* Skeleton */
+.skeleton-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); opacity: 0.5; }
+.skeleton-header { height: 60px; margin-bottom: var(--space-6); }
+.skeleton-sidebar { height: 300px; }
+.skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
 </style>

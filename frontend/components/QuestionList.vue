@@ -8,29 +8,23 @@
       </select>
       <select v-model="filterPriority" class="q-select">
         <option value="">All priorities</option>
-        <option value="high">↑ High</option>
-        <option value="medium">• Medium</option>
-        <option value="low">↓ Low</option>
+        <option value="high">&uarr; High</option>
+        <option value="medium">&bull; Medium</option>
+        <option value="low">&darr; Low</option>
       </select>
-      <button v-if="filterArea || filterPriority" class="btn q-clear" @click="clearFilters">
+      <button v-if="filterArea || filterPriority" class="btn btn-sm" @click="clearFilters">
         Clear filters
       </button>
     </div>
 
     <!-- Groups -->
-    <div
-      v-for="group in visibleGroups"
-      :key="group.status"
-      class="question-group"
-    >
-      <!-- Group header (clickable) -->
+    <div v-for="group in visibleGroups" :key="group.status" class="question-group">
       <button class="group-header" @click="toggle(group.status)">
         <StatusBadge :status="group.status" />
-        <span class="card-meta">({{ group.questions.length }})</span>
-        <span class="group-chevron" :class="{ open: isOpen(group.status) }">›</span>
+        <span class="group-count">{{ group.questions.length }}</span>
+        <span class="group-chevron" :class="{ open: isOpen(group.status) }">&rsaquo;</span>
       </button>
 
-      <!-- Questions (collapsible) -->
       <div v-show="isOpen(group.status)" class="group-body">
         <div
           v-for="q in group.questions"
@@ -45,16 +39,13 @@
           <div v-if="q.answer" class="question-answer">{{ q.answer }}</div>
         </div>
 
-        <EmptyState
-          v-if="group.questions.length === 0"
-          title="No questions match filters"
-        />
+        <EmptyState v-if="group.questions.length === 0" title="No questions match filters" />
       </div>
     </div>
 
     <EmptyState
       v-if="visibleGroups.length === 0"
-      icon="📭"
+      icon="&#x1F4ED;"
       title="No questions yet"
       description="Questions will appear here once the session starts."
     />
@@ -76,7 +67,6 @@ const props = defineProps<{
   questions: Record<string, Question[]>
 }>()
 
-// Filter state
 const filterArea = ref('')
 const filterPriority = ref('')
 
@@ -85,7 +75,6 @@ function clearFilters() {
   filterPriority.value = ''
 }
 
-// Collapse state — pending + in_progress open by default
 const STATUS_ORDER = ['pending', 'in_progress', 'answered', 'deferred', 'skipped']
 const DEFAULT_OPEN = new Set(['pending', 'in_progress'])
 const openGroups = ref<Record<string, boolean>>(
@@ -95,7 +84,6 @@ const openGroups = ref<Record<string, boolean>>(
 function isOpen(status: string) { return openGroups.value[status] ?? false }
 function toggle(status: string) { openGroups.value[status] = !openGroups.value[status] }
 
-// Derived areas for filter
 const areas = computed(() => {
   const set = new Set<string>()
   for (const qs of Object.values(props.questions))
@@ -105,7 +93,6 @@ const areas = computed(() => {
 
 const hasFilters = computed(() => areas.value.length > 0)
 
-// Filter questions
 function filterQ(qs: Question[]) {
   return qs.filter(q => {
     if (filterArea.value && q.area !== filterArea.value) return false
@@ -125,58 +112,66 @@ const visibleGroups = computed(() =>
 <style scoped>
 .question-filters {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
 .q-select {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 0.375rem 0.625rem;
+  padding: var(--space-2) var(--space-3);
   color: var(--color-text);
-  font-size: 0.8125rem;
+  font-size: var(--type-sm);
   cursor: pointer;
 }
-.q-clear { font-size: 0.8125rem; padding: 0.375rem 0.625rem; }
 
-.question-group { margin-bottom: 0.5rem; }
+.question-group { margin-bottom: var(--space-2); }
 
 .group-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   width: 100%;
   background: none;
   border: none;
-  padding: 0.5rem 0;
+  padding: var(--space-2) 0;
   cursor: pointer;
   color: var(--color-text);
   text-align: left;
 }
 .group-header:hover { color: var(--color-primary); }
 
+.group-count {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  border-radius: 999px;
+  padding: var(--space-1) var(--space-2);
+  font-weight: 600;
+}
+
 .group-chevron {
   margin-left: auto;
-  font-size: 1.125rem;
+  font-size: var(--type-lg);
   color: var(--color-text-muted);
-  transition: transform 0.2s;
+  transition: transform var(--transition-base);
   display: inline-block;
 }
 .group-chevron.open { transform: rotate(90deg); }
 
 .group-body {
-  padding-left: 0.25rem;
+  padding-left: var(--space-1);
   border-left: 2px solid var(--color-border);
-  margin-left: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-left: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .question-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
-.q-area { margin-top: 0.125rem; font-size: 0.75rem; }
+.q-area { margin-top: var(--space-1); }
 </style>
