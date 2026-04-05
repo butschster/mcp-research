@@ -3,6 +3,8 @@
 *.db-wal
 *.log
 frontend/node_modules
-frontend/.nuxt
-frontend/dist
+frontend/.nuxt/*
+frontend/dist/*
+frontend/.output/*
+internal/api/static/*
 bin/*

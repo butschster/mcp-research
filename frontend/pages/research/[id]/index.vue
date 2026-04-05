@@ -43,12 +43,15 @@
 
     <!-- Tasks widget -->
     <div v-if="tasks.length" class="card task-widget">
-      <div class="flex-between" style="margin-bottom:0.75rem;">
+      <button class="task-header" @click="tasksOpen = !tasksOpen">
         <h3 style="font-size:1rem;">Tasks</h3>
-        <span class="card-meta">{{ completedTasks }} / {{ tasks.length }}</span>
-      </div>
+        <div class="task-header-right">
+          <span class="card-meta">{{ completedTasks }} / {{ tasks.length }}</span>
+          <span class="task-chevron" :class="{ open: tasksOpen }">›</span>
+        </div>
+      </button>
       <ProgressBar :value="completedTasks" :total="tasks.length" />
-      <div class="todo-list" style="margin-top:0.75rem;">
+      <div v-show="tasksOpen" class="todo-list" style="margin-top:0.75rem;">
         <div v-for="t in tasks" :key="t.id" class="todo-item">
           <span :class="['todo-check', `todo-${t.status}`]">
             <template v-if="t.status === 'completed'">✓</template>
@@ -201,6 +204,7 @@ const filteredEntries = computed(() =>
 const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
 const tasks = computed(() => tasksData.value?.data ?? [])
 const completedTasks = computed(() => tasks.value.filter((t: any) => t.status === 'completed').length)
+const tasksOpen = ref(true)
 
 // Active session progress
 const { data: sessionData } = useApi<{ data: any }>(
@@ -238,6 +242,33 @@ useRealtimeUpdates(async (event) => {
 .sidebar-label  { font-size: 0.8125rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
 .session-widget { margin-bottom: 1.5rem; border-color: rgba(56,189,248,0.3); }
 .task-widget    { margin-bottom: 1.5rem; }
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  color: var(--color-text);
+  text-align: left;
+}
+.task-header:hover h3 { color: var(--color-primary); }
+.task-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.task-chevron {
+  font-size: 1.125rem;
+  color: var(--color-text-muted);
+  transition: transform 0.2s;
+  display: inline-block;
+  line-height: 1;
+}
+.task-chevron.open { transform: rotate(90deg); }
 .entry-card     { display: block; text-decoration: none; color: inherit; }
 .entry-card:hover { border-color: var(--color-primary); }
 .tags-panel     { display: flex; flex-wrap: wrap; gap: 0.375rem; }

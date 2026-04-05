@@ -16,21 +16,33 @@ type Config struct {
 	Version   bool   `yaml:"-"`
 }
 
-// Load reads config from config.yaml (if present), then env vars, then CLI flags.
+// Load reads config from config file (if present), then env vars, then CLI flags.
 // Priority: flags > env > yaml > defaults.
 func Load() Config {
 	cfg := Config{
 		Transport: "stdio",
 		MCPPort:   8081,
-		WebPort:   8080,
+		WebPort:   8088,
 		LogLevel:  "info",
 	}
 
-	// 1. Load from config.yaml if it exists
+	// Pre-parse --config flag (needs to be read before other flags)
 	configPath := "config.yaml"
 	if p := os.Getenv("MCP_RESEARCH_CONFIG"); p != "" {
 		configPath = p
 	}
+	for i, arg := range os.Args[1:] {
+		if arg == "--config" && i+1 < len(os.Args)-1 {
+			configPath = os.Args[i+2]
+			break
+		}
+		if len(arg) > 9 && arg[:9] == "--config=" {
+			configPath = arg[9:]
+			break
+		}
+	}
+
+	// 1. Load from config file if it exists
 	if data, err := os.ReadFile(configPath); err == nil {
 		_ = yaml.Unmarshal(data, &cfg)
 	}
@@ -47,6 +59,8 @@ func Load() Config {
 	}
 
 	// 3. Override with CLI flags (highest priority)
+	var configFlag string
+	flag.StringVar(&configFlag, "config", configPath, "path to config.yaml")
 	flag.StringVar(&cfg.Transport, "transport", cfg.Transport, "transport: stdio or sse")
 	flag.IntVar(&cfg.MCPPort, "mcp-port", cfg.MCPPort, "MCP SSE port")
 	flag.IntVar(&cfg.WebPort, "web-port", cfg.WebPort, "Web/API port")
