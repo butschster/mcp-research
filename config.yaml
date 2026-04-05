@@ -9,4 +9,5 @@ log_level: debug    # debug, info, warn, error
 auth_enabled: true
 allow_registration: true
 base_url: "https://mcp.1-d.xyz"  # public URL for OAuth metadata
-# jwt_secret: ""    # auto-generated if empty (set for persistence across restarts)
+# jwt_secret: ""      # auto-generated if empty (set for persistence across restarts)
+# default_user: ""    # email of user for stdio transport (auto-login)
