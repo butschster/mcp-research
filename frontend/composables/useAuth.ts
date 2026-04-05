@@ -7,6 +7,7 @@ interface User {
 interface AuthInfo {
   auth_enabled: boolean
   allow_registration: boolean
+  auto_login_token?: string
 }
 
 const user = ref<User | null>(null)
@@ -24,6 +25,12 @@ export function useAuth() {
       const res = await $fetch<AuthInfo>(`${baseURL}/api/auth/info`)
       authEnabled.value = true
       allowRegistration.value = res.allow_registration
+
+      // Auto-login when default_user is configured (local dev)
+      if (res.auto_login_token && !localStorage.getItem('auth_token')) {
+        token.value = res.auto_login_token
+        localStorage.setItem('auth_token', res.auto_login_token)
+      }
     } catch {
       authEnabled.value = false
     }
