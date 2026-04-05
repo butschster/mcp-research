@@ -55,26 +55,34 @@ func NewServer(
 	mux.HandleFunc("GET /api/researches/{id}/sessions", sh.ListByResearch)
 	mux.HandleFunc("GET /api/sessions/{id}", sh.Get)
 
-	// --- Write endpoints (bearer token required) ---
+	// --- Write endpoints (auth only when api_token is configured) ---
+
+	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
+	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, log)
+
+	wrap := func(h http.HandlerFunc) http.Handler {
+		if apiToken != "" {
+			return bearerAuth(apiToken)(http.HandlerFunc(h))
+		}
+		return h
+	}
+
+	mux.Handle("POST /api/researches", wrap(wh.CreateResearch))
+	mux.Handle("PUT /api/researches/{id}", wrap(wh.UpdateResearch))
+	mux.Handle("POST /api/researches/{id}/sections", wrap(wh.AddSection))
+	mux.Handle("PUT /api/sections/{sectionId}", wrap(wh.UpdateSection))
+	mux.Handle("POST /api/entries", wrap(wh.CreateEntry))
+	mux.Handle("PUT /api/entries/{id}", wrap(wh.UpdateEntry))
+	mux.Handle("POST /api/tasks", wrap(wh.CreateTask))
+	mux.Handle("PUT /api/tasks/{id}", wrap(wh.UpdateTask))
+	mux.Handle("DELETE /api/tasks/{id}", wrap(wh.DeleteTask))
+	mux.Handle("POST /api/sessions", wrap(wh.CreateSession))
+	mux.Handle("POST /api/researches/{id}/crossrefs/rebuild", wrap(crh.Rebuild))
 
 	if apiToken != "" {
-		wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
-		crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, log)
-		auth := bearerAuth(apiToken)
-
-		mux.Handle("POST /api/researches", auth(http.HandlerFunc(wh.CreateResearch)))
-		mux.Handle("PUT /api/researches/{id}", auth(http.HandlerFunc(wh.UpdateResearch)))
-		mux.Handle("POST /api/researches/{id}/sections", auth(http.HandlerFunc(wh.AddSection)))
-		mux.Handle("PUT /api/sections/{sectionId}", auth(http.HandlerFunc(wh.UpdateSection)))
-		mux.Handle("POST /api/entries", auth(http.HandlerFunc(wh.CreateEntry)))
-		mux.Handle("PUT /api/entries/{id}", auth(http.HandlerFunc(wh.UpdateEntry)))
-		mux.Handle("POST /api/tasks", auth(http.HandlerFunc(wh.CreateTask)))
-		mux.Handle("PUT /api/tasks/{id}", auth(http.HandlerFunc(wh.UpdateTask)))
-		mux.Handle("DELETE /api/tasks/{id}", auth(http.HandlerFunc(wh.DeleteTask)))
-		mux.Handle("POST /api/sessions", auth(http.HandlerFunc(wh.CreateSession)))
-		mux.Handle("POST /api/researches/{id}/crossrefs/rebuild", auth(http.HandlerFunc(crh.Rebuild)))
-
-		log.Info("write API enabled (bearer token configured)")
+		log.Info("write API: bearer token required")
+	} else {
+		log.Info("write API: no authentication (api_token not set)")
 	}
 
 	// WebSocket
@@ -88,6 +96,14 @@ func NewServer(
 			"write_api": apiToken != "",
 		})
 	})
+
+	// OpenAPI spec (auto-generated)
+	mux.HandleFunc("GET /api/openapi.yaml", handleOpenAPI(apiToken != ""))
+
+	// LLMs documentation
+	llmsHandler := handleLLMSDocs()
+	mux.Handle("GET /llms.txt", llmsHandler)
+	mux.Handle("GET /llms/", http.StripPrefix("/", llmsHandler))
 
 	// Embedded frontend (catch-all, must be last)
 	mux.Handle("/", staticHandler())
