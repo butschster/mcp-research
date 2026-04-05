@@ -50,19 +50,24 @@ type QuestionProgress struct {
 }
 
 type SessionService struct {
-	db        *sql.DB
-	sessions  *storage.SessionRepository
-	questions *storage.QuestionRepository
-	crossrefs CrossRefParser
-	events    EventNotifier
-	log       *slog.Logger
+	db         *sql.DB
+	sessions   *storage.SessionRepository
+	questions  *storage.QuestionRepository
+	researches *storage.ResearchRepository
+	crossrefs  CrossRefParser
+	events     EventNotifier
+	log        *slog.Logger
 }
 
-func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *SessionService {
-	return &SessionService{db: db, sessions: sessions, questions: questions, crossrefs: crossrefs, events: events, log: log}
+func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, researches *storage.ResearchRepository, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *SessionService {
+	return &SessionService{db: db, sessions: sessions, questions: questions, researches: researches, crossrefs: crossrefs, events: events, log: log}
 }
 
 func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (*domain.Session, []*domain.Question, error) {
+	if err := validateResearchAccess(ctx, s.researches, req.ResearchID); err != nil {
+		return nil, nil, fmt.Errorf("research %s: %w", req.ResearchID, err)
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("begin tx: %w", err)
@@ -122,6 +127,9 @@ func (s *SessionService) Get(ctx context.Context, id string) (*SessionWithQuesti
 	if session == nil {
 		return nil, ErrNotFound
 	}
+	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
+		return nil, ErrNotFound
+	}
 
 	questions, err := s.questions.FindBySession(ctx, id, storage.QuestionFilter{})
 	if err != nil {
@@ -165,6 +173,9 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 	if session == nil {
 		return nil, ErrNotFound
 	}
+	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
+		return nil, ErrNotFound
+	}
 
 	if req.Title != nil {
 		session.Title = *req.Title
@@ -194,6 +205,9 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 }
 
 func (s *SessionService) ListByResearch(ctx context.Context, researchID string) ([]*domain.Session, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, err
+	}
 	return s.sessions.FindByResearch(ctx, researchID)
 }
 
@@ -207,6 +221,9 @@ func (s *SessionService) AddQuestions(ctx context.Context, sessionID string, req
 		return nil, fmt.Errorf("find session: %w", err)
 	}
 	if session == nil {
+		return nil, ErrNotFound
+	}
+	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 

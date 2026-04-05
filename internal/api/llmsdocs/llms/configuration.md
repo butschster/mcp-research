@@ -11,6 +11,9 @@ web_port: 8088         # REST API + Web UI port
 db: ""                 # SQLite path (empty = in-memory, data lost on restart)
 log_level: info        # debug, info, warn, error
 api_token: ""          # Bearer token for write API (empty = write API disabled)
+auth_enabled: false    # Enable multi-user authentication
+jwt_secret: ""         # JWT signing secret (auto-generated if empty)
+allow_registration: true # Allow user self-registration
 ```
 
 Place `config.yaml` in the working directory or specify path with `--config /path/to/config.yaml`.
@@ -25,6 +28,9 @@ Place `config.yaml` in the working directory or specify path with `--config /pat
 --db           SQLite database path (default: in-memory)
 --log-level    Log level (default: info)
 --api-token    Bearer token for write API (default: disabled)
+--auth-enabled       Enable multi-user authentication (default: false)
+--jwt-secret         JWT signing secret (auto-generated if empty)
+--allow-registration Allow user self-registration (default: true)
 --version      Print version and exit
 ```
 
@@ -36,6 +42,9 @@ MCP_RESEARCH_TRANSPORT    stdio or sse
 MCP_RESEARCH_DB           SQLite database path
 MCP_RESEARCH_LOG_LEVEL    debug, info, warn, error
 MCP_RESEARCH_API_TOKEN    Bearer token for write API
+MCP_RESEARCH_AUTH_ENABLED       true/1 to enable multi-user auth
+MCP_RESEARCH_JWT_SECRET         JWT signing secret
+MCP_RESEARCH_ALLOW_REGISTRATION false/0 to disable registration
 ```
 
 ## Ports

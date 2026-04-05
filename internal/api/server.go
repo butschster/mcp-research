@@ -10,6 +10,8 @@ import (
 
 	"github.com/butschster/mcp-research/internal/api/handlers"
 	"github.com/butschster/mcp-research/internal/api/ws"
+	"github.com/butschster/mcp-research/internal/auth"
+	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
 )
@@ -21,20 +23,28 @@ type Server struct {
 	log  *slog.Logger
 }
 
+type ServerConfig struct {
+	Port        int
+	IsInMemory  bool
+	APIToken    string
+	AuthEnabled bool
+	BaseURL     string // Public base URL for OAuth metadata (e.g. https://mcp.example.com)
+	OAuthSvc    *service.OAuthService
+}
+
 func NewServer(
-	port int,
+	cfg ServerConfig,
 	researchSvc *service.ResearchService,
 	sectionSvc *service.SectionService,
 	entrySvc *service.EntryService,
 	sessionSvc *service.SessionService,
 	taskSvc *service.TaskService,
+	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
 	entryRepo *storage.EntryRepository,
 	researchRepo *storage.ResearchRepository,
 	crossrefRepo *storage.CrossRefRepository,
 	hub *ws.Hub,
-	isInMemory bool,
-	apiToken string,
 	log *slog.Logger,
 ) *Server {
 	mux := http.NewServeMux()
@@ -44,30 +54,86 @@ func NewServer(
 	sh := handlers.NewSessionHandler(sessionSvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 
-	// --- Read-only endpoints (no auth) ---
+	// Build auth middleware functions
+	var requireAuth func(http.Handler) http.Handler
+	var optionalAuth func(http.Handler) http.Handler
 
-	mux.HandleFunc("GET /api/researches", rh.List)
-	mux.HandleFunc("GET /api/researches/{id}", rh.Get)
-	mux.HandleFunc("GET /api/researches/{id}/sections/{sectionId}/entries", rh.ListSectionEntries)
-	mux.HandleFunc("GET /api/entries/{id}", eh.Get)
-	mux.HandleFunc("GET /api/researches/{id}/entries/by-code/{code}", eh.ResolveCode)
-	mux.HandleFunc("GET /api/resolve/research/{code}", eh.ResolveResearchCode)
-	mux.HandleFunc("GET /api/researches/{id}/crossrefs", handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log).ListForResearch)
-	mux.HandleFunc("GET /api/researches/{id}/tasks", th.ListByResearch)
-	mux.HandleFunc("GET /api/researches/{id}/sessions", sh.ListByResearch)
-	mux.HandleFunc("GET /api/sessions/{id}", sh.Get)
+	if cfg.AuthEnabled && authSvc != nil {
+		validator := &serviceTokenValidator{authSvc: authSvc}
+		requireAuth = auth.RequireAuth(validator)
+		optionalAuth = auth.OptionalAuth(validator)
+	}
 
-	// --- Write endpoints (auth only when api_token is configured) ---
-
-	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
-	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
-
+	// wrap applies auth to endpoints:
+	// - auth_enabled: user-based auth
+	// - api_token set: legacy bearer token
+	// - neither: no auth
 	wrap := func(h http.HandlerFunc) http.Handler {
-		if apiToken != "" {
-			return bearerAuth(apiToken)(http.HandlerFunc(h))
+		if requireAuth != nil {
+			return requireAuth(http.HandlerFunc(h))
+		}
+		if cfg.APIToken != "" {
+			return bearerAuth(cfg.APIToken)(http.HandlerFunc(h))
 		}
 		return h
 	}
+
+	// wrapRead applies optional auth to read endpoints (user scoping when auth enabled)
+	wrapRead := func(h http.HandlerFunc) http.Handler {
+		if optionalAuth != nil {
+			return requireAuth(http.HandlerFunc(h))
+		}
+		return h
+	}
+
+	// --- Auth endpoints (only when auth enabled) ---
+	if cfg.AuthEnabled && authSvc != nil {
+		ah := handlers.NewAuthHandler(authSvc, log)
+		mux.HandleFunc("POST /api/auth/register", ah.Register)
+		mux.HandleFunc("POST /api/auth/login", ah.Login)
+		mux.Handle("GET /api/auth/me", requireAuth(http.HandlerFunc(ah.Me)))
+		mux.Handle("POST /api/auth/api-keys", requireAuth(http.HandlerFunc(ah.CreateAPIKey)))
+		mux.Handle("GET /api/auth/api-keys", requireAuth(http.HandlerFunc(ah.ListAPIKeys)))
+		mux.Handle("DELETE /api/auth/api-keys/{id}", requireAuth(http.HandlerFunc(ah.DeleteAPIKey)))
+		mux.HandleFunc("GET /api/auth/info", ah.AuthInfo)
+	}
+
+	// --- OAuth2 endpoints (only when auth enabled) ---
+	if cfg.AuthEnabled && cfg.OAuthSvc != nil && authSvc != nil {
+		oh := handlers.NewOAuthHandler(cfg.OAuthSvc, authSvc, log)
+
+		// Standard OAuth2 paths (used by ChatGPT and other MCP clients)
+		mux.HandleFunc("GET /auth/authorize", oh.Authorize)
+		mux.HandleFunc("POST /auth/authorize", oh.Authorize)
+		mux.HandleFunc("POST /auth/token", oh.Token)
+
+		// RFC 7591 Dynamic Client Registration
+		mux.HandleFunc("POST /auth/register", oh.RegisterClient)
+
+		// OAuth2 Authorization Server Metadata (RFC 8414)
+		baseURL := fmt.Sprintf("http://localhost:%d", cfg.Port)
+		if cfg.BaseURL != "" {
+			baseURL = cfg.BaseURL
+		}
+		mux.HandleFunc("GET /.well-known/oauth-authorization-server", handlers.OAuthMetadataHandler(baseURL))
+
+	}
+
+	// --- Read endpoints ---
+	mux.Handle("GET /api/researches", wrapRead(rh.List))
+	mux.Handle("GET /api/researches/{id}", wrapRead(rh.Get))
+	mux.Handle("GET /api/researches/{id}/sections/{sectionId}/entries", wrapRead(rh.ListSectionEntries))
+	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
+	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
+	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))
+	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log).ListForResearch))
+	mux.Handle("GET /api/researches/{id}/tasks", wrapRead(th.ListByResearch))
+	mux.Handle("GET /api/researches/{id}/sessions", wrapRead(sh.ListByResearch))
+	mux.Handle("GET /api/sessions/{id}", wrapRead(sh.Get))
+
+	// --- Write endpoints ---
+	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
+	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
 
 	mux.Handle("POST /api/researches", wrap(wh.CreateResearch))
 	mux.Handle("PUT /api/researches/{id}", wrap(wh.UpdateResearch))
@@ -92,7 +158,9 @@ func NewServer(
 		writeJSON(w, http.StatusOK, map[string]any{"backfilled": count, "status": "ok"})
 	}))
 
-	if apiToken != "" {
+	if cfg.AuthEnabled {
+		log.Info("auth: multi-user authentication enabled")
+	} else if cfg.APIToken != "" {
 		log.Info("write API: bearer token required")
 	} else {
 		log.Info("write API: no authentication (api_token not set)")
@@ -104,14 +172,15 @@ func NewServer(
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"status":    "ok",
-			"in_memory": isInMemory,
-			"write_api": apiToken != "",
+			"status":       "ok",
+			"in_memory":    cfg.IsInMemory,
+			"write_api":    cfg.APIToken != "" || cfg.AuthEnabled,
+			"auth_enabled": cfg.AuthEnabled,
 		})
 	})
 
 	// OpenAPI spec (auto-generated)
-	mux.HandleFunc("GET /api/openapi.yaml", handleOpenAPI(apiToken != ""))
+	mux.HandleFunc("GET /api/openapi.yaml", handleOpenAPI(cfg.APIToken != "" || cfg.AuthEnabled))
 
 	// LLMs documentation
 	llmsHandler := handleLLMSDocs()
@@ -121,15 +190,40 @@ func NewServer(
 	// Embedded frontend (catch-all, must be last)
 	mux.Handle("/", staticHandler())
 
-	return &Server{mux: mux, hub: hub, port: port, log: log}
+	return &Server{mux: mux, hub: hub, port: cfg.Port, log: log}
+}
+
+// serviceTokenValidator adapts AuthService for the auth middleware.
+type serviceTokenValidator struct {
+	authSvc *service.AuthService
+}
+
+func (v *serviceTokenValidator) ValidateToken(r *http.Request) (*domain.User, error) {
+	token := extractBearerToken(r)
+	if token == "" {
+		return nil, nil
+	}
+	return v.authSvc.ValidateToken(r.Context(), token)
+}
+
+func extractBearerToken(r *http.Request) string {
+	authHeader := r.Header.Get("Authorization")
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		return authHeader[7:]
+	}
+	// Also check query param (for SSE connections)
+	if t := r.URL.Query().Get("token"); t != "" {
+		return t
+	}
+	return ""
 }
 
 // bearerAuth returns middleware that validates Authorization: Bearer <token>.
 func bearerAuth(token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			auth := r.Header.Get("Authorization")
-			if auth == "" || len(auth) < 8 || auth[:7] != "Bearer " || auth[7:] != token {
+			a := r.Header.Get("Authorization")
+			if a == "" || len(a) < 8 || a[:7] != "Bearer " || a[7:] != token {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "invalid or missing bearer token"})

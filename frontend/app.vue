@@ -13,6 +13,8 @@ useRealtimeUpdates(() => {
 })
 
 useKeyboardNav()
+
+const { user, isAuthenticated, authEnabled, logout } = useAuth()
 </script>
 
 <template>
@@ -23,7 +25,11 @@ useKeyboardNav()
         <div class="nav-right">
           <SearchModal />
           <ActivityIndicator :active="hasRecentUpdate" label="Updating" />
-          <span class="readonly-badge">Read-only</span>
+          <template v-if="authEnabled && isAuthenticated">
+            <NuxtLink to="/settings" class="nav-user">{{ user?.name || user?.email }}</NuxtLink>
+            <button class="nav-logout" @click="logout">Sign out</button>
+          </template>
+          <span v-else-if="!authEnabled" class="readonly-badge">Read-only</span>
           <ConnectionStatus />
         </div>
       </div>
@@ -60,4 +66,20 @@ useKeyboardNav()
 .footer-inner { display: flex; align-items: center; justify-content: space-between; }
 .footer-link  { text-decoration: none; transition: color var(--transition-fast); }
 .footer-link:hover { color: var(--color-primary); text-decoration: none; }
+.nav-user {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+.nav-user:hover { color: var(--color-primary); }
+.nav-logout {
+  font-size: var(--text-sm);
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+.nav-logout:hover { color: var(--color-danger, #dc2626); }
 </style>

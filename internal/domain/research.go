@@ -13,6 +13,7 @@ const (
 type Research struct {
 	ID          string         `json:"id"`
 	Code        string         `json:"code"`
+	UserID      string         `json:"user_id,omitempty"`
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
 	Goal        string         `json:"goal"`

@@ -142,7 +142,7 @@ func TestCrossRefParsing_QuestionAnswer(t *testing.T) {
 
 	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, notifier, slog.Default())
 	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, slog.Default())
-	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, entrySvc, notifier, slog.Default())
+	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, notifier, slog.Default())
 
 	r, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
 		Name: "Test", Sections: []CreateSectionRequest{{Name: "s1"}},

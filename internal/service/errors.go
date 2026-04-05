@@ -1,8 +1,12 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"unicode"
+
+	"github.com/butschster/mcp-research/internal/auth"
+	"github.com/butschster/mcp-research/internal/storage"
 )
 
 var (
@@ -14,6 +18,21 @@ var (
 	ErrAnswerRequired       = errors.New("answered questions must have a non-empty answer")
 	ErrMutualExclusion      = errors.New("mutually exclusive fields provided")
 )
+
+// validateResearchAccess checks that the research exists and the current user owns it.
+func validateResearchAccess(ctx context.Context, repo *storage.ResearchRepository, researchID string) error {
+	research, err := repo.FindByID(ctx, researchID)
+	if err != nil {
+		return err
+	}
+	if research == nil {
+		return ErrNotFound
+	}
+	if uid := auth.UserIDFromContext(ctx); uid != "" && research.UserID != "" && research.UserID != uid {
+		return ErrNotFound
+	}
+	return nil
+}
 
 // isCode returns true if s looks like a short code (e.g. R1, E23, SS1, T5, Q3) rather than a UUID.
 func isCode(s string) bool {

@@ -39,12 +39,8 @@ func NewTaskService(tasks *storage.TaskRepository, researches *storage.ResearchR
 }
 
 func (s *TaskService) Create(ctx context.Context, req CreateTaskRequest) (*domain.Task, error) {
-	exists, err := s.researches.Exists(ctx, req.ResearchID)
-	if err != nil {
-		return nil, fmt.Errorf("check research: %w", err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("research %s: %w", req.ResearchID, ErrNotFound)
+	if err := validateResearchAccess(ctx, s.researches, req.ResearchID); err != nil {
+		return nil, fmt.Errorf("research %s: %w", req.ResearchID, err)
 	}
 
 	priority := req.Priority
@@ -77,10 +73,16 @@ func (s *TaskService) Get(ctx context.Context, id string) (*domain.Task, error) 
 	if task == nil {
 		return nil, ErrNotFound
 	}
+	if err := validateResearchAccess(ctx, s.researches, task.ResearchID); err != nil {
+		return nil, ErrNotFound
+	}
 	return task, nil
 }
 
 func (s *TaskService) List(ctx context.Context, researchID string, filter storage.TaskFilter) ([]*domain.Task, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, err
+	}
 	return s.tasks.FindByResearch(ctx, researchID, filter)
 }
 
@@ -90,6 +92,9 @@ func (s *TaskService) Update(ctx context.Context, id string, req UpdateTaskReque
 		return nil, fmt.Errorf("find task: %w", err)
 	}
 	if task == nil {
+		return nil, ErrNotFound
+	}
+	if err := validateResearchAccess(ctx, s.researches, task.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 
@@ -136,6 +141,9 @@ func (s *TaskService) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("find task: %w", err)
 	}
 	if task == nil {
+		return ErrNotFound
+	}
+	if err := validateResearchAccess(ctx, s.researches, task.ResearchID); err != nil {
 		return ErrNotFound
 	}
 	if err := s.tasks.Delete(ctx, id); err != nil {

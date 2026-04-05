@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
@@ -50,6 +51,7 @@ func NewResearchService(researches *storage.ResearchRepository, sections *storag
 func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest) (*domain.Research, []*domain.Section, error) {
 	research := &domain.Research{
 		ID:          uuid.New().String(),
+		UserID:      auth.UserIDFromContext(ctx),
 		Name:        req.Name,
 		Description: req.Description,
 		Goal:        req.Goal,
@@ -101,6 +103,10 @@ func (s *ResearchService) Get(ctx context.Context, id string) (*domain.Research,
 	if research == nil {
 		return nil, ErrNotFound
 	}
+	// Ownership check: if research has a user and caller is a different user, deny
+	if uid := auth.UserIDFromContext(ctx); uid != "" && research.UserID != "" && research.UserID != uid {
+		return nil, ErrNotFound
+	}
 	return research, nil
 }
 
@@ -114,6 +120,10 @@ func (s *ResearchService) ResolveID(ctx context.Context, idOrCode string) (strin
 }
 
 func (s *ResearchService) List(ctx context.Context, filter storage.ResearchFilter) ([]*domain.Research, error) {
+	// Scope to current user if authenticated
+	if uid := auth.UserIDFromContext(ctx); uid != "" {
+		filter.UserID = &uid
+	}
 	return s.researches.FindAll(ctx, filter)
 }
 
@@ -123,12 +133,9 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 		return nil, fmt.Errorf("memory and add_memory: %w", ErrMutualExclusion)
 	}
 
-	research, err := s.researches.FindByID(ctx, id)
+	research, err := s.Get(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("find research: %w", err)
-	}
-	if research == nil {
-		return nil, ErrNotFound
+		return nil, err
 	}
 
 	if req.Name != nil {
@@ -165,11 +172,7 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 }
 
 func (s *ResearchService) AddSection(ctx context.Context, researchID string, req CreateSectionRequest) (*domain.Section, error) {
-	exists, err := s.researches.Exists(ctx, researchID)
-	if err != nil {
-		return nil, fmt.Errorf("check research: %w", err)
-	}
-	if !exists {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
 		return nil, ErrNotFound
 	}
 

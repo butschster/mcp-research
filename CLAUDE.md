@@ -55,6 +55,7 @@ Go Process
 ```
 cmd/mcp-research/main.go          -- bootstrap, DI wiring
 internal/
+  auth/                            -- JWT, bcrypt, API key hashing, context helpers, middleware
   config/                          -- YAML / env / CLI flag cascade
   domain/                          -- plain structs + status enums (no logic)
   storage/                         -- SQLite repos + embedded migrations
@@ -102,6 +103,35 @@ Priority: CLI flags > env vars > config.yaml > defaults.
 | DB Path | `--db` | `MCP_RESEARCH_DB` | `db` | (in-memory) |
 | Log Level | `--log-level` | `MCP_RESEARCH_LOG_LEVEL` | `log_level` | `info` |
 | API Token | `--api-token` | `MCP_RESEARCH_API_TOKEN` | `api_token` | (write API disabled) |
+| Auth Enabled | `--auth-enabled` | `MCP_RESEARCH_AUTH_ENABLED` | `auth_enabled` | `false` |
+| JWT Secret | `--jwt-secret` | `MCP_RESEARCH_JWT_SECRET` | `jwt_secret` | (auto-generated) |
+| Allow Registration | `--allow-registration` | `MCP_RESEARCH_ALLOW_REGISTRATION` | `allow_registration` | `true` |
+
+## Authentication
+
+When `auth_enabled` is true, multi-user auth is active:
+- Users register/login via `/api/auth/register` and `/api/auth/login` (JWT)
+- API keys for long-lived programmatic access (MCP SSE, REST API)
+- OAuth2 Authorization Code flow for external clients (ChatGPT, etc.)
+- Researches are scoped to users — each user sees only their own
+- Web UI has login/registration pages
+- MCP SSE requires bearer token (JWT or API key) via header or `?token=` query param
+- First registered user automatically claims any pre-existing orphaned researches
+
+### Auth Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/auth/register` | Register new user |
+| `POST` | `/api/auth/login` | Login, get JWT |
+| `GET` | `/api/auth/me` | Current user info |
+| `POST` | `/api/auth/api-keys` | Create API key |
+| `GET` | `/api/auth/api-keys` | List API keys |
+| `DELETE` | `/api/auth/api-keys/{id}` | Revoke API key |
+| `GET` | `/api/oauth/authorize` | OAuth2 authorize (redirect) |
+| `POST` | `/api/oauth/token` | OAuth2 token exchange |
+| `POST` | `/api/oauth/clients` | Create OAuth client |
+| `GET` | `/api/oauth/clients` | List OAuth clients |
 
 ## Write API
 
