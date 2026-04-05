@@ -133,12 +133,9 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 		return nil, fmt.Errorf("memory and add_memory: %w", ErrMutualExclusion)
 	}
 
-	research, err := s.researches.FindByID(ctx, id)
+	research, err := s.Get(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("find research: %w", err)
-	}
-	if research == nil {
-		return nil, ErrNotFound
+		return nil, err
 	}
 
 	if req.Name != nil {
@@ -175,11 +172,7 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 }
 
 func (s *ResearchService) AddSection(ctx context.Context, researchID string, req CreateSectionRequest) (*domain.Section, error) {
-	exists, err := s.researches.Exists(ctx, researchID)
-	if err != nil {
-		return nil, fmt.Errorf("check research: %w", err)
-	}
-	if !exists {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
 		return nil, ErrNotFound
 	}
 

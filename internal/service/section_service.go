@@ -17,17 +17,21 @@ type UpdateSectionRequest struct {
 }
 
 type SectionService struct {
-	sections *storage.SectionRepository
-	entries  *storage.EntryRepository
-	events   EventNotifier
-	log      *slog.Logger
+	sections   *storage.SectionRepository
+	entries    *storage.EntryRepository
+	researches *storage.ResearchRepository
+	events     EventNotifier
+	log        *slog.Logger
 }
 
-func NewSectionService(sections *storage.SectionRepository, entries *storage.EntryRepository, events EventNotifier, log *slog.Logger) *SectionService {
-	return &SectionService{sections: sections, entries: entries, events: events, log: log}
+func NewSectionService(sections *storage.SectionRepository, entries *storage.EntryRepository, researches *storage.ResearchRepository, events EventNotifier, log *slog.Logger) *SectionService {
+	return &SectionService{sections: sections, entries: entries, researches: researches, events: events, log: log}
 }
 
 func (s *SectionService) List(ctx context.Context, researchID string) ([]*domain.Section, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, err
+	}
 	return s.sections.FindByResearch(ctx, researchID)
 }
 
@@ -39,6 +43,9 @@ func (s *SectionService) Get(ctx context.Context, id string) (*domain.Section, e
 	if section == nil {
 		return nil, ErrNotFound
 	}
+	if err := validateResearchAccess(ctx, s.researches, section.ResearchID); err != nil {
+		return nil, ErrNotFound
+	}
 	return section, nil
 }
 
@@ -48,6 +55,9 @@ func (s *SectionService) Update(ctx context.Context, id string, req UpdateSectio
 		return nil, fmt.Errorf("find section: %w", err)
 	}
 	if section == nil {
+		return nil, ErrNotFound
+	}
+	if err := validateResearchAccess(ctx, s.researches, section.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 

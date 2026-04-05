@@ -57,13 +57,9 @@ func NewEntryService(entries *storage.EntryRepository, sections *storage.Section
 }
 
 func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*domain.Entry, error) {
-	// Validate research exists
-	exists, err := s.researches.Exists(ctx, req.ResearchID)
-	if err != nil {
-		return nil, fmt.Errorf("check research: %w", err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("research %s: %w", req.ResearchID, ErrNotFound)
+	// Validate research exists and current user has access
+	if err := validateResearchAccess(ctx, s.researches, req.ResearchID); err != nil {
+		return nil, fmt.Errorf("research %s: %w", req.ResearchID, err)
 	}
 
 	// Validate section exists and belongs to research
@@ -130,11 +126,17 @@ func (s *EntryService) Get(ctx context.Context, id string) (*domain.Entry, error
 	if entry == nil {
 		return nil, ErrNotFound
 	}
+	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
+		return nil, ErrNotFound
+	}
 	return entry, nil
 }
 
 // GetByIDOrCode resolves an entry by UUID or short code within a research.
 func (s *EntryService) GetByIDOrCode(ctx context.Context, researchID, idOrCode string) (*domain.Entry, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, ErrNotFound
+	}
 	// Try UUID first
 	entry, err := s.entries.FindByID(ctx, idOrCode)
 	if err != nil {
@@ -154,10 +156,16 @@ func (s *EntryService) GetByIDOrCode(ctx context.Context, researchID, idOrCode s
 }
 
 func (s *EntryService) List(ctx context.Context, researchID, sectionID string, filter storage.EntryFilter) ([]*domain.Entry, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, err
+	}
 	return s.entries.FindBySection(ctx, researchID, sectionID, filter)
 }
 
 func (s *EntryService) ListByResearch(ctx context.Context, researchID string, filter storage.EntryFilter) ([]*domain.Entry, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, err
+	}
 	return s.entries.FindByResearch(ctx, researchID, filter)
 }
 
@@ -167,6 +175,9 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		return nil, fmt.Errorf("find entry: %w", err)
 	}
 	if entry == nil {
+		return nil, ErrNotFound
+	}
+	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 

@@ -64,9 +64,9 @@ func main() {
 
 	// Services
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
-	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, events, log)
+	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, events, log)
 	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, events, log)
-	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, entrySvc, events, log)
+	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
 
 	// Auth (optional)

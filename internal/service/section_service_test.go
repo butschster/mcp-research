@@ -16,6 +16,7 @@ func TestSectionService_List(t *testing.T) {
 	svc := NewSectionService(
 		storage.NewSectionRepository(db),
 		storage.NewEntryRepository(db),
+		storage.NewResearchRepository(db),
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -39,6 +40,7 @@ func TestSectionService_Get(t *testing.T) {
 	svc := NewSectionService(
 		storage.NewSectionRepository(db),
 		storage.NewEntryRepository(db),
+		storage.NewResearchRepository(db),
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -67,7 +69,7 @@ func TestSectionService_Update(t *testing.T) {
 	notifier := &mockNotifier{}
 	sectionRepo := storage.NewSectionRepository(db)
 	entryRepo := storage.NewEntryRepository(db)
-	svc := NewSectionService(sectionRepo, entryRepo, notifier, slog.Default())
+	svc := NewSectionService(sectionRepo, entryRepo, storage.NewResearchRepository(db), notifier, slog.Default())
 	ctx := context.Background()
 
 	t.Run("partial updates", func(t *testing.T) {
