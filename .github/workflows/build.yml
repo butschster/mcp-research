@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: NUXT_PUBLIC_API_BASE= npm run generate
+        working-directory: frontend
+
+      - name: Embed frontend into Go static directory
+        run: |
+          rm -rf internal/api/static
+          cp -r frontend/.output/public internal/api/static
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build binary
+        run: |
+          VERSION=${GITHUB_REF_NAME:-dev}
+          COMMIT=$(git rev-parse --short HEAD)
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          go build -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE" \
+            -o bin/mcp-research ./cmd/mcp-research
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-research
+          path: bin/mcp-research
