@@ -1,20 +1,18 @@
 <template>
   <NuxtLink :to="`/research/${research.id}`" class="card research-card">
-    <div class="flex-between">
+    <div class="card-header">
       <h3 class="card-title">{{ research.name }}</h3>
       <StatusBadge :status="research.status" />
     </div>
 
-    <p v-if="research.goal" class="card-meta" style="margin-top:0.375rem;">
-      {{ research.goal }}
-    </p>
+    <p v-if="research.goal" class="card-meta goal-text">{{ research.goal }}</p>
 
     <div class="card-footer">
       <div v-if="research.tags?.length" class="tags-row">
         <span
           v-for="tag in research.tags"
           :key="tag"
-          class="tag tag-clickable"
+          :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tag)}`]"
           @click.prevent.stop="emit('tagClick', tag)"
         >{{ tag }}</span>
       </div>
@@ -39,6 +37,10 @@ defineProps<{
 
 const emit = defineEmits<{ tagClick: [tag: string] }>()
 
+function tagHue(tag: string): number {
+  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
+}
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60_000)
@@ -53,10 +55,11 @@ function relativeTime(iso: string): string {
 
 <style scoped>
 .research-card { display: block; text-decoration: none; color: inherit; }
-.flex-between  { display: flex; justify-content: space-between; align-items: flex-start; }
-.card-footer   { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; gap: 0.5rem; }
-.tags-row      { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-.timestamp     { font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
-.tag-clickable { cursor: pointer; transition: all 0.15s; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+.goal-text { margin-top: var(--space-2); }
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-3); gap: var(--space-2); }
+.tags-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.timestamp { white-space: nowrap; flex-shrink: 0; }
+.tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
 .tag-clickable:hover { background: rgba(56,189,248,0.15); color: var(--color-primary); }
 </style>

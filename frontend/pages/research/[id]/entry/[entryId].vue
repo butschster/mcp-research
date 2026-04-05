@@ -1,7 +1,7 @@
 <template>
   <div v-if="pending">
-    <div class="skeleton-card" style="height:60px;margin-bottom:1rem;"></div>
-    <div class="skeleton-card" style="height:500px;"></div>
+    <div class="skeleton-card skeleton-header"></div>
+    <div class="skeleton-card skeleton-content"></div>
   </div>
 
   <div v-else-if="entry">
@@ -13,67 +13,51 @@
         { label: sectionName, to: `/research/${id}?section=${entry.section_id}` },
         { label: entry.title }
       ]" />
-      <div class="flex-between" style="margin-top:0.25rem;">
+      <div class="entry-header">
         <h1 class="page-title">{{ entry.title }}</h1>
-        <div style="display:flex;gap:0.5rem;align-items:center;">
+        <div class="entry-actions">
           <StatusBadge :status="entry.status" />
           <PrintButton />
-          <button class="btn btn-icon" title="Copy markdown" @click="copyMarkdown">
-            {{ copied ? '✓ Copied' : '⎘ Copy' }}
+          <button class="btn btn-sm" @click="copyMarkdown">
+            {{ copied ? '&#x2713; Copied' : 'Copy' }}
           </button>
         </div>
       </div>
-      <p v-if="entry.description" class="card-meta" style="margin-top:0.25rem;">
-        {{ entry.description }}
-      </p>
-      <div v-if="entry.tags?.length" style="margin-top:0.625rem;display:flex;gap:0.375rem;flex-wrap:wrap;">
-        <span v-for="tag in entry.tags" :key="tag" class="tag">{{ tag }}</span>
+      <p v-if="entry.description" class="card-meta mt-2">{{ entry.description }}</p>
+      <div v-if="entry.tags?.length" class="entry-tags">
+        <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
       </div>
     </div>
 
     <!-- View toggle -->
     <div class="view-toggle">
-      <button :class="['toggle-btn', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
+      <button :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
         Rendered
       </button>
-      <button :class="['toggle-btn', { active: viewMode === 'source' }]" @click="viewMode = 'source'">
+      <button :class="['btn btn-sm', { active: viewMode === 'source' }]" @click="viewMode = 'source'">
         Source
       </button>
     </div>
 
     <!-- Content -->
     <div class="entry-content card">
-      <!-- Rendered markdown -->
-      <div
-        v-if="viewMode === 'rendered'"
-        class="markdown-content"
-        v-html="renderedContent"
-      ></div>
-      <!-- Raw source -->
+      <div v-if="viewMode === 'rendered'" class="markdown-content" v-html="renderedContent"></div>
       <pre v-else class="source-view"><code>{{ entry.content }}</code></pre>
     </div>
 
     <!-- Prev / Next navigation -->
     <div v-if="siblings.length > 1" class="entry-nav">
-      <NuxtLink
-        v-if="prevEntry"
-        :to="`/research/${id}/entry/${prevEntry.id}`"
-        class="btn entry-nav-btn"
-      >
-        ← {{ prevEntry.title }}
+      <NuxtLink v-if="prevEntry" :to="`/research/${id}/entry/${prevEntry.id}`" class="btn btn-sm entry-nav-btn">
+        &larr; {{ prevEntry.title }}
       </NuxtLink>
       <span v-else class="entry-nav-placeholder"></span>
-      <NuxtLink
-        v-if="nextEntry"
-        :to="`/research/${id}/entry/${nextEntry.id}`"
-        class="btn entry-nav-btn entry-nav-next"
-      >
-        {{ nextEntry.title }} →
+      <NuxtLink v-if="nextEntry" :to="`/research/${id}/entry/${nextEntry.id}`" class="btn btn-sm entry-nav-btn entry-nav-next">
+        {{ nextEntry.title }} &rarr;
       </NuxtLink>
     </div>
   </div>
 
-  <EmptyState v-else icon="🔍" title="Entry not found" />
+  <EmptyState v-else icon="&#x1F50D;" title="Entry not found" />
 </template>
 
 <script setup lang="ts">
@@ -83,13 +67,12 @@ const route = useRoute()
 const id = route.params.id as string
 const entryId = route.params.entryId as string
 
-// Configure marked once
 marked.setOptions({ gfm: true, breaks: true })
 
 // Research + sections for breadcrumb and sibling navigation
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
 const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
-const sections     = computed(() => researchData.value?.data?.sections ?? [])
+const sections = computed(() => researchData.value?.data?.sections ?? [])
 
 // Entry data
 const { data, pending } = await useApi<{ data: any }>(`/api/entries/${entryId}`)
@@ -100,12 +83,17 @@ const sectionName = computed(() => {
   return sec?.display_name || sec?.name || 'Section'
 })
 
+// Tag color
+function tagHue(tag: string): number {
+  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
+}
+
 // Rendered markdown
 const renderedContent = computed(() =>
   entry.value?.content ? marked.parse(entry.value.content) as string : ''
 )
 
-// View toggle (rendered vs source)
+// View toggle
 const viewMode = ref<'rendered' | 'source'>('rendered')
 
 // Copy markdown
@@ -125,47 +113,53 @@ const { data: siblingsData } = useApi<{ data: any[] }>(
       : `/api/researches/__none__/sections/__none__/entries`
   )
 )
-const siblings  = computed(() => siblingsData.value?.data ?? [])
+const siblings = computed(() => siblingsData.value?.data ?? [])
 const currIndex = computed(() => siblings.value.findIndex((e: any) => e.id === entryId))
 const prevEntry = computed(() => currIndex.value > 0 ? siblings.value[currIndex.value - 1] : null)
 const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? siblings.value[currIndex.value + 1] : null)
 </script>
 
 <style scoped>
-.flex-between { display: flex; justify-content: space-between; align-items: flex-start; }
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.entry-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-shrink: 0;
+}
+.entry-tags {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
 
+/* View toggle */
 .view-toggle {
   display: flex;
-  gap: 0;
-  margin-bottom: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  width: fit-content;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
 }
-.toggle-btn {
-  padding: 0.375rem 0.875rem;
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.toggle-btn.active {
+.view-toggle .btn { color: var(--color-text-muted); }
+.view-toggle .btn.active {
   background: var(--color-surface);
   color: var(--color-text);
-  font-weight: 500;
+  border-color: var(--color-primary);
 }
-.toggle-btn:hover:not(.active) { color: var(--color-text); }
 
-.entry-content { padding: 1.5rem; }
+/* Content */
+.entry-content { padding: var(--space-6); }
 .source-view {
   background: var(--color-surface-hover);
-  padding: 1rem;
+  padding: var(--space-4);
   border-radius: var(--radius);
   overflow-x: auto;
-  font-size: 0.8125rem;
+  font-size: var(--type-xs);
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -174,25 +168,24 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 }
 .source-view code { background: none; padding: 0; font-size: inherit; }
 
-.btn-icon { font-size: 0.8125rem; }
-
+/* Navigation */
 .entry-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1.5rem;
-  gap: 1rem;
+  margin-top: var(--space-6);
+  gap: var(--space-4);
 }
 .entry-nav-btn {
   max-width: 45%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8125rem;
 }
-.entry-nav-next   { margin-left: auto; text-align: right; }
+.entry-nav-next { margin-left: auto; text-align: right; }
 .entry-nav-placeholder { flex: 1; }
 
-.skeleton-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); animation: shimmer 1.5s infinite; }
-@keyframes shimmer { 0%,100%{opacity:.6} 50%{opacity:1} }
+/* Skeleton */
+.skeleton-header { height: 60px; margin-bottom: var(--space-4); }
+.skeleton-content { height: 500px; }
 </style>

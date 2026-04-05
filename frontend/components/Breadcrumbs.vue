@@ -1,11 +1,11 @@
 <template>
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
+  <div class="breadcrumbs" role="navigation" aria-label="Breadcrumb">
     <template v-for="(crumb, i) in crumbs" :key="i">
       <span v-if="i > 0" class="breadcrumb-sep">/</span>
       <NuxtLink v-if="crumb.to" :to="crumb.to" class="breadcrumb-link">{{ crumb.label }}</NuxtLink>
       <span v-else class="breadcrumb-current">{{ crumb.label }}</span>
     </template>
-  </nav>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -18,21 +18,24 @@ defineProps<{
 .breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  margin-bottom: 0.5rem;
+  gap: var(--space-2);
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
 }
 .breadcrumb-sep {
   color: var(--color-text-muted);
-  opacity: 0.5;
+  opacity: 0.4;
+  user-select: none;
 }
 .breadcrumb-link {
   color: var(--color-text-muted);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
 .breadcrumb-link:hover {
   color: var(--color-primary);
-  text-decoration: underline;
+  text-decoration: none;
 }
 .breadcrumb-current {
   color: var(--color-text);

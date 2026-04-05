@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="page-header flex-between">
+    <div class="page-header">
       <h1 class="page-title">Research Projects</h1>
     </div>
 
@@ -14,9 +14,12 @@
       </select>
       <span v-if="tagFilter" class="active-tag-filter">
         Tag: <strong>{{ tagFilter }}</strong>
-        <button class="tag-clear" @click="tagFilter = ''">×</button>
+        <button class="tag-clear" @click="tagFilter = ''">&times;</button>
       </span>
     </div>
+
+    <!-- Onboarding -->
+    <GettingStartedBanner :has-researches="researches.length > 0" />
 
     <!-- Loading -->
     <div v-if="pending" class="skeleton-list">
@@ -36,9 +39,10 @@
     <!-- Empty -->
     <EmptyState
       v-else
-      icon="🔬"
+      icon="&#x1F52C;"
       title="No research projects yet"
-      description="Use the research/initialize prompt in Claude to create one."
+      description="Type this into Claude to start your first research session:"
+      command="Use the research/initialize prompt to create a new research project"
     />
   </div>
 </template>
@@ -80,28 +84,23 @@ useRealtimeUpdates(async (event) => {
 </script>
 
 <style scoped>
-.flex-between { display: flex; justify-content: space-between; align-items: center; }
-.skeleton-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1rem; }
+.skeleton-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: var(--space-6);
+}
 .skeleton-card {
   height: 110px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  animation: shimmer 1.5s infinite;
-}
-@keyframes shimmer {
-  0%, 100% { opacity: 0.6; }
-  50%       { opacity: 1; }
 }
 .active-tag-filter {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.625rem;
-  background: rgba(56,189,248,0.1);
-  border: 1px solid rgba(56,189,248,0.3);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: rgba(56,189,248,0.08);
+  border: 1px solid rgba(56,189,248,0.2);
   border-radius: var(--radius);
-  font-size: 0.8125rem;
+  font-size: var(--type-xs);
   color: var(--color-primary);
 }
 .tag-clear {
@@ -109,7 +108,7 @@ useRealtimeUpdates(async (event) => {
   border: none;
   color: var(--color-primary);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: var(--type-sm);
   padding: 0;
   line-height: 1;
 }

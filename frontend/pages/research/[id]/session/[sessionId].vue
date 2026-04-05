@@ -1,8 +1,8 @@
 <template>
   <div v-if="pending">
-    <div class="skeleton-card" style="height:60px;margin-bottom:1rem;"></div>
-    <div class="skeleton-card" style="height:100px;margin-bottom:1rem;"></div>
-    <div class="skeleton-card" style="height:300px;"></div>
+    <div class="skeleton-card skeleton-header"></div>
+    <div class="skeleton-card skeleton-progress"></div>
+    <div class="skeleton-card skeleton-questions"></div>
   </div>
 
   <div v-else-if="session">
@@ -13,18 +13,16 @@
         { label: researchName, to: `/research/${id}` },
         { label: session.title }
       ]" />
-      <div class="flex-between" style="margin-top:0.25rem;">
+      <div class="session-header">
         <h1 class="page-title">{{ session.title }}</h1>
         <StatusBadge :status="session.status" />
       </div>
-      <p v-if="session.focus" class="card-meta" style="margin-top:0.25rem;">
-        Focus: {{ session.focus }}
-      </p>
+      <p v-if="session.focus" class="card-meta mt-2">Focus: {{ session.focus }}</p>
     </div>
 
     <!-- Progress card -->
-    <div class="card" style="margin-bottom:1.5rem;">
-      <h3 style="margin-bottom:0.75rem;">Progress</h3>
+    <div class="card progress-card">
+      <h3 class="card-section-title">Progress</h3>
       <ProgressBar :value="progress.answered" :total="progress.total" />
       <div class="progress-stats">
         <span>Total: {{ progress.total }}</span>
@@ -36,19 +34,19 @@
     </div>
 
     <!-- Notes card -->
-    <div v-if="session.notes" class="card" style="margin-bottom:1.5rem;">
-      <h3 style="margin-bottom:0.5rem;">Session Notes</h3>
-      <p style="white-space:pre-wrap;color:var(--color-text-muted);">{{ session.notes }}</p>
+    <div v-if="session.notes" class="card notes-card">
+      <h3 class="card-section-title">Session Notes</h3>
+      <p class="notes-text">{{ session.notes }}</p>
     </div>
 
     <!-- Questions -->
     <div class="card">
-      <h3 style="margin-bottom:1rem;">Questions</h3>
+      <h3 class="card-section-title mb-4">Questions</h3>
       <QuestionList :questions="questions" />
     </div>
   </div>
 
-  <EmptyState v-else icon="🔍" title="Session not found" />
+  <EmptyState v-else icon="&#x1F50D;" title="Session not found" />
 </template>
 
 <script setup lang="ts">
@@ -56,11 +54,9 @@ const route = useRoute()
 const id = route.params.id as string
 const sessionId = route.params.sessionId as string
 
-// Research name for breadcrumb
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
 const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
 
-// Session data
 const { data, pending } = await useApi<{ data: any }>(`/api/sessions/${sessionId}`)
 
 const session  = computed(() => data.value?.data?.session ?? data.value?.data?.Session)
@@ -73,7 +69,6 @@ const progress  = computed(() => ({
   skipped:  data.value?.data?.progress?.skipped  ?? 0,
 }))
 
-// Real-time updates
 useRealtimeUpdates(async (event) => {
   if (event.research_id && event.research_id !== id) return
   if (['question', 'session'].includes(event.entity)) {
@@ -86,17 +81,22 @@ useRealtimeUpdates(async (event) => {
 </script>
 
 <style scoped>
-.flex-between  { display: flex; justify-content: space-between; align-items: center; }
+.session-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
+.card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); }
+.progress-card { margin-bottom: var(--space-6); }
+.notes-card { margin-bottom: var(--space-6); }
+.notes-text { white-space: pre-wrap; color: var(--color-text-muted); font-size: var(--type-sm); }
 .progress-stats {
   display: flex;
-  gap: 1.5rem;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
+  gap: var(--space-6);
+  font-size: var(--type-sm);
+  margin-top: var(--space-2);
   flex-wrap: wrap;
 }
 .stat-answered { color: var(--color-success); }
 .stat-pending  { color: var(--color-warning); }
 .stat-skipped  { color: var(--color-error); }
-.skeleton-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); animation: shimmer 1.5s infinite; }
-@keyframes shimmer { 0%,100%{opacity:.6} 50%{opacity:1} }
+.skeleton-header { height: 60px; margin-bottom: var(--space-4); }
+.skeleton-progress { height: 100px; margin-bottom: var(--space-4); }
+.skeleton-questions { height: 300px; }
 </style>

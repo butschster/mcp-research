@@ -62,22 +62,18 @@ onUnmounted(() => {
 .connection-status {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
+  gap: var(--space-2);
+  font-size: var(--type-xs);
   color: var(--color-text-muted);
   cursor: default;
 }
 .ws-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-.ws-connected    { background: var(--color-success); box-shadow: 0 0 4px var(--color-success); }
-.ws-reconnecting { background: var(--color-warning); animation: pulse 1.2s infinite; }
+.ws-connected    { background: var(--color-success); }
+.ws-reconnecting { background: var(--color-warning); }
 .ws-disconnected { background: var(--color-text-muted); }
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
-}
 </style>
