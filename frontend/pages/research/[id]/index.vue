@@ -43,7 +43,7 @@
 
     <!-- Tasks widget -->
     <div v-if="tasks.length" class="card task-widget">
-      <button class="task-header" @click="tasksOpen = !tasksOpen">
+      <button class="btn-ghost task-header" @click="tasksOpen = !tasksOpen">
         <h3 class="task-header-title">Tasks</h3>
         <div class="task-header-right">
           <span class="card-meta">{{ completedTasks }} / {{ tasks.length }}</span>
@@ -277,9 +277,9 @@ useRealtimeUpdates(async (event) => {
 /* Task widget */
 .task-widget { margin-bottom: var(--space-6); }
 .task-header {
-  display: flex; justify-content: space-between; align-items: center;
-  width: 100%; background: none; border: none; padding: 0; margin-bottom: var(--space-3);
-  cursor: pointer; color: var(--color-text); text-align: left;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: var(--space-3);
 }
 .task-header:hover .task-header-title { color: var(--color-primary); }
 .task-header-title { font-size: var(--type-base); font-weight: 600; }

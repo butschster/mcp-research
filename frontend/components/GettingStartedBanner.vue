@@ -1,6 +1,6 @@
 <template>
   <div v-if="show" class="getting-started">
-    <button class="gs-close" @click="dismiss">&times;</button>
+    <button class="btn-ghost gs-close" @click="dismiss">&times;</button>
     <div class="gs-header">
       <div>
         <h2 class="gs-title">Welcome to MCP Research</h2>
@@ -72,8 +72,8 @@ function copyInit() {
 }
 .gs-close {
   position: absolute; top: var(--space-3); right: var(--space-3);
-  background: none; border: none; color: var(--color-text-muted);
-  font-size: var(--type-lg); cursor: pointer; line-height: 1;
+  color: var(--color-text-muted);
+  font-size: var(--type-lg); line-height: 1;
 }
 .gs-close:hover { color: var(--color-text); }
 .gs-header { margin-bottom: var(--space-6); }

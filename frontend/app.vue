@@ -17,7 +17,7 @@ useKeyboardNav()
 
 <template>
   <div>
-    <nav>
+    <nav class="app-nav">
       <div class="container nav-inner">
         <NuxtLink to="/" class="logo">MCP Research</NuxtLink>
         <div class="nav-right">

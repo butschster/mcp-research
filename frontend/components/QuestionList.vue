@@ -19,7 +19,7 @@
 
     <!-- Groups -->
     <div v-for="group in visibleGroups" :key="group.status" class="question-group">
-      <button class="group-header" @click="toggle(group.status)">
+      <button class="btn-ghost group-header" @click="toggle(group.status)">
         <StatusBadge :status="group.status" />
         <span class="group-count">{{ group.questions.length }}</span>
         <span class="group-chevron" :class="{ open: isOpen(group.status) }">&rsaquo;</span>
@@ -129,16 +129,9 @@ const visibleGroups = computed(() =>
 .question-group { margin-bottom: var(--space-2); }
 
 .group-header {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
   width: 100%;
-  background: none;
-  border: none;
   padding: var(--space-2) 0;
-  cursor: pointer;
-  color: var(--color-text);
-  text-align: left;
 }
 .group-header:hover { color: var(--color-primary); }
 
