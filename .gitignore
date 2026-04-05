@@ -7,4 +7,5 @@ frontend/.nuxt/*
 frontend/dist/*
 frontend/.output/*
 internal/api/static/*
+!internal/api/static/.gitkeep
 bin/*
