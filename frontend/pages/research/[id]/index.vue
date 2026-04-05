@@ -15,7 +15,13 @@
       <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: research.name }]" />
       <div class="research-header">
         <h1 class="page-title">{{ research.name }}</h1>
-        <StatusBadge :status="research.status" />
+        <div class="research-actions">
+          <StatusBadge :status="research.status" />
+          <NuxtLink :to="`/research/${id}/mindmap`" class="btn btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
+            Mind map
+          </NuxtLink>
+        </div>
       </div>
       <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
     </div>
@@ -265,6 +271,7 @@ useRealtimeUpdates(async (event) => {
 <style scoped>
 /* Header */
 .research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
+.research-actions { display: flex; align-items: center; gap: var(--space-3); }
 
 /* Sidebar */
 .sidebar-label {

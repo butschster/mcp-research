@@ -1,0 +1,65 @@
+<template>
+  <div class="mindmap-node question-node">
+    <div class="q-header">
+      <span class="q-text">{{ truncate(data.text, 70) }}</span>
+      <StatusBadge :status="data.status" />
+    </div>
+    <p v-if="data.answer && data.status === 'answered'" class="q-answer">{{ truncate(data.answer, 60) }}</p>
+    <span class="q-session">{{ data.sessionTitle }}</span>
+    <Handle type="target" :position="targetPosition" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { Handle, Position } from '@vue-flow/core'
+
+defineProps<{
+  data: {
+    text: string
+    status: string
+    answer: string
+    sessionTitle: string
+  }
+  targetPosition?: Position
+}>()
+
+function truncate(text: string, len: number): string {
+  if (!text) return ''
+  return text.length > len ? text.slice(0, len) + '...' : text
+}
+</script>
+
+<style scoped>
+.question-node {
+  background: var(--color-surface);
+  border: 1px solid rgba(240, 184, 73, 0.2);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  min-width: 340px;
+  max-width: 420px;
+}
+.q-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.q-text {
+  font-size: var(--type-xs);
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+.q-answer {
+  font-size: 0.6875rem;
+  color: var(--color-success);
+  line-height: 1.35;
+  margin-bottom: var(--space-1);
+}
+.q-session {
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+</style>
