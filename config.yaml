@@ -2,5 +2,11 @@
 transport: stdio    # stdio or sse
 mcp_port: 8081      # MCP SSE port (only used when transport=sse)
 web_port: 8088      # REST API port
-db: "./test.db"              # SQLite path (empty = in-memory)
-log_level: debug     # debug, info, warn, error
+db: "./test.db"     # SQLite path (empty = in-memory)
+log_level: debug    # debug, info, warn, error
+
+# Authentication
+auth_enabled: true
+allow_registration: true
+base_url: "https://mcp.1-d.xyz"  # public URL for OAuth metadata
+# jwt_secret: ""    # auto-generated if empty (set for persistence across restarts)

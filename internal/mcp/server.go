@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/service"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -55,10 +56,18 @@ func (s *Server) RunStdio(ctx context.Context) error {
 	return s.server.Run(ctx, &sdkmcp.StdioTransport{})
 }
 
-func (s *Server) RunSSE(ctx context.Context, port int) error {
-	handler := sdkmcp.NewSSEHandler(func(r *http.Request) *sdkmcp.Server {
+func (s *Server) RunSSE(ctx context.Context, port int, authSvc *service.AuthService) error {
+	sseHandler := sdkmcp.NewSSEHandler(func(r *http.Request) *sdkmcp.Server {
 		return s.server
 	}, nil)
+
+	var handler http.Handler = sseHandler
+
+	// Wrap with auth middleware when auth service is available
+	if authSvc != nil {
+		handler = sseAuthMiddleware(authSvc, sseHandler)
+	}
+
 	addr := fmt.Sprintf(":%d", port)
 	s.log.Info("MCP SSE server listening", "addr", addr)
 
@@ -73,4 +82,31 @@ func (s *Server) RunSSE(ctx context.Context, port int) error {
 
 func (s *Server) MCPServer() *sdkmcp.Server {
 	return s.server
+}
+
+// sseAuthMiddleware extracts bearer token from SSE requests and injects user into context.
+func sseAuthMiddleware(authSvc *service.AuthService, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := ""
+		if authHeader := r.Header.Get("Authorization"); len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+		}
+		if token == "" {
+			token = r.URL.Query().Get("token")
+		}
+
+		if token == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		user, err := authSvc.ValidateToken(r.Context(), token)
+		if err != nil || user == nil {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		ctx := auth.WithUser(r.Context(), user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

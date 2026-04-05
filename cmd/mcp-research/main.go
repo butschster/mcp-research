@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/butschster/mcp-research/internal/api"
 	"github.com/butschster/mcp-research/internal/api/ws"
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/config"
 	mcpserver "github.com/butschster/mcp-research/internal/mcp"
 	"github.com/butschster/mcp-research/internal/service"
@@ -65,6 +69,24 @@ func main() {
 	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, entrySvc, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
 
+	// Auth (optional)
+	var authSvc *service.AuthService
+	var oauthSvc *service.OAuthService
+	if cfg.AuthEnabled {
+		if cfg.JWTSecret == "" {
+			cfg.JWTSecret = generateRandomSecret()
+			log.Warn("no jwt_secret configured, generated random secret (will change on restart)")
+		}
+
+		userRepo := storage.NewUserRepository(db)
+		apiKeyRepo := storage.NewAPIKeyRepository(db)
+		oauthRepo := storage.NewOAuthRepository(db)
+		jwtMgr := auth.NewJWTManager(cfg.JWTSecret, 24*time.Hour)
+
+		authSvc = service.NewAuthService(userRepo, apiKeyRepo, oauthRepo, researchRepo, jwtMgr, cfg.AllowRegistration, log)
+		oauthSvc = service.NewOAuthService(oauthRepo, log)
+	}
+
 	// MCP Server
 	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log, version)
 
@@ -73,13 +95,22 @@ func main() {
 		"transport", cfg.Transport,
 		"web_port", cfg.WebPort,
 		"db", cfg.DBPath,
+		"auth_enabled", cfg.AuthEnabled,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Start REST API + WebSocket server in background
-	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, db, entryRepo, researchRepo, crossrefRepo, hub, cfg.DBPath == "", cfg.APIToken, log)
+	apiCfg := api.ServerConfig{
+		Port:        cfg.WebPort,
+		IsInMemory:  cfg.DBPath == "",
+		APIToken:    cfg.APIToken,
+		AuthEnabled: cfg.AuthEnabled,
+		BaseURL:     cfg.BaseURL,
+		OAuthSvc:    oauthSvc,
+	}
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)
@@ -89,7 +120,7 @@ func main() {
 	// Run MCP server (blocking)
 	switch cfg.Transport {
 	case "sse":
-		if err := srv.RunSSE(ctx, cfg.MCPPort); err != nil {
+		if err := srv.RunSSE(ctx, cfg.MCPPort, authSvc); err != nil {
 			log.Error("SSE server error", "error", err)
 			os.Exit(1)
 		}
@@ -112,4 +143,10 @@ func parseLogLevel(s string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+func generateRandomSecret() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
