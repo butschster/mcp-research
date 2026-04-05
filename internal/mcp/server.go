@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/butschster/mcp-research/internal/auth"
+	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -52,7 +53,13 @@ func NewServer(
 	return s
 }
 
-func (s *Server) RunStdio(ctx context.Context) error {
+// RunStdio runs the MCP server over stdin/stdout.
+// If defaultUser is provided, all operations are scoped to that user.
+func (s *Server) RunStdio(ctx context.Context, defaultUser *domain.User) error {
+	if defaultUser != nil {
+		ctx = auth.WithUser(ctx, defaultUser)
+		s.log.Info("stdio: running as user", "email", defaultUser.Email, "id", defaultUser.ID)
+	}
 	return s.server.Run(ctx, &sdkmcp.StdioTransport{})
 }
 

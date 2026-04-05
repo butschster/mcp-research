@@ -24,12 +24,13 @@ type Server struct {
 }
 
 type ServerConfig struct {
-	Port        int
-	IsInMemory  bool
-	APIToken    string
-	AuthEnabled bool
-	BaseURL     string // Public base URL for OAuth metadata (e.g. https://mcp.example.com)
-	OAuthSvc    *service.OAuthService
+	Port           int
+	IsInMemory     bool
+	APIToken       string
+	AuthEnabled    bool
+	BaseURL        string // Public base URL for OAuth metadata (e.g. https://mcp.example.com)
+	OAuthSvc       *service.OAuthService
+	AutoLoginToken string // JWT for default user auto-login (empty = disabled)
 }
 
 func NewServer(
@@ -88,7 +89,7 @@ func NewServer(
 
 	// --- Auth endpoints (only when auth enabled) ---
 	if cfg.AuthEnabled && authSvc != nil {
-		ah := handlers.NewAuthHandler(authSvc, log)
+		ah := handlers.NewAuthHandler(authSvc, cfg.AutoLoginToken, log)
 		mux.HandleFunc("POST /api/auth/register", ah.Register)
 		mux.HandleFunc("POST /api/auth/login", ah.Login)
 		mux.Handle("GET /api/auth/me", requireAuth(http.HandlerFunc(ah.Me)))

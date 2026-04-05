@@ -18,6 +18,7 @@ type Config struct {
 	JWTSecret         string `yaml:"jwt_secret"`
 	AllowRegistration bool   `yaml:"allow_registration"`
 	BaseURL           string `yaml:"base_url"`
+	DefaultUser       string `yaml:"default_user"` // email of user for stdio transport
 	Version           bool   `yaml:"-"`
 }
 
@@ -78,6 +79,9 @@ func Load() Config {
 	if v := os.Getenv("MCP_RESEARCH_BASE_URL"); v != "" {
 		cfg.BaseURL = v
 	}
+	if v := os.Getenv("MCP_RESEARCH_DEFAULT_USER"); v != "" {
+		cfg.DefaultUser = v
+	}
 
 	// 3. Override with CLI flags (highest priority)
 	var configFlag string
@@ -92,6 +96,7 @@ func Load() Config {
 	flag.StringVar(&cfg.JWTSecret, "jwt-secret", cfg.JWTSecret, "JWT signing secret (auto-generated if empty)")
 	flag.BoolVar(&cfg.AllowRegistration, "allow-registration", cfg.AllowRegistration, "Allow user self-registration")
 	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Public base URL for OAuth metadata (e.g. https://mcp.example.com)")
+	flag.StringVar(&cfg.DefaultUser, "default-user", cfg.DefaultUser, "Default user email for stdio transport (auto-login)")
 	flag.BoolVar(&cfg.Version, "version", false, "print version and exit")
 
 	flag.Parse()

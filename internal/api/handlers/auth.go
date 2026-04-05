@@ -11,12 +11,13 @@ import (
 )
 
 type AuthHandler struct {
-	authSvc *service.AuthService
-	log     *slog.Logger
+	authSvc        *service.AuthService
+	autoLoginToken string // JWT for default user (empty = disabled)
+	log            *slog.Logger
 }
 
-func NewAuthHandler(authSvc *service.AuthService, log *slog.Logger) *AuthHandler {
-	return &AuthHandler{authSvc: authSvc, log: log}
+func NewAuthHandler(authSvc *service.AuthService, autoLoginToken string, log *slog.Logger) *AuthHandler {
+	return &AuthHandler{authSvc: authSvc, autoLoginToken: autoLoginToken, log: log}
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -154,8 +155,12 @@ func (h *AuthHandler) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) AuthInfo(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"auth_enabled":       true,
 		"allow_registration": h.authSvc.AllowRegistration(),
-	})
+	}
+	if h.autoLoginToken != "" {
+		resp["auto_login_token"] = h.autoLoginToken
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
