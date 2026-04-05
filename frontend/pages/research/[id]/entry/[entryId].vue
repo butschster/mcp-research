@@ -9,12 +9,15 @@
     <div class="page-header">
       <Breadcrumbs :crumbs="[
         { label: 'Research', to: '/' },
-        { label: researchName, to: `/research/${id}` },
-        { label: sectionName, to: `/research/${id}?section=${entry.section_id}` },
+        { label: researchName, to: `/research/${researchSlug}` },
+        { label: sectionName, to: `/research/${researchSlug}?section=${entry.section_id}` },
         { label: entry.title }
       ]" />
       <div class="entry-header">
-        <h1 class="page-title">{{ entry.title }}</h1>
+        <div class="title-with-code">
+          <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+          <h1 class="page-title">{{ entry.title }}</h1>
+        </div>
         <div class="entry-actions">
           <StatusBadge :status="entry.status" />
           <PrintButton />
@@ -25,7 +28,7 @@
           </button>
         </div>
       </div>
-      <p v-if="entry.description" class="card-meta mt-2">{{ entry.description }}</p>
+      <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
       <div v-if="entry.tags?.length" class="entry-tags">
         <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
       </div>
@@ -51,11 +54,11 @@
 
     <!-- Prev / Next navigation -->
     <div v-if="siblings.length > 1" class="entry-nav">
-      <NuxtLink v-if="prevEntry" :to="`/research/${id}/entry/${prevEntry.id}`" class="btn btn-sm entry-nav-btn">
+      <NuxtLink v-if="prevEntry" :to="`/research/${researchSlug}/entry/${prevEntry.code || prevEntry.id}`" class="btn btn-sm entry-nav-btn">
         &larr; {{ prevEntry.title }}
       </NuxtLink>
       <span v-else class="entry-nav-placeholder"></span>
-      <NuxtLink v-if="nextEntry" :to="`/research/${id}/entry/${nextEntry.id}`" class="btn btn-sm entry-nav-btn entry-nav-next">
+      <NuxtLink v-if="nextEntry" :to="`/research/${researchSlug}/entry/${nextEntry.code || nextEntry.id}`" class="btn btn-sm entry-nav-btn entry-nav-next">
         {{ nextEntry.title }} &rarr;
       </NuxtLink>
     </div>
@@ -75,11 +78,13 @@ marked.setOptions({ gfm: true, breaks: true })
 
 // Research + sections for breadcrumb and sibling navigation
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
-const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
+const research = computed(() => researchData.value?.data?.research)
+const researchName = computed(() => research.value?.name ?? 'Research')
+const researchSlug = computed(() => research.value?.code || id)
 const sections = computed(() => researchData.value?.data?.sections ?? [])
 
-// Entry data
-const { data, pending } = await useApi<{ data: any }>(`/api/entries/${entryId}`)
+// Entry data (pass research context for code-based lookup)
+const { data, pending } = await useApi<{ data: any }>(`/api/entries/${entryId}?research=${id}`)
 const entry = computed(() => data.value?.data)
 
 const sectionName = computed(() => {
@@ -93,9 +98,11 @@ function tagHue(tag: string): number {
 }
 
 // Rendered markdown
-const renderedContent = computed(() =>
-  entry.value?.content ? marked.parse(entry.value.content) as string : ''
-)
+const renderedContent = computed(() => {
+  if (!entry.value?.content) return ''
+  const html = marked.parse(entry.value.content) as string
+  return renderRefs(html, researchSlug.value)
+})
 
 // View toggle
 const viewMode = ref<'rendered' | 'source'>('rendered')
@@ -124,6 +131,18 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 </script>
 
 <style scoped>
+.title-with-code { display: flex; align-items: center; gap: var(--space-3); }
+.short-code {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
 .entry-header {
   display: flex;
   justify-content: space-between;

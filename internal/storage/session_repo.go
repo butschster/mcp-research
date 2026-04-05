@@ -19,10 +19,19 @@ func NewSessionRepository(db *sql.DB) *SessionRepository {
 
 func (r *SessionRepository) Create(ctx context.Context, session *domain.Session) error {
 	now := time.Now().UTC().Format(time.DateTime)
+
+	if session.Code == "" {
+		code, err := NextCode(ctx, r.db, "sessions", "SS", "research_id", session.ResearchID)
+		if err != nil {
+			return fmt.Errorf("generate code: %w", err)
+		}
+		session.Code = code
+	}
+
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sessions (id, research_id, title, focus, status, notes, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		session.ID, session.ResearchID, session.Title, session.Focus,
+		`INSERT INTO sessions (id, code, research_id, title, focus, status, notes, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		session.ID, session.Code, session.ResearchID, session.Title, session.Focus,
 		session.Status, session.Notes,
 		now, now,
 	)
@@ -36,10 +45,19 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 
 func (r *SessionRepository) CreateTx(ctx context.Context, tx *sql.Tx, session *domain.Session) error {
 	now := time.Now().UTC().Format(time.DateTime)
+
+	if session.Code == "" {
+		code, err := NextCode(ctx, tx, "sessions", "SS", "research_id", session.ResearchID)
+		if err != nil {
+			return fmt.Errorf("generate code: %w", err)
+		}
+		session.Code = code
+	}
+
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO sessions (id, research_id, title, focus, status, notes, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		session.ID, session.ResearchID, session.Title, session.Focus,
+		`INSERT INTO sessions (id, code, research_id, title, focus, status, notes, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		session.ID, session.Code, session.ResearchID, session.Title, session.Focus,
 		session.Status, session.Notes,
 		now, now,
 	)
@@ -54,10 +72,10 @@ func (r *SessionRepository) CreateTx(ctx context.Context, tx *sql.Tx, session *d
 func (r *SessionRepository) Update(ctx context.Context, session *domain.Session) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE sessions SET title=?, focus=?, status=?, notes=?, updated_at=?
+		`UPDATE sessions SET title=?, focus=?, status=?, notes=?, code=?, updated_at=?
 		 WHERE id=?`,
 		session.Title, session.Focus, session.Status, session.Notes,
-		now, session.ID,
+		session.Code, now, session.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update session: %w", err)
@@ -68,14 +86,14 @@ func (r *SessionRepository) Update(ctx context.Context, session *domain.Session)
 
 func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Session, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, research_id, title, focus, status, notes, created_at, updated_at
+		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
 		 FROM sessions WHERE id=?`, id)
 	return r.scanSession(row)
 }
 
 func (r *SessionRepository) FindByResearch(ctx context.Context, researchID string) ([]*domain.Session, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, research_id, title, focus, status, notes, created_at, updated_at
+		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
 		 FROM sessions WHERE research_id=? ORDER BY created_at DESC`, researchID)
 	if err != nil {
 		return nil, fmt.Errorf("query sessions: %w", err)
@@ -93,10 +111,9 @@ func (r *SessionRepository) FindByResearch(ctx context.Context, researchID strin
 	return result, rows.Err()
 }
 
-// FindActive returns the active session for a research, or nil if none.
 func (r *SessionRepository) FindActive(ctx context.Context, researchID string) (*domain.Session, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, research_id, title, focus, status, notes, created_at, updated_at
+		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
 		 FROM sessions WHERE research_id=? AND status='active' LIMIT 1`, researchID)
 	return r.scanSession(row)
 }
@@ -105,7 +122,7 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	var s domain.Session
 	var createdAt, updatedAt string
 	err := row.Scan(
-		&s.ID, &s.ResearchID, &s.Title, &s.Focus,
+		&s.ID, &s.Code, &s.ResearchID, &s.Title, &s.Focus,
 		&s.Status, &s.Notes,
 		&createdAt, &updatedAt,
 	)
@@ -124,7 +141,7 @@ func (r *SessionRepository) scanSessionRow(rows *sql.Rows) (*domain.Session, err
 	var s domain.Session
 	var createdAt, updatedAt string
 	err := rows.Scan(
-		&s.ID, &s.ResearchID, &s.Title, &s.Focus,
+		&s.ID, &s.Code, &s.ResearchID, &s.Title, &s.Focus,
 		&s.Status, &s.Notes,
 		&createdAt, &updatedAt,
 	)

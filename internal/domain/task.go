@@ -15,6 +15,7 @@ const (
 
 type Task struct {
 	ID          string     `json:"id"`
+	Code        string     `json:"code"`
 	ResearchID  string     `json:"research_id"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`

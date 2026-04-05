@@ -1,7 +1,10 @@
 <template>
   <div class="mindmap-node question-node">
     <div class="q-header">
-      <span class="q-text">{{ truncate(data.text, 70) }}</span>
+      <div class="q-title-row">
+        <span v-if="data.code" class="mm-code">{{ data.code }}</span>
+        <span class="q-text">{{ truncate(data.text, 70) }}</span>
+      </div>
       <StatusBadge :status="data.status" />
     </div>
     <p v-if="data.answer && data.status === 'answered'" class="q-answer">{{ truncate(data.answer, 60) }}</p>
@@ -15,6 +18,7 @@ import { Handle, Position } from '@vue-flow/core'
 
 defineProps<{
   data: {
+    code: string
     text: string
     status: string
     answer: string
@@ -44,6 +48,13 @@ function truncate(text: string, len: number): string {
   justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
+}
+.q-title-row { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.mm-code {
+  font-size: 0.625rem; font-weight: 700; color: var(--color-primary);
+  background: var(--color-primary-muted); padding: 0.1rem 0.3rem;
+  border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0; line-height: 1; margin-top: 2px;
 }
 .q-text {
   font-size: var(--type-xs);

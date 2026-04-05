@@ -9,18 +9,23 @@ import (
 )
 
 type CrossRefHandler struct {
-	crossrefs *storage.CrossRefRepository
-	entrySvc  *service.EntryService
-	log       *slog.Logger
+	crossrefs   *storage.CrossRefRepository
+	entrySvc    *service.EntryService
+	researchSvc *service.ResearchService
+	log         *slog.Logger
 }
 
-func NewCrossRefHandler(crossrefs *storage.CrossRefRepository, entrySvc *service.EntryService, log *slog.Logger) *CrossRefHandler {
-	return &CrossRefHandler{crossrefs: crossrefs, entrySvc: entrySvc, log: log}
+func NewCrossRefHandler(crossrefs *storage.CrossRefRepository, entrySvc *service.EntryService, researchSvc *service.ResearchService, log *slog.Logger) *CrossRefHandler {
+	return &CrossRefHandler{crossrefs: crossrefs, entrySvc: entrySvc, researchSvc: researchSvc, log: log}
 }
 
 // ListForResearch returns all stored cross-references for a research.
 func (h *CrossRefHandler) ListForResearch(w http.ResponseWriter, r *http.Request) {
-	researchID := r.PathValue("id")
+	researchID, err := h.researchSvc.ResolveID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 
 	refs, err := h.crossrefs.FindByResearch(r.Context(), researchID)
 	if err != nil {
@@ -36,7 +41,11 @@ func (h *CrossRefHandler) ListForResearch(w http.ResponseWriter, r *http.Request
 
 // Rebuild rescans all entries in a research and rebuilds cross-references.
 func (h *CrossRefHandler) Rebuild(w http.ResponseWriter, r *http.Request) {
-	researchID := r.PathValue("id")
+	researchID, err := h.researchSvc.ResolveID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 
 	count, err := h.entrySvc.RebuildCrossRefs(r.Context(), researchID)
 	if err != nil {

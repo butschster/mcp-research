@@ -10,7 +10,7 @@
     <div class="page-header">
       <Breadcrumbs :crumbs="[
         { label: 'Research', to: '/' },
-        { label: researchName, to: `/research/${id}` },
+        { label: researchName, to: `/research/${researchSlug}` },
         { label: session.title }
       ]" />
       <div class="session-header">
@@ -60,7 +60,7 @@
 
     <!-- Questions panel -->
     <div v-if="activeTab === 'questions'" class="card">
-      <QuestionList :questions="questions" />
+      <QuestionList :questions="questions" :research-slug="researchSlug" />
     </div>
 
     <!-- Tasks panel -->
@@ -79,7 +79,7 @@
             </span>
             <div class="todo-content">
               <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
-              <div v-if="t.result" class="card-meta todo-result">{{ t.result }}</div>
+              <div v-if="t.result" class="card-meta todo-result" v-html="renderRefs(t.result, researchSlug)"></div>
             </div>
             <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
             <StatusBadge :status="t.status" />
@@ -100,6 +100,7 @@ const sessionId = route.params.sessionId as string
 
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
 const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
+const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 
 const { data, pending } = await useApi<{ data: any }>(`/api/sessions/${sessionId}`)
 

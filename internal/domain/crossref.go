@@ -1,8 +1,10 @@
 package domain
 
-// CrossRef represents a link from one entry to another, extracted from [[...]] patterns in content.
+// CrossRef represents a link extracted from [[...]] patterns in content.
+// Source can be an entry, question, or task.
 type CrossRef struct {
-	SourceEntryID    string `json:"source_entry_id"`
+	SourceType       string `json:"source_type"` // "entry", "question", "task"
+	SourceID         string `json:"source_id"`
 	SourceResearchID string `json:"source_research_id"`
 	TargetEntryID    string `json:"target_entry_id"`
 	TargetResearchID string `json:"target_research_id"`

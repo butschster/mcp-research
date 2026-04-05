@@ -1,7 +1,10 @@
 <template>
   <div class="mindmap-node section-node" @click="$emit('toggle', $event)">
     <div class="section-header">
-      <span class="section-name">{{ data.name }}</span>
+      <div class="section-title-row">
+        <span v-if="data.code" class="mm-code">{{ data.code }}</span>
+        <span class="section-name">{{ data.name }}</span>
+      </div>
       <StatusBadge :status="data.status" />
     </div>
     <p v-if="data.description" class="section-desc">{{ truncate(data.description, 60) }}</p>
@@ -16,6 +19,7 @@ import { Handle, Position } from '@vue-flow/core'
 
 defineProps<{
   data: {
+    code: string
     name: string
     description: string
     status: string
@@ -53,6 +57,13 @@ function truncate(text: string, len: number): string {
   justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
+}
+.section-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.mm-code {
+  font-size: 0.625rem; font-weight: 700; color: var(--color-primary);
+  background: var(--color-primary-muted); padding: 0.1rem 0.3rem;
+  border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0; line-height: 1;
 }
 .section-name {
   font-size: var(--type-sm);

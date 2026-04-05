@@ -26,7 +26,7 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 
 	// Auto-assign short code within the research
 	if entry.Code == "" {
-		code, err := r.nextCode(ctx, entry.ResearchID)
+		code, err := NextCode(ctx, r.db, "entries", "E", "research_id", entry.ResearchID)
 		if err != nil {
 			return fmt.Errorf("generate code: %w", err)
 		}
@@ -47,18 +47,6 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 	entry.CreatedAt, _ = time.Parse(time.DateTime, now)
 	entry.UpdatedAt = entry.CreatedAt
 	return nil
-}
-
-func (r *EntryRepository) nextCode(ctx context.Context, researchID string) (string, error) {
-	var maxNum int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COALESCE(MAX(CAST(SUBSTR(code, 2) AS INTEGER)), 0) FROM entries WHERE research_id=? AND code LIKE 'E%'`,
-		researchID,
-	).Scan(&maxNum)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("E%d", maxNum+1), nil
 }
 
 func (r *EntryRepository) FindByCode(ctx context.Context, researchID, code string) (*domain.Entry, error) {

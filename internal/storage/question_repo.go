@@ -30,7 +30,6 @@ func (r *QuestionRepository) CreateBatch(ctx context.Context, questions []*domai
 	}
 	defer tx.Rollback()
 
-	// Insert parents first (no parent_id), then children
 	for _, q := range questions {
 		if q.ParentID != "" {
 			continue
@@ -52,7 +51,6 @@ func (r *QuestionRepository) CreateBatch(ctx context.Context, questions []*domai
 }
 
 func (r *QuestionRepository) CreateBatchTx(ctx context.Context, tx *sql.Tx, questions []*domain.Question) error {
-	// Insert parents first, then children
 	for _, q := range questions {
 		if q.ParentID != "" {
 			continue
@@ -74,14 +72,23 @@ func (r *QuestionRepository) CreateBatchTx(ctx context.Context, tx *sql.Tx, ques
 
 func (r *QuestionRepository) insertTx(ctx context.Context, tx *sql.Tx, q *domain.Question) error {
 	now := time.Now().UTC().Format(time.DateTime)
+
+	if q.Code == "" {
+		code, err := NextCode(ctx, tx, "questions", "Q", "session_id", q.SessionID)
+		if err != nil {
+			return fmt.Errorf("generate code: %w", err)
+		}
+		q.Code = code
+	}
+
 	var parentID *string
 	if q.ParentID != "" {
 		parentID = &q.ParentID
 	}
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO questions (id, session_id, text, area, rationale, priority, status, answer, parent_id, position, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		q.ID, q.SessionID, q.Text, q.Area, q.Rationale,
+		`INSERT INTO questions (id, code, session_id, text, area, rationale, priority, status, answer, parent_id, position, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		q.ID, q.Code, q.SessionID, q.Text, q.Area, q.Rationale,
 		q.Priority, q.Status, q.Answer, parentID, q.Position,
 		now, now,
 	)
@@ -100,11 +107,11 @@ func (r *QuestionRepository) Update(ctx context.Context, question *domain.Questi
 		parentID = &question.ParentID
 	}
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE questions SET text=?, area=?, rationale=?, priority=?, status=?, answer=?, parent_id=?, position=?, updated_at=?
+		`UPDATE questions SET text=?, area=?, rationale=?, priority=?, status=?, answer=?, parent_id=?, position=?, code=?, updated_at=?
 		 WHERE id=?`,
 		question.Text, question.Area, question.Rationale,
 		question.Priority, question.Status, question.Answer,
-		parentID, question.Position, now, question.ID,
+		parentID, question.Position, question.Code, now, question.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update question: %w", err)
@@ -115,13 +122,13 @@ func (r *QuestionRepository) Update(ctx context.Context, question *domain.Questi
 
 func (r *QuestionRepository) FindByID(ctx context.Context, id string) (*domain.Question, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, session_id, text, area, rationale, priority, status, answer, parent_id, position, created_at, updated_at
+		`SELECT id, code, session_id, text, area, rationale, priority, status, answer, parent_id, position, created_at, updated_at
 		 FROM questions WHERE id=?`, id)
 	return r.scanQuestion(row)
 }
 
 func (r *QuestionRepository) FindBySession(ctx context.Context, sessionID string, filter QuestionFilter) ([]*domain.Question, error) {
-	query := `SELECT id, session_id, text, area, rationale, priority, status, answer, parent_id, position, created_at, updated_at
+	query := `SELECT id, code, session_id, text, area, rationale, priority, status, answer, parent_id, position, created_at, updated_at
 		 FROM questions WHERE session_id=?`
 	args := []any{sessionID}
 
@@ -177,12 +184,11 @@ func (r *QuestionRepository) CountByStatus(ctx context.Context, sessionID string
 	return result, rows.Err()
 }
 
-// GetDepth returns the nesting depth of a question (0 = root).
 func (r *QuestionRepository) GetDepth(ctx context.Context, questionID string) (int, error) {
 	depth := 0
 	currentID := questionID
 
-	for i := 0; i < 10; i++ { // safety limit
+	for i := 0; i < 10; i++ {
 		var parentID sql.NullString
 		err := r.db.QueryRowContext(ctx, "SELECT parent_id FROM questions WHERE id=?", currentID).Scan(&parentID)
 		if err != nil {
@@ -204,7 +210,7 @@ func (r *QuestionRepository) scanQuestion(row *sql.Row) (*domain.Question, error
 	var createdAt, updatedAt string
 
 	err := row.Scan(
-		&q.ID, &q.SessionID, &q.Text, &q.Area, &q.Rationale,
+		&q.ID, &q.Code, &q.SessionID, &q.Text, &q.Area, &q.Rationale,
 		&q.Priority, &q.Status, &q.Answer,
 		&parentID, &q.Position,
 		&createdAt, &updatedAt,
@@ -229,7 +235,7 @@ func (r *QuestionRepository) scanQuestionRow(rows *sql.Rows) (*domain.Question, 
 	var createdAt, updatedAt string
 
 	err := rows.Scan(
-		&q.ID, &q.SessionID, &q.Text, &q.Area, &q.Rationale,
+		&q.ID, &q.Code, &q.SessionID, &q.Text, &q.Area, &q.Rationale,
 		&q.Priority, &q.Status, &q.Answer,
 		&parentID, &q.Position,
 		&createdAt, &updatedAt,

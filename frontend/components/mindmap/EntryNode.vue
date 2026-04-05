@@ -1,7 +1,10 @@
 <template>
   <div class="mindmap-node entry-node" @click="navigate">
     <div class="entry-header">
-      <span class="entry-title">{{ truncate(data.title, 40) }}</span>
+      <div class="entry-title-row">
+        <span v-if="data.entrySlug" class="mm-code">{{ data.entrySlug }}</span>
+        <span class="entry-title">{{ truncate(data.title, 40) }}</span>
+      </div>
       <StatusBadge :status="data.status" />
     </div>
     <p v-if="data.description" class="entry-desc">{{ truncate(data.description, 80) }}</p>
@@ -23,8 +26,8 @@ const props = defineProps<{
     status: string
     tags: string[]
     createdAt: string
-    researchId: string
-    entryId: string
+    researchSlug: string
+    entrySlug: string
   }
   targetPosition?: Position
 }>()
@@ -41,7 +44,7 @@ function tagHue(tag: string): number {
 }
 
 function navigate() {
-  navigateTo(`/research/${props.data.researchId}/entry/${props.data.entryId}`)
+  navigateTo(`/research/${props.data.researchSlug}/entry/${props.data.entrySlug}`)
 }
 </script>
 
@@ -66,6 +69,12 @@ function navigate() {
   justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
+}
+.entry-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 .entry-title {
   font-size: var(--type-xs);
@@ -93,4 +102,15 @@ function navigate() {
   line-height: 1;
 }
 .mm-tag-more { opacity: 0.6; }
+.mm-code {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
 </style>

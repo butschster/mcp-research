@@ -63,15 +63,49 @@ As information accumulates:
 2. Mark the research as completed with `research_update`
 3. The web UI shows the full research with all entries, questions, and tasks
 
+## Short Codes
+
+Every record gets an auto-assigned short code on creation:
+
+| Entity | Prefix | Scope | Example |
+|--------|--------|-------|---------|
+| Research | `R` | global | `R1`, `R2` |
+| Section | `S` | per research | `S1`, `S2` |
+| Entry | `E` | per research | `E1`, `E2` |
+| Session | `SS` | per research | `SS1`, `SS2` |
+| Question | `Q` | per session | `Q1`, `Q2` |
+| Task | `T` | per research | `T1`, `T2` |
+
+Short codes are returned by all create endpoints and included in list/get responses. They can be used in URLs instead of UUIDs: `/research/R1/entry/E2`.
+
 ## Cross-References
 
-Entries can reference each other using short codes:
+Use `[[...]]` syntax in entry content to create links between entries:
 
 - `[[E3]]` — link to entry E3 in the same research
 - `[[R2:E5]]` — link to entry E5 in research R2
 - `[[R2]]` — link to research R2
 
-References are automatically parsed from entry content and stored in the database. Use `POST /api/researches/{id}/crossrefs/rebuild` to re-scan all entries if references become stale.
+### How it works
+
+1. When an entry is created or updated, the server parses all `[[...]]` patterns from the content
+2. Each reference is resolved to a target entry/research UUID and stored in the `crossrefs` table
+3. If the target doesn't exist yet (e.g. `[[E5]]` before E5 is created), the reference is stored as unresolved
+4. Use `POST /api/researches/{id}/crossrefs/rebuild` to re-scan all entries and resolve stale references
+5. On server startup, codes are automatically backfilled for any records missing them
+
+### Viewing cross-references
+
+- **In entry view**: `[[E3]]` renders as a clickable badge-style link navigating to the target entry
+- **In mindmap**: cross-references appear as purple dashed edges between entry nodes. Hover an edge to see which entries are connected and highlight the source/target nodes
+- **Via API**: `GET /api/researches/{id}/crossrefs` returns all resolved and unresolved references
+
+### Best practices for cross-referencing
+
+- Reference foundational entries from higher-level ones: "See [[E1]] for goroutine basics"
+- Use cross-research references when topics span projects: "Compare with [[R2:E3]]"
+- After creating entries that are referenced by earlier entries, run rebuild to resolve forward references
+- Keep entries self-contained — cross-references add context but each entry should be readable alone
 
 ## Best Practices
 
@@ -81,3 +115,5 @@ References are automatically parsed from entry content and stored in the databas
 - Use the research's instruction field as your guide for tone and depth
 - Keep session notes updated for context across sessions
 - Use tasks to plan and track remaining work
+- Use `[[E1]]` cross-references to build connections between related entries
+- Run crossref rebuild after batch-creating entries to resolve forward references

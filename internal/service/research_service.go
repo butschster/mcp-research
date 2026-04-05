@@ -91,10 +91,26 @@ func (s *ResearchService) Get(ctx context.Context, id string) (*domain.Research,
 	if err != nil {
 		return nil, fmt.Errorf("find research: %w", err)
 	}
+	// If not found by UUID, try by short code
+	if research == nil && isCode(id) {
+		research, err = s.researches.FindByCode(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("find research by code: %w", err)
+		}
+	}
 	if research == nil {
 		return nil, ErrNotFound
 	}
 	return research, nil
+}
+
+// ResolveID resolves a UUID or short code to a research UUID.
+func (s *ResearchService) ResolveID(ctx context.Context, idOrCode string) (string, error) {
+	r, err := s.Get(ctx, idOrCode)
+	if err != nil {
+		return "", err
+	}
+	return r.ID, nil
 }
 
 func (s *ResearchService) List(ctx context.Context, filter storage.ResearchFilter) ([]*domain.Research, error) {

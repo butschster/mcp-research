@@ -571,6 +571,20 @@ body::after {
 .markdown-content img { max-width: 100%; border-radius: var(--radius); margin: var(--space-4) 0; }
 .markdown-content a { color: var(--color-primary); text-decoration: none; }
 .markdown-content a:hover { text-decoration: underline; }
+.crossref-link {
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  font-weight: 600;
+  text-decoration: none;
+}
+.crossref-link:hover {
+  background: rgba(108, 197, 224, 0.2);
+  text-decoration: none;
+}
 
 /* --- Skeleton Loaders --------------------------------------------------- */
 

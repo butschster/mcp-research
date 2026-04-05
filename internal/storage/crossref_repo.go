@@ -16,21 +16,21 @@ func NewCrossRefRepository(db *sql.DB) *CrossRefRepository {
 	return &CrossRefRepository{db: db}
 }
 
-// ReplaceForEntry deletes all existing refs from this entry and inserts new ones.
-func (r *CrossRefRepository) ReplaceForEntry(ctx context.Context, entryID string, refs []domain.CrossRef) error {
+// ReplaceForSource deletes all existing refs from this source and inserts new ones.
+func (r *CrossRefRepository) ReplaceForSource(ctx context.Context, sourceType, sourceID string, refs []domain.CrossRef) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, "DELETE FROM crossrefs WHERE source_entry_id=?", entryID); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM crossrefs WHERE source_type=? AND source_id=?", sourceType, sourceID); err != nil {
 		return fmt.Errorf("delete old crossrefs: %w", err)
 	}
 
 	stmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO crossrefs (source_entry_id, source_research_id, target_entry_id, target_research_id, target_ref, resolved)
-		 VALUES (?, ?, ?, ?, ?, ?)`)
+		`INSERT INTO crossrefs (source_type, source_id, source_entry_id, source_research_id, target_entry_id, target_research_id, target_ref, resolved)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)
 	}
@@ -48,8 +48,14 @@ func (r *CrossRefRepository) ReplaceForEntry(ctx context.Context, entryID string
 		if ref.TargetResearchID != "" {
 			targetResearchID = &ref.TargetResearchID
 		}
+		// source_entry_id kept for backward compat (NULL for non-entry sources)
+		var sourceEntryID *string
+		if ref.SourceType == "entry" {
+			sourceEntryID = &ref.SourceID
+		}
 		if _, err := stmt.ExecContext(ctx,
-			ref.SourceEntryID, ref.SourceResearchID,
+			ref.SourceType, ref.SourceID,
+			sourceEntryID, ref.SourceResearchID,
 			targetEntryID, targetResearchID,
 			ref.TargetRef, resolved,
 		); err != nil {
@@ -63,7 +69,7 @@ func (r *CrossRefRepository) ReplaceForEntry(ctx context.Context, entryID string
 // FindByResearch returns all cross-references where the source belongs to the given research.
 func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID string) ([]domain.CrossRef, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT source_entry_id, source_research_id,
+		`SELECT source_type, source_id, source_research_id,
 		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
 		        target_ref, resolved
 		 FROM crossrefs WHERE source_research_id=?
@@ -78,7 +84,7 @@ func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID stri
 		var cr domain.CrossRef
 		var resolved int
 		if err := rows.Scan(
-			&cr.SourceEntryID, &cr.SourceResearchID,
+			&cr.SourceType, &cr.SourceID, &cr.SourceResearchID,
 			&cr.TargetEntryID, &cr.TargetResearchID,
 			&cr.TargetRef, &resolved,
 		); err != nil {
@@ -90,10 +96,10 @@ func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID stri
 	return result, rows.Err()
 }
 
-// FindByTargetEntry returns all entries that reference the given entry (incoming links).
+// FindByTargetEntry returns all sources that reference the given entry (incoming links).
 func (r *CrossRefRepository) FindByTargetEntry(ctx context.Context, entryID string) ([]domain.CrossRef, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT source_entry_id, source_research_id,
+		`SELECT source_type, source_id, source_research_id,
 		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
 		        target_ref, resolved
 		 FROM crossrefs WHERE target_entry_id=?
@@ -108,7 +114,7 @@ func (r *CrossRefRepository) FindByTargetEntry(ctx context.Context, entryID stri
 		var cr domain.CrossRef
 		var resolved int
 		if err := rows.Scan(
-			&cr.SourceEntryID, &cr.SourceResearchID,
+			&cr.SourceType, &cr.SourceID, &cr.SourceResearchID,
 			&cr.TargetEntryID, &cr.TargetResearchID,
 			&cr.TargetRef, &resolved,
 		); err != nil {

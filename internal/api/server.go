@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -27,6 +28,7 @@ func NewServer(
 	entrySvc *service.EntryService,
 	sessionSvc *service.SessionService,
 	taskSvc *service.TaskService,
+	db *sql.DB,
 	entryRepo *storage.EntryRepository,
 	researchRepo *storage.ResearchRepository,
 	crossrefRepo *storage.CrossRefRepository,
@@ -39,8 +41,8 @@ func NewServer(
 
 	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, log)
 	eh := handlers.NewEntryHandler(entrySvc, entryRepo, researchRepo, log)
-	sh := handlers.NewSessionHandler(sessionSvc, log)
-	th := handlers.NewTaskHandler(taskSvc, log)
+	sh := handlers.NewSessionHandler(sessionSvc, researchSvc, log)
+	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 
 	// --- Read-only endpoints (no auth) ---
 
@@ -50,7 +52,7 @@ func NewServer(
 	mux.HandleFunc("GET /api/entries/{id}", eh.Get)
 	mux.HandleFunc("GET /api/researches/{id}/entries/by-code/{code}", eh.ResolveCode)
 	mux.HandleFunc("GET /api/resolve/research/{code}", eh.ResolveResearchCode)
-	mux.HandleFunc("GET /api/researches/{id}/crossrefs", handlers.NewCrossRefHandler(crossrefRepo, entrySvc, log).ListForResearch)
+	mux.HandleFunc("GET /api/researches/{id}/crossrefs", handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log).ListForResearch)
 	mux.HandleFunc("GET /api/researches/{id}/tasks", th.ListByResearch)
 	mux.HandleFunc("GET /api/researches/{id}/sessions", sh.ListByResearch)
 	mux.HandleFunc("GET /api/sessions/{id}", sh.Get)
@@ -58,7 +60,7 @@ func NewServer(
 	// --- Write endpoints (auth only when api_token is configured) ---
 
 	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
-	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, log)
+	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
 
 	wrap := func(h http.HandlerFunc) http.Handler {
 		if apiToken != "" {
@@ -77,7 +79,18 @@ func NewServer(
 	mux.Handle("PUT /api/tasks/{id}", wrap(wh.UpdateTask))
 	mux.Handle("DELETE /api/tasks/{id}", wrap(wh.DeleteTask))
 	mux.Handle("POST /api/sessions", wrap(wh.CreateSession))
+	mux.Handle("PUT /api/questions/{questionId}", wrap(wh.UpdateQuestion))
 	mux.Handle("POST /api/researches/{id}/crossrefs/rebuild", wrap(crh.Rebuild))
+
+	// Backfill short codes for all records missing them
+	mux.Handle("POST /api/admin/backfill-codes", wrap(func(w http.ResponseWriter, r *http.Request) {
+		count, err := storage.BackfillCodes(r.Context(), db)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"backfilled": count, "status": "ok"})
+	}))
 
 	if apiToken != "" {
 		log.Info("write API: bearer token required")

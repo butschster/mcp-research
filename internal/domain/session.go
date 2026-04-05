@@ -12,6 +12,7 @@ const (
 
 type Session struct {
 	ID         string        `json:"id"`
+	Code       string        `json:"code"`
 	ResearchID string        `json:"research_id"`
 	Title      string        `json:"title"`
 	Focus      string        `json:"focus"`
@@ -41,6 +42,7 @@ const (
 
 type Question struct {
 	ID        string         `json:"id"`
+	Code      string         `json:"code"`
 	SessionID string         `json:"session_id"`
 	Text      string         `json:"text"`
 	Area      string         `json:"area"`

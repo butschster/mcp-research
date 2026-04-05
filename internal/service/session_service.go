@@ -53,12 +53,13 @@ type SessionService struct {
 	db        *sql.DB
 	sessions  *storage.SessionRepository
 	questions *storage.QuestionRepository
+	crossrefs CrossRefParser
 	events    EventNotifier
 	log       *slog.Logger
 }
 
-func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, events EventNotifier, log *slog.Logger) *SessionService {
-	return &SessionService{db: db, sessions: sessions, questions: questions, events: events, log: log}
+func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *SessionService {
+	return &SessionService{db: db, sessions: sessions, questions: questions, crossrefs: crossrefs, events: events, log: log}
 }
 
 func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (*domain.Session, []*domain.Question, error) {
@@ -270,6 +271,14 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 
 	if err := s.questions.Update(ctx, question); err != nil {
 		return nil, fmt.Errorf("update question: %w", err)
+	}
+
+	// Parse crossrefs from answer text
+	if s.crossrefs != nil && question.Answer != "" {
+		session, _ := s.sessions.FindByID(ctx, question.SessionID)
+		if session != nil {
+			s.crossrefs.ParseCrossRefs(ctx, "question", question.ID, session.ResearchID, question.Answer)
+		}
 	}
 
 	s.events.Notify(Event{Type: "question.updated", EntityID: question.ID, Entity: "question"})
