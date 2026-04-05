@@ -16,6 +16,7 @@ func TestTaskService_Create(t *testing.T) {
 	svc := NewTaskService(
 		storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		nil,
 		notifier,
 		slog.Default(),
 	)
@@ -84,6 +85,7 @@ func TestTaskService_Get(t *testing.T) {
 	svc := NewTaskService(
 		storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		nil,
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -117,6 +119,7 @@ func TestTaskService_List(t *testing.T) {
 	svc := NewTaskService(
 		storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		nil,
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -165,6 +168,7 @@ func TestTaskService_Update(t *testing.T) {
 	svc := NewTaskService(
 		storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		nil,
 		notifier,
 		slog.Default(),
 	)
@@ -261,6 +265,7 @@ func TestTaskService_Delete(t *testing.T) {
 	svc := NewTaskService(
 		storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		nil,
 		notifier,
 		slog.Default(),
 	)
@@ -299,6 +304,7 @@ func TestTaskService_CountByStatus(t *testing.T) {
 	svc := NewTaskService(
 		storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		nil,
 		&mockNotifier{},
 		slog.Default(),
 	)

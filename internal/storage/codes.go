@@ -85,30 +85,34 @@ func BackfillCodes(ctx context.Context, db *sql.DB) (int, error) {
 }
 
 func backfillGlobal(ctx context.Context, db *sql.DB, table, prefix string) (int, error) {
+	// Collect IDs first, then close cursor before updating (avoids MaxOpenConns(1) deadlock)
 	rows, err := db.QueryContext(ctx,
 		fmt.Sprintf(`SELECT id FROM %s WHERE code = '' ORDER BY created_at ASC`, table))
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
-
-	count := 0
+	var ids []string
 	for rows.Next() {
 		var id string
 		if err := rows.Scan(&id); err != nil {
-			return count, err
+			rows.Close()
+			return 0, err
 		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+
+	for _, id := range ids {
 		code, err := NextCodeGlobal(ctx, db, table, prefix)
 		if err != nil {
-			return count, err
+			return 0, err
 		}
 		if _, err := db.ExecContext(ctx,
 			fmt.Sprintf(`UPDATE %s SET code=? WHERE id=?`, table), code, id); err != nil {
-			return count, err
+			return 0, err
 		}
-		count++
 	}
-	return count, rows.Err()
+	return len(ids), nil
 }
 
 func backfillScoped(ctx context.Context, db *sql.DB, table, prefix, scopeColumn string) (int, error) {
@@ -117,23 +121,27 @@ func backfillScoped(ctx context.Context, db *sql.DB, table, prefix, scopeColumn 
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
-
-	count := 0
+	type item struct{ id, scope string }
+	var items []item
 	for rows.Next() {
-		var id, scopeValue string
-		if err := rows.Scan(&id, &scopeValue); err != nil {
-			return count, err
+		var i item
+		if err := rows.Scan(&i.id, &i.scope); err != nil {
+			rows.Close()
+			return 0, err
 		}
-		code, err := NextCode(ctx, db, table, prefix, scopeColumn, scopeValue)
+		items = append(items, i)
+	}
+	rows.Close()
+
+	for _, i := range items {
+		code, err := NextCode(ctx, db, table, prefix, scopeColumn, i.scope)
 		if err != nil {
-			return count, err
+			return 0, err
 		}
 		if _, err := db.ExecContext(ctx,
-			fmt.Sprintf(`UPDATE %s SET code=? WHERE id=?`, table), code, id); err != nil {
-			return count, err
+			fmt.Sprintf(`UPDATE %s SET code=? WHERE id=?`, table), code, i.id); err != nil {
+			return 0, err
 		}
-		count++
 	}
-	return count, rows.Err()
+	return len(items), nil
 }

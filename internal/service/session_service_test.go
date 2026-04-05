@@ -17,6 +17,7 @@ func TestSessionService_Create(t *testing.T) {
 		db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
+		nil,
 		notifier,
 		slog.Default(),
 	)
@@ -86,6 +87,7 @@ func TestSessionService_Get(t *testing.T) {
 		db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
+		nil,
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -136,6 +138,7 @@ func TestSessionService_Update(t *testing.T) {
 		db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
+		nil,
 		notifier,
 		slog.Default(),
 	)
@@ -219,6 +222,7 @@ func TestSessionService_ListByResearch(t *testing.T) {
 		db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
+		nil,
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -244,6 +248,7 @@ func TestSessionService_AddQuestions(t *testing.T) {
 		db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
+		nil,
 		notifier,
 		slog.Default(),
 	)
@@ -331,6 +336,7 @@ func TestSessionService_UpdateQuestion(t *testing.T) {
 		db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
+		nil,
 		notifier,
 		slog.Default(),
 	)
@@ -389,6 +395,7 @@ func TestSessionService_ListQuestions(t *testing.T) {
 		db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
+		nil,
 		&mockNotifier{},
 		slog.Default(),
 	)

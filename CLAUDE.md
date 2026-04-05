@@ -17,8 +17,13 @@ make run                    # uses research.db
 # Run with SSE transport (recommended for development with Web UI)
 make run-sse                # SSE on :8081, REST+WebSocket on :8088
 
-# Run tests
-make test
+# Run tests (storage, service, tools layers)
+make test                   # or: go test ./...
+
+# Run specific test suites
+go test ./internal/storage/ -v -run Code       # short code tests
+go test ./internal/service/ -v -run CrossRef   # crossref parsing tests
+go test ./internal/service/ -v -run Resolve    # code resolution tests
 
 # Frontend development (hot-reload, separate from Go server)
 make frontend-dev           # Nuxt dev on :3000, proxies API to :8088
