@@ -1,6 +1,6 @@
 <template>
   <button class="btn btn-sm search-trigger" @click="open = true">
-    <span>&#x2315;</span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     <span class="search-hint">Search <kbd>&#x2318;K</kbd></span>
   </button>
 
@@ -8,7 +8,7 @@
     <div v-if="open" class="search-overlay" @click.self="open = false">
       <div class="search-modal">
         <div class="search-input-wrap">
-          <span class="search-icon">&#x2315;</span>
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input
             ref="inputRef"
             v-model="query"
@@ -107,26 +107,43 @@ function selectCurrent() {
 </script>
 
 <style scoped>
-.search-trigger { gap: var(--space-2); }
-.search-hint kbd { font-size: 0.625rem; opacity: 0.6; margin-left: var(--space-1); }
+.search-trigger { gap: 0.375rem; color: var(--color-text-muted); }
+.search-hint { font-size: 0.6875rem; }
+.search-hint kbd { font-size: 0.5625rem; opacity: 0.45; margin-left: 0.2rem; }
 
 .search-overlay {
-  position: fixed; inset: 0; z-index: 100;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  position: fixed; inset: 0; z-index: var(--z-overlay);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px) saturate(0.8);
+  -webkit-backdrop-filter: blur(8px) saturate(0.8);
   display: flex; align-items: flex-start; justify-content: center;
-  padding-top: 12vh;
+  padding-top: 14vh;
+  animation: overlay-in 0.15s ease both;
+}
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .search-modal {
   width: 100%; max-width: 560px; margin: 0 var(--space-4);
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius); overflow: hidden;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg); overflow: hidden;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(108, 197, 224, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: modal-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(-8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .search-input-wrap {
   display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-4); border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border);
 }
-.search-icon { font-size: var(--type-lg); color: var(--color-text-muted); }
+.search-icon { color: var(--color-text-muted); flex-shrink: 0; }
 .search-input {
   flex: 1; background: none; border: none; outline: none;
   color: var(--color-text); font-size: var(--type-base); font-family: inherit;
@@ -135,26 +152,28 @@ function selectCurrent() {
 .search-kbd {
   font-size: 0.625rem; padding: var(--space-1) var(--space-2);
   background: var(--color-surface-hover); border: 1px solid var(--color-border);
-  border-radius: var(--radius); color: var(--color-text-muted);
+  border-radius: var(--radius-sm); color: var(--color-text-muted);
   font-family: inherit;
 }
-.search-results { max-height: 400px; overflow-y: auto; }
+.search-results { max-height: 400px; overflow-y: auto; padding: var(--space-2) 0; }
 .result-group-label {
   font-size: var(--type-xs); font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--color-text-muted);
-  padding: var(--space-3) var(--space-4) var(--space-1);
+  letter-spacing: 0.04em; color: var(--color-text-muted);
+  padding: var(--space-3) var(--space-5) var(--space-1);
 }
 .result-item {
   display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-3) var(--space-4); text-decoration: none; color: inherit;
+  padding: var(--space-3) var(--space-5); text-decoration: none; color: inherit;
   transition: background var(--transition-fast); cursor: pointer;
+  margin: 0 var(--space-2);
+  border-radius: var(--radius-sm);
 }
 .result-item:hover, .result-active { background: var(--color-surface-hover); }
 .result-content { flex: 1; min-width: 0; }
 .result-title { display: block; font-weight: 500; font-size: var(--type-sm); }
-.result-meta { display: block; font-size: var(--type-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.result-empty { padding: var(--space-8); text-align: center; color: var(--color-text-muted); font-size: var(--type-sm); }
-.search-hints { display: flex; gap: var(--space-6); padding: var(--space-3) var(--space-4); }
+.result-meta { display: block; font-size: var(--type-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.result-empty { padding: var(--space-10); text-align: center; color: var(--color-text-muted); font-size: var(--type-sm); }
+.search-hints { display: flex; gap: var(--space-6); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--color-border); }
 .hint-item { font-size: var(--type-xs); color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-2); }
-.hint-item kbd { background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: var(--radius); padding: var(--space-1) var(--space-2); font-size: 0.625rem; font-family: inherit; }
+.hint-item kbd { background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2); font-size: 0.625rem; font-family: inherit; }
 </style>

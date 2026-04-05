@@ -31,5 +31,5 @@ const icon = computed(() => config.value.icon)
 </script>
 
 <style scoped>
-.badge-icon { margin-right: 0.125rem; }
+.badge-icon { font-size: 0.65em; }
 </style>

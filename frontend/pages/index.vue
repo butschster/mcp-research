@@ -90,16 +90,17 @@ useRealtimeUpdates(async (event) => {
   gap: var(--space-6);
 }
 .skeleton-card {
-  height: 110px;
+  height: 120px;
+  border-radius: var(--radius);
 }
 .active-tag-filter {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  background: rgba(56,189,248,0.08);
-  border: 1px solid rgba(56,189,248,0.2);
-  border-radius: var(--radius);
+  background: var(--color-primary-muted);
+  border: 1px solid rgba(108, 197, 224, 0.15);
+  border-radius: var(--radius-sm);
   font-size: var(--type-xs);
   color: var(--color-primary);
 }
@@ -111,5 +112,8 @@ useRealtimeUpdates(async (event) => {
   font-size: var(--type-sm);
   padding: 0;
   line-height: 1;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
 }
+.tag-clear:hover { opacity: 1; }
 </style>

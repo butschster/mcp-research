@@ -13,7 +13,8 @@
         <option value="low">&darr; Low</option>
       </select>
       <button v-if="filterArea || filterPriority" class="btn btn-sm" @click="clearFilters">
-        Clear filters
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        Clear
       </button>
     </div>
 
@@ -118,30 +119,43 @@ const visibleGroups = computed(() =>
 }
 .q-select {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-2) var(--space-3);
-  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 1.5rem 0.35rem 0.625rem;
+  color: var(--color-text-muted);
   font-size: var(--type-sm);
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
+  transition: all var(--transition-fast);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237f8ea3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
 }
+.q-select:hover { border-color: rgba(108, 197, 224, 0.25); color: var(--color-text); }
 
-.question-group { margin-bottom: var(--space-2); }
+.question-group { margin-bottom: var(--space-3); }
 
 .group-header {
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) 0;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
 }
-.group-header:hover { color: var(--color-primary); }
+.group-header:hover { background: var(--color-surface-hover); }
 
 .group-count {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
-  border-radius: 999px;
-  padding: var(--space-1) var(--space-2);
+  border-radius: 4px;
+  padding: 0.15rem 0.375rem;
   font-weight: 600;
+  min-width: 1.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .group-chevron {
@@ -154,10 +168,11 @@ const visibleGroups = computed(() =>
 .group-chevron.open { transform: rotate(90deg); }
 
 .group-body {
-  padding-left: var(--space-1);
+  padding-left: var(--space-3);
   border-left: 2px solid var(--color-border);
-  margin-left: var(--space-2);
+  margin-left: var(--space-3);
   margin-bottom: var(--space-3);
+  margin-top: var(--space-1);
 }
 
 .question-row {

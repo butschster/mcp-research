@@ -18,15 +18,16 @@ defineProps<{
 .breadcrumbs {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0.375rem;
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   margin-bottom: var(--space-3);
 }
 .breadcrumb-sep {
   color: var(--color-text-muted);
-  opacity: 0.4;
+  opacity: 0.3;
   user-select: none;
+  font-size: var(--type-xs);
 }
 .breadcrumb-link {
   color: var(--color-text-muted);

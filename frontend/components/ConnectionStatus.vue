@@ -62,8 +62,9 @@ onUnmounted(() => {
 .connection-status {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0.375rem;
   font-size: var(--type-xs);
+  font-weight: 500;
   color: var(--color-text-muted);
   cursor: default;
 }
@@ -72,8 +73,20 @@ onUnmounted(() => {
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
+  transition: background var(--transition-base);
 }
-.ws-connected    { background: var(--color-success); }
-.ws-reconnecting { background: var(--color-warning); }
-.ws-disconnected { background: var(--color-text-muted); }
+.ws-connected {
+  background: var(--color-success);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+}
+.ws-reconnecting {
+  background: var(--color-warning);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.ws-disconnected { background: var(--color-text-muted); opacity: 0.5; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 </style>

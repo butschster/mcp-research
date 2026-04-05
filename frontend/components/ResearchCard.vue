@@ -54,12 +54,31 @@ function relativeTime(iso: string): string {
 </script>
 
 <style scoped>
-.research-card { display: block; text-decoration: none; color: inherit; }
-.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
-.goal-text { margin-top: var(--space-2); }
-.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-3); gap: var(--space-2); }
+.research-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+}
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
+.goal-text {
+  margin-top: var(--space-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+}
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: var(--space-3);
+  gap: var(--space-2);
+}
 .tags-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .timestamp { white-space: nowrap; flex-shrink: 0; }
 .tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
-.tag-clickable:hover { background: rgba(56,189,248,0.15); color: var(--color-primary); }
+.tag-clickable:hover { background: var(--color-primary-muted); color: var(--color-primary); }
 </style>

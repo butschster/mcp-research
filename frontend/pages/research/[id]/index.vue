@@ -20,29 +20,33 @@
       <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
     </div>
 
-    <!-- Active session widget -->
-    <div v-if="activeSession" class="card session-widget">
+    <!-- Active session summary -->
+    <NuxtLink v-if="activeSession" :to="`/research/${id}/session/${activeSession.id}`" class="card session-widget">
       <div class="session-widget-header">
         <div class="flex items-center gap-2">
-          <span class="card-meta">Active Session</span>
+          <span class="session-label">Active session</span>
           <StatusBadge :status="activeSession.status" />
         </div>
-        <NuxtLink :to="`/research/${id}/session/${activeSession.id}`" class="btn btn-sm">
-          View questions &rarr;
-        </NuxtLink>
       </div>
       <h3 class="session-title">{{ activeSession.title }}</h3>
       <p v-if="activeSession.focus" class="card-meta mt-2">{{ activeSession.focus }}</p>
-      <div v-if="sessionProgress" class="session-progress">
-        <ProgressBar :value="sessionProgress.answered" :total="sessionProgress.total" />
-        <span class="card-meta">
-          {{ sessionProgress.answered }} / {{ sessionProgress.total }} questions answered
-        </span>
-      </div>
-    </div>
 
-    <!-- Tasks widget -->
-    <div v-if="tasks.length" class="card task-widget">
+      <div class="session-stats">
+        <div v-if="sessionProgress" class="session-stat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          <span>{{ sessionProgress.answered }} / {{ sessionProgress.total }} questions</span>
+          <ProgressBar :value="sessionProgress.answered" :total="sessionProgress.total" class="stat-progress" />
+        </div>
+        <div v-if="tasks.length" class="session-stat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>{{ completedTasks }} / {{ tasks.length }} tasks</span>
+          <ProgressBar :value="completedTasks" :total="tasks.length" class="stat-progress" />
+        </div>
+      </div>
+    </NuxtLink>
+
+    <!-- Tasks widget (shown only when no active session but tasks exist) -->
+    <div v-else-if="tasks.length" class="card task-widget">
       <button class="btn-ghost task-header" @click="tasksOpen = !tasksOpen">
         <h3 class="task-header-title">Tasks</h3>
         <div class="task-header-right">
@@ -263,16 +267,64 @@ useRealtimeUpdates(async (event) => {
 .research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
 
 /* Sidebar */
-.sidebar-label { font-size: var(--type-xs); font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--space-4); }
+.sidebar-label {
+  font-size: var(--type-xs); font-weight: 600; color: var(--color-text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-4);
+  opacity: 0.6;
+}
 .sidebar-item-content { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .sidebar-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-sm); }
 .sidebar-item-meta { font-size: var(--type-xs); margin-top: var(--space-1); }
 
 /* Session widget */
-.session-widget { margin-bottom: var(--space-6); border-color: rgba(56,189,248,0.2); }
-.session-widget-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
-.session-title { font-size: var(--type-base); font-weight: 600; }
-.session-progress { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.session-widget {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  margin-bottom: var(--space-6);
+  border-color: rgba(108, 197, 224, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+.session-widget:hover { text-decoration: none; }
+.session-widget::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(108, 197, 224, 0.3), transparent);
+}
+.session-widget-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-2);
+}
+.session-label {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-primary);
+}
+.session-title { font-size: var(--type-lg); font-weight: 600; letter-spacing: -0.01em; }
+
+/* Session stats (questions + tasks summary) */
+.session-stats {
+  display: flex;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.session-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-sm);
+  color: var(--color-text-muted);
+  flex: 1;
+  min-width: 0;
+}
+.session-stat svg { flex-shrink: 0; opacity: 0.6; }
+.session-stat span { white-space: nowrap; }
+.stat-progress { flex: 1; min-width: 60px; }
 
 /* Task widget */
 .task-widget { margin-bottom: var(--space-6); }
@@ -282,7 +334,7 @@ useRealtimeUpdates(async (event) => {
   margin-bottom: var(--space-3);
 }
 .task-header:hover .task-header-title { color: var(--color-primary); }
-.task-header-title { font-size: var(--type-base); font-weight: 600; }
+.task-header-title { font-size: var(--type-base); font-weight: 600; letter-spacing: -0.01em; }
 .task-header-right { display: flex; align-items: center; gap: var(--space-3); }
 .task-chevron {
   font-size: var(--type-lg); color: var(--color-text-muted);
@@ -291,8 +343,14 @@ useRealtimeUpdates(async (event) => {
 .task-chevron.open { transform: rotate(90deg); }
 
 /* Todo list */
-.todo-list { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
-.todo-item { display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-sm); }
+.todo-list { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-3); }
+.todo-item {
+  display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+.todo-item:hover { background: var(--color-surface-hover); }
 .todo-check { width: var(--space-5); text-align: center; flex-shrink: 0; color: var(--color-text-muted); }
 .todo-content { flex: 1; min-width: 0; }
 .todo-done { text-decoration: line-through; color: var(--color-text-muted); }
@@ -304,15 +362,14 @@ useRealtimeUpdates(async (event) => {
 
 /* Sections + Entries */
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
-.section-title { font-size: var(--type-xl); font-weight: 600; }
+.section-title { font-size: var(--type-xl); font-weight: 600; letter-spacing: -0.02em; }
 .tags-panel { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.tag-active { background: rgba(56,189,248,0.15); color: var(--color-primary); }
+.tag-active { background: var(--color-primary-muted); color: var(--color-primary); }
 .tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
-.tag-clickable:hover { background: rgba(56,189,248,0.12); color: var(--color-primary); }
+.tag-clickable:hover { background: var(--color-primary-muted); color: var(--color-primary); }
 
 .entries-grid { grid-template-columns: 1fr; }
 .entry-card { display: block; text-decoration: none; color: inherit; }
-.entry-card:hover { border-color: var(--color-primary); }
 .entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 

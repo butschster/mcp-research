@@ -50,9 +50,13 @@ useKeyboardNav()
 
 <style>
 .nav-inner  { display: flex; align-items: center; justify-content: space-between; }
-.nav-right  { display: flex; align-items: center; gap: var(--space-4); }
-.main-content { padding-top: var(--space-8); padding-bottom: var(--space-12); }
-.app-footer { border-top: 1px solid var(--color-border); padding: var(--space-4) 0; margin-top: var(--space-8); }
+.nav-right  { display: flex; align-items: center; gap: var(--space-3); }
+.main-content { padding-top: var(--space-10); padding-bottom: var(--space-16); min-height: calc(100dvh - 200px); }
+.app-footer {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-4) 0;
+  margin-top: var(--space-12);
+}
 .footer-inner { display: flex; align-items: center; justify-content: space-between; }
 .footer-link  { text-decoration: none; transition: color var(--transition-fast); }
 .footer-link:hover { color: var(--color-primary); text-decoration: none; }

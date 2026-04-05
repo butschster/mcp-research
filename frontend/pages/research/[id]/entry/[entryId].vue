@@ -19,7 +19,9 @@
           <StatusBadge :status="entry.status" />
           <PrintButton />
           <button class="btn btn-sm" @click="copyMarkdown">
-            {{ copied ? '&#x2713; Copied' : 'Copy' }}
+            <svg v-if="!copied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {{ copied ? 'Copied' : 'Copy' }}
           </button>
         </div>
       </div>
@@ -32,9 +34,11 @@
     <!-- View toggle -->
     <div class="view-toggle">
       <button :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         Rendered
       </button>
       <button :class="['btn btn-sm', { active: viewMode === 'source' }]" @click="viewMode = 'source'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         Source
       </button>
     </div>
@@ -141,26 +145,42 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 
 /* View toggle */
 .view-toggle {
-  display: flex;
-  gap: var(--space-1);
+  display: inline-flex;
+  gap: 0;
   margin-bottom: var(--space-4);
-}
-.view-toggle .btn { color: var(--color-text-muted); }
-.view-toggle .btn.active {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.view-toggle .btn {
+  color: var(--color-text-muted);
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+}
+.view-toggle .btn:hover {
   color: var(--color-text);
-  border-color: var(--color-primary);
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+}
+.view-toggle .btn.active {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 /* Content */
-.entry-content { padding: var(--space-6); }
+.entry-content {
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+}
 .source-view {
-  background: var(--color-surface-hover);
-  padding: var(--space-4);
-  border-radius: var(--radius);
+  background: none;
+  padding: 0;
   overflow-x: auto;
   font-size: var(--type-xs);
-  line-height: 1.6;
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--color-text-muted);
@@ -173,7 +193,9 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: var(--space-6);
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
   gap: var(--space-4);
 }
 .entry-nav-btn {

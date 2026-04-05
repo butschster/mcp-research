@@ -47,8 +47,9 @@ const fillClass = computed(() => {
 .fill-low      { background: var(--color-error); }
 .progress-label {
   font-size: var(--type-xs);
+  font-weight: 500;
   color: var(--color-text-muted);
-  min-width: 2.5rem;
+  min-width: 2.25rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

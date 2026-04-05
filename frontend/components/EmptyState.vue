@@ -30,7 +30,7 @@ async function copy() {
 </script>
 
 <style scoped>
-.empty-icon  { font-size: var(--type-3xl); margin-bottom: var(--space-4); line-height: 1; }
-.empty-title { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); color: var(--color-text); line-height: var(--line-tight); }
-.empty-desc  { font-size: var(--type-sm); }
+.empty-icon  { font-size: 2.5rem; margin-bottom: var(--space-5); line-height: 1; opacity: 0.7; }
+.empty-title { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); color: var(--color-text); line-height: var(--line-tight); letter-spacing: -0.01em; }
+.empty-desc  { font-size: var(--type-sm); max-width: 40ch; margin-left: auto; margin-right: auto; }
 </style>
