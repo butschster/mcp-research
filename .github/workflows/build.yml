@@ -21,6 +21,10 @@ jobs:
             goarch: amd64
           - goos: darwin
             goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -59,17 +63,19 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          EXT=""
+          if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
           VERSION=${GITHUB_REF_NAME:-dev}
           COMMIT=$(git rev-parse --short HEAD)
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           go build -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE" \
-            -o bin/mcp-research-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/mcp-research
+            -o bin/mcp-research-${{ matrix.goos }}-${{ matrix.goarch }}${EXT} ./cmd/mcp-research
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mcp-research-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: bin/mcp-research-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/mcp-research-*
 
   release:
     needs: build
