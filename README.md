@@ -1,99 +1,122 @@
 # MCP Research
 
-A self-contained MCP server for structured AI-driven research sessions. Built in Go with an embedded Nuxt 4 web UI.
+A structured research tool for AI assistants. Single binary — download, run, connect your AI, and start building
+organized knowledge bases with interviews, cross-referenced entries, tasks, and an interactive web UI.
 
-The server enables Claude (or any MCP client) to autonomously design research structures, conduct interactive Q&A sessions, manage tasks, and track progress — all persisted in SQLite.
+An AI assistant (Claude, Cursor, or any MCP-compatible client) designs the research structure, interviews you, writes
+structured entries, tracks tasks, and links everything together — all persisted in SQLite with a live web dashboard.
+
+## Install
+
+Download the latest binary for your OS:
+
+```bash
+# macOS (Apple Silicon)
+curl -L -o mcp-research \
+  https://github.com/butschster/mcp-research/releases/latest/download/mcp-research-darwin-arm64
+chmod +x mcp-research
+
+# macOS (Intel)
+curl -L -o mcp-research \
+  https://github.com/butschster/mcp-research/releases/latest/download/mcp-research-darwin-amd64
+chmod +x mcp-research
+
+# Linux (x86_64)
+curl -L -o mcp-research \
+  https://github.com/butschster/mcp-research/releases/latest/download/mcp-research-linux-amd64
+chmod +x mcp-research
+
+# Linux (ARM64)
+curl -L -o mcp-research \
+  https://github.com/butschster/mcp-research/releases/latest/download/mcp-research-linux-arm64
+chmod +x mcp-research
+
+# Windows (PowerShell)
+Invoke-WebRequest -Uri https://github.com/butschster/mcp-research/releases/latest/download/mcp-research-windows-amd64.exe -OutFile mcp-research.exe
+```
+
+Verify it works:
+
+```bash
+./mcp-research --version
+```
 
 ## Quick Start
 
+Run the server with a persistent database:
+
 ```bash
-# Build (Go binary only)
-make build
-
-# Build with embedded frontend (single binary)
-make build-all
-
-# Run with persistent storage
-./bin/mcp-research --db research.db
-
-# Open http://localhost:8088 for the web UI
+./mcp-research --db research.db
 ```
 
-## Configuration
+That's it. The server is now running with:
 
-Configuration is loaded from `config.yaml` → environment variables → CLI flags (highest priority).
+- **MCP** over stdio (ready for AI clients)
+- **Web UI** at [http://localhost:8088](http://localhost:8088)
+- **REST API** at the same port
+- **LLMs.txt** documentation at [http://localhost:8088/llms.txt](http://localhost:8088/llms.txt)
 
-### config.yaml
+## Connect Your AI
 
-```yaml
-transport: stdio    # stdio or sse
-mcp_port: 8081      # MCP SSE port (only used when transport=sse)
-web_port: 8088      # REST API + Web UI port
-db: ""              # SQLite path (empty = in-memory)
-log_level: info     # debug, info, warn, error
-api_token: ""       # Bearer token for write API (empty = write API disabled)
-```
+### Option 1: MCP Client (recommended)
 
-### CLI Flags
+MCP clients (Claude Desktop, Claude Code, Cursor, etc.) communicate with the server over the MCP protocol. The AI gets
+21 specialized tools and 2 research prompts to work with.
 
-```
---transport    stdio or sse (default: stdio)
---mcp-port     MCP SSE port (default: 8081)
---web-port     Web/API port (default: 8088)
---db           SQLite database path (default: in-memory)
---log-level    Log level (default: info)
---api-token    Bearer token for write API (default: disabled)
---version      Print version and exit
-```
-
-### Environment Variables
-
-```
-MCP_RESEARCH_TRANSPORT
-MCP_RESEARCH_DB
-MCP_RESEARCH_LOG_LEVEL
-MCP_RESEARCH_API_TOKEN
-MCP_RESEARCH_CONFIG    # path to config.yaml (default: ./config.yaml)
-```
-
-## MCP Client Setup
-
-### Claude Desktop
-
-Add to `~/.claude/claude_desktop_config.json`:
+**Claude Code** — add to `~/.claude/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "mcp-research": {
       "command": "/path/to/mcp-research",
-      "args": ["--db", "/path/to/research.db"]
+      "args": [
+        "--db",
+        "/path/to/research.db"
+      ]
     }
   }
 }
 ```
 
-### Cursor
-
-Add to `~/.cursor/mcp.json`:
+**Claude Desktop** — add to `~/.claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "mcp-research": {
       "command": "/path/to/mcp-research",
-      "args": ["--db", "/path/to/research.db"]
+      "args": [
+        "--db",
+        "/path/to/research.db"
+      ]
     }
   }
 }
 ```
 
-### SSE Mode
+**Cursor** — add to `~/.cursor/mcp.json`:
 
-Run the server first, then connect via URL:
+```json
+{
+  "mcpServers": {
+    "mcp-research": {
+      "command": "/path/to/mcp-research",
+      "args": [
+        "--db",
+        "/path/to/research.db"
+      ]
+    }
+  }
+}
+```
+
+Then ask your AI to use the `research/initialize` prompt to start a new research project.
+
+**SSE mode** — if your client supports URL-based MCP connections:
 
 ```bash
-./bin/mcp-research --transport sse --mcp-port 8081 --db research.db
+./mcp-research --transport sse --mcp-port 8081 --db research.db
 ```
 
 ```json
@@ -106,175 +129,106 @@ Run the server first, then connect via URL:
 }
 ```
 
-## MCP Tools (21)
+### Option 2: LLMs.txt (any AI, no MCP required)
 
-### Research
-
-| Tool | Description |
-|------|-------------|
-| `research_create` | Create a research project with initial sections |
-| `research_get` | Get full context: research + sections + entry counts + active session |
-| `research_list` | List research projects with optional status filter |
-| `research_update` | Update research fields, memory, instructions |
-| `research_add_section` | Add a section to existing research |
-
-### Sections
-
-| Tool | Description |
-|------|-------------|
-| `section_list` | List sections with entry counts |
-| `section_update` | Update section status/properties |
-
-### Entries
-
-| Tool | Description |
-|------|-------------|
-| `entry_create` | Create entry with auto-generated title/description |
-| `entry_list` | List entries (without content, for token efficiency) |
-| `entry_read` | Read single entry with full markdown content |
-| `entry_update` | Update entry, supports `text_replace` for surgical edits |
-
-### Sessions & Questions
-
-| Tool | Description |
-|------|-------------|
-| `session_create` | Create session with initial questions (atomic) |
-| `session_get` | Get session with grouped questions + progress |
-| `session_update` | Update session notes (supports append) |
-| `question_create` | Batch create questions with parent/child support |
-| `question_update` | Update question status and answer |
-| `question_list` | List questions with status/area/priority filters |
-
-### Tasks (Todo List)
-
-| Tool | Description |
-|------|-------------|
-| `task_create` | Create a task in the research todo list |
-| `task_update` | Update task status, priority, result |
-| `task_list` | List tasks with filters + progress counters |
-| `task_delete` | Remove a task |
-
-Task statuses: `pending`, `in_progress`, `blocked`, `completed`, `failed`, `deferred`
-
-## MCP Prompts (2)
-
-| Prompt | Description |
-|--------|-------------|
-| `research/initialize` | Interactive workflow to design and create a new research project |
-| `research/conduct` | Systematic research execution: interview user, create entries, track progress |
-
-## Architecture
+If your AI doesn't support MCP, you can use the built-in documentation + REST API. After starting the server, open:
 
 ```
-Claude/Cursor ←→ stdio/SSE ←→ MCP Server ←→ SQLite
-                                    ↕
-                              REST API + Web UI (:8088)
+http://localhost:8088/llms.txt
 ```
 
-### Data Model
+This page describes the full API, data model, and research workflow in a format any LLM can understand. Feed it to
+ChatGPT, Gemini, or any other AI along with the [OpenAPI spec](http://localhost:8088/api/openapi.yaml), and it can
+interact with the server through the REST API.
 
-- **Research** — top-level project with goal, instructions, memory, tags
-- **Section** — grouping within research (slug-based naming)
-- **Entry** — markdown content within a section (auto-title, auto-description, short code `E1`)
-- **Session** — Q&A interview session with focus area
-- **Question** — individual question with priority, status, parent/child nesting (max 3 levels)
-- **Task** — self-managed todo item for AI planning
-- **CrossRef** — cross-references between entries, extracted from `[[E3]]` / `[[R2:E5]]` patterns in content
-
-### Layers
-
-```
-internal/
-├── domain/     # Data structs and status constants
-├── storage/    # SQLite repositories + migrations
-├── service/    # Business logic and validation
-├── mcp/        # MCP server, tools, prompts
-└── api/        # REST API + embedded frontend
-```
-
-## Write API
-
-When `api_token` is configured, write endpoints mirror all MCP tools via REST:
+To enable write access via REST, start the server with an API token:
 
 ```bash
-# Enable write API
-./bin/mcp-research --db research.db --api-token my-secret-token
+./mcp-research --db research.db --api-token my-secret-token
+```
 
-# Create a research
+The AI can then create and update data using bearer authentication:
+
+```bash
 curl -X POST http://localhost:8088/api/researches \
   -H "Authorization: Bearer my-secret-token" \
   -H "Content-Type: application/json" \
   -d '{"name":"My Research","goal":"Investigate X","sections":[{"name":"overview","display_name":"Overview"}]}'
-
-# Create an entry
-curl -X POST http://localhost:8088/api/entries \
-  -H "Authorization: Bearer my-secret-token" \
-  -H "Content-Type: application/json" \
-  -d '{"research_id":"...","section_id":"...","content":"# Title\n\nContent here. See [[E1]] for details."}'
 ```
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/researches` | Create research + sections |
-| `PUT` | `/api/researches/{id}` | Update research |
-| `POST` | `/api/researches/{id}/sections` | Add section |
-| `PUT` | `/api/sections/{sectionId}` | Update section |
-| `POST` | `/api/entries` | Create entry |
-| `PUT` | `/api/entries/{id}` | Update entry (supports `text_replace`) |
-| `POST` | `/api/tasks` | Create task |
-| `PUT` | `/api/tasks/{id}` | Update task |
-| `DELETE` | `/api/tasks/{id}` | Delete task |
-| `POST` | `/api/sessions` | Create session + questions |
-| `POST` | `/api/researches/{id}/crossrefs/rebuild` | Rebuild cross-references |
+## How It Works
 
-### Cross-References
+### Research Workflow
 
-Entries auto-receive short codes (`E1`, `E2`, ...) and researches get global codes (`R1`, `R2`, ...). Use `[[E3]]` syntax in entry content to link entries within the same research, or `[[R2:E5]]` for cross-research links. References are stored in the database on every entry create/update. Use the rebuild endpoint to re-scan all entries when needed.
+1. **Initialize** — the AI designs a research structure: sections, goals, tags
+2. **Conduct** — the AI interviews you, records answers, writes structured entries
+3. **Complete** — sections and research are marked done; everything is browsable in the web UI
 
-## Web UI
+### Data Model
 
-The Nuxt 4 frontend is embedded into the Go binary. It provides:
+```
+Research (R1, R2, ...)
+├── Section (S1, S2, ...) → Entry (E1, E2, ...)
+├── Session (SS1, SS2, ...) → Question (Q1, Q2, ...)
+└── Task (T1, T2, ...)
+```
+
+Every entity gets an auto-assigned **short code**. Entries support cross-references with `[[E3]]` (same research) or
+`[[R2:E5]]` (cross-research) syntax, stored and rendered as navigable links.
+
+### Web UI
+
+The embedded web UI at `:8088` provides:
 
 - Research list with status and tag filters
-- Research detail with section sidebar, entry cards, tags panel
-- Entry detail with rendered markdown
-- Session detail with Questions + Tasks tabs and progress tracking
-- Interactive mindmap view (Vue Flow) with collapsible sections
-- PDF export via `window.print()`
+- Research detail with sections, entries, and progress tracking
+- Interactive **mindmap** view with collapsible sections and cross-reference edges
+- Session view with grouped questions and progress counters
+- Real-time updates via WebSocket
+- PDF export
 
-### Development Mode
+## Configuration
 
-Run the frontend separately with hot-reload:
+| Setting     | CLI Flag      | Env Var                  | Default         |
+|-------------|---------------|--------------------------|-----------------|
+| Transport   | `--transport` | `MCP_RESEARCH_TRANSPORT` | `stdio`         |
+| MCP Port    | `--mcp-port`  | —                        | `8081`          |
+| Web Port    | `--web-port`  | —                        | `8088`          |
+| DB Path     | `--db`        | `MCP_RESEARCH_DB`        | in-memory       |
+| Log Level   | `--log-level` | `MCP_RESEARCH_LOG_LEVEL` | `info`          |
+| API Token   | `--api-token` | `MCP_RESEARCH_API_TOKEN` | disabled        |
+| Config File | `--config`    | `MCP_RESEARCH_CONFIG`    | `./config.yaml` |
+
+You can also use a `config.yaml` file. Priority: CLI flags > env vars > config.yaml > defaults.
+
+## MCP Tools
+
+| Category      | Tools                                                                                         |
+|---------------|-----------------------------------------------------------------------------------------------|
+| **Research**  | `research_create`, `research_get`, `research_list`, `research_update`, `research_add_section` |
+| **Sections**  | `section_list`, `section_update`                                                              |
+| **Entries**   | `entry_create`, `entry_list`, `entry_read`, `entry_update`                                    |
+| **Sessions**  | `session_create`, `session_get`, `session_update`                                             |
+| **Questions** | `question_create`, `question_update`, `question_list`                                         |
+| **Tasks**     | `task_create`, `task_update`, `task_list`, `task_delete`                                      |
+
+**MCP Prompts:** `research/initialize` (design a new research) and `research/conduct` (run an interview session).
+
+## Building from Source
+
+Requires Go 1.25+ and Node.js 20+ (for frontend).
 
 ```bash
-# Terminal 1: Go server
-make run
+git clone https://github.com/butschster/mcp-research.git
+cd mcp-research
 
-# Terminal 2: Nuxt dev server (proxies API to Go server)
-make frontend-dev
+# Full build: frontend + Go binary
+make build-all
+
+# Run
+./bin/mcp-research --db research.db
 ```
 
-## Makefile
+## License
 
-```
-make build           # Build Go binary only
-make build-all       # Build frontend + embed + Go binary
-make run             # Build and run with file DB
-make run-memory      # Build and run with in-memory DB
-make run-sse         # Build and run with SSE transport
-make test            # Run Go tests
-make clean           # Remove build artifacts
-make frontend-install  # Install npm dependencies
-make frontend-dev    # Run Nuxt dev server
-make frontend-build  # Build Nuxt for static output
-make frontend-embed  # Build + copy to Go embed directory
-```
-
-## Dependencies
-
-- **Go 1.25+**
-- **Node.js 20+** (for frontend build only)
-- **SQLite** via `modernc.org/sqlite` (pure Go, no CGo)
-- **MCP SDK** via `github.com/modelcontextprotocol/go-sdk`
-
-No CGo required. Cross-compilation works out of the box with `CGO_ENABLED=0`.
+MIT
