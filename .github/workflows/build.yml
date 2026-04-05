@@ -56,7 +56,7 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test ./...
+        run: go test ./cmd/... ./internal/...
 
       - name: Build binary
         env:

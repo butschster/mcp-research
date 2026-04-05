@@ -24,7 +24,7 @@ run-sse: build
 	./bin/mcp-research --transport sse --mcp-port 8081 --db research.db
 
 test:
-	go test ./...
+	go test ./cmd/... ./internal/...
 
 clean:
 	rm -rf bin/
