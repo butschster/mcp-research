@@ -37,7 +37,7 @@
             <StatusBadge v-if="q.priority" :status="q.priority" />
           </div>
           <div v-if="q.area" class="card-meta q-area">{{ q.area }}</div>
-          <div v-if="q.answer" class="question-answer">{{ q.answer }}</div>
+          <div v-if="q.answer" class="question-answer" v-html="renderRefs(q.answer, props.researchSlug || '')"></div>
         </div>
 
         <EmptyState v-if="group.questions.length === 0" title="No questions match filters" />
@@ -66,6 +66,7 @@ interface Question {
 
 const props = defineProps<{
   questions: Record<string, Question[]>
+  researchSlug?: string
 }>()
 
 const filterArea = ref('')

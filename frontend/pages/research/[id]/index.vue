@@ -76,7 +76,7 @@
           </span>
           <div class="todo-content">
             <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
-            <div v-if="t.result" class="card-meta todo-result">{{ t.result }}</div>
+            <div v-if="t.result" class="card-meta todo-result" v-html="renderRefs(t.result, researchSlug)"></div>
           </div>
           <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
           <StatusBadge :status="t.status" />
