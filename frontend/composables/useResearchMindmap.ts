@@ -76,6 +76,7 @@ export function useResearchMindmap(researchId: string) {
   const collapsedIds = ref<Set<string>>(new Set())
   const layoutDirection = ref<'LR' | 'TB'>('LR')
   const visibleGroups = ref<Set<string>>(new Set(['entries', 'questions', 'tasks']))
+  const showCrossrefs = ref(false)
 
   async function fetchAllData() {
     const config = useRuntimeConfig()
@@ -113,6 +114,7 @@ export function useResearchMindmap(researchId: string) {
             for (const q of statusGroup) {
               allQuestions.push({
                 id: q.id,
+                code: q.code,
                 text: q.text,
                 status: q.status,
                 answer: q.answer,
@@ -126,7 +128,11 @@ export function useResearchMindmap(researchId: string) {
       })
     )
 
-    return { research, sections, entriesBySection, tasks, allQuestions }
+    // Fetch cross-references
+    const crossrefsRes = await $fetch<{ data: any[] }>(`${base}/api/researches/${researchId}/crossrefs`)
+    const crossrefs = crossrefsRes.data ?? []
+
+    return { research, sections, entriesBySection, tasks, allQuestions, crossrefs }
   }
 
   function buildGraph(data: Awaited<ReturnType<typeof fetchAllData>>) {
@@ -161,6 +167,7 @@ export function useResearchMindmap(researchId: string) {
           type: 'section',
           position: { x: 0, y: 0 },
           data: {
+            code: sec.code,
             name: sec.display_name || sec.name,
             description: sec.description,
             status: sec.status,
@@ -191,8 +198,8 @@ export function useResearchMindmap(researchId: string) {
                 status: entry.status,
                 tags: entry.tags ?? [],
                 createdAt: entry.created_at,
-                researchId: researchId,
-                entryId: entry.id,
+                researchSlug: research.code || researchId,
+                entrySlug: entry.code || entry.id,
               },
             })
             rawEdges.push({
@@ -233,6 +240,7 @@ export function useResearchMindmap(researchId: string) {
             type: 'question',
             position: { x: 0, y: 0 },
             data: {
+              code: q.code,
               text: q.text,
               status: q.status,
               answer: q.answer,
@@ -276,6 +284,7 @@ export function useResearchMindmap(researchId: string) {
             type: 'task',
             position: { x: 0, y: 0 },
             data: {
+              code: t.code,
               title: t.title,
               result: t.result,
               status: t.status,
@@ -293,7 +302,31 @@ export function useResearchMindmap(researchId: string) {
       }
     }
 
-    return { rawNodes, rawEdges }
+    // Cross-reference edges are built separately (not included in dagre layout)
+    const crossrefEdges: Edge[] = []
+    const nodeIds = new Set(rawNodes.map(n => n.id))
+    for (const ref of data.crossrefs) {
+      if (!ref.resolved || !ref.target_entry_id) continue
+      // Map source_type + source_id to node ID
+      const sourceId = ref.source_type === 'entry'
+        ? `entry-${ref.source_id}`
+        : ref.source_type === 'question'
+          ? `question-${ref.source_id}`
+          : `task-${ref.source_id}`
+      const targetId = `entry-${ref.target_entry_id}`
+      if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
+        crossrefEdges.push({
+          id: `xref-${ref.source_id}-${ref.target_entry_id}`,
+          source: sourceId,
+          target: targetId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: 'rgba(167,139,250,0.35)', strokeWidth: 1, strokeDasharray: '4 4' },
+        })
+      }
+    }
+
+    return { rawNodes, rawEdges, crossrefEdges }
   }
 
   // IDs that belong on the left side (questions + tasks)
@@ -430,9 +463,9 @@ export function useResearchMindmap(researchId: string) {
 
   function rebuildGraph() {
     if (!cachedData) return
-    const { rawNodes, rawEdges } = buildGraph(cachedData)
+    const { rawNodes, rawEdges, crossrefEdges } = buildGraph(cachedData)
     nodes.value = applyLayout(rawNodes, rawEdges)
-    edges.value = rawEdges
+    edges.value = showCrossrefs.value ? [...rawEdges, ...crossrefEdges] : rawEdges
   }
 
   function toggleCollapse(id: string) {
@@ -471,6 +504,11 @@ export function useResearchMindmap(researchId: string) {
     rebuildGraph()
   }
 
+  function toggleCrossrefs() {
+    showCrossrefs.value = !showCrossrefs.value
+    rebuildGraph()
+  }
+
   return {
     nodes,
     edges,
@@ -485,5 +523,7 @@ export function useResearchMindmap(researchId: string) {
     setLayoutDirection,
     visibleGroups,
     toggleGroup,
+    showCrossrefs,
+    toggleCrossrefs,
   }
 }

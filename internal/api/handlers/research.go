@@ -42,14 +42,15 @@ func (h *ResearchHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ResearchHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	idOrCode := r.PathValue("id")
 
-	research, err := h.research.Get(r.Context(), id)
+	research, err := h.research.Get(r.Context(), idOrCode)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
+	id := research.ID
 	sections, err := h.section.List(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -85,8 +86,14 @@ func (h *ResearchHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ResearchHandler) ListSectionEntries(w http.ResponseWriter, r *http.Request) {
-	researchID := r.PathValue("id")
+	idOrCode := r.PathValue("id")
 	sectionID := r.PathValue("sectionId")
+
+	researchID, err := h.research.ResolveID(r.Context(), idOrCode)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 
 	entries, err := h.entry.List(r.Context(), researchID, sectionID, storage.EntryFilter{})
 	if err != nil {

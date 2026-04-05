@@ -14,6 +14,11 @@ import (
 
 var refPattern = regexp.MustCompile(`\[\[([^\]]+)\]\]`)
 
+// CrossRefParser parses [[...]] references from text and stores them.
+type CrossRefParser interface {
+	ParseCrossRefs(ctx context.Context, sourceType, sourceID, researchID, text string)
+}
+
 type CreateEntryRequest struct {
 	ResearchID string
 	SectionID  string
@@ -128,6 +133,26 @@ func (s *EntryService) Get(ctx context.Context, id string) (*domain.Entry, error
 	return entry, nil
 }
 
+// GetByIDOrCode resolves an entry by UUID or short code within a research.
+func (s *EntryService) GetByIDOrCode(ctx context.Context, researchID, idOrCode string) (*domain.Entry, error) {
+	// Try UUID first
+	entry, err := s.entries.FindByID(ctx, idOrCode)
+	if err != nil {
+		return nil, fmt.Errorf("find entry: %w", err)
+	}
+	// If not found and looks like a code, try by code
+	if entry == nil && isCode(idOrCode) {
+		entry, err = s.entries.FindByCode(ctx, researchID, idOrCode)
+		if err != nil {
+			return nil, fmt.Errorf("find entry by code: %w", err)
+		}
+	}
+	if entry == nil {
+		return nil, ErrNotFound
+	}
+	return entry, nil
+}
+
 func (s *EntryService) List(ctx context.Context, researchID, sectionID string, filter storage.EntryFilter) ([]*domain.Entry, error) {
 	return s.entries.FindBySection(ctx, researchID, sectionID, filter)
 }
@@ -195,25 +220,35 @@ func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) 
 
 // updateCrossRefs parses [[...]] references from entry content and stores them.
 func (s *EntryService) updateCrossRefs(ctx context.Context, entry *domain.Entry) {
-	if s.crossrefs == nil {
+	s.parseCrossRefs(ctx, "entry", entry.ID, entry.ResearchID, entry.Content)
+}
+
+// ParseCrossRefs extracts [[...]] references from text and stores them.
+// Can be called for entries, questions, or tasks.
+func (s *EntryService) ParseCrossRefs(ctx context.Context, sourceType, sourceID, researchID, text string) {
+	s.parseCrossRefs(ctx, sourceType, sourceID, researchID, text)
+}
+
+func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID, researchID, text string) {
+	if s.crossrefs == nil || text == "" {
 		return
 	}
 
-	matches := refPattern.FindAllStringSubmatch(entry.Content, -1)
+	matches := refPattern.FindAllStringSubmatch(text, -1)
 	var refs []domain.CrossRef
 
 	for _, m := range matches {
 		raw := m[1]
 		cr := domain.CrossRef{
-			SourceEntryID:    entry.ID,
-			SourceResearchID: entry.ResearchID,
+			SourceType:       sourceType,
+			SourceID:         sourceID,
+			SourceResearchID: researchID,
 			TargetRef:        raw,
 		}
 
 		researchCode, entryCode := parseRef(raw)
 
 		if researchCode != "" {
-			// Cross-research reference
 			targetResearch, err := s.researches.FindByCode(ctx, researchCode)
 			if err == nil && targetResearch != nil {
 				cr.TargetResearchID = targetResearch.ID
@@ -228,9 +263,8 @@ func (s *EntryService) updateCrossRefs(ctx context.Context, entry *domain.Entry)
 				}
 			}
 		} else if entryCode != "" {
-			// Same-research reference
-			cr.TargetResearchID = entry.ResearchID
-			targetEntry, err := s.entries.FindByCode(ctx, entry.ResearchID, entryCode)
+			cr.TargetResearchID = researchID
+			targetEntry, err := s.entries.FindByCode(ctx, researchID, entryCode)
 			if err == nil && targetEntry != nil {
 				cr.TargetEntryID = targetEntry.ID
 				cr.Resolved = true
@@ -240,8 +274,8 @@ func (s *EntryService) updateCrossRefs(ctx context.Context, entry *domain.Entry)
 		refs = append(refs, cr)
 	}
 
-	if err := s.crossrefs.ReplaceForEntry(ctx, entry.ID, refs); err != nil {
-		s.log.Error("failed to update crossrefs", "entry_id", entry.ID, "error", err)
+	if err := s.crossrefs.ReplaceForSource(ctx, sourceType, sourceID, refs); err != nil {
+		s.log.Error("failed to update crossrefs", "source_type", sourceType, "source_id", sourceID, "error", err)
 	}
 }
 

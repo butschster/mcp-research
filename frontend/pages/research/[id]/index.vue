@@ -14,10 +14,13 @@
     <div class="page-header">
       <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: research.name }]" />
       <div class="research-header">
-        <h1 class="page-title">{{ research.name }}</h1>
+        <div class="title-with-code">
+          <span v-if="research.code" class="short-code">{{ research.code }}</span>
+          <h1 class="page-title">{{ research.name }}</h1>
+        </div>
         <div class="research-actions">
           <StatusBadge :status="research.status" />
-          <NuxtLink :to="`/research/${id}/mindmap`" class="btn btn-sm">
+          <NuxtLink :to="`/research/${researchSlug}/mindmap`" class="btn btn-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
             Mind map
           </NuxtLink>
@@ -27,7 +30,7 @@
     </div>
 
     <!-- Active session summary -->
-    <NuxtLink v-if="activeSession" :to="`/research/${id}/session/${activeSession.id}`" class="card session-widget">
+    <NuxtLink v-if="activeSession" :to="`/research/${researchSlug}/session/${activeSession.id}`" class="card session-widget">
       <div class="session-widget-header">
         <div class="flex items-center gap-2">
           <span class="session-label">Active session</span>
@@ -135,14 +138,17 @@
             <NuxtLink
               v-for="entry in filteredEntries"
               :key="entry.id"
-              :to="`/research/${id}/entry/${entry.id}`"
+              :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`"
               class="card entry-card"
             >
               <div class="entry-card-header">
-                <h3 class="card-title">{{ entry.title }}</h3>
+                <div class="entry-title-row">
+                  <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+                  <h3 class="card-title">{{ entry.title }}</h3>
+                </div>
                 <StatusBadge :status="entry.status" />
               </div>
-              <p v-if="entry.description" class="card-meta mt-2">{{ entry.description }}</p>
+              <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
               <div v-if="entry.tags?.length" class="entry-tags">
                 <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
               </div>
@@ -178,6 +184,7 @@ const id = route.params.id as string
 const { data: researchData, pending } = await useApi<{ data: any }>(`/api/researches/${id}`)
 
 const research = computed(() => researchData.value?.data?.research)
+const researchSlug = computed(() => research.value?.code || id)
 const sections = computed(() => researchData.value?.data?.sections ?? [])
 const activeSession = computed(() => researchData.value?.data?.active_session)
 
@@ -272,6 +279,19 @@ useRealtimeUpdates(async (event) => {
 /* Header */
 .research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
 .research-actions { display: flex; align-items: center; gap: var(--space-3); }
+.title-with-code { display: flex; align-items: center; gap: var(--space-3); }
+.entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.short-code {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
 
 /* Sidebar */
 .sidebar-label {

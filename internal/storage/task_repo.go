@@ -24,10 +24,19 @@ func NewTaskRepository(db *sql.DB) *TaskRepository {
 
 func (r *TaskRepository) Create(ctx context.Context, task *domain.Task) error {
 	now := time.Now().UTC().Format(time.DateTime)
+
+	if task.Code == "" {
+		code, err := NextCode(ctx, r.db, "tasks", "T", "research_id", task.ResearchID)
+		if err != nil {
+			return fmt.Errorf("generate code: %w", err)
+		}
+		task.Code = code
+	}
+
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO tasks (id, research_id, title, description, status, priority, result, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		task.ID, task.ResearchID, task.Title, task.Description,
+		`INSERT INTO tasks (id, code, research_id, title, description, status, priority, result, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		task.ID, task.Code, task.ResearchID, task.Title, task.Description,
 		task.Status, task.Priority, task.Result,
 		now, now,
 	)
@@ -47,10 +56,10 @@ func (r *TaskRepository) Update(ctx context.Context, task *domain.Task) error {
 		completedAt = &s
 	}
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE tasks SET title=?, description=?, status=?, priority=?, result=?, updated_at=?, completed_at=?
+		`UPDATE tasks SET title=?, description=?, status=?, priority=?, result=?, code=?, updated_at=?, completed_at=?
 		 WHERE id=?`,
 		task.Title, task.Description, task.Status, task.Priority, task.Result,
-		now, completedAt, task.ID,
+		task.Code, now, completedAt, task.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update task: %w", err)
@@ -61,13 +70,13 @@ func (r *TaskRepository) Update(ctx context.Context, task *domain.Task) error {
 
 func (r *TaskRepository) FindByID(ctx context.Context, id string) (*domain.Task, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
+		`SELECT id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
 		 FROM tasks WHERE id=?`, id)
 	return r.scanTask(row)
 }
 
 func (r *TaskRepository) FindByResearch(ctx context.Context, researchID string, filter TaskFilter) ([]*domain.Task, error) {
-	query := `SELECT id, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
+	query := `SELECT id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
 		 FROM tasks WHERE research_id=?`
 	args := []any{researchID}
 
@@ -130,7 +139,7 @@ func (r *TaskRepository) scanTask(row *sql.Row) (*domain.Task, error) {
 	var completedAt sql.NullString
 
 	err := row.Scan(
-		&t.ID, &t.ResearchID, &t.Title, &t.Description,
+		&t.ID, &t.Code, &t.ResearchID, &t.Title, &t.Description,
 		&t.Status, &t.Priority, &t.Result,
 		&createdAt, &updatedAt, &completedAt,
 	)
@@ -155,7 +164,7 @@ func (r *TaskRepository) scanTaskRow(rows *sql.Rows) (*domain.Task, error) {
 	var completedAt sql.NullString
 
 	err := rows.Scan(
-		&t.ID, &t.ResearchID, &t.Title, &t.Description,
+		&t.ID, &t.Code, &t.ResearchID, &t.Title, &t.Description,
 		&t.Status, &t.Priority, &t.Result,
 		&createdAt, &updatedAt, &completedAt,
 	)

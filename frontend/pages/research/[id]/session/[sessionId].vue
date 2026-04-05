@@ -10,7 +10,7 @@
     <div class="page-header">
       <Breadcrumbs :crumbs="[
         { label: 'Research', to: '/' },
-        { label: researchName, to: `/research/${id}` },
+        { label: researchName, to: `/research/${researchSlug}` },
         { label: session.title }
       ]" />
       <div class="session-header">
@@ -100,6 +100,7 @@ const sessionId = route.params.sessionId as string
 
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
 const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
+const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 
 const { data, pending } = await useApi<{ data: any }>(`/api/sessions/${sessionId}`)
 

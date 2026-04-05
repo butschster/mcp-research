@@ -1,7 +1,10 @@
 <template>
-  <NuxtLink :to="`/research/${research.id}`" class="card research-card">
+  <NuxtLink :to="`/research/${research.code || research.id}`" class="card research-card">
     <div class="card-header">
-      <h3 class="card-title">{{ research.name }}</h3>
+      <div class="card-title-row">
+        <span v-if="research.code" class="short-code">{{ research.code }}</span>
+        <h3 class="card-title">{{ research.name }}</h3>
+      </div>
       <StatusBadge :status="research.status" />
     </div>
 
@@ -27,6 +30,7 @@
 defineProps<{
   research: {
     id: string
+    code?: string
     name: string
     goal: string
     status: string
@@ -61,6 +65,18 @@ function relativeTime(iso: string): string {
   color: inherit;
 }
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
+.card-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.short-code {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
 .goal-text {
   margin-top: var(--space-2);
   display: -webkit-box;

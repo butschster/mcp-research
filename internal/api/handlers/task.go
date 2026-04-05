@@ -9,16 +9,21 @@ import (
 )
 
 type TaskHandler struct {
-	task *service.TaskService
-	log  *slog.Logger
+	task     *service.TaskService
+	research *service.ResearchService
+	log      *slog.Logger
 }
 
-func NewTaskHandler(task *service.TaskService, log *slog.Logger) *TaskHandler {
-	return &TaskHandler{task: task, log: log}
+func NewTaskHandler(task *service.TaskService, research *service.ResearchService, log *slog.Logger) *TaskHandler {
+	return &TaskHandler{task: task, research: research, log: log}
 }
 
 func (h *TaskHandler) ListByResearch(w http.ResponseWriter, r *http.Request) {
-	researchID := r.PathValue("id")
+	researchID, err := h.research.ResolveID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 
 	tasks, err := h.task.List(r.Context(), researchID, storage.TaskFilter{})
 	if err != nil {

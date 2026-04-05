@@ -359,6 +359,32 @@ func (h *WriteHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"data": session})
 }
 
+// --- Questions ---
+
+func (h *WriteHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
+	questionID := r.PathValue("questionId")
+	var input struct {
+		Status *string `json:"status"`
+		Answer *string `json:"answer"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+
+	var status *domain.QuestionStatus
+	if input.Status != nil {
+		s := domain.QuestionStatus(*input.Status)
+		status = &s
+	}
+
+	question, err := h.session.UpdateQuestion(r.Context(), questionID, status, input.Answer)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": question})
+}
+
 // --- Helpers ---
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {

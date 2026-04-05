@@ -26,7 +26,7 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 
 	// Auto-assign short code
 	if research.Code == "" {
-		code, err := r.nextCode(ctx)
+		code, err := NextCodeGlobal(ctx, r.db, "researches", "R")
 		if err != nil {
 			return fmt.Errorf("generate code: %w", err)
 		}
@@ -49,16 +49,6 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 	return nil
 }
 
-func (r *ResearchRepository) nextCode(ctx context.Context) (string, error) {
-	var maxNum int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COALESCE(MAX(CAST(SUBSTR(code, 2) AS INTEGER)), 0) FROM researches WHERE code LIKE 'R%'`,
-	).Scan(&maxNum)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("R%d", maxNum+1), nil
-}
 
 func (r *ResearchRepository) Update(ctx context.Context, research *domain.Research) error {
 	now := time.Now().UTC().Format(time.DateTime)

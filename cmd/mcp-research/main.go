@@ -38,6 +38,13 @@ func main() {
 	}
 	defer db.Close()
 
+	// Backfill short codes for any records missing them (after migrations)
+	if n, err := storage.BackfillCodes(context.Background(), db); err != nil {
+		log.Error("failed to backfill codes", "error", err)
+	} else if n > 0 {
+		log.Info("backfilled short codes", "count", n)
+	}
+
 	// WebSocket hub + event notifier
 	hub := ws.NewHub(log)
 	events := ws.NewHubNotifier(hub)
@@ -55,8 +62,8 @@ func main() {
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, events, log)
 	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, events, log)
-	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, events, log)
-	taskSvc := service.NewTaskService(taskRepo, researchRepo, events, log)
+	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, entrySvc, events, log)
+	taskSvc := service.NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
 
 	// MCP Server
 	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log, version)
@@ -72,7 +79,7 @@ func main() {
 	defer cancel()
 
 	// Start REST API + WebSocket server in background
-	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, entryRepo, researchRepo, crossrefRepo, hub, cfg.DBPath == "", cfg.APIToken, log)
+	apiSrv := api.NewServer(cfg.WebPort, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, db, entryRepo, researchRepo, crossrefRepo, hub, cfg.DBPath == "", cfg.APIToken, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

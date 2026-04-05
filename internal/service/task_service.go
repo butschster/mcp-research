@@ -29,12 +29,13 @@ type UpdateTaskRequest struct {
 type TaskService struct {
 	tasks      *storage.TaskRepository
 	researches *storage.ResearchRepository
+	crossrefs  CrossRefParser
 	events     EventNotifier
 	log        *slog.Logger
 }
 
-func NewTaskService(tasks *storage.TaskRepository, researches *storage.ResearchRepository, events EventNotifier, log *slog.Logger) *TaskService {
-	return &TaskService{tasks: tasks, researches: researches, events: events, log: log}
+func NewTaskService(tasks *storage.TaskRepository, researches *storage.ResearchRepository, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *TaskService {
+	return &TaskService{tasks: tasks, researches: researches, crossrefs: crossrefs, events: events, log: log}
 }
 
 func (s *TaskService) Create(ctx context.Context, req CreateTaskRequest) (*domain.Task, error) {
@@ -117,6 +118,12 @@ func (s *TaskService) Update(ctx context.Context, id string, req UpdateTaskReque
 
 	if err := s.tasks.Update(ctx, task); err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
+	}
+
+	// Parse crossrefs from result and description
+	if s.crossrefs != nil {
+		text := task.Description + "\n" + task.Result
+		s.crossrefs.ParseCrossRefs(ctx, "task", task.ID, task.ResearchID, text)
 	}
 
 	s.events.Notify(Event{Type: "task.updated", ResearchID: task.ResearchID, EntityID: task.ID, Entity: "task"})

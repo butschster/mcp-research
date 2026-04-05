@@ -3,7 +3,7 @@
     <!-- Toolbar -->
     <div class="mindmap-toolbar">
       <div class="toolbar-left">
-        <NuxtLink :to="`/research/${id}`" class="btn btn-sm toolbar-back">
+        <NuxtLink :to="`/research/${researchSlug}`" class="btn btn-sm toolbar-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           Back
         </NuxtLink>
@@ -17,6 +17,14 @@
           :class="['btn btn-sm filter-chip', { active: visibleGroups.has(group.key) }]"
           @click="toggleGroup(group.key)"
         >{{ group.label }}</button>
+
+        <button
+          :class="['btn btn-sm filter-chip crossref-chip', { active: showCrossrefs }]"
+          @click="toggleCrossrefs"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Crossrefs
+        </button>
 
         <span class="toolbar-sep"></span>
 
@@ -79,7 +87,15 @@
         :zoom-on-scroll="true"
         class="mindmap-flow"
         @node-click="onNodeClick"
+        @edge-mouse-enter="onEdgeEnter"
+        @edge-mouse-leave="onEdgeLeave"
       >
+        <!-- Crossref tooltip -->
+        <div v-if="hoveredEdge" class="xref-tooltip" :style="tooltipStyle">
+          <span class="xref-from">{{ hoveredEdge.sourceLabel }}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          <span class="xref-to">{{ hoveredEdge.targetLabel }}</span>
+        </div>
         <MiniMap
           :node-color="minimapNodeColor"
           :mask-color="'rgba(12, 18, 32, 0.7)'"
@@ -132,6 +148,8 @@ const {
   setLayoutDirection,
   visibleGroups,
   toggleGroup,
+  showCrossrefs,
+  toggleCrossrefs,
 } = useResearchMindmap(id)
 
 const filterGroups = [
@@ -143,6 +161,7 @@ const filterGroups = [
 // Research name for toolbar
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
 const researchName = computed(() => researchData.value?.data?.research?.name ?? '')
+const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 
 // Vue Flow instance
 const vueFlowRef = ref()
@@ -157,6 +176,66 @@ function onNodeClick({ node }: { node: any }) {
     toggleCollapse(node.id)
     nextTick(() => fitView({ padding: 0.15, duration: 300 }))
   }
+}
+
+// Crossref edge hover
+const hoveredEdge = ref<{ sourceLabel: string; targetLabel: string } | null>(null)
+const tooltipPos = ref({ x: 0, y: 0 })
+const tooltipStyle = computed(() => ({
+  left: `${tooltipPos.value.x}px`,
+  top: `${tooltipPos.value.y}px`,
+}))
+
+const { getNodes, getEdges, setEdges, setNodes } = useVueFlow()
+
+function onEdgeEnter({ edge, event }: { edge: any; event: MouseEvent }) {
+  if (!edge.id.startsWith('xref-')) return
+
+  // Find source and target node labels
+  const sourceNode = getNodes.value.find((n: any) => n.id === edge.source)
+  const targetNode = getNodes.value.find((n: any) => n.id === edge.target)
+  const sourceLabel = sourceNode?.data?.entrySlug
+    ? `${sourceNode.data.entrySlug} ${sourceNode.data.title}`
+    : sourceNode?.data?.title ?? edge.source
+  const targetLabel = targetNode?.data?.entrySlug
+    ? `${targetNode.data.entrySlug} ${targetNode.data.title}`
+    : targetNode?.data?.title ?? edge.target
+
+  hoveredEdge.value = { sourceLabel, targetLabel }
+  tooltipPos.value = { x: event.clientX + 12, y: event.clientY - 30 }
+
+  // Highlight the edge and connected nodes
+  setEdges(getEdges.value.map((e: any) => ({
+    ...e,
+    style: e.id === edge.id
+      ? { ...e.style, stroke: '#a78bfa', strokeWidth: 2.5, strokeDasharray: '4 4' }
+      : e.id.startsWith('xref-')
+        ? { ...e.style, stroke: 'rgba(167,139,250,0.12)' }
+        : e.style,
+  })))
+
+  setNodes(getNodes.value.map((n: any) => ({
+    ...n,
+    class: n.id === edge.source || n.id === edge.target ? 'xref-highlight' : '',
+  })))
+}
+
+function onEdgeLeave({ edge }: { edge: any }) {
+  if (!edge.id.startsWith('xref-')) return
+  hoveredEdge.value = null
+
+  // Reset styles
+  setEdges(getEdges.value.map((e: any) => ({
+    ...e,
+    style: e.id.startsWith('xref-')
+      ? { stroke: 'rgba(167,139,250,0.35)', strokeWidth: 1, strokeDasharray: '4 4' }
+      : e.style,
+  })))
+
+  setNodes(getNodes.value.map((n: any) => ({
+    ...n,
+    class: '',
+  })))
 }
 
 function minimapNodeColor(node: any): string {
@@ -238,6 +317,11 @@ useRealtimeUpdates(async (event) => {
   border-color: rgba(108, 197, 224, 0.3);
   background: var(--color-primary-muted);
 }
+.crossref-chip.active {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.3);
+  background: rgba(167, 139, 250, 0.1);
+}
 
 .mindmap-canvas {
   flex: 1;
@@ -255,6 +339,38 @@ useRealtimeUpdates(async (event) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+/* Crossref tooltip */
+.xref-tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: var(--color-surface);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-xs);
+  color: var(--color-text);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.xref-tooltip svg { color: rgba(167, 139, 250, 0.6); flex-shrink: 0; }
+.xref-from, .xref-to {
+  font-weight: 600;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Highlighted nodes on crossref hover */
+.mindmap-flow :deep(.xref-highlight) {
+  outline: 2px solid rgba(167, 139, 250, 0.6);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
 /* Vue Flow theme overrides */

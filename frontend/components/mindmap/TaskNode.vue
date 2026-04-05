@@ -1,7 +1,10 @@
 <template>
   <div class="mindmap-node task-node">
     <div class="t-header">
-      <span class="t-title">{{ truncate(data.title, 60) }}</span>
+      <div class="t-title-row">
+        <span v-if="data.code" class="mm-code">{{ data.code }}</span>
+        <span class="t-title">{{ truncate(data.title, 60) }}</span>
+      </div>
       <StatusBadge :status="data.status" />
     </div>
     <div class="t-meta">
@@ -17,6 +20,7 @@ import { Handle, Position } from '@vue-flow/core'
 
 defineProps<{
   data: {
+    code: string
     title: string
     result: string
     status: string
@@ -46,6 +50,13 @@ function truncate(text: string, len: number): string {
   justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
+}
+.t-title-row { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.mm-code {
+  font-size: 0.625rem; font-weight: 700; color: var(--color-primary);
+  background: var(--color-primary-muted); padding: 0.1rem 0.3rem;
+  border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0; line-height: 1; margin-top: 2px;
 }
 .t-title {
   font-size: var(--type-xs);

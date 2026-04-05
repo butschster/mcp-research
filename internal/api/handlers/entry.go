@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
+	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
 )
@@ -20,9 +22,27 @@ func NewEntryHandler(entry *service.EntryService, entries *storage.EntryReposito
 }
 
 func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	idOrCode := r.PathValue("id")
 
-	entry, err := h.entry.Get(r.Context(), id)
+	var entry *domain.Entry
+	var err error
+
+	// If research query param is provided, resolve entry by code within that research
+	if researchIDOrCode := r.URL.Query().Get("research"); researchIDOrCode != "" {
+		// Resolve research first
+		research, rErr := h.research.FindByID(r.Context(), researchIDOrCode)
+		if rErr == nil && research == nil {
+			research, _ = h.research.FindByCode(r.Context(), researchIDOrCode)
+		}
+		if research != nil {
+			entry, err = h.entry.GetByIDOrCode(r.Context(), research.ID, idOrCode)
+		} else {
+			err = fmt.Errorf("research not found")
+		}
+	} else {
+		entry, err = h.entry.Get(r.Context(), idOrCode)
+	}
+
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

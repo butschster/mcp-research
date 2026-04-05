@@ -8,16 +8,21 @@ import (
 )
 
 type SessionHandler struct {
-	session *service.SessionService
-	log     *slog.Logger
+	session  *service.SessionService
+	research *service.ResearchService
+	log      *slog.Logger
 }
 
-func NewSessionHandler(session *service.SessionService, log *slog.Logger) *SessionHandler {
-	return &SessionHandler{session: session, log: log}
+func NewSessionHandler(session *service.SessionService, research *service.ResearchService, log *slog.Logger) *SessionHandler {
+	return &SessionHandler{session: session, research: research, log: log}
 }
 
 func (h *SessionHandler) ListByResearch(w http.ResponseWriter, r *http.Request) {
-	researchID := r.PathValue("id")
+	researchID, err := h.research.ResolveID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 
 	sessions, err := h.session.ListByResearch(r.Context(), researchID)
 	if err != nil {
@@ -40,11 +45,11 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Group questions by status for the frontend
 	grouped := make(map[string][]map[string]any)
 	for _, q := range result.Questions {
 		grouped[string(q.Status)] = append(grouped[string(q.Status)], map[string]any{
 			"id":        q.ID,
+			"code":      q.Code,
 			"text":      q.Text,
 			"area":      q.Area,
 			"rationale": q.Rationale,

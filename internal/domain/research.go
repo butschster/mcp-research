@@ -35,6 +35,7 @@ const (
 
 type Section struct {
 	ID          string        `json:"id"`
+	Code        string        `json:"code"`
 	ResearchID  string        `json:"research_id"`
 	Name        string        `json:"name"`
 	DisplayName string        `json:"display_name"`

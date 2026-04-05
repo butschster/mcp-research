@@ -19,10 +19,19 @@ func NewSectionRepository(db *sql.DB) *SectionRepository {
 
 func (r *SectionRepository) Create(ctx context.Context, section *domain.Section) error {
 	now := time.Now().UTC().Format(time.DateTime)
+
+	if section.Code == "" {
+		code, err := NextCode(ctx, r.db, "sections", "S", "research_id", section.ResearchID)
+		if err != nil {
+			return fmt.Errorf("generate code: %w", err)
+		}
+		section.Code = code
+	}
+
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sections (id, research_id, name, display_name, description, status, position, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		section.ID, section.ResearchID, section.Name, section.DisplayName,
+		`INSERT INTO sections (id, code, research_id, name, display_name, description, status, position, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		section.ID, section.Code, section.ResearchID, section.Name, section.DisplayName,
 		section.Description, section.Status, section.Position,
 		now, now,
 	)
@@ -36,10 +45,19 @@ func (r *SectionRepository) Create(ctx context.Context, section *domain.Section)
 
 func (r *SectionRepository) CreateTx(ctx context.Context, tx *sql.Tx, section *domain.Section) error {
 	now := time.Now().UTC().Format(time.DateTime)
+
+	if section.Code == "" {
+		code, err := NextCode(ctx, tx, "sections", "S", "research_id", section.ResearchID)
+		if err != nil {
+			return fmt.Errorf("generate code: %w", err)
+		}
+		section.Code = code
+	}
+
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO sections (id, research_id, name, display_name, description, status, position, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		section.ID, section.ResearchID, section.Name, section.DisplayName,
+		`INSERT INTO sections (id, code, research_id, name, display_name, description, status, position, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		section.ID, section.Code, section.ResearchID, section.Name, section.DisplayName,
 		section.Description, section.Status, section.Position,
 		now, now,
 	)
@@ -54,10 +72,10 @@ func (r *SectionRepository) CreateTx(ctx context.Context, tx *sql.Tx, section *d
 func (r *SectionRepository) Update(ctx context.Context, section *domain.Section) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE sections SET name=?, display_name=?, description=?, status=?, position=?, updated_at=?
+		`UPDATE sections SET name=?, display_name=?, description=?, status=?, position=?, code=?, updated_at=?
 		 WHERE id=?`,
 		section.Name, section.DisplayName, section.Description,
-		section.Status, section.Position, now, section.ID,
+		section.Status, section.Position, section.Code, now, section.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update section: %w", err)
@@ -68,14 +86,14 @@ func (r *SectionRepository) Update(ctx context.Context, section *domain.Section)
 
 func (r *SectionRepository) FindByID(ctx context.Context, id string) (*domain.Section, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, research_id, name, display_name, description, status, position, created_at, updated_at
+		`SELECT id, code, research_id, name, display_name, description, status, position, created_at, updated_at
 		 FROM sections WHERE id=?`, id)
 	return r.scanSection(row)
 }
 
 func (r *SectionRepository) FindByResearch(ctx context.Context, researchID string) ([]*domain.Section, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, research_id, name, display_name, description, status, position, created_at, updated_at
+		`SELECT id, code, research_id, name, display_name, description, status, position, created_at, updated_at
 		 FROM sections WHERE research_id=? ORDER BY position ASC`, researchID)
 	if err != nil {
 		return nil, fmt.Errorf("query sections: %w", err)
@@ -101,7 +119,7 @@ func (r *SectionRepository) CountEntriesBySection(ctx context.Context, sectionID
 
 func (r *SectionRepository) FindByResearchAndName(ctx context.Context, researchID, name string) (*domain.Section, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, research_id, name, display_name, description, status, position, created_at, updated_at
+		`SELECT id, code, research_id, name, display_name, description, status, position, created_at, updated_at
 		 FROM sections WHERE research_id=? AND name=?`, researchID, name)
 	return r.scanSection(row)
 }
@@ -110,7 +128,7 @@ func (r *SectionRepository) scanSection(row *sql.Row) (*domain.Section, error) {
 	var s domain.Section
 	var createdAt, updatedAt string
 	err := row.Scan(
-		&s.ID, &s.ResearchID, &s.Name, &s.DisplayName,
+		&s.ID, &s.Code, &s.ResearchID, &s.Name, &s.DisplayName,
 		&s.Description, &s.Status, &s.Position,
 		&createdAt, &updatedAt,
 	)
@@ -129,7 +147,7 @@ func (r *SectionRepository) scanSectionRow(rows *sql.Rows) (*domain.Section, err
 	var s domain.Section
 	var createdAt, updatedAt string
 	err := rows.Scan(
-		&s.ID, &s.ResearchID, &s.Name, &s.DisplayName,
+		&s.ID, &s.Code, &s.ResearchID, &s.Name, &s.DisplayName,
 		&s.Description, &s.Status, &s.Position,
 		&createdAt, &updatedAt,
 	)
