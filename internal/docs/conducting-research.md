@@ -1,6 +1,6 @@
 # Conducting Research
 
-Step-by-step guide for AI assistants on how to conduct a research project with MCP Research.
+Step-by-step guide for AI assistants on how to conduct a research project.
 
 ## Overview
 

@@ -1,0 +1,25 @@
+# Research
+
+> Structured AI-driven research sessions. Design research structures, conduct interactive Q&A sessions, manage tasks, create cross-referenced knowledge entries, and track progress.
+
+## Data Model
+
+```
+Research (R1, R2...)
+  |-- Section (S1, S2...) — logical topics within a research
+  |     |-- Entry (E1, E2...) — markdown documents with findings
+  |
+  |-- Session (SS1, SS2...) — interactive Q&A interview workflow
+  |     |-- Question (Q1, Q2...) — structured prompts with answers
+  |
+  |-- Task (T1, T2...) — todo items for tracking work
+  |
+  Entry --[[E3]]--> Entry — cross-references form a knowledge graph
+```
+
+## Docs
+
+- [Domain Guide](/llms/domain-guide.md): Complete reference for every entity (Research, Section, Entry, Session, Question, Task, CrossRef). Describes fields, statuses, relationships, lifecycle, and when to use each entity. Includes tagging strategy, cross-reference syntax, and tips.
+- [Conducting Research](/llms/conducting-research.md): Step-by-step guide on how to initialize, conduct, and complete a research project. Interview workflow, entry creation with cross-references, task tracking, and best practices.
+- [Export](/llms/export.md): How to export research data as markdown documents or PDF. API endpoint reference and web UI export page.
+- [REST API — OpenAPI Specification](/api/openapi.yaml): OpenAPI 3.1 spec for all REST endpoints with request/response schemas.
