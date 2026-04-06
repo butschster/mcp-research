@@ -62,11 +62,12 @@ func main() {
 	questionRepo := storage.NewQuestionRepository(db)
 	taskRepo := storage.NewTaskRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
+	externalLinkRepo := storage.NewExternalLinkRepository(db)
 
 	// Services
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, events, log)
-	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, events, log)
+	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, crossrefRepo, externalLinkRepo, events, log)
 	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
 
@@ -139,7 +140,7 @@ func main() {
 		AutoLoginToken: autoLoginToken,
 		MCPHandler:     srv.StreamableHTTPHandler(),
 	}
-	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, hub, log)
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

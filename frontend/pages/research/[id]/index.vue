@@ -137,12 +137,11 @@
         <div class="session-widget-header">
           <div class="flex items-center gap-2">
             <span v-if="sess.code" class="short-code">{{ sess.code }}</span>
-            <span class="session-label">{{ sess.status === 'active' ? 'Active session' : 'Session' }}</span>
             <StatusBadge :status="sess.status" />
           </div>
         </div>
         <h3 class="session-title">{{ sess.title }}</h3>
-        <p v-if="sess.focus" class="card-meta mt-2">{{ sess.focus }}</p>
+        <p v-if="sess.focus" class="session-focus">{{ sess.focus }}</p>
       </NuxtLink>
     </div>
 
@@ -207,6 +206,20 @@
           </div>
           <div v-if="section.entries_count > 0" class="sidebar-progress">
             <div class="sidebar-progress-fill" :style="{ width: sectionProgressWidth(section) }"></div>
+          </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <!-- External links -->
+        <div
+          :class="['sidebar-item', { active: activeSection === '__links__' }]"
+          @click="activeSection = '__links__'"
+        >
+          <div class="sidebar-item-content">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <span class="sidebar-item-name">External links</span>
+            <span v-if="researchLinksTotal" class="sidebar-count">{{ researchLinksTotal }}</span>
           </div>
         </div>
       </nav>
@@ -323,6 +336,44 @@
           />
         </template>
 
+        <!-- External links view -->
+        <template v-else-if="isLinksView">
+          <div class="section-header">
+            <h2 class="section-title">External links</h2>
+          </div>
+
+          <div v-if="researchLinksLoading">
+            <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
+          </div>
+
+          <div v-else-if="researchLinksGrouped.length">
+            <div v-for="group in researchLinksGrouped" :key="group.domain" class="links-domain-group">
+              <h3 class="links-domain-title">{{ group.domain }}</h3>
+              <div class="links-list">
+                <a
+                  v-for="link in group.links"
+                  :key="link.url"
+                  :href="link.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="card link-card"
+                >
+                  <div class="link-card-header">
+                    <span class="link-title">{{ link.title || link.url }}</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="link-external-icon"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </div>
+                  <div v-if="link.entry_code" class="link-source">
+                    <span class="short-code">{{ link.entry_code }}</span>
+                    <span class="card-meta">{{ link.entry_title }}</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <EmptyState v-else icon="&#x1F517;" title="No external links" description="Links from entry content will appear here." />
+        </template>
+
         <EmptyState
           v-else
           icon="&#x1F448;"
@@ -358,6 +409,7 @@ const totalEntryCount = computed(() =>
 // Active section (default: first, or '__all__' for all entries)
 const activeSection = ref(route.query.section as string || '')
 const isAllEntries = computed(() => activeSection.value === '__all__')
+const isLinksView = computed(() => activeSection.value === '__links__')
 const router = useRouter()
 
 watch(activeSection, (val) => {
@@ -464,6 +516,13 @@ const tasksOpen = ref(true)
 const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
 const allSessions = computed(() => sessionsData.value?.data ?? [])
 
+// External links
+const { data: researchLinksData, pending: researchLinksLoading } = useApi<{ data: any[]; total: number }>(
+  computed(() => isLinksView.value ? `/api/researches/${id}/links` : '/api/researches/__none__/links')
+)
+const researchLinksGrouped = computed(() => researchLinksData.value?.data ?? [])
+const researchLinksTotal = computed(() => researchLinksData.value?.total ?? 0)
+
 // Auth & API
 const { authFetch } = useAuth()
 const rtBase = useRuntimeConfig().public.apiBase || ''
@@ -527,6 +586,9 @@ useRealtimeUpdates(async (event) => {
     if (isAllEntries.value) {
       allEntriesData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/entries`)
       tagsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tags`)
+    }
+    if (isLinksView.value) {
+      researchLinksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/links`)
     }
   }
   if (event.entity === 'task') {
@@ -696,16 +758,10 @@ useRealtimeUpdates(async (event) => {
 }
 .session-widget-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
-.session-label {
-  font-size: var(--type-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-primary);
-}
-.session-title { font-size: var(--type-lg); font-weight: 600; letter-spacing: -0.01em; }
+.session-title { font-size: var(--type-sm); font-weight: 600; letter-spacing: -0.01em; }
+.session-focus { font-size: var(--type-xs); color: var(--color-text-muted); margin-top: var(--space-1); line-height: 1.4; }
 
 /* Session stats (questions + tasks summary) */
 .session-stats {
@@ -788,6 +844,47 @@ useRealtimeUpdates(async (event) => {
 .entry-card { display: block; text-decoration: none; color: inherit; }
 .entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
+
+/* External links */
+.links-domain-group { margin-bottom: var(--space-5); }
+.links-domain-title {
+  font-size: var(--type-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+.links-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.link-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition-fast);
+}
+.link-card:hover { border-color: var(--color-border-strong); }
+.link-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.link-title {
+  font-size: var(--type-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link-external-icon { opacity: 0.3; flex-shrink: 0; }
+.link-card:hover .link-external-icon { opacity: 0.7; }
+.link-source {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--type-xs);
+}
 
 /* Skeleton */
 .skeleton-header { height: 60px; margin-bottom: var(--space-6); }
