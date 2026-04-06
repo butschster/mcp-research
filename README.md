@@ -1,10 +1,8 @@
 # MCP Research
 
-A structured research tool for AI assistants. Single binary — download, run, connect your AI, and start building
-organized knowledge bases with interviews, cross-referenced entries, tasks, and an interactive web UI.
+A structured research tool for AI assistants. Single binary — download, run, connect your AI, and start building organized knowledge bases with interviews, cross-referenced entries, tasks, and an interactive web UI.
 
-An AI assistant (Claude, Cursor, or any MCP-compatible client) designs the research structure, interviews you, writes
-structured entries, tracks tasks, and links everything together — all persisted in SQLite with a live web dashboard.
+An AI assistant (Claude, Cursor, ChatGPT, or any MCP-compatible client) designs the research structure, interviews you, writes structured entries, tracks tasks, and links everything together — all persisted in SQLite with a live web dashboard.
 
 ## Install
 
@@ -52,8 +50,6 @@ cp config.yaml.example config.yaml
 docker compose up -d
 ```
 
-The server will be available at `http://localhost:8088` (Web UI + API) and `http://localhost:8081/sse` (MCP SSE).
-
 ## Quick Start
 
 Run the server with a persistent database:
@@ -64,17 +60,16 @@ Run the server with a persistent database:
 
 That's it. The server is now running with:
 
-- **MCP** over stdio (ready for AI clients)
+- **MCP** over stdio (ready for local AI clients)
 - **Web UI** at [http://localhost:8088](http://localhost:8088)
 - **REST API** at the same port
 - **LLMs.txt** documentation at [http://localhost:8088/llms.txt](http://localhost:8088/llms.txt)
 
 ## Connect Your AI
 
-### Option 1: MCP Client (recommended)
+### Option 1: Local MCP Client (stdio)
 
-MCP clients (Claude Desktop, Claude Code, Cursor, etc.) communicate with the server over the MCP protocol. The AI gets
-21 specialized tools and 2 research prompts to work with.
+MCP clients (Claude Desktop, Claude Code, Cursor) spawn the server as a local process. The AI gets 21 specialized tools and 2 research prompts.
 
 **Claude Code** — add to `~/.claude/mcp.json`:
 
@@ -83,10 +78,7 @@ MCP clients (Claude Desktop, Claude Code, Cursor, etc.) communicate with the ser
   "mcpServers": {
     "mcp-research": {
       "command": "/path/to/mcp-research",
-      "args": [
-        "--db",
-        "/path/to/research.db"
-      ]
+      "args": ["--db", "/path/to/research.db"]
     }
   }
 }
@@ -99,10 +91,7 @@ MCP clients (Claude Desktop, Claude Code, Cursor, etc.) communicate with the ser
   "mcpServers": {
     "mcp-research": {
       "command": "/path/to/mcp-research",
-      "args": [
-        "--db",
-        "/path/to/research.db"
-      ]
+      "args": ["--db", "/path/to/research.db"]
     }
   }
 }
@@ -115,10 +104,20 @@ MCP clients (Claude Desktop, Claude Code, Cursor, etc.) communicate with the ser
   "mcpServers": {
     "mcp-research": {
       "command": "/path/to/mcp-research",
-      "args": [
-        "--db",
-        "/path/to/research.db"
-      ]
+      "args": ["--db", "/path/to/research.db"]
+    }
+  }
+}
+```
+
+With auth enabled locally, use `--default-user` to auto-create and scope to a user:
+
+```json
+{
+  "mcpServers": {
+    "mcp-research": {
+      "command": "/path/to/mcp-research",
+      "args": ["--db", "/path/to/research.db", "--auth-enabled", "--default-user", "dev@local.dev"]
     }
   }
 }
@@ -126,78 +125,69 @@ MCP clients (Claude Desktop, Claude Code, Cursor, etc.) communicate with the ser
 
 Then ask your AI to use the `research/initialize` prompt to start a new research project.
 
-**SSE mode** — if your client supports URL-based MCP connections:
+### Option 2: Remote MCP (ChatGPT, Claude.ai)
+
+Deploy the server with SSE transport and auth enabled. External MCP clients connect via OAuth2 with automatic setup — no manual configuration needed.
 
 ```bash
-./mcp-research --transport sse --mcp-port 8081 --db research.db
+./mcp-research --transport sse --db research.db --auth-enabled --base-url "https://mcp.example.com"
 ```
 
-```json
-{
-  "mcpServers": {
-    "mcp-research": {
-      "url": "http://localhost:8081/sse"
-    }
-  }
-}
-```
+**ChatGPT** — enter your server URL (e.g. `https://mcp.example.com/sse`) as the MCP Server URL in the Custom GPT or App settings.
 
-### Option 2: LLMs.txt (any AI, no MCP required)
+**Claude.ai** — enter your server URL (e.g. `https://mcp.example.com`) in the MCP integration settings.
 
-If your AI doesn't support MCP, you can use the built-in documentation + REST API. After starting the server, open:
+What happens automatically:
+
+1. Client hits the server, gets 401 with `WWW-Authenticate` header
+2. Client reads `/.well-known/oauth-protected-resource` to find the auth server
+3. Client registers itself via Dynamic Client Registration (RFC 7591)
+4. User sees a login page and authorizes access
+5. Client receives an OAuth2 access token (with PKCE)
+6. Client connects to MCP with the token — full toolset available
+
+The server supports two MCP transports simultaneously:
+- **Streamable HTTP** at `/mcp` and `/` — used by ChatGPT and Claude.ai
+- **SSE** at `:8081/sse` — for legacy MCP clients
+
+### Option 3: LLMs.txt (any AI, no MCP required)
+
+If your AI doesn't support MCP, use the built-in documentation + REST API:
 
 ```
 http://localhost:8088/llms.txt
 ```
 
-This page describes the full API, data model, and research workflow in a format any LLM can understand. Feed it to
-ChatGPT, Gemini, or any other AI along with the [OpenAPI spec](http://localhost:8088/api/openapi.yaml), and it can
-interact with the server through the REST API.
+This page describes the full API, data model, and research workflow in a format any LLM can understand. Feed it to any AI along with the [OpenAPI spec](http://localhost:8088/api/openapi.yaml).
 
-To enable write access via REST, start the server with an API token:
+To enable write access via REST API:
 
 ```bash
 ./mcp-research --db research.db --api-token my-secret-token
 ```
 
-### Option 3: ChatGPT (via OAuth2)
-
-When authentication is enabled, ChatGPT and other external clients can connect via the standard OAuth2 flow:
-
-1. Point ChatGPT to your server's MCP SSE URL
-2. It auto-discovers OAuth endpoints via `/.well-known/oauth-authorization-server`
-3. It registers a client automatically via Dynamic Client Registration (RFC 7591)
-4. Users see a login page and authorize access
-5. ChatGPT receives an access token and can use the full MCP toolset
-
-No manual setup required — everything is automatic.
-
 ## Authentication
 
-By default, auth is disabled for single-user / local usage. Enable it for multi-user deployments:
-
-```bash
-./mcp-research --db research.db --auth-enabled --jwt-secret "your-secret-here"
-```
-
-Or in `config.yaml`:
+By default, auth is disabled for single-user / local usage. Enable it for multi-user or remote deployments:
 
 ```yaml
+# config.yaml
 auth_enabled: true
 jwt_secret: "your-secret-here"
 allow_registration: true
 base_url: "https://mcp.example.com"
+# default_user: "dev@local.dev"   # auto-create user for stdio (local dev)
 ```
 
 With auth enabled:
 
 - **Web UI** shows login/registration pages
-- **Each user** sees only their own researches
-- **API keys** can be created in Settings for programmatic access (MCP SSE, REST API)
-- **OAuth2** enables external clients (ChatGPT) to connect with user authorization
-- **MCP SSE** requires a bearer token (JWT or API key) via header or `?token=` query param
+- **Each user** sees only their own researches (enforced at service layer for all entities)
+- **API keys** can be created in Settings for programmatic access
+- **OAuth2** with PKCE and DCR enables external clients (ChatGPT, Claude.ai) to connect automatically
+- **Default user** (`--default-user`): auto-created if not found, Web UI auto-logs in — zero-friction local dev
 
-The first registered user automatically claims any pre-existing researches.
+The first registered user automatically claims any pre-existing orphaned researches.
 
 ## How It Works
 
@@ -216,8 +206,7 @@ Research (R1, R2, ...)
 └── Task (T1, T2, ...)
 ```
 
-Every entity gets an auto-assigned **short code**. Entries support cross-references with `[[E3]]` (same research) or
-`[[R2:E5]]` (cross-research) syntax, stored and rendered as navigable links.
+Every entity gets an auto-assigned **short code**. Entries support cross-references with `[[E3]]` (same research) or `[[R2:E5]]` (cross-research) syntax, stored and rendered as navigable links.
 
 ### Web UI
 
@@ -232,32 +221,33 @@ The embedded web UI at `:8088` provides:
 
 ## Configuration
 
-| Setting            | CLI Flag               | Env Var                           | Default         |
-|--------------------|------------------------|-----------------------------------|-----------------|
-| Transport          | `--transport`          | `MCP_RESEARCH_TRANSPORT`          | `stdio`         |
-| MCP Port           | `--mcp-port`           | —                                 | `8081`          |
-| Web Port           | `--web-port`           | —                                 | `8088`          |
-| DB Path            | `--db`                 | `MCP_RESEARCH_DB`                 | in-memory       |
-| Log Level          | `--log-level`          | `MCP_RESEARCH_LOG_LEVEL`          | `info`          |
-| API Token          | `--api-token`          | `MCP_RESEARCH_API_TOKEN`          | disabled        |
-| Auth Enabled       | `--auth-enabled`       | `MCP_RESEARCH_AUTH_ENABLED`       | `false`         |
-| JWT Secret         | `--jwt-secret`         | `MCP_RESEARCH_JWT_SECRET`         | auto-generated  |
-| Allow Registration | `--allow-registration` | `MCP_RESEARCH_ALLOW_REGISTRATION` | `true`          |
-| Base URL           | `--base-url`           | `MCP_RESEARCH_BASE_URL`           | —               |
-| Config File        | `--config`             | `MCP_RESEARCH_CONFIG`             | `./config.yaml` |
+| Setting | CLI Flag | Env Var | Default |
+|---------|----------|---------|---------|
+| Transport | `--transport` | `MCP_RESEARCH_TRANSPORT` | `stdio` |
+| MCP Port | `--mcp-port` | — | `8081` |
+| Web Port | `--web-port` | — | `8088` |
+| DB Path | `--db` | `MCP_RESEARCH_DB` | in-memory |
+| Log Level | `--log-level` | `MCP_RESEARCH_LOG_LEVEL` | `info` |
+| API Token | `--api-token` | `MCP_RESEARCH_API_TOKEN` | disabled |
+| Auth Enabled | `--auth-enabled` | `MCP_RESEARCH_AUTH_ENABLED` | `false` |
+| JWT Secret | `--jwt-secret` | `MCP_RESEARCH_JWT_SECRET` | auto-generated |
+| Allow Registration | `--allow-registration` | `MCP_RESEARCH_ALLOW_REGISTRATION` | `true` |
+| Base URL | `--base-url` | `MCP_RESEARCH_BASE_URL` | — |
+| Default User | `--default-user` | `MCP_RESEARCH_DEFAULT_USER` | — |
+| Config File | `--config` | `MCP_RESEARCH_CONFIG` | `./config.yaml` |
 
-You can also use a `config.yaml` file. Priority: CLI flags > env vars > config.yaml > defaults.
+Priority: CLI flags > env vars > config.yaml > defaults.
 
 ## MCP Tools
 
-| Category      | Tools                                                                                         |
-|---------------|-----------------------------------------------------------------------------------------------|
-| **Research**  | `research_create`, `research_get`, `research_list`, `research_update`, `research_add_section` |
-| **Sections**  | `section_list`, `section_update`                                                              |
-| **Entries**   | `entry_create`, `entry_list`, `entry_read`, `entry_update`                                    |
-| **Sessions**  | `session_create`, `session_get`, `session_update`                                             |
-| **Questions** | `question_create`, `question_update`, `question_list`                                         |
-| **Tasks**     | `task_create`, `task_update`, `task_list`, `task_delete`                                      |
+| Category | Tools |
+|----------|-------|
+| **Research** | `research_create`, `research_get`, `research_list`, `research_update`, `research_add_section` |
+| **Sections** | `section_list`, `section_update` |
+| **Entries** | `entry_create`, `entry_list`, `entry_read`, `entry_update` |
+| **Sessions** | `session_create`, `session_get`, `session_update` |
+| **Questions** | `question_create`, `question_update`, `question_list` |
+| **Tasks** | `task_create`, `task_update`, `task_list`, `task_delete` |
 
 **MCP Prompts:** `research/initialize` (design a new research) and `research/conduct` (run an interview session).
 
@@ -275,20 +265,13 @@ docker compose up -d
 
 A template config is provided in `deploy/nginx/mcp-research.conf`. It proxies:
 
-- `/` → `:8088` (Web UI, REST API, WebSocket, OAuth)
+- `/` → `:8088` (Web UI, REST API, MCP Streamable HTTP, WebSocket, OAuth)
 - `/sse`, `/message` → `:8081` (MCP SSE transport)
-
-Install it:
 
 ```bash
 export SERVER_NAME=mcp.example.com
 envsubst '${SERVER_NAME}' < deploy/nginx/mcp-research.conf > /etc/nginx/sites-enabled/mcp-research.conf
 nginx -t && systemctl reload nginx
-```
-
-Then use certbot for HTTPS:
-
-```bash
 certbot --nginx -d mcp.example.com
 ```
 
@@ -299,11 +282,7 @@ Requires Go 1.25+ and Node.js 20+ (for frontend).
 ```bash
 git clone https://github.com/butschster/mcp-research.git
 cd mcp-research
-
-# Full build: frontend + Go binary
 make build-all
-
-# Run
 ./bin/mcp-research --db research.db
 ```
 
