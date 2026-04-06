@@ -36,6 +36,14 @@
         <span class="tab-count">{{ progress.answered }} / {{ progress.total }}</span>
       </button>
       <button
+        :class="['content-tab', { active: activeTab === 'entries' }]"
+        @click="activeTab = 'entries'"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Entries
+        <span v-if="sessionEntries.length" class="tab-count">{{ sessionEntries.length }}</span>
+      </button>
+      <button
         :class="['content-tab', { active: activeTab === 'tasks' }]"
         @click="activeTab = 'tasks'"
       >
@@ -144,6 +152,31 @@
       </div>
       <EmptyState v-else-if="!showAddTask" icon="&#x2705;" title="No tasks" description="Add a task or let the AI create them." />
     </div>
+
+    <!-- Entries panel -->
+    <div v-if="activeTab === 'entries'">
+      <div v-if="sessionEntries.length" class="grid entries-grid">
+        <NuxtLink
+          v-for="entry in sessionEntries"
+          :key="entry.id"
+          :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`"
+          class="card entry-card"
+        >
+          <div class="entry-card-header">
+            <div class="entry-title-row">
+              <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+              <h3 class="card-title">{{ entry.title }}</h3>
+            </div>
+            <StatusBadge :status="entry.status" />
+          </div>
+          <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
+          <div v-if="entry.tags?.length" class="entry-tags">
+            <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
+          </div>
+        </NuxtLink>
+      </div>
+      <EmptyState v-else icon="&#x1F4C4;" title="No entries" description="Entries linked to this session will appear here." />
+    </div>
   </div>
 
   <EmptyState v-else icon="&#x1F50D;" title="Session not found" />
@@ -173,6 +206,13 @@ const progress  = computed(() => ({
   skipped:  data.value?.data?.progress?.skipped  ?? 0,
 }))
 
+// Session entries (from API response)
+const sessionEntries = computed(() => data.value?.data?.entries ?? [])
+
+function tagHue(tag: string): number {
+  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
+}
+
 // Tasks
 const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
 const tasks = computed(() => tasksData.value?.data ?? [])
@@ -198,7 +238,7 @@ const taskGroups = computed(() =>
 )
 
 // Active tab
-const activeTab = ref<'questions' | 'tasks'>('questions')
+const activeTab = ref<'questions' | 'entries' | 'tasks'>('questions')
 
 // Add task
 const showAddTask = ref(false)
@@ -370,6 +410,18 @@ useRealtimeUpdates(async (event) => {
 .todo-failed .todo-check { color: var(--color-error); }
 .todo-blocked .todo-check { color: var(--color-error); }
 .todo-in_progress .todo-check { color: var(--color-warning); }
+
+/* Entries grid */
+.entries-grid { grid-template-columns: 1fr; }
+.entry-card { display: block; text-decoration: none; color: inherit; }
+.entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+.entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.short-code {
+  font-size: var(--type-xs); font-weight: 600; color: var(--color-primary);
+  background: var(--color-primary-muted); padding: 0.15rem 0.4rem;
+  border-radius: 4px; font-family: 'JetBrains Mono', monospace; flex-shrink: 0; line-height: 1;
+}
+.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
 .skeleton-content { height: 400px; }
