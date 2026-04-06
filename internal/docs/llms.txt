@@ -5,17 +5,22 @@
 ## Data Model
 
 ```
-Research (R1, R2...)
+Research (R1, R2...) — statuses: active, completed, archived
   |-- Section (S1, S2...) — logical topics within a research
   |     |-- Entry (E1, E2...) — markdown documents with findings
   |
-  |-- Session (SS1, SS2...) — interactive Q&A interview workflow
+  |-- Session (SS1, SS2...) — interactive Q&A interview (multiple per research)
   |     |-- Question (Q1, Q2...) — structured prompts with answers
   |
   |-- Task (T1, T2...) — todo items for tracking work
   |
+  Entry -?-> Session — optional link (session_id tracks which session produced the entry)
   Entry --[[E3]]--> Entry — cross-references form a knowledge graph
 ```
+
+Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[R2]]`) work in entry content, question text, question answers, task results, and session notes. They are rendered as clickable links in the web UI and stored in the `crossrefs` table for graph queries.
+
+A research can have **multiple sessions** (e.g. initial exploration, deep-dive, follow-up). Each session has its own set of questions. Sessions are displayed grouped in the mindmap and listed on the research detail page.
 
 ## Docs
 
