@@ -16,6 +16,7 @@ type Entry struct {
 	Code        string      `json:"code"`
 	ResearchID  string      `json:"research_id"`
 	SectionID   string      `json:"section_id"`
+	SessionID   string      `json:"session_id,omitempty"`
 	Title       string      `json:"title"`
 	Content     string      `json:"content,omitempty"`
 	Description string      `json:"description"`

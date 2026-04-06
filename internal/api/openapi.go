@@ -190,6 +190,7 @@ func openAPISpec(_ bool) map[string]any {
 			body(obj(
 				field("research_id", "string", "Research UUID (required)"),
 				field("section_id", "string", "Section UUID (required)"),
+				field("session_id", "string", "Session UUID (optional, links entry to a session)"),
 				field("content", "string", "Markdown content (required)"),
 				field("title", "string", "Title (auto-generated if empty)"),
 				field("description", "string", "Description (auto-generated if empty)"),
@@ -209,6 +210,7 @@ func openAPISpec(_ bool) map[string]any {
 				field("description", "string", "New description"),
 				field("status", "string", "New status"),
 				field("tags", "array", "Replace tags"),
+				field("session_id", "string", "Link entry to a session (pass empty string to unlink)"),
 				field("text_replace", "object", "Surgical edit: {from: string, to: string} replaces first occurrence"),
 			)),
 			response200(obj(field("data", "object", "Updated entry object"))),

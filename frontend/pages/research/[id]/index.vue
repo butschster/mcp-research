@@ -42,30 +42,25 @@
       <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
     </div>
 
-    <!-- Active session summary -->
-    <NuxtLink v-if="activeSession" :to="`/research/${researchSlug}/session/${activeSession.code || activeSession.id}`" class="card session-widget">
-      <div class="session-widget-header">
-        <div class="flex items-center gap-2">
-          <span class="session-label">{{ activeSession?.status === 'active' ? 'Active session' : 'Session' }}</span>
-          <StatusBadge :status="activeSession.status" />
+    <!-- Sessions list -->
+    <div v-if="allSessions.length" class="sessions-list">
+      <NuxtLink
+        v-for="sess in allSessions"
+        :key="sess.id"
+        :to="`/research/${researchSlug}/session/${sess.code || sess.id}`"
+        :class="['card session-widget', { 'session-active': sess.status === 'active' }]"
+      >
+        <div class="session-widget-header">
+          <div class="flex items-center gap-2">
+            <span v-if="sess.code" class="short-code">{{ sess.code }}</span>
+            <span class="session-label">{{ sess.status === 'active' ? 'Active session' : 'Session' }}</span>
+            <StatusBadge :status="sess.status" />
+          </div>
         </div>
-      </div>
-      <h3 class="session-title">{{ activeSession.title }}</h3>
-      <p v-if="activeSession.focus" class="card-meta mt-2">{{ activeSession.focus }}</p>
-
-      <div class="session-stats">
-        <div v-if="sessionProgress" class="session-stat">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-          <span>{{ sessionProgress.answered }} / {{ sessionProgress.total }} questions</span>
-          <ProgressBar :value="sessionProgress.answered" :total="sessionProgress.total" class="stat-progress" />
-        </div>
-        <div v-if="tasks.length" class="session-stat">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span>{{ completedTasks }} / {{ tasks.length }} tasks</span>
-          <ProgressBar :value="completedTasks" :total="tasks.length" class="stat-progress" />
-        </div>
-      </div>
-    </NuxtLink>
+        <h3 class="session-title">{{ sess.title }}</h3>
+        <p v-if="sess.focus" class="card-meta mt-2">{{ sess.focus }}</p>
+      </NuxtLink>
+    </div>
 
     <!-- Tasks widget (shown only when no active session but tasks exist) -->
     <div v-else-if="tasks.length" class="card task-widget">
@@ -381,11 +376,9 @@ const tasks = computed(() => tasksData.value?.data ?? [])
 const completedTasks = computed(() => tasks.value.filter((t: any) => t.status === 'completed').length)
 const tasksOpen = ref(true)
 
-// Active session progress
-const { data: sessionData } = useApi<{ data: any }>(
-  computed(() => activeSession.value?.id ? `/api/sessions/${activeSession.value.id}` : '/api/sessions/__none__')
-)
-const sessionProgress = computed(() => sessionData.value?.data?.progress ?? null)
+// All sessions
+const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
+const allSessions = computed(() => sessionsData.value?.data ?? [])
 
 // Archive toggle
 const { authFetch } = useAuth()
@@ -420,8 +413,8 @@ useRealtimeUpdates(async (event) => {
   if (event.entity === 'task') {
     tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
   }
-  if (['question', 'session'].includes(event.entity) && activeSession.value?.id) {
-    sessionData.value = await authFetch<any>(`${rtBase}/api/sessions/${activeSession.value.id}`)
+  if (['question', 'session'].includes(event.entity)) {
+    sessionsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions`)
   }
 })
 </script>
@@ -476,15 +469,26 @@ useRealtimeUpdates(async (event) => {
   margin: var(--space-1) var(--space-3);
 }
 
+/* Sessions list */
+.sessions-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
 /* Session widget */
 .session-widget {
   display: block;
   text-decoration: none;
   color: inherit;
-  margin-bottom: var(--space-6);
-  border-color: rgba(108, 197, 224, 0.15);
+  margin-bottom: 0;
+  border-color: var(--color-border);
   position: relative;
   overflow: hidden;
+}
+.session-active {
+  border-color: rgba(108, 197, 224, 0.15);
 }
 .session-widget:hover { text-decoration: none; }
 .session-widget::after {

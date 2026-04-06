@@ -177,6 +177,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		ResearchID  string   `json:"research_id"`
 		SectionID   string   `json:"section_id"`
+		SessionID   string   `json:"session_id"`
 		Content     string   `json:"content"`
 		Title       string   `json:"title"`
 		Description string   `json:"description"`
@@ -192,7 +193,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entry, err := h.entry.Create(r.Context(), service.CreateEntryRequest{
-		ResearchID: input.ResearchID, SectionID: input.SectionID,
+		ResearchID: input.ResearchID, SectionID: input.SectionID, SessionID: input.SessionID,
 		Content: input.Content, Title: input.Title, Description: input.Description,
 		Status: domain.EntryStatus(input.Status), Tags: input.Tags,
 	})
@@ -220,6 +221,7 @@ func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 			From string `json:"from"`
 			To   string `json:"to"`
 		} `json:"text_replace"`
+		SessionID   *string `json:"session_id"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -237,7 +239,7 @@ func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 
 	entry, err := h.entry.Update(r.Context(), entryID, service.UpdateEntryRequest{
 		Title: input.Title, Content: input.Content, Description: input.Description,
-		Status: status, Tags: input.Tags, TextReplace: textReplace,
+		Status: status, Tags: input.Tags, TextReplace: textReplace, SessionID: input.SessionID,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

@@ -156,7 +156,7 @@ const {
 
 const filterGroups = [
   { key: 'entries', label: 'Entries' },
-  { key: 'questions', label: 'Questions' },
+  { key: 'questions', label: 'Sessions' },
   { key: 'tasks', label: 'Tasks' },
 ]
 
