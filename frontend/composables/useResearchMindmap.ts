@@ -65,6 +65,7 @@ const NODE_SIZES: Record<string, { width: number; height: number }> = {
   entry: { width: 400, height: 100 },
   'group-label': { width: 200, height: 60 },
   question: { width: 400, height: 100 },
+  answer: { width: 360, height: 80 },
   task: { width: 400, height: 100 },
 }
 
@@ -109,7 +110,7 @@ export function useResearchMindmap(researchId: string) {
     await Promise.all(
       sessions.map(async (sess: any) => {
         try {
-          const res = await authFetch<{ data: SessionData }>(`${base}/api/sessions/${sess.id}`)
+          const res = await authFetch<{ data: SessionData }>(`${base}/api/researches/${researchId}/sessions/${sess.id}`)
           const questions = res.data?.questions ?? {}
           for (const statusGroup of Object.values(questions)) {
             for (const q of statusGroup) {
@@ -259,6 +260,29 @@ export function useResearchMindmap(researchId: string) {
             type: 'smoothstep',
             style: { stroke: 'rgba(240,184,73,0.25)', strokeWidth: 1.5 },
           })
+
+          // Add answer node for answered questions
+          if (q.answer) {
+            const answerNodeId = `answer-${q.id}`
+            rawNodes.push({
+              id: answerNodeId,
+              type: 'answer',
+              position: { x: 0, y: 0 },
+              data: {
+                answer: q.answer,
+                questionCode: q.code || q.id,
+                sessionId: q.sessionId,
+                researchSlug: research.code || researchId,
+              },
+            })
+            rawEdges.push({
+              id: `${qNodeId}-${answerNodeId}`,
+              source: qNodeId,
+              target: answerNodeId,
+              type: 'smoothstep',
+              style: { stroke: 'rgba(52,211,153,0.35)', strokeWidth: 1.5 },
+            })
+          }
         }
       }
     }
@@ -335,7 +359,7 @@ export function useResearchMindmap(researchId: string) {
   }
 
   // IDs that belong on the left side (questions + tasks)
-  const LEFT_PREFIXES = ['group-questions', 'question-', 'group-tasks', 'task-']
+  const LEFT_PREFIXES = ['group-questions', 'question-', 'answer-', 'group-tasks', 'task-']
 
   function isLeftNode(id: string): boolean {
     return LEFT_PREFIXES.some(p => id.startsWith(p))
