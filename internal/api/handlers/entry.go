@@ -96,3 +96,41 @@ func (h *EntryHandler) ResolveResearchCode(w http.ResponseWriter, r *http.Reques
 		},
 	})
 }
+
+// GetRelated returns entries that share tags with the given entry.
+func (h *EntryHandler) GetRelated(w http.ResponseWriter, r *http.Request) {
+	idOrCode := r.PathValue("id")
+
+	var entry *domain.Entry
+	var err error
+
+	if researchIDOrCode := r.URL.Query().Get("research"); researchIDOrCode != "" {
+		research, rErr := h.research.FindByID(r.Context(), researchIDOrCode)
+		if rErr == nil && research == nil {
+			research, _ = h.research.FindByCode(r.Context(), researchIDOrCode)
+		}
+		if research != nil {
+			entry, err = h.entry.GetByIDOrCode(r.Context(), research.ID, idOrCode)
+		} else {
+			err = fmt.Errorf("research not found")
+		}
+	} else {
+		entry, err = h.entry.Get(r.Context(), idOrCode)
+	}
+
+	if err != nil || entry == nil {
+		writeError(w, http.StatusNotFound, "entry not found")
+		return
+	}
+
+	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"data":  related,
+		"count": len(related),
+	})
+}
