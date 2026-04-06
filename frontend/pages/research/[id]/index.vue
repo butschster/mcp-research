@@ -29,6 +29,11 @@
             <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
             {{ research.status === 'archived' ? 'Restore' : 'Archive' }}
           </button>
+          <NuxtLink :to="`/research/${researchSlug}/tasks`" class="btn btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Tasks
+            <span v-if="tasks.length" class="btn-count">{{ tasks.length }}</span>
+          </NuxtLink>
           <NuxtLink :to="`/research/${researchSlug}/mindmap`" class="btn btn-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
             Mind map
@@ -604,6 +609,14 @@ useRealtimeUpdates(async (event) => {
 /* Header */
 .research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
 .research-actions { display: flex; align-items: center; gap: var(--space-3); }
+.btn-count {
+  font-size: 0.75em;
+  background: var(--color-surface-hover);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
 .title-with-code { display: flex; align-items: center; gap: var(--space-3); }
 .entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .short-code {

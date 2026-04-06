@@ -82,12 +82,6 @@ onMounted(() => {
         <span class="card-meta">Research</span>
         <div class="footer-right">
           <ConnectionStatus />
-          <a
-            href="https://github.com/butschster/mcp-research"
-            target="_blank"
-            rel="noopener"
-            class="card-meta footer-link"
-          >GitHub &#x2197;</a>
         </div>
       </div>
     </footer>
@@ -97,11 +91,11 @@ onMounted(() => {
 <style>
 .nav-inner  { display: flex; align-items: center; justify-content: space-between; }
 .nav-right  { display: flex; align-items: center; gap: var(--space-3); }
-.main-content { padding-top: var(--space-10); padding-bottom: var(--space-16); min-height: calc(100dvh - 200px); }
+.main-content { padding-top: var(--space-4); padding-bottom: var(--space-4); min-height: calc(100dvh - 120px); }
 .app-footer {
   border-top: 1px solid var(--color-border);
   padding: var(--space-4) 0;
-  margin-top: var(--space-12);
+  margin-top: var(--space-4);
 }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; }
 .footer-right { display: flex; align-items: center; gap: var(--space-4); }
