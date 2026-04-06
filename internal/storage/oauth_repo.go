@@ -41,17 +41,21 @@ func (r *OAuthRepository) CreateClient(ctx context.Context, client *domain.OAuth
 func (r *OAuthRepository) FindClientByID(ctx context.Context, id string) (*domain.OAuthClient, string, error) {
 	var client domain.OAuthClient
 	var secretHash string
+	var userID sql.NullString
 	var redirectURIs sql.NullString
 	var createdAt string
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, secret_hash, name, redirect_uris, created_at
 		 FROM oauth_clients WHERE id=?`, id,
-	).Scan(&client.ID, &client.UserID, &secretHash, &client.Name, &redirectURIs, &createdAt)
+	).Scan(&client.ID, &userID, &secretHash, &client.Name, &redirectURIs, &createdAt)
 	if err == sql.ErrNoRows {
 		return nil, "", nil
 	}
 	if err != nil {
 		return nil, "", fmt.Errorf("scan oauth client: %w", err)
+	}
+	if userID.Valid {
+		client.UserID = userID.String
 	}
 	client.RedirectURIs = unmarshalStringSlice(redirectURIs)
 	client.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
