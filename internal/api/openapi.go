@@ -108,10 +108,17 @@ func openAPISpec(_ bool) map[string]any {
 		),
 	}
 
-	paths["/api/sessions/{id}"] = map[string]any{
-		"get": endpoint("Get session", "Returns session with questions grouped by status and progress counters.",
-			[]param{path("id", "Session UUID")},
+	paths["/api/researches/{id}/sessions/{sessionId}"] = map[string]any{
+		"get": endpoint("Get session", "Returns session with questions grouped by status and progress counters. Resolves session by UUID or short code (e.g. SS1) within the given research.",
+			[]param{path("id", "Research UUID or short code"), path("sessionId", "Session UUID or short code (e.g. SS1)")},
 			response200(obj(field("data", "object", "Contains: session, questions (grouped by status), progress (total, answered, pending, deferred, skipped)"))),
+		),
+	}
+
+	paths["/api/researches/{id}/entries/{entryId}"] = map[string]any{
+		"get": endpoint("Get entry by research", "Returns full entry including markdown content. Resolves entry by UUID or short code (e.g. E1) within the given research.",
+			[]param{path("id", "Research UUID or short code"), path("entryId", "Entry UUID or short code (e.g. E1)")},
+			response200(obj(field("data", "object", "Entry with id, code, research_id, section_id, title, content, description, status, tags, created_at, updated_at"))),
 		),
 	}
 

@@ -205,7 +205,7 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
 
 // Related by tags
 const { data: relatedData } = useApi<{ data: any[] }>(
-  computed(() => entry.value ? `/api/researches/${id}/entries/${entry.value.id}/related` : `/api/entries/__none__/related`)
+  computed(() => entry.value ? `/api/entries/${entry.value.id}/related` : `/api/entries/__none__/related`)
 )
 const relatedEntries = computed(() => relatedData.value?.data ?? [])
 
