@@ -149,7 +149,7 @@ const researchSlug = computed(() => research.value?.code || id)
 const sections = computed(() => researchData.value?.data?.sections ?? [])
 
 // Entry data (pass research context for code-based lookup)
-const { data, pending } = await useApi<{ data: any }>(`/api/entries/${entryId}?research=${id}`)
+const { data, pending } = await useApi<{ data: any }>(`/api/researches/${id}/entries/${entryId}`)
 const entry = computed(() => data.value?.data)
 
 const sectionName = computed(() => {
@@ -205,7 +205,7 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
 
 // Related by tags
 const { data: relatedData } = useApi<{ data: any[] }>(
-  computed(() => entry.value ? `/api/entries/${entry.value.id}/related?research=${id}` : `/api/entries/__none__/related`)
+  computed(() => entry.value ? `/api/entries/${entry.value.id}/related` : `/api/entries/__none__/related`)
 )
 const relatedEntries = computed(() => relatedData.value?.data ?? [])
 

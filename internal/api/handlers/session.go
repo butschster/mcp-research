@@ -37,9 +37,14 @@ func (h *SessionHandler) ListByResearch(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	researchID, err := h.research.ResolveID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 
-	result, err := h.session.Get(r.Context(), id)
+	sessionIDOrCode := r.PathValue("sessionId")
+	result, err := h.session.GetByIDOrCode(r.Context(), researchID, sessionIDOrCode)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

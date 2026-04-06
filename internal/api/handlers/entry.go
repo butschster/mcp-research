@@ -53,6 +53,59 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
+	researchIDOrCode := r.PathValue("id")
+
+	research, err := h.research.FindByID(r.Context(), researchIDOrCode)
+	if err == nil && research == nil {
+		research, _ = h.research.FindByCode(r.Context(), researchIDOrCode)
+	}
+	if research == nil {
+		writeError(w, http.StatusNotFound, "research not found")
+		return
+	}
+
+	entry, err := h.entry.GetByIDOrCode(r.Context(), research.ID, r.PathValue("entryId"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"data": entry,
+	})
+}
+
+func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Request) {
+	researchIDOrCode := r.PathValue("id")
+
+	research, err := h.research.FindByID(r.Context(), researchIDOrCode)
+	if err == nil && research == nil {
+		research, _ = h.research.FindByCode(r.Context(), researchIDOrCode)
+	}
+	if research == nil {
+		writeError(w, http.StatusNotFound, "research not found")
+		return
+	}
+
+	entry, err := h.entry.GetByIDOrCode(r.Context(), research.ID, r.PathValue("entryId"))
+	if err != nil || entry == nil {
+		writeError(w, http.StatusNotFound, "entry not found")
+		return
+	}
+
+	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"data":  related,
+		"count": len(related),
+	})
+}
+
 // ResolveCode resolves a short code reference like "E3" (within research) or handles
 // cross-research resolution via query param ?research_code=R2
 func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {

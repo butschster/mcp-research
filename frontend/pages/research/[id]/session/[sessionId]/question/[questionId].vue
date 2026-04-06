@@ -94,7 +94,7 @@ const researchName = computed(() => researchData.value?.data?.research?.name ?? 
 const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 
 // Session + questions
-const { data, pending } = await useApi<{ data: any }>(`/api/sessions/${sessionId}`)
+const { data, pending } = await useApi<{ data: any }>(`/api/researches/${id}/sessions/${sessionId}`)
 const sessionTitle = computed(() => data.value?.data?.session?.title ?? 'Session')
 
 // Flatten all questions from grouped structure

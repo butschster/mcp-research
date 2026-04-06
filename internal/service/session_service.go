@@ -169,6 +169,58 @@ func (s *SessionService) Get(ctx context.Context, id string) (*SessionWithQuesti
 	}, nil
 }
 
+func (s *SessionService) GetByIDOrCode(ctx context.Context, researchID string, idOrCode string) (*SessionWithQuestions, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, ErrNotFound
+	}
+
+	session, err := s.sessions.FindByID(ctx, idOrCode)
+	if err != nil {
+		return nil, fmt.Errorf("find session: %w", err)
+	}
+	if session == nil {
+		session, err = s.sessions.FindByCodeAndResearch(ctx, idOrCode, researchID)
+		if err != nil {
+			return nil, fmt.Errorf("find session by code: %w", err)
+		}
+	}
+	if session == nil {
+		return nil, ErrNotFound
+	}
+	if session.ResearchID != researchID {
+		return nil, ErrNotFound
+	}
+
+	questions, err := s.questions.FindBySession(ctx, session.ID, storage.QuestionFilter{})
+	if err != nil {
+		return nil, fmt.Errorf("find questions: %w", err)
+	}
+
+	counts, err := s.questions.CountByStatus(ctx, session.ID)
+	if err != nil {
+		return nil, fmt.Errorf("count questions: %w", err)
+	}
+
+	total := 0
+	for _, c := range counts {
+		total += c
+	}
+
+	progress := QuestionProgress{
+		Total:    total,
+		Answered: counts[domain.QuestionAnswered],
+		Pending:  counts[domain.QuestionPending] + counts[domain.QuestionInProgress],
+		Deferred: counts[domain.QuestionDeferred],
+		Skipped:  counts[domain.QuestionSkipped],
+	}
+
+	return &SessionWithQuestions{
+		Session:   session,
+		Questions: questions,
+		Progress:  progress,
+	}, nil
+}
+
 func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessionRequest) (*domain.Session, error) {
 	if req.Notes != nil && req.AddNote != nil {
 		return nil, fmt.Errorf("notes and add_note: %w", ErrMutualExclusion)

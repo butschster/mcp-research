@@ -33,6 +33,7 @@
         :key="r.id"
         :research="r"
         @tag-click="tagFilter = $event"
+        @status-changed="refreshList"
       />
     </div>
 
@@ -52,7 +53,7 @@ const { authFetch } = useAuth()
 const config = useRuntimeConfig()
 const base = config.public.apiBase || ''
 
-const statusFilter = ref('')
+const statusFilter = ref('active')
 const tagFilter = ref('')
 
 const apiUrl = computed(() =>
@@ -61,10 +62,12 @@ const apiUrl = computed(() =>
 
 const { data, pending, refresh } = useApi<{ data: any[] }>(apiUrl.value)
 
-watch(statusFilter, async () => {
+async function refreshList() {
   const res = await authFetch<{ data: any[] }>(`${base}${apiUrl.value}`)
   data.value = res
-})
+}
+
+watch(statusFilter, refreshList)
 
 const researches = computed(() => data.value?.data ?? [])
 

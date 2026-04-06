@@ -154,7 +154,8 @@ func NewServer(
 	}))
 	mux.Handle("GET /api/researches/{id}/tasks", wrapRead(th.ListByResearch))
 	mux.Handle("GET /api/researches/{id}/sessions", wrapRead(sh.ListByResearch))
-	mux.Handle("GET /api/sessions/{id}", wrapRead(sh.Get))
+	mux.Handle("GET /api/researches/{id}/sessions/{sessionId}", wrapRead(sh.Get))
+	mux.Handle("GET /api/researches/{id}/entries/{entryId}", wrapRead(eh.GetByResearch))
 
 	// --- Write endpoints ---
 	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)

@@ -98,6 +98,13 @@ func (r *SessionRepository) FindByCode(ctx context.Context, code string) (*domai
 	return r.scanSession(row)
 }
 
+func (r *SessionRepository) FindByCodeAndResearch(ctx context.Context, code string, researchID string) (*domain.Session, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
+		 FROM sessions WHERE code=? AND research_id=?`, code, researchID)
+	return r.scanSession(row)
+}
+
 func (r *SessionRepository) FindByResearch(ctx context.Context, researchID string) ([]*domain.Session, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at

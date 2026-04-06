@@ -5,7 +5,17 @@
         <span v-if="research.code" class="short-code">{{ research.code }}</span>
         <h3 class="card-title">{{ research.name }}</h3>
       </div>
-      <StatusBadge :status="research.status" />
+      <div class="card-header-actions">
+        <button
+          class="btn-icon"
+          :title="research.status === 'archived' ? 'Restore from archive' : 'Archive'"
+          @click.prevent.stop="toggleArchive"
+        >
+          <svg v-if="research.status === 'archived'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        </button>
+        <StatusBadge :status="research.status" />
+      </div>
     </div>
 
     <p v-if="research.goal" class="card-meta goal-text">{{ research.goal }}</p>
@@ -27,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   research: {
     id: string
     code?: string
@@ -39,7 +49,20 @@ defineProps<{
   }
 }>()
 
-const emit = defineEmits<{ tagClick: [tag: string] }>()
+const emit = defineEmits<{ tagClick: [tag: string]; statusChanged: [] }>()
+
+const { authFetch } = useAuth()
+const config = useRuntimeConfig()
+const base = config.public.apiBase || ''
+
+async function toggleArchive() {
+  const newStatus = props.research.status === 'archived' ? 'active' : 'archived'
+  await authFetch(`${base}/api/researches/${props.research.id}`, {
+    method: 'PUT',
+    body: { status: newStatus },
+  })
+  emit('statusChanged')
+}
 
 function tagHue(tag: string): number {
   return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
@@ -65,6 +88,23 @@ function relativeTime(iso: string): string {
   color: inherit;
 }
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
+.card-header-actions { display: flex; align-items: center; gap: var(--space-2); }
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  opacity: 0;
+}
+.research-card:hover .btn-icon { opacity: 1; }
+.btn-icon:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .card-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .short-code {
   font-size: var(--type-xs);

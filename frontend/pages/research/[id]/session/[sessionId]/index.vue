@@ -161,7 +161,7 @@ const researchName = computed(() => researchData.value?.data?.research?.name ?? 
 const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 const researchId = computed(() => researchData.value?.data?.research?.id || id)
 
-const { data, pending } = await useApi<{ data: any }>(`/api/sessions/${sessionId}`)
+const { data, pending } = await useApi<{ data: any }>(`/api/researches/${id}/sessions/${sessionId}`)
 
 const session  = computed(() => data.value?.data?.session ?? data.value?.data?.Session)
 const questions = computed(() => data.value?.data?.questions ?? data.value?.data?.Questions ?? {})
@@ -251,7 +251,7 @@ async function submitQuestion() {
     })
     newQuestion.value = { text: '', area: '', priority: 'medium' }
     showAddQuestion.value = false
-    data.value = await authFetch<any>(`${rtBase}/api/sessions/${sessionId}`)
+    data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
   } catch { /* ignore */ }
   addingQuestion.value = false
 }
@@ -260,7 +260,7 @@ async function submitQuestion() {
 useRealtimeUpdates(async (event) => {
   if (event.research_id && event.research_id !== id) return
   if (['question', 'session'].includes(event.entity)) {
-    data.value = await authFetch<any>(`${rtBase}/api/sessions/${sessionId}`)
+    data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
   }
   if (event.entity === 'task') {
     tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
