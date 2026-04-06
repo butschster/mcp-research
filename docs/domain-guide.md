@@ -80,6 +80,7 @@ Entries are the actual content — markdown documents containing research findin
 | `content` | Full markdown content |
 | `description` | Short summary (auto-generated from first few lines if omitted) |
 | `section_id` | Which section this entry belongs to |
+| `session_id` | Optional: session that produced this entry (tracks provenance) |
 | `tags` | Categorization tags for filtering |
 | `status` | `draft` / `active` / `completed` / `archived` |
 | `code` | Auto-assigned per research: `E1`, `E2`, `E3`... |
@@ -203,7 +204,7 @@ Cross-references are links between documents, extracted automatically from `[[..
 | `[[R2:E5]]` | Entry E5 in research R2 | "Related to [[R2:E5]] from our prior research" |
 | `[[R2]]` | Research R2 itself | "Building on [[R2]]" |
 
-**Where cross-references work:** Entry content, question answers, task descriptions and results.
+**Where cross-references work:** Entry content, question text/answers/rationale, task titles/results, session notes. All rendered as clickable links in the web UI.
 
 **Resolution:** When you write `[[E3]]`, the system looks up entry with code E3 in the current research. If found, the reference is marked `resolved` and becomes a clickable link. If not found (e.g., the entry doesn't exist yet), it's stored as `unresolved` and will resolve when the target is created and cross-references are rebuilt.
 

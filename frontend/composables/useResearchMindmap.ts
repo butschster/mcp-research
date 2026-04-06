@@ -105,26 +105,29 @@ export function useResearchMindmap(researchId: string) {
       })
     )
 
-    // Fetch questions from all sessions
-    const allQuestions: Array<{ id: string; code: string; text: string; status: string; answer: string; sessionId: string; sessionTitle: string }> = []
+    // Fetch questions from all sessions, grouped by session
+    const sessionGroups: Array<{
+      id: string; code: string; title: string; focus: string; status: string
+      questions: Array<{ id: string; code: string; text: string; status: string; answer: string }>
+    }> = []
     await Promise.all(
       sessions.map(async (sess: any) => {
         try {
           const res = await authFetch<{ data: SessionData }>(`${base}/api/researches/${researchId}/sessions/${sess.id}`)
-          const questions = res.data?.questions ?? {}
-          for (const statusGroup of Object.values(questions)) {
+          const questions: Array<{ id: string; code: string; text: string; status: string; answer: string }> = []
+          for (const statusGroup of Object.values(res.data?.questions ?? {})) {
             for (const q of statusGroup) {
-              allQuestions.push({
-                id: q.id,
-                code: q.code,
-                text: q.text,
-                status: q.status,
-                answer: q.answer,
-                sessionId: sess.code || sess.id,
-                sessionTitle: sess.title,
-              })
+              questions.push({ id: q.id, code: q.code, text: q.text, status: q.status, answer: q.answer })
             }
           }
+          sessionGroups.push({
+            id: sess.id,
+            code: sess.code || sess.id,
+            title: sess.title,
+            focus: sess.focus || '',
+            status: sess.status,
+            questions,
+          })
         } catch {
           // session might not be accessible
         }
@@ -135,15 +138,16 @@ export function useResearchMindmap(researchId: string) {
     const crossrefsRes = await authFetch<{ data: any[] }>(`${base}/api/researches/${researchId}/crossrefs`)
     const crossrefs = crossrefsRes.data ?? []
 
-    return { research, sections, entriesBySection, tasks, allQuestions, crossrefs }
+    return { research, sections, entriesBySection, tasks, sessionGroups, crossrefs }
   }
 
   function buildGraph(data: Awaited<ReturnType<typeof fetchAllData>>) {
-    const { research, sections, entriesBySection, tasks, allQuestions } = data
+    const { research, sections, entriesBySection, tasks, sessionGroups } = data
     const rawNodes: Node[] = []
     const rawEdges: Edge[] = []
 
     const totalEntries = Object.values(entriesBySection).reduce((sum, e) => sum + e.length, 0)
+    const totalQuestions = sessionGroups.reduce((sum, s) => sum + s.questions.length, 0)
 
     // Root node
     rawNodes.push({
@@ -156,7 +160,7 @@ export function useResearchMindmap(researchId: string) {
         status: research.status,
         sectionCount: sections.length,
         entryCount: totalEntries,
-        questionCount: allQuestions.length,
+        questionCount: totalQuestions,
         taskCount: tasks.length,
       },
     })
@@ -217,71 +221,95 @@ export function useResearchMindmap(researchId: string) {
       }
     }
 
-    // Questions group
-    if (visibleGroups.value.has('questions') && allQuestions.length > 0) {
-      const questionsGroupId = 'group-questions'
+    // Sessions with questions (grouped by session)
+    if (visibleGroups.value.has('questions') && sessionGroups.length > 0) {
+      const sessionsGroupId = 'group-sessions'
       rawNodes.push({
-        id: questionsGroupId,
+        id: sessionsGroupId,
         type: 'group-label',
         position: { x: 0, y: 0 },
-        data: { label: 'Questions', count: allQuestions.length, icon: 'question' },
+        data: { label: 'Sessions', count: sessionGroups.length, icon: 'question' },
       })
       rawEdges.push({
-        id: `root-${questionsGroupId}`,
+        id: `root-${sessionsGroupId}`,
         source: 'root',
         sourceHandle: 'left',
-        target: questionsGroupId,
+        target: sessionsGroupId,
         type: 'smoothstep',
         style: { stroke: 'rgba(240,184,73,0.5)', strokeWidth: 2 },
       })
 
-      if (!collapsedIds.value.has(questionsGroupId)) {
-        for (const q of allQuestions) {
-          const qNodeId = `question-${q.id}`
+      if (!collapsedIds.value.has(sessionsGroupId)) {
+        for (const sess of sessionGroups) {
+          const sessNodeId = `session-node-${sess.id}`
           rawNodes.push({
-            id: qNodeId,
-            type: 'question',
+            id: sessNodeId,
+            type: 'group-label',
             position: { x: 0, y: 0 },
             data: {
-              id: q.id,
-              code: q.code,
-              text: q.text,
-              status: q.status,
-              answer: q.answer,
-              sessionId: q.sessionId,
-              sessionTitle: q.sessionTitle,
-              researchSlug: research.code || researchId,
+              label: sess.title,
+              count: sess.questions.length,
+              icon: 'question',
+              status: sess.status,
             },
           })
           rawEdges.push({
-            id: `${questionsGroupId}-${qNodeId}`,
-            source: questionsGroupId,
-            target: qNodeId,
+            id: `${sessionsGroupId}-${sessNodeId}`,
+            source: sessionsGroupId,
+            target: sessNodeId,
             type: 'smoothstep',
-            style: { stroke: 'rgba(240,184,73,0.25)', strokeWidth: 1.5 },
+            style: { stroke: 'rgba(240,184,73,0.35)', strokeWidth: 1.5 },
           })
 
-          // Add answer node for answered questions
-          if (q.answer) {
-            const answerNodeId = `answer-${q.id}`
-            rawNodes.push({
-              id: answerNodeId,
-              type: 'answer',
-              position: { x: 0, y: 0 },
-              data: {
-                answer: q.answer,
-                questionCode: q.code || q.id,
-                sessionId: q.sessionId,
-                researchSlug: research.code || researchId,
-              },
-            })
-            rawEdges.push({
-              id: `${qNodeId}-${answerNodeId}`,
-              source: qNodeId,
-              target: answerNodeId,
-              type: 'smoothstep',
-              style: { stroke: 'rgba(52,211,153,0.35)', strokeWidth: 1.5 },
-            })
+          if (!collapsedIds.value.has(sessNodeId)) {
+            for (const q of sess.questions) {
+              const qNodeId = `question-${q.id}`
+              rawNodes.push({
+                id: qNodeId,
+                type: 'question',
+                position: { x: 0, y: 0 },
+                data: {
+                  id: q.id,
+                  code: q.code,
+                  text: q.text,
+                  status: q.status,
+                  answer: q.answer,
+                  sessionId: sess.code,
+                  sessionTitle: sess.title,
+                  researchSlug: research.code || researchId,
+                },
+              })
+              rawEdges.push({
+                id: `${sessNodeId}-${qNodeId}`,
+                source: sessNodeId,
+                target: qNodeId,
+                type: 'smoothstep',
+                style: { stroke: 'rgba(240,184,73,0.25)', strokeWidth: 1.5 },
+              })
+
+              // Add answer node for answered questions
+              if (q.answer) {
+                const answerNodeId = `answer-${q.id}`
+                rawNodes.push({
+                  id: answerNodeId,
+                  type: 'answer',
+                  position: { x: 0, y: 0 },
+                  data: {
+                    answer: q.answer,
+                    questionCode: q.code || q.id,
+                    sessionId: sess.code,
+                    researchSlug: research.code || researchId,
+                  },
+                })
+                rawEdges.push({
+                  id: `${qNodeId}-${answerNodeId}`,
+                  source: qNodeId,
+                  target: answerNodeId,
+                  type: 'smoothstep',
+                  style: { stroke: 'rgba(52,211,153,0.35)', strokeWidth: 1.5 },
+                })
+              }
+            }
           }
         }
       }
@@ -359,7 +387,7 @@ export function useResearchMindmap(researchId: string) {
   }
 
   // IDs that belong on the left side (questions + tasks)
-  const LEFT_PREFIXES = ['group-questions', 'question-', 'answer-', 'group-tasks', 'task-']
+  const LEFT_PREFIXES = ['group-sessions', 'session-node-', 'question-', 'answer-', 'group-tasks', 'task-']
 
   function isLeftNode(id: string): boolean {
     return LEFT_PREFIXES.some(p => id.startsWith(p))
@@ -514,7 +542,7 @@ export function useResearchMindmap(researchId: string) {
     if (!cachedData) return
     const ids = new Set<string>()
     for (const sec of cachedData.sections) ids.add(`section-${sec.id}`)
-    ids.add('group-questions')
+    ids.add('group-sessions')
     ids.add('group-tasks')
     collapsedIds.value = ids
     rebuildGraph()

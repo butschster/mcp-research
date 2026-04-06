@@ -57,6 +57,7 @@ Markdown document containing research findings. Lives in a section.
 | `content` | string | Full markdown content |
 | `description` | string | Short summary (auto-generated if omitted) |
 | `section_id` | string | Parent section |
+| `session_id` | string | Optional: session that produced this entry |
 | `tags` | string[] | Categorization tags for filtering |
 | `status` | enum | `draft` / `active` / `completed` / `archived` |
 | `code` | string | Auto-assigned: `E1`, `E2`... (per research) |
@@ -66,6 +67,7 @@ Markdown document containing research findings. Lives in a section.
 - Use `[[E3]]` syntax in content to cross-reference other entries.
 - Tags enable filtering on the research page. Use consistent taxonomy.
 - Title/description auto-generated from content if not provided.
+- Set `session_id` to link the entry to the session that produced it (helps track provenance).
 
 **Cross-reference syntax in content:**
 - `[[E3]]` — entry E3 in same research
@@ -88,9 +90,9 @@ Interactive Q&A interview workflow. How knowledge enters the system.
 
 **Key rules:**
 - **One active session at a time** per research. Complete before starting another.
-- Multiple sessions are normal — each focuses on different aspects.
-- Use `add_note` to log decisions and pivots during the session.
-- Create entries when enough material accumulates from Q&A.
+- **Multiple sessions are normal** — each focuses on different aspects (initial exploration, deep-dive, follow-up).
+- Use `add_note` to log decisions and pivots during the session. Notes support markdown and `[[...]]` cross-references.
+- Create entries when enough material accumulates from Q&A. Set `session_id` on entries to track provenance.
 
 **Typical session progression:**
 1. Create session with 3-8 initial questions
@@ -127,7 +129,8 @@ Structured Q&A prompt within a session.
 - Nesting max 3 levels deep (parent → child → grandchild).
 - One topic per question. Don't combine multiple asks.
 - `area` enables filtering by section focus.
-- Answers support markdown and cross-references (`[[E3]]`).
+- Question text, answers, and rationale all support cross-references (`[[E3]]`).
+- Answers support full markdown formatting.
 
 ---
 
@@ -163,7 +166,7 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | `[[R2:E5]]` | Entry E5 in research R2 |
 | `[[R2]]` | Research R2 itself |
 
-**Where they work:** Entry content, question answers, task descriptions and results.
+**Where they work:** Entry content, question text/answers/rationale, task titles/results, session notes. All rendered as clickable links in the web UI.
 
 **Resolution:** References are resolved when the target exists. Unresolved references are tracked and can be resolved later via rebuild.
 

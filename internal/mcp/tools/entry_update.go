@@ -17,6 +17,7 @@ type EntryUpdateInput struct {
 	Status      *string          `json:"status" jsonschema:"New status: draft, active, completed, archived"`
 	Tags        []string         `json:"tags" jsonschema:"Replace tags"`
 	TextReplace *TextReplaceSpec `json:"text_replace" jsonschema:"Replace first occurrence of 'from' with 'to' in content"`
+	SessionID   *string          `json:"session_id" jsonschema:"Link entry to a session (pass empty string to unlink)"`
 }
 
 type TextReplaceSpec struct {
@@ -54,6 +55,7 @@ func RegisterEntryUpdate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 			Status:      status,
 			Tags:        input.Tags,
 			TextReplace: textReplace,
+			SessionID:   input.SessionID,
 		})
 		if err != nil {
 			return errorResult(err.Error())

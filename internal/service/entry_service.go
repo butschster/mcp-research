@@ -22,6 +22,7 @@ type CrossRefParser interface {
 type CreateEntryRequest struct {
 	ResearchID string
 	SectionID  string
+	SessionID  string
 	Content    string
 	Title      string
 	Description string
@@ -36,6 +37,7 @@ type UpdateEntryRequest struct {
 	Status      *domain.EntryStatus
 	Tags        []string
 	TextReplace *TextReplace
+	SessionID   *string
 }
 
 type TextReplace struct {
@@ -102,6 +104,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		ID:          uuid.New().String(),
 		ResearchID:  req.ResearchID,
 		SectionID:   req.SectionID,
+		SessionID:   req.SessionID,
 		Title:       title,
 		Content:     req.Content,
 		Description: description,
@@ -195,6 +198,9 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 	}
 	if req.Tags != nil {
 		entry.Tags = req.Tags
+	}
+	if req.SessionID != nil {
+		entry.SessionID = *req.SessionID
 	}
 
 	// text_replace

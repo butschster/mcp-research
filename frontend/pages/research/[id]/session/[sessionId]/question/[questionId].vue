@@ -14,7 +14,7 @@
         { label: `Q${questionIndex + 1}` }
       ]" />
       <div class="question-header">
-        <h1 class="page-title">{{ question.text }}</h1>
+        <h1 class="page-title" v-html="renderRefs(question.text, researchSlug)"></h1>
         <div class="question-badges">
           <StatusBadge :status="question.status" />
           <StatusBadge v-if="question.priority" :status="question.priority" />
@@ -28,7 +28,7 @@
     <!-- Rationale -->
     <div v-if="question.rationale" class="card rationale-card">
       <h3 class="card-section-title">Rationale</h3>
-      <p class="rationale-text">{{ question.rationale }}</p>
+      <div class="rationale-text markdown-content" v-html="renderRefs(marked.parseInline(question.rationale) as string, researchSlug)"></div>
     </div>
 
     <!-- Answer -->

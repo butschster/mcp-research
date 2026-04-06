@@ -12,6 +12,7 @@ import (
 type EntryCreateInput struct {
 	ResearchID  string   `json:"research_id" jsonschema:"ID of the research"`
 	SectionID   string   `json:"section_id" jsonschema:"ID of the section"`
+	SessionID   string   `json:"session_id" jsonschema:"Optional session ID to link this entry to a session"`
 	Content     string   `json:"content" jsonschema:"Markdown content of the entry"`
 	Title       string   `json:"title" jsonschema:"Optional title (auto-generated from content if empty)"`
 	Description string   `json:"description" jsonschema:"Optional description (auto-generated from content if empty)"`
@@ -46,6 +47,7 @@ func RegisterEntryCreate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 		entry, err := svc.Create(ctx, service.CreateEntryRequest{
 			ResearchID:  input.ResearchID,
 			SectionID:   input.SectionID,
+			SessionID:   input.SessionID,
 			Content:     input.Content,
 			Title:       input.Title,
 			Description: input.Description,

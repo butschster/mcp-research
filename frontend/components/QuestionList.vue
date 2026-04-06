@@ -35,7 +35,7 @@
         >
           <div class="q-top">
             <span v-if="q.code" class="q-code">{{ q.code }}</span>
-            <span class="q-text">{{ q.text }}</span>
+            <span class="q-text" v-html="renderRefs(q.text, researchSlug || '')"></span>
             <div class="q-badges">
               <StatusBadge v-if="q.priority" :status="q.priority" />
             </div>
