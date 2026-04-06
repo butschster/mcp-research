@@ -3,15 +3,17 @@ export function useApi<T>(path: string, options: Record<string, any> = {}) {
   const baseURL = config.public.apiBase || ''
   const { token } = useAuth()
 
-  const headers: Record<string, string> = { ...(options.headers || {}) }
-  if (token.value) {
-    headers['Authorization'] = `Bearer ${token.value}`
-  }
-
   return useFetch<T>(path, {
     ...options,
     baseURL: baseURL || undefined,
     key: path,
-    headers,
+    onRequest({ options: reqOpts }) {
+      if (token.value) {
+        reqOpts.headers = reqOpts.headers instanceof Headers
+          ? reqOpts.headers
+          : new Headers(reqOpts.headers as Record<string, string> || {})
+        ;(reqOpts.headers as Headers).set('Authorization', `Bearer ${token.value}`)
+      }
+    },
   })
 }
