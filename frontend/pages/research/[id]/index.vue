@@ -37,9 +37,94 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
           </NuxtLink>
+          <button class="btn btn-sm" @click="detailsOpen = !detailsOpen" :title="detailsOpen ? 'Hide details' : 'Show details'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Details
+          </button>
         </div>
       </div>
-      <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
+      <p v-if="research.goal && !detailsOpen" class="card-meta mt-2">{{ research.goal }}</p>
+    </div>
+
+    <!-- Research details panel -->
+    <div v-if="detailsOpen" class="card details-panel">
+      <div class="details-grid">
+        <!-- Goal -->
+        <div class="detail-field" @dblclick="startEdit('goal')">
+          <label class="detail-label">Goal</label>
+          <div v-if="editingField !== 'goal'" class="detail-value" :class="{ 'detail-empty': !research.goal }">
+            {{ research.goal || 'Not set — double-click to edit' }}
+          </div>
+          <div v-else class="detail-edit">
+            <input v-model="editValue" class="detail-input" @keydown.enter="saveEdit('goal')" @keydown.escape="cancelEdit" ref="editInput" />
+            <div class="detail-edit-actions">
+              <button class="btn btn-sm btn-primary" @click="saveEdit('goal')">Save</button>
+              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="detail-field" @dblclick="startEdit('description')">
+          <label class="detail-label">Description</label>
+          <div v-if="editingField !== 'description'" class="detail-value" :class="{ 'detail-empty': !research.description }">
+            {{ research.description || 'Not set — double-click to edit' }}
+          </div>
+          <div v-else class="detail-edit">
+            <textarea v-model="editValue" class="detail-textarea" rows="3" @keydown.escape="cancelEdit" ref="editInput"></textarea>
+            <div class="detail-edit-actions">
+              <button class="btn btn-sm btn-primary" @click="saveEdit('description')">Save</button>
+              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Instruction -->
+        <div class="detail-field detail-field-wide" @dblclick="startEdit('instruction')">
+          <label class="detail-label">Instruction</label>
+          <div v-if="editingField !== 'instruction'" class="detail-value detail-value-pre" :class="{ 'detail-empty': !research.instruction }">
+            {{ research.instruction || 'Not set — double-click to edit' }}
+          </div>
+          <div v-else class="detail-edit">
+            <textarea v-model="editValue" class="detail-textarea" rows="6" @keydown.escape="cancelEdit" ref="editInput"></textarea>
+            <div class="detail-edit-actions">
+              <button class="btn btn-sm btn-primary" @click="saveEdit('instruction')">Save</button>
+              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Memory -->
+        <div class="detail-field detail-field-wide">
+          <label class="detail-label">Memory <span class="detail-count">{{ research.memory?.length || 0 }}</span></label>
+          <div v-if="research.memory?.length" class="memory-list">
+            <div v-for="(item, i) in research.memory" :key="i" class="memory-item">
+              <span class="memory-bullet">{{ i + 1 }}</span>
+              <span>{{ item }}</span>
+            </div>
+          </div>
+          <div v-else class="detail-value detail-empty">No memory entries yet</div>
+        </div>
+
+        <!-- Tags -->
+        <div class="detail-field" @dblclick="startEdit('tags')">
+          <label class="detail-label">Tags</label>
+          <div v-if="editingField !== 'tags'">
+            <div v-if="research.tags?.length" class="tags-row">
+              <span v-for="tag in research.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
+            </div>
+            <div v-else class="detail-value detail-empty">No tags — double-click to edit</div>
+          </div>
+          <div v-else class="detail-edit">
+            <input v-model="editValue" class="detail-input" placeholder="tag1, tag2, tag3" @keydown.enter="saveEdit('tags')" @keydown.escape="cancelEdit" ref="editInput" />
+            <span class="detail-hint">Comma-separated</span>
+            <div class="detail-edit-actions">
+              <button class="btn btn-sm btn-primary" @click="saveEdit('tags')">Save</button>
+              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Sessions list -->
@@ -380,10 +465,45 @@ const tasksOpen = ref(true)
 const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
 const allSessions = computed(() => sessionsData.value?.data ?? [])
 
-// Archive toggle
+// Auth & API
 const { authFetch } = useAuth()
-
 const rtBase = useRuntimeConfig().public.apiBase || ''
+
+// Details panel
+const detailsOpen = ref(false)
+const editingField = ref<string | null>(null)
+const editValue = ref('')
+const editInput = ref<HTMLElement | null>(null)
+
+function startEdit(field: string) {
+  if (field === 'tags') {
+    editValue.value = (research.value?.tags ?? []).join(', ')
+  } else {
+    editValue.value = research.value?.[field] ?? ''
+  }
+  editingField.value = field
+  nextTick(() => editInput.value?.focus?.())
+}
+
+function cancelEdit() {
+  editingField.value = null
+  editValue.value = ''
+}
+
+async function saveEdit(field: string) {
+  const body: Record<string, any> = {}
+  if (field === 'tags') {
+    body.tags = editValue.value.split(',').map((t: string) => t.trim()).filter(Boolean)
+  } else {
+    body[field] = editValue.value
+  }
+  await authFetch(`${rtBase}/api/researches/${id}`, { method: 'PUT', body })
+  researchData.value = await authFetch<any>(`${rtBase}/api/researches/${id}`)
+  editingField.value = null
+  editValue.value = ''
+}
+
+// Archive toggle
 
 async function toggleArchive() {
   const newStatus = research.value.status === 'archived' ? 'active' : 'archived'
@@ -435,6 +555,85 @@ useRealtimeUpdates(async (event) => {
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
+}
+
+/* Details panel */
+.details-panel { margin-bottom: var(--space-6); }
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+.detail-field-wide { grid-column: 1 / -1; }
+.detail-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+.detail-count {
+  font-size: 0.625rem;
+  background: var(--color-surface-hover);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.detail-value {
+  font-size: var(--type-sm);
+  color: var(--color-text);
+  line-height: 1.6;
+  cursor: default;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-fast);
+}
+.detail-value:hover { border-color: var(--color-border); }
+.detail-value-pre { white-space: pre-wrap; }
+.detail-empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+  opacity: 0.6;
+}
+.detail-edit { display: flex; flex-direction: column; gap: var(--space-2); }
+.detail-input, .detail-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--type-sm);
+  font-family: inherit;
+  line-height: 1.5;
+}
+.detail-textarea { resize: vertical; min-height: 60px; }
+.detail-input:focus, .detail-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.detail-edit-actions { display: flex; gap: var(--space-2); }
+.detail-hint { font-size: var(--type-xs); color: var(--color-text-muted); }
+.memory-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.memory-item {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--type-sm);
+  line-height: 1.5;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-sm);
+}
+.memory-bullet {
+  font-size: var(--type-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  min-width: 1.2em;
+  text-align: right;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* Sidebar */
