@@ -10,6 +10,7 @@
     <p v-if="data.answer && data.status === 'answered'" class="q-answer">{{ truncate(data.answer, 60) }}</p>
     <span class="q-session">{{ data.sessionTitle }}</span>
     <Handle type="target" :position="targetPosition" />
+    <Handle type="source" :position="sourcePosition" />
   </div>
 </template>
 
@@ -27,6 +28,7 @@ const props = defineProps<{
     sessionTitle: string
     researchSlug: string
   }
+  sourcePosition?: Position
   targetPosition?: Position
 }>()
 

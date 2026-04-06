@@ -122,6 +122,7 @@ import EntryNode from '~/components/mindmap/EntryNode.vue'
 import GroupLabelNode from '~/components/mindmap/GroupLabelNode.vue'
 import QuestionNode from '~/components/mindmap/QuestionNode.vue'
 import TaskNode from '~/components/mindmap/TaskNode.vue'
+import AnswerNode from '~/components/mindmap/AnswerNode.vue'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -132,6 +133,7 @@ const nodeTypes = {
   entry: markRaw(EntryNode),
   'group-label': markRaw(GroupLabelNode),
   question: markRaw(QuestionNode),
+  answer: markRaw(AnswerNode),
   task: markRaw(TaskNode),
 }
 
@@ -245,6 +247,7 @@ function minimapNodeColor(node: any): string {
     case 'entry': return '#7f8ea3'
     case 'group-label': return '#f0b849'
     case 'question': return '#f0b849'
+    case 'answer': return '#34d399'
     case 'task': return '#ef6b6b'
     default: return '#7f8ea3'
   }
