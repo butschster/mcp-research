@@ -175,6 +175,7 @@ func NewServer(
 	mux.Handle("PUT /api/tasks/{id}", wrap(wh.UpdateTask))
 	mux.Handle("DELETE /api/tasks/{id}", wrap(wh.DeleteTask))
 	mux.Handle("POST /api/sessions", wrap(wh.CreateSession))
+	mux.Handle("PUT /api/sessions/{id}", wrap(wh.UpdateSession))
 	mux.Handle("PUT /api/questions/{questionId}", wrap(wh.UpdateQuestion))
 	mux.Handle("POST /api/sessions/{id}/questions", wrap(wh.AddQuestions))
 	mux.Handle("POST /api/researches/{id}/crossrefs/rebuild", wrap(crh.Rebuild))

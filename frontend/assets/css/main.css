@@ -167,8 +167,8 @@ body::after {
 /* --- Page Header -------------------------------------------------------- */
 
 .page-header {
-  padding: 0 0 var(--space-6);
-  margin-bottom: var(--space-8);
+  padding: 0;
+  margin-bottom: var(--space-5);
 }
 
 .page-title {
