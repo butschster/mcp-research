@@ -31,6 +31,10 @@
       <div v-if="entry.tags?.length" class="entry-tags">
         <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
       </div>
+      <NuxtLink v-if="linkedSession" :to="`/research/${researchSlug}/session/${linkedSession.code || linkedSession.id}`" class="entry-session-link">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        {{ linkedSession.title }}
+      </NuxtLink>
     </div>
 
     <!-- View toggle -->
@@ -157,6 +161,13 @@ const sectionName = computed(() => {
   return sec?.display_name || sec?.name || 'Section'
 })
 
+// Linked session
+const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
+const linkedSession = computed(() => {
+  if (!entry.value?.session_id) return null
+  return (sessionsData.value?.data ?? []).find((s: any) => s.id === entry.value.session_id) ?? null
+})
+
 // Tag color
 function tagHue(tag: string): number {
   return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
@@ -230,6 +241,22 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 </script>
 
 <style scoped>
+.entry-session-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+.entry-session-link:hover { border-color: rgba(240, 184, 73, 0.3); color: var(--color-text); }
+.entry-session-link svg { opacity: 0.6; }
 .title-with-code { display: flex; align-items: center; gap: var(--space-3); }
 .short-code {
   font-size: var(--type-xs);

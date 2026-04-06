@@ -119,7 +119,8 @@ func (h *ResearchHandler) ListAllEntries(w http.ResponseWriter, r *http.Request)
 	}
 
 	filter := storage.EntryFilter{
-		Tag: r.URL.Query().Get("tag"),
+		Tag:       r.URL.Query().Get("tag"),
+		SessionID: r.URL.Query().Get("session"),
 	}
 
 	entries, err := h.entry.ListByResearch(r.Context(), researchID, filter)

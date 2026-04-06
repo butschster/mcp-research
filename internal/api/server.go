@@ -53,7 +53,7 @@ func NewServer(
 
 	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, log)
 	eh := handlers.NewEntryHandler(entrySvc, entryRepo, researchRepo, log)
-	sh := handlers.NewSessionHandler(sessionSvc, researchSvc, log)
+	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 
 	// Build auth middleware functions
