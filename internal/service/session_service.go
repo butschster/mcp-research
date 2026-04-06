@@ -215,6 +215,10 @@ func (s *SessionService) FindActive(ctx context.Context, researchID string) (*do
 	return s.sessions.FindActive(ctx, researchID)
 }
 
+func (s *SessionService) FindLatest(ctx context.Context, researchID string) (*domain.Session, error) {
+	return s.sessions.FindLatest(ctx, researchID)
+}
+
 func (s *SessionService) AddQuestions(ctx context.Context, sessionID string, requests []CreateQuestionRequest) ([]*domain.Question, error) {
 	session, err := s.sessions.FindByID(ctx, sessionID)
 	if err != nil {

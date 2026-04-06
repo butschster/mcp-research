@@ -71,16 +71,16 @@ func (h *ResearchHandler) Get(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	var activeSession *domain.Session
+	var latestSession *domain.Session
 	if h.session != nil {
-		activeSession, _ = h.session.FindActive(r.Context(), id)
+		latestSession, _ = h.session.FindLatest(r.Context(), id)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": map[string]any{
 			"research":       research,
 			"sections":       sectionData,
-			"active_session": activeSession,
+			"active_session": latestSession,
 		},
 	})
 }

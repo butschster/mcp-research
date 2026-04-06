@@ -33,7 +33,7 @@
     <NuxtLink v-if="activeSession" :to="`/research/${researchSlug}/session/${activeSession.id}`" class="card session-widget">
       <div class="session-widget-header">
         <div class="flex items-center gap-2">
-          <span class="session-label">Active session</span>
+          <span class="session-label">{{ activeSession?.status === 'active' ? 'Active session' : 'Session' }}</span>
           <StatusBadge :status="activeSession.status" />
         </div>
       </div>

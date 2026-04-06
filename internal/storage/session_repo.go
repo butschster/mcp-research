@@ -118,6 +118,13 @@ func (r *SessionRepository) FindActive(ctx context.Context, researchID string) (
 	return r.scanSession(row)
 }
 
+func (r *SessionRepository) FindLatest(ctx context.Context, researchID string) (*domain.Session, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
+		 FROM sessions WHERE research_id=? ORDER BY created_at DESC LIMIT 1`, researchID)
+	return r.scanSession(row)
+}
+
 func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	var s domain.Session
 	var createdAt, updatedAt string
