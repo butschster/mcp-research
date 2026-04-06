@@ -117,7 +117,7 @@ func TestSectionService_Update(t *testing.T) {
 		r, sec := createTestResearchWithSection(t, db)
 
 		// Create an entry in the section
-		entrySvc := NewEntryService(entryRepo, sectionRepo, storage.NewResearchRepository(db), storage.NewCrossRefRepository(db), nil, &mockNotifier{}, slog.Default())
+		entrySvc := NewEntryService(entryRepo, sectionRepo, storage.NewResearchRepository(db), nil, storage.NewCrossRefRepository(db), nil, &mockNotifier{}, slog.Default())
 		_, err := entrySvc.Create(ctx, CreateEntryRequest{
 			ResearchID: r.ID,
 			SectionID:  sec.ID,

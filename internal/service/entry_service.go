@@ -54,14 +54,15 @@ type EntryService struct {
 	entries       *storage.EntryRepository
 	sections      *storage.SectionRepository
 	researches    *storage.ResearchRepository
+	sessions      *storage.SessionRepository
 	crossrefs     *storage.CrossRefRepository
 	externalLinks *storage.ExternalLinkRepository
 	events        EventNotifier
 	log           *slog.Logger
 }
 
-func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
-	return &EntryService{entries: entries, sections: sections, researches: researches, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
+func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, sessions *storage.SessionRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
+	return &EntryService{entries: entries, sections: sections, researches: researches, sessions: sessions, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
 }
 
 func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*domain.Entry, error) {
@@ -106,11 +107,19 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		tags = []string{}
 	}
 
+	// Auto-assign active session if not specified
+	sessionID := req.SessionID
+	if sessionID == "" && s.sessions != nil {
+		if active, _ := s.sessions.FindActive(ctx, req.ResearchID); active != nil {
+			sessionID = active.ID
+		}
+	}
+
 	entry := &domain.Entry{
 		ID:          uuid.New().String(),
 		ResearchID:  req.ResearchID,
 		SectionID:   req.SectionID,
-		SessionID:   req.SessionID,
+		SessionID:   sessionID,
 		Title:       title,
 		Content:     req.Content,
 		Description: description,
