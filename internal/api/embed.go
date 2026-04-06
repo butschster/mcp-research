@@ -40,7 +40,22 @@ func staticHandler() http.Handler {
 		}
 
 		f, err := sub.Open(path)
-		if err != nil {
+		if err == nil {
+			// If the path is a directory, try serving its index.html
+			if stat, sErr := f.Stat(); sErr == nil && stat.IsDir() {
+				f.Close()
+				idxPath := path + "/index.html"
+				f2, err2 := sub.Open(idxPath)
+				if err2 == nil {
+					f = f2
+					path = idxPath
+				} else {
+					// No index.html in dir — SPA fallback
+					f, _ = sub.Open("index.html")
+					path = "index.html"
+				}
+			}
+		} else {
 			// Asset file not found — return 404
 			if hasFileExtension(r.URL.Path) {
 				http.NotFound(w, r)
