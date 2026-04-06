@@ -282,6 +282,15 @@ body::after {
   color: var(--color-bg);
   border-color: transparent;
 }
+.btn-danger {
+  color: var(--color-error, #ef6b6b);
+  border-color: rgba(239, 107, 107, 0.25);
+}
+.btn-danger:hover {
+  background: rgba(239, 107, 107, 0.1);
+  border-color: rgba(239, 107, 107, 0.4);
+  color: var(--color-error, #ef6b6b);
+}
 
 /* --- Status Badges ------------------------------------------------------ */
 
