@@ -130,6 +130,8 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/sections/{sectionId}/entries", wrapRead(rh.ListSectionEntries))
 	mux.Handle("GET /api/researches/{id}/entries", wrapRead(rh.ListAllEntries))
 	mux.Handle("GET /api/researches/{id}/tags", wrapRead(rh.ListTags))
+	exportHandler := handlers.NewExportHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, log)
+	mux.Handle("GET /api/researches/{id}/export", wrapRead(exportHandler.Export))
 	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))

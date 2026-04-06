@@ -37,7 +37,7 @@ function truncate(text: string, len: number): string {
 
 function navigate() {
   if (props.data.researchSlug && props.data.sessionId) {
-    navigateTo(`/research/${props.data.researchSlug}/session/${props.data.sessionId}/question/${props.data.code || props.data.id}`)
+    window.open(`/research/${props.data.researchSlug}/session/${props.data.sessionId}/question/${props.data.code || props.data.id}`, '_blank')
   }
 }
 </script>

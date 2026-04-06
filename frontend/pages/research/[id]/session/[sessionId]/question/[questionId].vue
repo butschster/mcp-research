@@ -45,7 +45,7 @@
     />
 
     <!-- Cross-references from this answer -->
-    <div v-if="hasRefs" class="crossrefs-block card">
+    <div v-if="hasRefs" class="crossrefs-block card no-print">
       <h3 class="crossrefs-title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         Cross-references
@@ -65,7 +65,7 @@
     </div>
 
     <!-- Prev / Next question navigation -->
-    <div v-if="allQuestions.length > 1" class="question-nav">
+    <div v-if="allQuestions.length > 1" class="question-nav no-print">
       <NuxtLink v-if="prevQuestion" :to="`/research/${researchSlug}/session/${sessionId}/question/${prevQuestion.code || prevQuestion.id}`" class="btn btn-sm nav-btn">
         &larr; {{ truncate(prevQuestion.text, 50) }}
       </NuxtLink>
@@ -258,4 +258,12 @@ function truncate(text: string, max: number): string {
 }
 .nav-next { margin-left: auto; text-align: right; }
 .nav-placeholder { flex: 1; }
+
+/* Print */
+@media print {
+  .question-badges { display: none; }
+  .answer-card { padding: 0; border: none; }
+  .rationale-card { padding: 0; border: none; }
+  .question-area { background: none; border: none; padding: 0; }
+}
 </style>

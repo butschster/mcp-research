@@ -44,7 +44,7 @@ function tagHue(tag: string): number {
 }
 
 function navigate() {
-  navigateTo(`/research/${props.data.researchSlug}/entry/${props.data.entrySlug}`)
+  window.open(`/research/${props.data.researchSlug}/entry/${props.data.entrySlug}`, '_blank')
 }
 </script>
 

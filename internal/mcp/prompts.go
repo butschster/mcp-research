@@ -2,18 +2,15 @@ package mcp
 
 import (
 	"context"
-	"embed"
 	"strings"
 
+	"github.com/butschster/mcp-research/internal/docs"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-//go:embed prompts_data
-var promptsFS embed.FS
-
 func (s *Server) registerPrompts() {
-	initText, _ := promptsFS.ReadFile("prompts_data/research_initialize.md")
-	conductText, _ := promptsFS.ReadFile("prompts_data/research_conduct.md")
+	initText, _ := docs.ReadFile("research_initialize.md")
+	conductText, _ := docs.ReadFile("research_conduct.md")
 
 	s.server.AddPrompt(&sdkmcp.Prompt{
 		Name:        "research/initialize",
