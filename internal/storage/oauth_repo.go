@@ -89,21 +89,24 @@ func (r *OAuthRepository) ListClientsByUser(ctx context.Context, userID string) 
 // --- Authorization Codes ---
 
 type OAuthCode struct {
-	Code        string
-	ClientID    string
-	UserID      string
-	RedirectURI string
-	Scope       string
-	ExpiresAt   time.Time
+	Code                string
+	ClientID            string
+	UserID              string
+	RedirectURI         string
+	Scope               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	ExpiresAt           time.Time
 }
 
 func (r *OAuthRepository) CreateCode(ctx context.Context, code *OAuthCode) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	expiresAt := code.ExpiresAt.UTC().Format(time.DateTime)
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO oauth_codes (code, client_id, user_id, redirect_uri, scope, expires_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		code.Code, code.ClientID, code.UserID, code.RedirectURI, code.Scope, expiresAt, now,
+		`INSERT INTO oauth_codes (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, expires_at, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		code.Code, code.ClientID, code.UserID, code.RedirectURI, code.Scope,
+		code.CodeChallenge, code.CodeChallengeMethod, expiresAt, now,
 	)
 	return err
 }
@@ -112,9 +115,9 @@ func (r *OAuthRepository) FindCode(ctx context.Context, code string) (*OAuthCode
 	var c OAuthCode
 	var expiresAt string
 	err := r.db.QueryRowContext(ctx,
-		`SELECT code, client_id, user_id, redirect_uri, scope, expires_at
+		`SELECT code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, expires_at
 		 FROM oauth_codes WHERE code=?`, code,
-	).Scan(&c.Code, &c.ClientID, &c.UserID, &c.RedirectURI, &c.Scope, &expiresAt)
+	).Scan(&c.Code, &c.ClientID, &c.UserID, &c.RedirectURI, &c.Scope, &c.CodeChallenge, &c.CodeChallengeMethod, &expiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

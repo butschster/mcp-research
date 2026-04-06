@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -89,7 +90,7 @@ func (s *OAuthService) ValidateClient(ctx context.Context, clientID, redirectURI
 }
 
 // Authorize creates an authorization code for the given user and client.
-func (s *OAuthService) Authorize(ctx context.Context, clientID, redirectURI, scope, userID string) (string, error) {
+func (s *OAuthService) Authorize(ctx context.Context, clientID, redirectURI, scope, userID, codeChallenge, codeChallengeMethod string) (string, error) {
 	client, _, err := s.repo.FindClientByID(ctx, clientID)
 	if err != nil {
 		return "", fmt.Errorf("find client: %w", err)
@@ -105,12 +106,14 @@ func (s *OAuthService) Authorize(ctx context.Context, clientID, redirectURI, sco
 
 	code := generateSecret(32)
 	oauthCode := &storage.OAuthCode{
-		Code:        code,
-		ClientID:    clientID,
-		UserID:      userID,
-		RedirectURI: redirectURI,
-		Scope:       scope,
-		ExpiresAt:   time.Now().Add(10 * time.Minute),
+		Code:                code,
+		ClientID:            clientID,
+		UserID:              userID,
+		RedirectURI:         redirectURI,
+		Scope:               scope,
+		CodeChallenge:       codeChallenge,
+		CodeChallengeMethod: codeChallengeMethod,
+		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	}
 
 	if err := s.repo.CreateCode(ctx, oauthCode); err != nil {
@@ -121,7 +124,7 @@ func (s *OAuthService) Authorize(ctx context.Context, clientID, redirectURI, sco
 }
 
 // Exchange trades an authorization code for access + refresh tokens.
-func (s *OAuthService) Exchange(ctx context.Context, code, clientID, clientSecret, redirectURI string) (accessToken, refreshToken string, expiresIn int, err error) {
+func (s *OAuthService) Exchange(ctx context.Context, code, clientID, clientSecret, redirectURI, codeVerifier string) (accessToken, refreshToken string, expiresIn int, err error) {
 	// Validate client
 	client, secretHash, err := s.repo.FindClientByID(ctx, clientID)
 	if err != nil {
@@ -141,6 +144,16 @@ func (s *OAuthService) Exchange(ctx context.Context, code, clientID, clientSecre
 	}
 	if oauthCode.RedirectURI != redirectURI {
 		return "", "", 0, ErrInvalidRedirectURI
+	}
+
+	// Validate PKCE code_verifier
+	if oauthCode.CodeChallenge != "" {
+		if codeVerifier == "" {
+			return "", "", 0, fmt.Errorf("code_verifier required: %w", ErrInvalidCode)
+		}
+		if !verifyPKCE(oauthCode.CodeChallenge, oauthCode.CodeChallengeMethod, codeVerifier) {
+			return "", "", 0, fmt.Errorf("PKCE verification failed: %w", ErrInvalidCode)
+		}
 	}
 
 	// Delete used code
@@ -177,6 +190,22 @@ func generateSecret(n int) string {
 func hashSHA256(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])
+}
+
+// verifyPKCE validates the code_verifier against the stored code_challenge.
+func verifyPKCE(challenge, method, verifier string) bool {
+	if method == "S256" {
+		h := sha256.Sum256([]byte(verifier))
+		computed := base64URLEncode(h[:])
+		return computed == challenge
+	}
+	// plain method
+	return verifier == challenge
+}
+
+func base64URLEncode(data []byte) string {
+	s := base64.RawURLEncoding.EncodeToString(data)
+	return s
 }
 
 func containsURI(uris []string, uri string) bool {

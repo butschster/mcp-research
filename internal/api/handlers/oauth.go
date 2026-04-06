@@ -34,6 +34,8 @@ func (h *OAuthHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	scope := r.URL.Query().Get("scope")
 	state := r.URL.Query().Get("state")
 	responseType := r.URL.Query().Get("response_type")
+	codeChallenge := r.URL.Query().Get("code_challenge")
+	codeChallengeMethod := r.URL.Query().Get("code_challenge_method")
 
 	if clientID == "" || redirectURI == "" {
 		h.renderAuthorizePage(w, clientID, redirectURI, scope, state, "client_id and redirect_uri are required")
@@ -72,7 +74,7 @@ func (h *OAuthHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code, err := h.oauthSvc.Authorize(r.Context(), clientID, redirectURI, scope, user.ID)
+	code, err := h.oauthSvc.Authorize(r.Context(), clientID, redirectURI, scope, user.ID, codeChallenge, codeChallengeMethod)
 	if err != nil {
 		h.log.Error("oauth authorize failed", "error", err)
 		h.renderAuthorizePage(w, clientID, redirectURI, scope, state, "Authorization failed")
@@ -97,7 +99,7 @@ func (h *OAuthHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("oauth token request", "method", r.Method, "content_type", r.Header.Get("Content-Type"), "remote", r.RemoteAddr, "has_basic_auth", r.Header.Get("Authorization") != "")
 
-	var grantType, code, clientID, clientSecret, redirectURI string
+	var grantType, code, clientID, clientSecret, redirectURI, codeVerifier string
 
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "application/json") {
@@ -107,6 +109,7 @@ func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
 			ClientID     string `json:"client_id"`
 			ClientSecret string `json:"client_secret"`
 			RedirectURI  string `json:"redirect_uri"`
+			CodeVerifier string `json:"code_verifier"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON")
@@ -117,6 +120,7 @@ func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
 		clientID = body.ClientID
 		clientSecret = body.ClientSecret
 		redirectURI = body.RedirectURI
+		codeVerifier = body.CodeVerifier
 	} else {
 		r.ParseForm()
 		grantType = r.FormValue("grant_type")
@@ -124,6 +128,7 @@ func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
 		clientID = r.FormValue("client_id")
 		clientSecret = r.FormValue("client_secret")
 		redirectURI = r.FormValue("redirect_uri")
+		codeVerifier = r.FormValue("code_verifier")
 	}
 
 	if grantType != "authorization_code" {
@@ -147,7 +152,7 @@ func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, refreshToken, expiresIn, err := h.oauthSvc.Exchange(r.Context(), code, clientID, clientSecret, redirectURI)
+	accessToken, refreshToken, expiresIn, err := h.oauthSvc.Exchange(r.Context(), code, clientID, clientSecret, redirectURI, codeVerifier)
 	if err != nil {
 		h.log.Error("oauth token exchange failed", "error", err, "client_id", clientID, "redirect_uri", redirectURI)
 		if errors.Is(err, service.ErrInvalidClient) || errors.Is(err, service.ErrInvalidCode) || errors.Is(err, service.ErrInvalidRedirectURI) {
