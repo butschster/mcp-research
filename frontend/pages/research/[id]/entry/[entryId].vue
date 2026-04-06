@@ -18,9 +18,8 @@
           <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
           <h1 class="page-title">{{ entry.title }}</h1>
         </div>
-        <div class="entry-actions">
+        <div class="entry-actions no-print">
           <StatusBadge :status="entry.status" />
-          <PrintButton />
           <button class="btn btn-sm" @click="copyMarkdown">
             <svg v-if="!copied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
             <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -35,7 +34,7 @@
     </div>
 
     <!-- View toggle -->
-    <div class="view-toggle">
+    <div class="view-toggle no-print">
       <button :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         Rendered
@@ -53,7 +52,7 @@
     </div>
 
     <!-- Cross-references -->
-    <div v-if="hasRefs" class="crossrefs-block card">
+    <div v-if="hasRefs" class="crossrefs-block card no-print">
       <h3 class="crossrefs-title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         Cross-references
@@ -92,7 +91,7 @@
     </div>
 
     <!-- Related by tags -->
-    <div v-if="relatedEntries.length" class="crossrefs-block card">
+    <div v-if="relatedEntries.length" class="crossrefs-block card no-print">
       <h3 class="crossrefs-title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         Related by tags
@@ -119,7 +118,7 @@
     </div>
 
     <!-- Prev / Next navigation -->
-    <div v-if="siblings.length > 1" class="entry-nav">
+    <div v-if="siblings.length > 1" class="entry-nav no-print">
       <NuxtLink v-if="prevEntry" :to="`/research/${researchSlug}/entry/${prevEntry.code || prevEntry.id}`" class="btn btn-sm entry-nav-btn">
         &larr; {{ prevEntry.title }}
       </NuxtLink>
@@ -423,4 +422,10 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 /* Skeleton */
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
 .skeleton-content { height: 500px; }
+
+/* Print */
+@media print {
+  .entry-content { padding: 0; border: none; }
+  .entry-tags { margin-bottom: var(--space-2); }
+}
 </style>
