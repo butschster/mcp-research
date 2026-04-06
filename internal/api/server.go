@@ -31,6 +31,7 @@ type ServerConfig struct {
 	BaseURL        string // Public base URL for OAuth metadata (e.g. https://mcp.example.com)
 	OAuthSvc       *service.OAuthService
 	AutoLoginToken string // JWT for default user auto-login (empty = disabled)
+	MCPHandler     http.Handler // Streamable HTTP MCP handler (mounted at /mcp)
 }
 
 func NewServer(
@@ -190,6 +191,16 @@ func NewServer(
 	llmsHandler := handleLLMSDocs()
 	mux.Handle("GET /llms.txt", llmsHandler)
 	mux.Handle("GET /llms/", http.StripPrefix("/", llmsHandler))
+
+	// MCP Streamable HTTP transport (used by ChatGPT, Claude.ai)
+	if cfg.MCPHandler != nil {
+		var mcpEndpoint http.Handler = cfg.MCPHandler
+		if requireAuth != nil {
+			mcpEndpoint = requireAuth(cfg.MCPHandler)
+		}
+		mux.Handle("/mcp", mcpEndpoint)
+		log.Info("MCP Streamable HTTP endpoint registered at /mcp")
+	}
 
 	// Embedded frontend (catch-all, must be last)
 	mux.Handle("/", staticHandler())

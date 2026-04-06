@@ -239,9 +239,9 @@ func OAuthMetadataHandler(baseURL string) http.HandlerFunc {
 func OAuthProtectedResourceHandler(baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"resource":               baseURL + "/sse",
-			"authorization_servers":  []string{baseURL},
-			"scopes_supported":      []string{"read", "write"},
+			"resource":              baseURL + "/mcp",
+			"authorization_servers": []string{baseURL},
+			"scopes_supported":     []string{"read", "write"},
 		})
 	}
 }

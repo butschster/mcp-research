@@ -137,6 +137,7 @@ func main() {
 		BaseURL:        cfg.BaseURL,
 		OAuthSvc:       oauthSvc,
 		AutoLoginToken: autoLoginToken,
+		MCPHandler:     srv.StreamableHTTPHandler(),
 	}
 	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, hub, log)
 	go func() {

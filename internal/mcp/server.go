@@ -91,6 +91,14 @@ func (s *Server) MCPServer() *sdkmcp.Server {
 	return s.server
 }
 
+// StreamableHTTPHandler returns an http.Handler for the Streamable HTTP transport.
+// Mount this at /mcp on the API server.
+func (s *Server) StreamableHTTPHandler() http.Handler {
+	return sdkmcp.NewStreamableHTTPHandler(func(r *http.Request) *sdkmcp.Server {
+		return s.server
+	}, nil)
+}
+
 // sseAuthMiddleware extracts bearer token from SSE requests and injects user into context.
 // Returns WWW-Authenticate header on 401 to enable OAuth discovery per MCP spec.
 func sseAuthMiddleware(authSvc *service.AuthService, baseURL string, next http.Handler) http.Handler {
