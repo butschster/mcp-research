@@ -131,52 +131,42 @@
       </div>
     </div>
 
-    <!-- Sessions list -->
-    <div v-if="allSessions.length" class="sessions-list">
+    <!-- Active sessions -->
+    <div v-if="activeSessions.length" class="active-sessions-grid">
       <NuxtLink
-        v-for="sess in allSessions"
+        v-for="sess in activeSessions"
         :key="sess.id"
         :to="`/research/${researchSlug}/session/${sess.code || sess.id}`"
-        :class="['card session-widget', { 'session-active': sess.status === 'active' }]"
+        class="card session-widget session-active"
       >
         <div class="session-widget-header">
           <div class="flex items-center gap-2">
             <span v-if="sess.code" class="short-code">{{ sess.code }}</span>
-            <StatusBadge :status="sess.status" />
+            <StatusBadge status="active" />
           </div>
         </div>
         <h3 class="session-title">{{ sess.title }}</h3>
-        <p v-if="sess.focus" class="session-focus">{{ sess.focus }}</p>
       </NuxtLink>
     </div>
 
-    <!-- Tasks widget (shown only when no active session but tasks exist) -->
-    <div v-else-if="tasks.length" class="card task-widget">
-      <button class="btn-ghost task-header" @click="tasksOpen = !tasksOpen">
-        <h3 class="task-header-title">Tasks</h3>
-        <div class="task-header-right">
-          <span class="card-meta">{{ completedTasks }} / {{ tasks.length }}</span>
-          <span class="task-chevron" :class="{ open: tasksOpen }">&rsaquo;</span>
-        </div>
+    <!-- Closed sessions (collapsed) -->
+    <div v-if="closedSessions.length" class="past-sessions">
+      <button class="btn-ghost past-sessions-toggle" @click="showPastSessions = !showPastSessions">
+        Completed sessions
+        <span class="past-sessions-count">{{ closedSessions.length }}</span>
+        <span class="past-sessions-chevron" :class="{ open: showPastSessions }">&rsaquo;</span>
       </button>
-      <ProgressBar :value="completedTasks" :total="tasks.length" />
-      <div v-show="tasksOpen" class="todo-list">
-        <div v-for="t in tasks" :key="t.id" class="todo-item">
-          <span :class="['todo-check', `todo-${t.status}`]">
-            <svg v-if="t.status === 'completed'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            <svg v-else-if="t.status === 'failed'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-            <svg v-else-if="t.status === 'blocked'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-            <svg v-else-if="t.status === 'deferred'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <svg v-else-if="t.status === 'in_progress'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
-            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
-          </span>
-          <div class="todo-content">
-            <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]" v-html="renderRefs(t.title, researchSlug)"></span>
-            <div v-if="t.result" class="card-meta todo-result" v-html="renderRefs(marked.parse(t.result) as string, researchSlug)"></div>
-          </div>
-          <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
-          <StatusBadge :status="t.status" />
-        </div>
+      <div v-show="showPastSessions" class="past-sessions-list">
+        <NuxtLink
+          v-for="sess in closedSessions"
+          :key="sess.id"
+          :to="`/research/${researchSlug}/session/${sess.code || sess.id}`"
+          class="past-session-item"
+        >
+          <span v-if="sess.code" class="short-code">{{ sess.code }}</span>
+          <span class="past-session-title">{{ sess.title }}</span>
+          <StatusBadge :status="sess.status" />
+        </NuxtLink>
       </div>
     </div>
 
@@ -511,15 +501,17 @@ function sectionProgressWidth(section: any): string {
   return '0%'
 }
 
-// Tasks
+
+// Tasks (count only, for header button)
 const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
 const tasks = computed(() => tasksData.value?.data ?? [])
-const completedTasks = computed(() => tasks.value.filter((t: any) => t.status === 'completed').length)
-const tasksOpen = ref(true)
 
 // All sessions
 const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
 const allSessions = computed(() => sessionsData.value?.data ?? [])
+const activeSessions = computed(() => allSessions.value.filter((s: any) => s.status === 'active'))
+const closedSessions = computed(() => allSessions.value.filter((s: any) => s.status !== 'active'))
+const showPastSessions = ref(false)
 
 // External links
 const { data: researchLinksData, pending: researchLinksLoading } = useApi<{ data: any[]; total: number }>(
@@ -595,9 +587,6 @@ useRealtimeUpdates(async (event) => {
     if (isLinksView.value) {
       researchLinksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/links`)
     }
-  }
-  if (event.entity === 'task') {
-    tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
   }
   if (['question', 'session'].includes(event.entity)) {
     sessionsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions`)
@@ -742,12 +731,12 @@ useRealtimeUpdates(async (event) => {
   margin: var(--space-1) var(--space-3);
 }
 
-/* Sessions list */
-.sessions-list {
+/* Active sessions grid */
+.active-sessions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 /* Session widget */
@@ -797,39 +786,62 @@ useRealtimeUpdates(async (event) => {
 .session-stat span { white-space: nowrap; }
 .stat-progress { flex: 1; min-width: 60px; }
 
-/* Task widget */
-.task-widget { margin-bottom: var(--space-6); }
-.task-header {
-  justify-content: space-between;
+/* Past sessions */
+.past-sessions { margin-bottom: var(--space-4); display: flex; flex-direction: column; align-items: flex-end; }
+.past-sessions-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-2) 0;
+}
+.past-sessions-toggle:hover { color: var(--color-text); }
+.past-sessions-count {
+  font-size: var(--type-xs);
+  background: var(--color-surface-hover);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.past-sessions-chevron {
+  margin-left: auto;
+  font-size: var(--type-lg);
+  color: var(--color-text-muted);
+  transition: transform var(--transition-base);
+  display: inline-block;
+}
+.past-sessions-chevron.open { transform: rotate(90deg); }
+.past-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
   width: 100%;
-  margin-bottom: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
 }
-.task-header:hover .task-header-title { color: var(--color-primary); }
-.task-header-title { font-size: var(--type-base); font-weight: 600; letter-spacing: -0.01em; }
-.task-header-right { display: flex; align-items: center; gap: var(--space-3); }
-.task-chevron {
-  font-size: var(--type-lg); color: var(--color-text-muted);
-  transition: transform var(--transition-base); display: inline-block; line-height: 1;
-}
-.task-chevron.open { transform: rotate(90deg); }
-
-/* Todo list */
-.todo-list { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-3); }
-.todo-item {
-  display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-sm);
+.past-session-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+  font-size: var(--type-sm);
   transition: background var(--transition-fast);
 }
-.todo-item:hover { background: var(--color-surface-hover); }
-.todo-check { display: flex; align-items: center; justify-content: center; width: 16px; flex-shrink: 0; color: var(--color-text-muted); }
-.todo-content { flex: 1; min-width: 0; }
-.todo-done { text-decoration: line-through; color: var(--color-text-muted); }
-.todo-result { font-size: var(--type-xs); margin-top: var(--space-1); }
-.todo-completed .todo-check { color: var(--color-success); }
-.todo-failed .todo-check { color: var(--color-error); }
-.todo-blocked .todo-check { color: var(--color-error); }
-.todo-in_progress .todo-check { color: var(--color-warning); }
+.past-session-item:hover { background: var(--color-surface-hover); }
+.past-session-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Sections + Entries */
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
