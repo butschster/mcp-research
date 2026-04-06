@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -13,6 +14,10 @@ import (
 )
 
 var refPattern = regexp.MustCompile(`\[\[([^\]]+)\]\]`)
+
+// Matches markdown links [title](url) and bare URLs
+var mdLinkPattern = regexp.MustCompile(`\[([^\]]*)\]\((https?://[^)]+)\)`)
+var bareLinkPattern = regexp.MustCompile(`(?:^|[\s(])((https?://)[^\s)<>]+)`)
 
 // CrossRefParser parses [[...]] references from text and stores them.
 type CrossRefParser interface {
@@ -46,16 +51,17 @@ type TextReplace struct {
 }
 
 type EntryService struct {
-	entries    *storage.EntryRepository
-	sections   *storage.SectionRepository
-	researches *storage.ResearchRepository
-	crossrefs  *storage.CrossRefRepository
-	events     EventNotifier
-	log        *slog.Logger
+	entries       *storage.EntryRepository
+	sections      *storage.SectionRepository
+	researches    *storage.ResearchRepository
+	crossrefs     *storage.CrossRefRepository
+	externalLinks *storage.ExternalLinkRepository
+	events        EventNotifier
+	log           *slog.Logger
 }
 
-func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, crossrefs *storage.CrossRefRepository, events EventNotifier, log *slog.Logger) *EntryService {
-	return &EntryService{entries: entries, sections: sections, researches: researches, crossrefs: crossrefs, events: events, log: log}
+func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
+	return &EntryService{entries: entries, sections: sections, researches: researches, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
 }
 
 func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*domain.Entry, error) {
@@ -117,6 +123,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 	}
 
 	s.updateCrossRefs(ctx, entry)
+	s.updateExternalLinks(ctx, entry)
 	s.events.Notify(Event{Type: "entry.created", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
@@ -216,6 +223,7 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 	}
 
 	s.updateCrossRefs(ctx, entry)
+	s.updateExternalLinks(ctx, entry)
 	s.events.Notify(Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
@@ -230,6 +238,7 @@ func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) 
 	count := 0
 	for _, entry := range entries {
 		s.updateCrossRefs(ctx, entry)
+		s.updateExternalLinks(ctx, entry)
 		count++
 	}
 	return count, nil
@@ -238,6 +247,73 @@ func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) 
 // updateCrossRefs parses [[...]] references from entry content and stores them.
 func (s *EntryService) updateCrossRefs(ctx context.Context, entry *domain.Entry) {
 	s.parseCrossRefs(ctx, "entry", entry.ID, entry.ResearchID, entry.Content)
+}
+
+// updateExternalLinks extracts URLs from entry content and stores them.
+func (s *EntryService) updateExternalLinks(ctx context.Context, entry *domain.Entry) {
+	s.parseExternalLinks(ctx, "entry", entry.ID, entry.ResearchID, entry.Content)
+}
+
+// ParseExternalLinks extracts URLs from text and stores them.
+func (s *EntryService) ParseExternalLinks(ctx context.Context, sourceType, sourceID, researchID, text string) {
+	s.parseExternalLinks(ctx, sourceType, sourceID, researchID, text)
+}
+
+func (s *EntryService) parseExternalLinks(ctx context.Context, sourceType, sourceID, researchID, text string) {
+	if s.externalLinks == nil || text == "" {
+		return
+	}
+
+	seen := make(map[string]bool)
+	var links []domain.ExternalLink
+
+	// Extract [title](url) markdown links
+	for _, m := range mdLinkPattern.FindAllStringSubmatch(text, -1) {
+		rawURL := m[2]
+		if seen[rawURL] {
+			continue
+		}
+		seen[rawURL] = true
+		links = append(links, domain.ExternalLink{
+			ID:         uuid.New().String(),
+			SourceType: sourceType,
+			SourceID:   sourceID,
+			ResearchID: researchID,
+			URL:        rawURL,
+			Title:      m[1],
+			Domain:     extractDomain(rawURL),
+		})
+	}
+
+	// Extract bare URLs not already captured
+	for _, m := range bareLinkPattern.FindAllStringSubmatch(text, -1) {
+		rawURL := m[1]
+		if seen[rawURL] {
+			continue
+		}
+		seen[rawURL] = true
+		links = append(links, domain.ExternalLink{
+			ID:         uuid.New().String(),
+			SourceType: sourceType,
+			SourceID:   sourceID,
+			ResearchID: researchID,
+			URL:        rawURL,
+			Title:      "",
+			Domain:     extractDomain(rawURL),
+		})
+	}
+
+	if err := s.externalLinks.ReplaceForSource(ctx, sourceType, sourceID, links); err != nil {
+		s.log.Error("failed to update external links", "source_type", sourceType, "source_id", sourceID, "error", err)
+	}
+}
+
+func extractDomain(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
 }
 
 // ParseCrossRefs extracts [[...]] references from text and stores them.

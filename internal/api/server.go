@@ -46,6 +46,7 @@ func NewServer(
 	entryRepo *storage.EntryRepository,
 	researchRepo *storage.ResearchRepository,
 	crossrefRepo *storage.CrossRefRepository,
+	externalLinkRepo *storage.ExternalLinkRepository,
 	hub *ws.Hub,
 	log *slog.Logger,
 ) *Server {
@@ -138,6 +139,9 @@ func NewServer(
 	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
+	elHandler := handlers.NewExternalLinkHandler(externalLinkRepo, researchSvc, log)
+	mux.Handle("GET /api/researches/{id}/links", wrapRead(elHandler.ListByResearch))
+	mux.Handle("GET /api/entries/{id}/links", wrapRead(elHandler.ListByEntry))
 	mux.Handle("GET /api/entries/{id}/related", wrapRead(eh.GetRelated))
 	mux.Handle("GET /api/search", wrapRead(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("q")

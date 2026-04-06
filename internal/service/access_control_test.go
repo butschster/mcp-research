@@ -197,7 +197,7 @@ func TestAccessControl_Entry(t *testing.T) {
 	entryRepo := storage.NewEntryRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, nil, notifier, log)
 
 	userA, userB := setupTwoUsers(t, userRepo)
 	ctxA := userCtx(userA)
@@ -278,7 +278,7 @@ func TestAccessControl_Task(t *testing.T) {
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	taskRepo := storage.NewTaskRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, nil, notifier, log)
 	taskSvc := NewTaskService(taskRepo, researchRepo, entrySvc, notifier, log)
 
 	userA, userB := setupTwoUsers(t, userRepo)
@@ -364,7 +364,7 @@ func TestAccessControl_Session(t *testing.T) {
 	sessionRepo := storage.NewSessionRepository(db)
 	questionRepo := storage.NewQuestionRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, crossrefRepo, nil, notifier, log)
 	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, notifier, log)
 
 	userA, userB := setupTwoUsers(t, userRepo)
