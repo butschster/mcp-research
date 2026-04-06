@@ -79,7 +79,7 @@ internal/
   auth/                            -- JWT, bcrypt, API key hashing, context helpers, middleware
   config/                          -- YAML / env / CLI flag cascade
   domain/                          -- plain structs + status enums (no logic)
-  storage/                         -- SQLite repos + embedded migrations (001-009)
+  storage/                         -- SQLite repos + embedded migrations (001-010)
   service/                         -- business logic, validation, event emission, access control
   mcp/                             -- MCP server wrapper, tool + prompt registration
     tools/                         -- 21 tool files (one per tool)
@@ -102,9 +102,12 @@ deploy/
 
 **User** (multi-user auth, optional)
 **Research** -> **Section** -> **Entry** (content hierarchy, scoped to user)
-**Research** -> **Session** -> **Question** (interview workflow)
+**Research** -> **Session** -> **Question** (interview workflow, multiple sessions per research)
 **Research** -> **Task** (AI self-managed todo list)
 **Entry** -> **CrossRef** (cross-references extracted from `[[...]]` patterns)
+**Entry** -?> **Session** (optional link: `session_id` tracks which session produced the entry)
+
+A research can have **multiple sessions** (e.g. initial exploration, deep-dive, follow-up). Each session has its own questions. Questions and answers may contain `[[...]]` cross-references just like entries. The frontend renders these references as clickable links everywhere: question text, answers, task titles/results, session notes.
 
 ### User Scoping & Access Control
 
@@ -119,9 +122,13 @@ When `auth_enabled` is true:
 
 - Researches get global codes: `R1`, `R2`, `R3` (auto-assigned on creation)
 - Entries get codes scoped to research: `E1`, `E2`, `E3`
-- Cross-reference syntax in entry content: `[[E3]]` (same research), `[[R2:E5]]` (cross-research), `[[R2]]` (research link)
+- Sessions get codes scoped to research: `SS1`, `SS2`, `SS3`
+- Questions get codes scoped to session: `Q1`, `Q2`, `Q3`
+- Cross-reference syntax: `[[E3]]` (same research), `[[R2:E5]]` (cross-research), `[[R2]]` (research link)
+- Cross-references work in entry content, question text/answers, task results, session notes
 - Cross-references are extracted and stored in `crossrefs` table on entry create/update
 - `POST /api/researches/{id}/crossrefs/rebuild` re-scans all entries to fix stale references
+- Frontend renders `[[...]]` as clickable links via `renderRefs()` composable (auto-imported by Nuxt)
 
 ### Event System
 

@@ -3,7 +3,7 @@
     <div class="q-header">
       <div class="q-title-row">
         <span v-if="data.code" class="mm-code">{{ data.code }}</span>
-        <span class="q-text">{{ truncate(data.text, 70) }}</span>
+        <span class="q-text" v-html="renderRefs(truncate(data.text, 70), data.researchSlug)"></span>
       </div>
       <StatusBadge :status="data.status" />
     </div>

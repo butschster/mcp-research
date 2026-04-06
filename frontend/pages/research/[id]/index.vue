@@ -83,7 +83,7 @@
             <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
           </span>
           <div class="todo-content">
-            <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
+            <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]" v-html="renderRefs(t.title, researchSlug)"></span>
             <div v-if="t.result" class="card-meta todo-result" v-html="renderRefs(marked.parse(t.result) as string, researchSlug)"></div>
           </div>
           <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />

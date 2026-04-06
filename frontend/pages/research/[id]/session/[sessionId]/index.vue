@@ -16,13 +16,13 @@
         <h1 class="page-title">{{ session.title }}</h1>
         <StatusBadge :status="session.status" />
       </div>
-      <p v-if="session.focus" class="card-meta mt-2">Focus: {{ session.focus }}</p>
+      <p v-if="session.focus" class="card-meta mt-2" v-html="'Focus: ' + renderRefs(session.focus, researchSlug)"></p>
     </div>
 
     <!-- Notes -->
     <div v-if="session.notes" class="card notes-card">
       <h3 class="card-section-title">Session notes</h3>
-      <p class="notes-text">{{ session.notes }}</p>
+      <div class="notes-text markdown-content" v-html="renderRefs(marked.parse(session.notes) as string, researchSlug)"></div>
     </div>
 
     <!-- Tabs -->
@@ -132,8 +132,8 @@
                   <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
                 </span>
                 <div class="todo-content">
-                  <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
-                  <div v-if="t.description && t.status !== 'completed'" class="todo-desc">{{ t.description }}</div>
+                  <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]" v-html="renderRefs(t.title, researchSlug)"></span>
+                  <div v-if="t.description && t.status !== 'completed'" class="todo-desc" v-html="renderRefs(t.description, researchSlug)"></div>
                   <div v-if="t.result" class="todo-result markdown-content" v-html="renderRefs(marked.parse(t.result) as string, researchSlug)"></div>
                 </div>
                 <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
