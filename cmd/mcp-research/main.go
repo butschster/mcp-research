@@ -84,7 +84,7 @@ func main() {
 		userRepo := storage.NewUserRepository(db)
 		apiKeyRepo := storage.NewAPIKeyRepository(db)
 		oauthRepo := storage.NewOAuthRepository(db)
-		jwtMgr := auth.NewJWTManager(cfg.JWTSecret, 24*time.Hour)
+		jwtMgr := auth.NewJWTManager(cfg.JWTSecret, 30*24*time.Hour)
 
 		authSvc = service.NewAuthService(userRepo, apiKeyRepo, oauthRepo, researchRepo, jwtMgr, cfg.AllowRegistration, log)
 		oauthSvc = service.NewOAuthService(oauthRepo, log)
