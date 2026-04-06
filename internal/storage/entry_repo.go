@@ -10,8 +10,9 @@ import (
 )
 
 type EntryFilter struct {
-	Status *domain.EntryStatus
-	Tag    string // filter by tag (JSON array contains)
+	Status    *domain.EntryStatus
+	Tag       string // filter by tag (JSON array contains)
+	SessionID string // filter by session
 }
 
 type EntryRepository struct {
@@ -158,6 +159,10 @@ func (r *EntryRepository) FindBySection(ctx context.Context, researchID, section
 		query += ` AND EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value=?)`
 		args = append(args, filter.Tag)
 	}
+	if filter.SessionID != "" {
+		query += " AND session_id=?"
+		args = append(args, filter.SessionID)
+	}
 
 	query += " ORDER BY created_at DESC"
 
@@ -191,6 +196,10 @@ func (r *EntryRepository) FindByResearch(ctx context.Context, researchID string,
 	if filter.Tag != "" {
 		query += ` AND EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value=?)`
 		args = append(args, filter.Tag)
+	}
+	if filter.SessionID != "" {
+		query += " AND session_id=?"
+		args = append(args, filter.SessionID)
 	}
 
 	query += " ORDER BY created_at DESC"

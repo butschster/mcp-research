@@ -5,16 +5,18 @@ import (
 	"net/http"
 
 	"github.com/butschster/mcp-research/internal/service"
+	"github.com/butschster/mcp-research/internal/storage"
 )
 
 type SessionHandler struct {
 	session  *service.SessionService
+	entry    *service.EntryService
 	research *service.ResearchService
 	log      *slog.Logger
 }
 
-func NewSessionHandler(session *service.SessionService, research *service.ResearchService, log *slog.Logger) *SessionHandler {
-	return &SessionHandler{session: session, research: research, log: log}
+func NewSessionHandler(session *service.SessionService, entry *service.EntryService, research *service.ResearchService, log *slog.Logger) *SessionHandler {
+	return &SessionHandler{session: session, entry: entry, research: research, log: log}
 }
 
 func (h *SessionHandler) ListByResearch(w http.ResponseWriter, r *http.Request) {
@@ -66,11 +68,17 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Fetch entries linked to this session
+	entries, _ := h.entry.ListByResearch(r.Context(), researchID, storage.EntryFilter{
+		SessionID: result.Session.ID,
+	})
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": map[string]any{
 			"session":   result.Session,
 			"questions": grouped,
 			"progress":  result.Progress,
+			"entries":   entries,
 		},
 	})
 }
