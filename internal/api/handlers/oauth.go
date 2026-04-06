@@ -95,7 +95,7 @@ func (h *OAuthHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 // Token handles POST /auth/token — exchanges code for tokens.
 // Accepts both application/x-www-form-urlencoded and application/json.
 func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
-	h.log.Info("oauth token", "method", r.Method, "content_type", r.Header.Get("Content-Type"), "remote", r.RemoteAddr)
+	h.log.Info("oauth token request", "method", r.Method, "content_type", r.Header.Get("Content-Type"), "remote", r.RemoteAddr, "has_basic_auth", r.Header.Get("Authorization") != "")
 
 	var grantType, code, clientID, clientSecret, redirectURI string
 
@@ -139,21 +139,26 @@ func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	h.log.Info("oauth token params", "grant_type", grantType, "client_id", clientID, "has_code", code != "", "has_secret", clientSecret != "", "redirect_uri", redirectURI)
+
 	if code == "" || clientID == "" || clientSecret == "" {
+		h.log.Warn("oauth token: missing params", "has_code", code != "", "has_client_id", clientID != "", "has_secret", clientSecret != "")
 		writeError(w, http.StatusBadRequest, "code, client_id, and client_secret are required")
 		return
 	}
 
 	accessToken, refreshToken, expiresIn, err := h.oauthSvc.Exchange(r.Context(), code, clientID, clientSecret, redirectURI)
 	if err != nil {
+		h.log.Error("oauth token exchange failed", "error", err, "client_id", clientID, "redirect_uri", redirectURI)
 		if errors.Is(err, service.ErrInvalidClient) || errors.Is(err, service.ErrInvalidCode) || errors.Is(err, service.ErrInvalidRedirectURI) {
 			writeError(w, http.StatusBadRequest, err.Error())
 		} else {
-			h.log.Error("oauth token exchange failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "token exchange failed")
 		}
 		return
 	}
+
+	h.log.Info("oauth token exchange success", "client_id", clientID)
 
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]any{
