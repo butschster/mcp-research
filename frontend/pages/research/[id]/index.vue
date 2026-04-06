@@ -67,12 +67,12 @@
       <div v-show="tasksOpen" class="todo-list">
         <div v-for="t in tasks" :key="t.id" class="todo-item">
           <span :class="['todo-check', `todo-${t.status}`]">
-            <template v-if="t.status === 'completed'">&check;</template>
-            <template v-else-if="t.status === 'failed'">&times;</template>
-            <template v-else-if="t.status === 'blocked'">&block;</template>
-            <template v-else-if="t.status === 'deferred'">&rarr;</template>
-            <template v-else-if="t.status === 'in_progress'">&triangleright;</template>
-            <template v-else>&cir;</template>
+            <svg v-if="t.status === 'completed'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <svg v-else-if="t.status === 'failed'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <svg v-else-if="t.status === 'blocked'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <svg v-else-if="t.status === 'deferred'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg v-else-if="t.status === 'in_progress'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
           </span>
           <div class="todo-content">
             <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
@@ -526,7 +526,7 @@ useRealtimeUpdates(async (event) => {
   transition: background var(--transition-fast);
 }
 .todo-item:hover { background: var(--color-surface-hover); }
-.todo-check { width: var(--space-5); text-align: center; flex-shrink: 0; color: var(--color-text-muted); }
+.todo-check { display: flex; align-items: center; justify-content: center; width: 16px; flex-shrink: 0; color: var(--color-text-muted); }
 .todo-content { flex: 1; min-width: 0; }
 .todo-done { text-decoration: line-through; color: var(--color-text-muted); }
 .todo-result { font-size: var(--type-xs); margin-top: var(--space-1); }

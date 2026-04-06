@@ -385,6 +385,40 @@ func (h *WriteHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": question})
 }
 
+func (h *WriteHandler) AddQuestions(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	var input struct {
+		Questions []struct {
+			Text     string `json:"text"`
+			Area     string `json:"area"`
+			Priority string `json:"priority"`
+		} `json:"questions"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if len(input.Questions) == 0 {
+		writeError(w, http.StatusBadRequest, "at least one question is required")
+		return
+	}
+
+	var requests []service.CreateQuestionRequest
+	for _, q := range input.Questions {
+		requests = append(requests, service.CreateQuestionRequest{
+			Text:     q.Text,
+			Area:     q.Area,
+			Priority: domain.Priority(q.Priority),
+		})
+	}
+
+	questions, err := h.session.AddQuestions(r.Context(), sessionID, requests)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": questions, "count": len(questions)})
+}
+
 // --- Helpers ---
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
