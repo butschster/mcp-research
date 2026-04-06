@@ -372,7 +372,7 @@ body::after {
 
 .layout-sidebar {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: var(--space-8);
 }
 
@@ -380,41 +380,43 @@ body::after {
   position: sticky;
   top: calc(var(--space-4) + 56px);
   align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .sidebar-item {
   display: flex;
   flex-direction: column;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 0;
   border-left: 2px solid transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 .sidebar-item:hover {
-  background: var(--color-surface);
   color: var(--color-text);
-  transform: translateX(2px);
 }
 .sidebar-item.active {
-  background: var(--color-surface);
   color: var(--color-text);
   border-left-color: var(--color-primary);
+}
+.sidebar-item.active .sidebar-item-name {
   font-weight: 500;
 }
 
 .sidebar-progress {
-  height: 3px;
+  height: 2px;
   background: rgba(148, 163, 184, 0.08);
-  border-radius: 2px;
-  margin-top: var(--space-2);
+  border-radius: 1px;
+  margin-top: var(--space-1);
   overflow: hidden;
 }
 .sidebar-progress-fill {
   height: 100%;
   background: var(--color-success);
-  border-radius: 2px;
+  border-radius: 1px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -701,31 +703,28 @@ body::after {
 
   .sidebar {
     position: static;
-    display: flex;
     flex-direction: row;
-    gap: var(--space-2);
+    gap: var(--space-1);
     overflow-x: auto;
     padding-bottom: var(--space-2);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
   .sidebar::-webkit-scrollbar { display: none; }
-  .sidebar-label { display: none; }
+  .sidebar .sidebar-divider { display: none; }
   .sidebar-item {
     flex-shrink: 0;
     flex-direction: row;
     white-space: nowrap;
     padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border-strong);
-    border-left: 1px solid var(--color-border-strong);
+    border-left: none;
+    border-bottom: 2px solid transparent;
     font-size: var(--type-xs);
   }
   .sidebar-item.active {
-    background: var(--color-primary-muted);
-    border-color: rgba(108, 197, 224, 0.3);
     color: var(--color-primary);
-    border-left-color: rgba(108, 197, 224, 0.3);
+    border-left-color: transparent;
+    border-bottom-color: var(--color-primary);
   }
   .sidebar-progress { display: none; }
 

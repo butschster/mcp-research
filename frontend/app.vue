@@ -15,22 +15,59 @@ useRealtimeUpdates(() => {
 useKeyboardNav()
 
 const { user, isAuthenticated, authEnabled, logout } = useAuth()
+
+const userMenuOpen = ref(false)
+
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value
+}
+
+function closeUserMenu() {
+  userMenuOpen.value = false
+}
+
+function handleLogout() {
+  userMenuOpen.value = false
+  logout()
+}
+
+onMounted(() => {
+  document.addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest('.user-menu')
+    if (!el) userMenuOpen.value = false
+  })
+})
 </script>
 
 <template>
   <div>
     <nav class="app-nav">
       <div class="container nav-inner">
-        <NuxtLink to="/" class="logo">MCP Research</NuxtLink>
+        <NuxtLink to="/" class="logo">Research</NuxtLink>
         <div class="nav-right">
           <SearchModal />
           <ActivityIndicator :active="hasRecentUpdate" label="Updating" />
           <template v-if="authEnabled && isAuthenticated">
-            <NuxtLink to="/settings" class="nav-user">{{ user?.name || user?.email }}</NuxtLink>
-            <button class="nav-logout" @click="logout">Sign out</button>
+            <div class="user-menu">
+              <button class="user-menu-trigger" @click="toggleUserMenu">
+                <span class="user-avatar">{{ (user?.name || user?.email || '?')[0].toUpperCase() }}</span>
+                <span class="user-name">{{ user?.name || user?.email }}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div v-if="userMenuOpen" class="user-dropdown">
+                <NuxtLink to="/settings" class="user-dropdown-item" @click="closeUserMenu">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  Settings
+                </NuxtLink>
+                <div class="user-dropdown-divider"></div>
+                <button class="user-dropdown-item user-dropdown-danger" @click="handleLogout">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  Sign out
+                </button>
+              </div>
+            </div>
           </template>
           <span v-else-if="!authEnabled" class="readonly-badge">Read-only</span>
-          <ConnectionStatus />
         </div>
       </div>
     </nav>
@@ -42,13 +79,16 @@ const { user, isAuthenticated, authEnabled, logout } = useAuth()
 
     <footer class="app-footer">
       <div class="container footer-inner">
-        <span class="card-meta">MCP Research</span>
-        <a
-          href="https://github.com/butschster/mcp-research"
-          target="_blank"
-          rel="noopener"
-          class="card-meta footer-link"
-        >GitHub &#x2197;</a>
+        <span class="card-meta">Research</span>
+        <div class="footer-right">
+          <ConnectionStatus />
+          <a
+            href="https://github.com/butschster/mcp-research"
+            target="_blank"
+            rel="noopener"
+            class="card-meta footer-link"
+          >GitHub &#x2197;</a>
+        </div>
       </div>
     </footer>
   </div>
@@ -64,22 +104,94 @@ const { user, isAuthenticated, authEnabled, logout } = useAuth()
   margin-top: var(--space-12);
 }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; }
+.footer-right { display: flex; align-items: center; gap: var(--space-4); }
 .footer-link  { text-decoration: none; transition: color var(--transition-fast); }
 .footer-link:hover { color: var(--color-primary); text-decoration: none; }
-.nav-user {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  text-decoration: none;
+
+/* User dropdown menu */
+.user-menu {
+  position: relative;
 }
-.nav-user:hover { color: var(--color-primary); }
-.nav-logout {
-  font-size: var(--text-sm);
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   background: none;
-  border: none;
-  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
   cursor: pointer;
   font-family: inherit;
-  padding: 0;
+  font-size: var(--type-sm);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
-.nav-logout:hover { color: var(--color-danger, #dc2626); }
+.user-menu-trigger:hover {
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.user-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-1));
+  min-width: 180px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  animation: dropdown-in 0.12s ease both;
+}
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--type-sm);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+.user-dropdown-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+.user-dropdown-danger:hover {
+  color: var(--color-danger, #dc2626);
+}
+.user-dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-1) var(--space-2);
+}
 </style>

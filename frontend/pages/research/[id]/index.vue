@@ -87,8 +87,22 @@
     <!-- Sidebar layout: sections + entries -->
     <div class="layout-sidebar">
       <!-- Sidebar -->
-      <div class="sidebar">
-        <h3 class="sidebar-label">Sections</h3>
+      <nav class="sidebar">
+        <!-- All entries -->
+        <div
+          :class="['sidebar-item', { active: isAllEntries }]"
+          @click="activeSection = '__all__'"
+        >
+          <div class="sidebar-item-content">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <span class="sidebar-item-name">All entries</span>
+            <span class="sidebar-count">{{ totalEntryCount }}</span>
+          </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <!-- Per-section -->
         <div
           v-for="section in sections"
           :key="section.id"
@@ -97,20 +111,74 @@
         >
           <div class="sidebar-item-content">
             <span class="sidebar-item-name">{{ section.display_name || section.name }}</span>
-            <StatusBadge :status="section.status" />
-          </div>
-          <div class="sidebar-item-meta">
-            <span class="card-meta">{{ section.entries_count }} entries</span>
+            <span class="sidebar-count">{{ section.entries_count }}</span>
           </div>
           <div v-if="section.entries_count > 0" class="sidebar-progress">
             <div class="sidebar-progress-fill" :style="{ width: sectionProgressWidth(section) }"></div>
           </div>
         </div>
-      </div>
+      </nav>
 
       <!-- Main: entries -->
       <div>
-        <template v-if="currentSection">
+        <!-- All entries view -->
+        <template v-if="isAllEntries">
+          <div class="section-header">
+            <h2 class="section-title">All entries</h2>
+          </div>
+
+          <!-- Global tags with counters -->
+          <div v-if="globalTags.length" class="tags-panel mb-4">
+            <span
+              v-for="tc in globalTags"
+              :key="tc.tag"
+              :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tc.tag)}`, { 'tag-active': activeTag === tc.tag }]"
+              @click="activeTag = activeTag === tc.tag ? '' : tc.tag"
+            >{{ tc.tag }}<span v-if="tc.count > 1" class="tag-count">{{ tc.count }}</span></span>
+          </div>
+
+          <!-- Loading -->
+          <div v-if="allEntriesPending">
+            <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
+          </div>
+
+          <template v-else-if="filteredAllEntries.length">
+            <!-- Group by section -->
+            <template v-for="group in groupedEntries" :key="group.section.id">
+              <h3 class="group-section-title">{{ group.section.display_name || group.section.name }}</h3>
+              <div class="grid entries-grid mb-4">
+                <NuxtLink
+                  v-for="entry in group.entries"
+                  :key="entry.id"
+                  :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`"
+                  class="card entry-card"
+                >
+                  <div class="entry-card-header">
+                    <div class="entry-title-row">
+                      <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+                      <h3 class="card-title">{{ entry.title }}</h3>
+                    </div>
+                    <StatusBadge :status="entry.status" />
+                  </div>
+                  <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
+                  <div v-if="entry.tags?.length" class="entry-tags">
+                    <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
+                  </div>
+                </NuxtLink>
+              </div>
+            </template>
+          </template>
+
+          <EmptyState
+            v-else
+            icon="&#x1F4C4;"
+            title="No entries yet"
+            description="Claude will populate this research with entries."
+          />
+        </template>
+
+        <!-- Single section view -->
+        <template v-else-if="currentSection">
           <div class="section-header">
             <h2 class="section-title">{{ currentSection.display_name || currentSection.name }}</h2>
             <StatusBadge :status="currentSection.status" />
@@ -120,13 +188,13 @@
           </p>
 
           <!-- Tag filter for entries -->
-          <div v-if="entryTags.length" class="tags-panel mb-4">
+          <div v-if="entryTagCounts.length" class="tags-panel mb-4">
             <span
-              v-for="tag in entryTags"
-              :key="tag"
-              :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tag)}`, { 'tag-active': activeTag === tag }]"
-              @click="activeTag = activeTag === tag ? '' : tag"
-            >{{ tag }}</span>
+              v-for="tc in entryTagCounts"
+              :key="tc.tag"
+              :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tc.tag)}`, { 'tag-active': activeTag === tc.tag }]"
+              @click="activeTag = activeTag === tc.tag ? '' : tc.tag"
+            >{{ tc.tag }}<span v-if="tc.count > 1" class="tag-count">{{ tc.count }}</span></span>
           </div>
 
           <!-- Entries loading -->
@@ -188,8 +256,13 @@ const researchSlug = computed(() => research.value?.code || id)
 const sections = computed(() => researchData.value?.data?.sections ?? [])
 const activeSession = computed(() => researchData.value?.data?.active_session)
 
-// Active section (default: first)
+const totalEntryCount = computed(() =>
+  sections.value.reduce((sum: number, s: any) => sum + (s.entries_count || 0), 0)
+)
+
+// Active section (default: first, or '__all__' for all entries)
 const activeSection = ref(route.query.section as string || '')
+const isAllEntries = computed(() => activeSection.value === '__all__')
 const router = useRouter()
 
 watch(activeSection, (val) => {
@@ -200,30 +273,78 @@ watch(sections, (secs) => {
   if (!activeSection.value && secs.length) activeSection.value = secs[0].id
 }, { immediate: true })
 
-const currentSection = computed(() => sections.value.find((s: any) => s.id === activeSection.value) ?? null)
-
-// Entries
-const entriesUrl = computed(() =>
-  activeSection.value ? `/api/researches/${id}/sections/${activeSection.value}/entries` : null
+const currentSection = computed(() =>
+  isAllEntries.value ? null : sections.value.find((s: any) => s.id === activeSection.value) ?? null
 )
-const { data: entriesData, pending: entriesPending } = useApi<{ data: any[] }>(
-  computed(() => entriesUrl.value ?? '/api/researches/__none__/sections/__none__/entries')
-)
-const entries = computed(() => activeSection.value ? (entriesData.value?.data ?? []) : [])
 
 // Entry tag filter
 const activeTag = ref('')
 watch(activeSection, () => { activeTag.value = '' })
 
-const entryTags = computed(() => {
-  const set = new Set<string>()
-  for (const e of entries.value) for (const t of (e.tags ?? [])) set.add(t)
-  return [...set].sort()
+// --- Section entries ---
+const entriesUrl = computed(() =>
+  !isAllEntries.value && activeSection.value
+    ? `/api/researches/${id}/sections/${activeSection.value}/entries`
+    : null
+)
+const { data: entriesData, pending: entriesPending } = useApi<{ data: any[] }>(
+  computed(() => entriesUrl.value ?? '/api/researches/__none__/sections/__none__/entries')
+)
+const entries = computed(() =>
+  !isAllEntries.value && activeSection.value ? (entriesData.value?.data ?? []) : []
+)
+
+const entryTagCounts = computed(() => {
+  const map = new Map<string, number>()
+  for (const e of entries.value) for (const t of (e.tags ?? [])) map.set(t, (map.get(t) || 0) + 1)
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([tag, count]) => ({ tag, count }))
 })
+const entryTags = computed(() => entryTagCounts.value.map(tc => tc.tag))
 
 const filteredEntries = computed(() =>
   activeTag.value ? entries.value.filter((e: any) => e.tags?.includes(activeTag.value)) : entries.value
 )
+
+// --- All entries ---
+const { data: allEntriesData, pending: allEntriesPending } = useApi<{ data: any[] }>(
+  computed(() => isAllEntries.value ? `/api/researches/${id}/entries` : '/api/researches/__none__/entries')
+)
+const allEntries = computed(() => isAllEntries.value ? (allEntriesData.value?.data ?? []) : [])
+
+// Global tags from API
+const { data: tagsData } = useApi<{ data: any[] }>(
+  computed(() => isAllEntries.value ? `/api/researches/${id}/tags` : '/api/researches/__none__/tags')
+)
+const globalTags = computed(() => isAllEntries.value ? (tagsData.value?.data ?? []) : [])
+
+const filteredAllEntries = computed(() =>
+  activeTag.value
+    ? allEntries.value.filter((e: any) => e.tags?.includes(activeTag.value))
+    : allEntries.value
+)
+
+// Group entries by section for the all-entries view
+const groupedEntries = computed(() => {
+  const groups: { section: any; entries: any[] }[] = []
+  const sectionMap = new Map<string, any[]>()
+
+  for (const entry of filteredAllEntries.value) {
+    const list = sectionMap.get(entry.section_id) ?? []
+    list.push(entry)
+    sectionMap.set(entry.section_id, list)
+  }
+
+  for (const section of sections.value) {
+    const sectionEntries = sectionMap.get(section.id)
+    if (sectionEntries?.length) {
+      groups.push({ section, entries: sectionEntries })
+    }
+  }
+
+  return groups
+})
 
 // Tag color
 function tagHue(tag: string): number {
@@ -259,8 +380,14 @@ useRealtimeUpdates(async (event) => {
   if (['research', 'section', 'session'].includes(event.entity)) {
     researchData.value = await authFetch<any>(`${rtBase}/api/researches/${id}`)
   }
-  if (event.entity === 'entry' && entriesUrl.value) {
-    entriesData.value = await authFetch<any>(`${rtBase}${entriesUrl.value}`)
+  if (event.entity === 'entry') {
+    if (entriesUrl.value) {
+      entriesData.value = await authFetch<any>(`${rtBase}${entriesUrl.value}`)
+    }
+    if (isAllEntries.value) {
+      allEntriesData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/entries`)
+      tagsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tags`)
+    }
   }
   if (event.entity === 'task') {
     tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
@@ -290,14 +417,36 @@ useRealtimeUpdates(async (event) => {
 }
 
 /* Sidebar */
-.sidebar-label {
-  font-size: var(--type-xs); font-weight: 600; color: var(--color-text-muted);
-  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-4);
-  opacity: 0.6;
+.sidebar-item-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
-.sidebar-item-content { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.sidebar-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-sm); }
-.sidebar-item-meta { font-size: var(--type-xs); margin-top: var(--space-1); }
+.sidebar-item-content svg {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.sidebar-item.active .sidebar-item-content svg { opacity: 1; }
+.sidebar-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--type-sm);
+}
+.sidebar-count {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.2em;
+  text-align: right;
+}
+.sidebar-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-1) var(--space-3);
+}
 
 /* Session widget */
 .session-widget {
@@ -390,6 +539,20 @@ useRealtimeUpdates(async (event) => {
 .tag-active { background: var(--color-primary-muted); color: var(--color-primary); }
 .tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
 .tag-clickable:hover { background: var(--color-primary-muted); color: var(--color-primary); }
+.tag-count {
+  font-size: 0.75em;
+  opacity: 0.7;
+  margin-left: 0.15em;
+}
+
+.group-section-title {
+  font-size: var(--type-base);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
 
 .entries-grid { grid-template-columns: 1fr; }
 .entry-card { display: block; text-decoration: none; color: inherit; }

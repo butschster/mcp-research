@@ -11,6 +11,7 @@ import (
 
 type EntryFilter struct {
 	Status *domain.EntryStatus
+	Tag    string // filter by tag (JSON array contains)
 }
 
 type EntryRepository struct {
@@ -79,6 +80,58 @@ func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entr
 	return r.scanEntry(row, true)
 }
 
+// SearchEntries performs a full-text search across entry title, description, and content.
+// Returns entries without content for efficiency, ordered by relevance (title > description > content).
+func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int) ([]*domain.Entry, error) {
+	if query == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	pattern := "%" + query + "%"
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, code, research_id, section_id, title, description, status, tags, created_at, updated_at,
+		        CASE
+		          WHEN title LIKE ? THEN 3
+		          WHEN description LIKE ? THEN 2
+		          WHEN content LIKE ? THEN 1
+		          ELSE 0
+		        END AS relevance
+		 FROM entries
+		 WHERE title LIKE ? OR description LIKE ? OR content LIKE ?
+		 ORDER BY relevance DESC, created_at DESC
+		 LIMIT ?`,
+		pattern, pattern, pattern,
+		pattern, pattern, pattern,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("search entries: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*domain.Entry
+	for rows.Next() {
+		var e domain.Entry
+		var tags sql.NullString
+		var createdAt, updatedAt string
+		var relevance int
+		if err := rows.Scan(
+			&e.ID, &e.Code, &e.ResearchID, &e.SectionID,
+			&e.Title, &e.Description, &e.Status,
+			&tags, &createdAt, &updatedAt, &relevance,
+		); err != nil {
+			return nil, fmt.Errorf("scan search entry: %w", err)
+		}
+		e.Tags = unmarshalStringSlice(tags)
+		e.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
+		e.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
+		result = append(result, &e)
+	}
+	return result, rows.Err()
+}
+
 // FindBySection returns entries without content for token efficiency.
 func (r *EntryRepository) FindBySection(ctx context.Context, researchID, sectionID string, filter EntryFilter) ([]*domain.Entry, error) {
 	query := `SELECT id, code, research_id, section_id, title, description, status, tags, created_at, updated_at
@@ -88,6 +141,10 @@ func (r *EntryRepository) FindBySection(ctx context.Context, researchID, section
 	if filter.Status != nil {
 		query += " AND status=?"
 		args = append(args, *filter.Status)
+	}
+	if filter.Tag != "" {
+		query += ` AND EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value=?)`
+		args = append(args, filter.Tag)
 	}
 
 	query += " ORDER BY created_at DESC"
@@ -119,6 +176,10 @@ func (r *EntryRepository) FindByResearch(ctx context.Context, researchID string,
 		query += " AND status=?"
 		args = append(args, *filter.Status)
 	}
+	if filter.Tag != "" {
+		query += ` AND EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value=?)`
+		args = append(args, filter.Tag)
+	}
 
 	query += " ORDER BY created_at DESC"
 
@@ -135,6 +196,90 @@ func (r *EntryRepository) FindByResearch(ctx context.Context, researchID string,
 			return nil, err
 		}
 		result = append(result, e)
+	}
+	return result, rows.Err()
+}
+
+// TagCount represents a tag and how many entries have it.
+type TagCount struct {
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
+}
+
+// FindTagsByResearch returns all unique tags in a research with their entry counts.
+func (r *EntryRepository) FindTagsByResearch(ctx context.Context, researchID string) ([]TagCount, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT json_each.value AS tag, COUNT(*) AS cnt
+		 FROM entries, json_each(entries.tags)
+		 WHERE entries.research_id=?
+		 GROUP BY json_each.value
+		 ORDER BY cnt DESC, tag ASC`, researchID)
+	if err != nil {
+		return nil, fmt.Errorf("query tags: %w", err)
+	}
+	defer rows.Close()
+
+	var result []TagCount
+	for rows.Next() {
+		var tc TagCount
+		if err := rows.Scan(&tc.Tag, &tc.Count); err != nil {
+			return nil, fmt.Errorf("scan tag count: %w", err)
+		}
+		result = append(result, tc)
+	}
+	return result, rows.Err()
+}
+
+// FindRelatedByTags returns entries that share at least one tag with the given entry,
+// excluding the entry itself. Results are ordered by number of shared tags (descending).
+func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string) ([]*domain.Entry, error) {
+	if len(tags) == 0 {
+		return nil, nil
+	}
+
+	// Build placeholders for tags
+	placeholders := ""
+	args := make([]any, 0, len(tags)+1)
+	for i, t := range tags {
+		if i > 0 {
+			placeholders += ","
+		}
+		placeholders += "?"
+		args = append(args, t)
+	}
+	args = append(args, entryID)
+
+	query := fmt.Sprintf(
+		`SELECT e.id, e.code, e.research_id, e.section_id, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at,
+		        COUNT(*) as shared
+		 FROM entries e, json_each(e.tags) jt
+		 WHERE jt.value IN (%s) AND e.id != ?
+		 GROUP BY e.id
+		 ORDER BY shared DESC, e.created_at DESC`, placeholders)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query related entries: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*domain.Entry
+	for rows.Next() {
+		var e domain.Entry
+		var tags sql.NullString
+		var createdAt, updatedAt string
+		var shared int
+		if err := rows.Scan(
+			&e.ID, &e.Code, &e.ResearchID, &e.SectionID,
+			&e.Title, &e.Description, &e.Status,
+			&tags, &createdAt, &updatedAt, &shared,
+		); err != nil {
+			return nil, fmt.Errorf("scan related entry: %w", err)
+		}
+		e.Tags = unmarshalStringSlice(tags)
+		e.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
+		e.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
+		result = append(result, &e)
 	}
 	return result, rows.Err()
 }

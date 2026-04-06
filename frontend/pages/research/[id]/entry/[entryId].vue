@@ -91,6 +91,33 @@
       </div>
     </div>
 
+    <!-- Related by tags -->
+    <div v-if="relatedEntries.length" class="crossrefs-block card">
+      <h3 class="crossrefs-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        Related by tags
+      </h3>
+      <div class="crossrefs-list">
+        <NuxtLink
+          v-for="rel in relatedEntries"
+          :key="rel.id"
+          :to="`/research/${rel.research_id === research?.id ? researchSlug : rel.research_id}/entry/${rel.code || rel.id}`"
+          class="crossref-item"
+        >
+          <span class="crossref-code">{{ rel.code }}</span>
+          <span class="crossref-entry-title">{{ rel.title }}</span>
+          <div class="related-tags">
+            <span
+              v-for="tag in sharedTags(rel)"
+              :key="tag"
+              :class="['tag-dot', `tag-hue-${tagHue(tag)}`]"
+              :title="tag"
+            ></span>
+          </div>
+        </NuxtLink>
+      </div>
+    </div>
+
     <!-- Prev / Next navigation -->
     <div v-if="siblings.length > 1" class="entry-nav">
       <NuxtLink v-if="prevEntry" :to="`/research/${researchSlug}/entry/${prevEntry.code || prevEntry.id}`" class="btn btn-sm entry-nav-btn">
@@ -175,6 +202,18 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
     return `/research/${rCode}/entry/${ref.entry_code || ref.source_id}`
   }
   return '#'
+}
+
+// Related by tags
+const { data: relatedData } = useApi<{ data: any[] }>(
+  computed(() => entry.value ? `/api/entries/${entry.value.id}/related?research=${id}` : `/api/entries/__none__/related`)
+)
+const relatedEntries = computed(() => relatedData.value?.data ?? [])
+
+function sharedTags(rel: any): string[] {
+  if (!entry.value?.tags || !rel.tags) return []
+  const mine = new Set(entry.value.tags)
+  return rel.tags.filter((t: string) => mine.has(t))
 }
 
 // Sibling entries for prev/next navigation
@@ -336,6 +375,25 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   margin-left: auto;
   flex-shrink: 0;
 }
+.related-tags {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+.tag-dot.tag-hue-0 { background: hsl(200, 60%, 55%); }
+.tag-dot.tag-hue-1 { background: hsl(160, 50%, 50%); }
+.tag-dot.tag-hue-2 { background: hsl(280, 45%, 55%); }
+.tag-dot.tag-hue-3 { background: hsl(30, 60%, 55%); }
+.tag-dot.tag-hue-4 { background: hsl(340, 50%, 55%); }
+.tag-dot.tag-hue-5 { background: hsl(60, 50%, 50%); }
 .crossref-unresolved {
   font-size: var(--type-xs);
   color: var(--color-warning, #d4a017);

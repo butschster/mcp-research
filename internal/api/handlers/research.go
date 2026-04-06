@@ -14,12 +14,13 @@ type ResearchHandler struct {
 	research *service.ResearchService
 	section  *service.SectionService
 	entry    *service.EntryService
+	entries  *storage.EntryRepository
 	session  *service.SessionService
 	log      *slog.Logger
 }
 
-func NewResearchHandler(research *service.ResearchService, section *service.SectionService, entry *service.EntryService, session *service.SessionService, log *slog.Logger) *ResearchHandler {
-	return &ResearchHandler{research: research, section: section, entry: entry, session: session, log: log}
+func NewResearchHandler(research *service.ResearchService, section *service.SectionService, entry *service.EntryService, entries *storage.EntryRepository, session *service.SessionService, log *slog.Logger) *ResearchHandler {
+	return &ResearchHandler{research: research, section: section, entry: entry, entries: entries, session: session, log: log}
 }
 
 func (h *ResearchHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +105,54 @@ func (h *ResearchHandler) ListSectionEntries(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data":  entries,
 		"count": len(entries),
+	})
+}
+
+// ListAllEntries returns all entries for a research, with optional ?tag= filter.
+func (h *ResearchHandler) ListAllEntries(w http.ResponseWriter, r *http.Request) {
+	idOrCode := r.PathValue("id")
+
+	researchID, err := h.research.ResolveID(r.Context(), idOrCode)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	filter := storage.EntryFilter{
+		Tag: r.URL.Query().Get("tag"),
+	}
+
+	entries, err := h.entry.ListByResearch(r.Context(), researchID, filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"data":  entries,
+		"count": len(entries),
+	})
+}
+
+// ListTags returns all unique tags in a research with their entry counts.
+func (h *ResearchHandler) ListTags(w http.ResponseWriter, r *http.Request) {
+	idOrCode := r.PathValue("id")
+
+	researchID, err := h.research.ResolveID(r.Context(), idOrCode)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	tags, err := h.entries.FindTagsByResearch(r.Context(), researchID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"data":  tags,
+		"count": len(tags),
 	})
 }
 

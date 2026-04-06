@@ -51,7 +51,7 @@ func NewServer(
 ) *Server {
 	mux := http.NewServeMux()
 
-	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, log)
+	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, log)
 	eh := handlers.NewEntryHandler(entrySvc, entryRepo, researchRepo, log)
 	sh := handlers.NewSessionHandler(sessionSvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
@@ -128,12 +128,28 @@ func NewServer(
 	mux.Handle("GET /api/researches", wrapRead(rh.List))
 	mux.Handle("GET /api/researches/{id}", wrapRead(rh.Get))
 	mux.Handle("GET /api/researches/{id}/sections/{sectionId}/entries", wrapRead(rh.ListSectionEntries))
+	mux.Handle("GET /api/researches/{id}/entries", wrapRead(rh.ListAllEntries))
+	mux.Handle("GET /api/researches/{id}/tags", wrapRead(rh.ListTags))
 	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))
 	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
+	mux.Handle("GET /api/entries/{id}/related", wrapRead(eh.GetRelated))
+	mux.Handle("GET /api/search", wrapRead(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("q")
+		if len(q) < 2 {
+			writeJSON(w, http.StatusOK, map[string]any{"entries": []any{}, "researches": []any{}})
+			return
+		}
+		entries, err := entryRepo.SearchEntries(r.Context(), q, 20)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+	}))
 	mux.Handle("GET /api/researches/{id}/tasks", wrapRead(th.ListByResearch))
 	mux.Handle("GET /api/researches/{id}/sessions", wrapRead(sh.ListByResearch))
 	mux.Handle("GET /api/sessions/{id}", wrapRead(sh.Get))

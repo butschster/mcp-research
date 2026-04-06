@@ -1,7 +1,8 @@
 <template>
-  <button class="btn btn-sm search-trigger" @click="open = true">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-    <span class="search-hint">Search <kbd>&#x2318;K</kbd></span>
+  <button class="search-trigger" @click="open = true">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <span class="search-placeholder">Search...</span>
+    <kbd class="search-shortcut">&#x2318;K</kbd>
   </button>
 
   <Teleport to="body">
@@ -13,7 +14,7 @@
             ref="inputRef"
             v-model="query"
             class="search-input"
-            placeholder="Search projects, entries..."
+            placeholder="Search projects, entries, tags..."
             @keydown.escape="open = false"
             @keydown.up.prevent="moveUp"
             @keydown.down.prevent="moveDown"
@@ -23,12 +24,13 @@
         </div>
 
         <div class="search-results" v-if="query.length > 1">
+          <!-- Research results -->
           <div v-if="researchResults.length" class="result-group">
             <div class="result-group-label">Projects</div>
             <NuxtLink
               v-for="(r, i) in researchResults"
-              :key="r.id"
-              :to="`/research/${r.id}`"
+              :key="'r-' + r.id"
+              :to="`/research/${r.code || r.id}`"
               :class="['result-item', { 'result-active': cursor === i }]"
               @click="open = false"
               @mouseenter="cursor = i"
@@ -41,7 +43,29 @@
             </NuxtLink>
           </div>
 
-          <div v-if="!researchResults.length" class="result-empty">
+          <!-- Entry results -->
+          <div v-if="entryResults.length" class="result-group">
+            <div class="result-group-label">Entries</div>
+            <NuxtLink
+              v-for="(e, i) in entryResults"
+              :key="'e-' + e.id"
+              :to="entryLink(e)"
+              :class="['result-item', { 'result-active': cursor === researchResults.length + i }]"
+              @click="open = false"
+              @mouseenter="cursor = researchResults.length + i"
+            >
+              <span v-if="e.code" class="result-code">{{ e.code }}</span>
+              <div class="result-content">
+                <span class="result-title" v-html="highlight(e.title, query)"></span>
+                <span class="result-meta" v-html="highlight(e.description || '', query)"></span>
+              </div>
+              <div v-if="e.tags?.length" class="result-tags">
+                <span v-for="tag in e.tags.slice(0, 3)" :key="tag" class="result-tag">{{ tag }}</span>
+              </div>
+            </NuxtLink>
+          </div>
+
+          <div v-if="!researchResults.length && !entryResults.length" class="result-empty">
             No results for "{{ query }}"
           </div>
         </div>
@@ -79,6 +103,7 @@ watch(open, (val) => {
   }
 })
 
+// Research search (client-side)
 const { data } = useApi<{ data: any[] }>('/api/researches')
 const researches = computed(() => data.value?.data ?? [])
 
@@ -89,27 +114,88 @@ const researchResults = computed(() => {
     r.name.toLowerCase().includes(q) ||
     r.goal?.toLowerCase().includes(q) ||
     r.tags?.some((t: string) => t.toLowerCase().includes(q))
-  ).slice(0, 8)
+  ).slice(0, 5)
 })
 
+// Entry search (server-side full-text)
+const searchQuery = computed(() => query.value.length >= 2 ? query.value : '')
+const { data: searchData } = useApi<{ entries: any[] }>(
+  computed(() => searchQuery.value ? `/api/search?q=${encodeURIComponent(searchQuery.value)}` : '/api/search?q=')
+)
+const entryResults = computed(() => (searchData.value?.entries ?? []).slice(0, 10))
+
+// Research code lookup for entry links
+const researchCodeMap = computed(() => {
+  const map = new Map<string, string>()
+  for (const r of researches.value) {
+    map.set(r.id, r.code || r.id)
+  }
+  return map
+})
+
+function entryLink(e: any): string {
+  const rSlug = researchCodeMap.value.get(e.research_id) || e.research_id
+  return `/research/${rSlug}/entry/${e.code || e.id}`
+}
+
+// Total results for keyboard navigation
+const totalResults = computed(() => researchResults.value.length + entryResults.value.length)
+
 function highlight(text: string, q: string): string {
+  if (!text) return ''
   const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
   return text.replace(re, '<mark class="search-mark">$1</mark>')
 }
 
 function moveUp() { cursor.value = Math.max(0, cursor.value - 1) }
-function moveDown() { cursor.value = Math.min(researchResults.value.length - 1, cursor.value + 1) }
+function moveDown() { cursor.value = Math.min(totalResults.value - 1, cursor.value + 1) }
 function selectCurrent() {
-  const item = researchResults.value[cursor.value]
-  if (item) navigateTo(`/research/${item.id}`)
+  const rLen = researchResults.value.length
+  if (cursor.value < rLen) {
+    const item = researchResults.value[cursor.value]
+    if (item) navigateTo(`/research/${item.code || item.id}`)
+  } else {
+    const item = entryResults.value[cursor.value - rLen]
+    if (item) navigateTo(entryLink(item))
+  }
   open.value = false
 }
 </script>
 
 <style scoped>
-.search-trigger { gap: 0.375rem; color: var(--color-text-muted); }
-.search-hint { font-size: 0.6875rem; }
-.search-hint kbd { font-size: 0.5625rem; opacity: 0.45; margin-left: 0.2rem; }
+.search-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--type-sm);
+  min-width: 200px;
+  transition: all var(--transition-fast);
+}
+.search-trigger:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+.search-placeholder {
+  flex: 1;
+  text-align: left;
+}
+.search-shortcut {
+  font-size: 0.625rem;
+  padding: 1px 5px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  line-height: 1.4;
+}
 
 .search-overlay {
   position: fixed; inset: 0; z-index: var(--z-overlay);
@@ -125,7 +211,7 @@ function selectCurrent() {
   to { opacity: 1; }
 }
 .search-modal {
-  width: 100%; max-width: 560px; margin: 0 var(--space-4);
+  width: 100%; max-width: 600px; margin: 0 var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg); overflow: hidden;
@@ -155,7 +241,8 @@ function selectCurrent() {
   border-radius: var(--radius-sm); color: var(--color-text-muted);
   font-family: inherit;
 }
-.search-results { max-height: 400px; overflow-y: auto; padding: var(--space-2) 0; }
+.search-results { max-height: 420px; overflow-y: auto; padding: var(--space-2) 0; }
+.result-group + .result-group { border-top: 1px solid var(--color-border); }
 .result-group-label {
   font-size: var(--type-xs); font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.04em; color: var(--color-text-muted);
@@ -163,15 +250,33 @@ function selectCurrent() {
 }
 .result-item {
   display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-3) var(--space-5); text-decoration: none; color: inherit;
+  padding: var(--space-2) var(--space-4); text-decoration: none; color: inherit;
   transition: background var(--transition-fast); cursor: pointer;
   margin: 0 var(--space-2);
   border-radius: var(--radius-sm);
 }
 .result-item:hover, .result-active { background: var(--color-surface-hover); }
+.result-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
 .result-content { flex: 1; min-width: 0; }
 .result-title { display: block; font-weight: 500; font-size: var(--type-sm); }
-.result-meta { display: block; font-size: var(--type-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.result-meta { display: block; font-size: var(--type-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.result-tags { display: flex; gap: 3px; flex-shrink: 0; }
+.result-tag {
+  font-size: 0.6rem;
+  padding: 1px 4px;
+  background: var(--color-surface-hover);
+  border-radius: 2px;
+  color: var(--color-text-muted);
+}
 .result-empty { padding: var(--space-10); text-align: center; color: var(--color-text-muted); font-size: var(--type-sm); }
 .search-hints { display: flex; gap: var(--space-6); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--color-border); }
 .hint-item { font-size: var(--type-xs); color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-2); }
