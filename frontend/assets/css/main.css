@@ -506,18 +506,7 @@ body::after {
 
 /* --- Question List ------------------------------------------------------ */
 
-.question-item {
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border);
-}
-.question-item:last-child { border-bottom: none; }
-.question-text { font-weight: 500; margin-bottom: var(--space-1); }
-.question-answer {
-  color: var(--color-text-muted);
-  font-size: var(--type-sm);
-  margin-top: var(--space-2);
-}
-.question-child { margin-left: var(--space-6); }
+/* Question items are now card-based — see QuestionList.vue scoped styles */
 
 /* --- Search Highlight --------------------------------------------------- */
 

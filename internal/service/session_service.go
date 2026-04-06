@@ -125,8 +125,16 @@ func (s *SessionService) Get(ctx context.Context, id string) (*SessionWithQuesti
 		return nil, fmt.Errorf("find session: %w", err)
 	}
 	if session == nil {
+		// Try by short code
+		session, err = s.sessions.FindByCode(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("find session by code: %w", err)
+		}
+	}
+	if session == nil {
 		return nil, ErrNotFound
 	}
+	id = session.ID
 	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}

@@ -169,6 +169,7 @@ func NewServer(
 	mux.Handle("DELETE /api/tasks/{id}", wrap(wh.DeleteTask))
 	mux.Handle("POST /api/sessions", wrap(wh.CreateSession))
 	mux.Handle("PUT /api/questions/{questionId}", wrap(wh.UpdateQuestion))
+	mux.Handle("POST /api/sessions/{id}/questions", wrap(wh.AddQuestions))
 	mux.Handle("POST /api/researches/{id}/crossrefs/rebuild", wrap(crh.Rebuild))
 
 	// Backfill short codes for all records missing them

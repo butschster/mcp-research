@@ -27,18 +27,25 @@
       </button>
 
       <div v-show="isOpen(group.status)" class="group-body">
-        <div
+        <NuxtLink
           v-for="q in group.questions"
           :key="q.id"
-          :class="['question-item', { 'question-child': q.parent_id }]"
+          :to="questionLink(q)"
+          :class="['question-card', { 'question-child': q.parent_id, 'question-answered': q.status === 'answered' }]"
         >
-          <div class="question-row">
-            <div class="question-text">{{ q.text }}</div>
-            <StatusBadge v-if="q.priority" :status="q.priority" />
+          <div class="q-top">
+            <span v-if="q.code" class="q-code">{{ q.code }}</span>
+            <span class="q-text">{{ q.text }}</span>
+            <div class="q-badges">
+              <StatusBadge v-if="q.priority" :status="q.priority" />
+            </div>
           </div>
-          <div v-if="q.area" class="card-meta q-area">{{ q.area }}</div>
-          <div v-if="q.answer" class="question-answer" v-html="renderRefs(q.answer, props.researchSlug || '')"></div>
-        </div>
+          <div v-if="q.area" class="q-area">{{ q.area }}</div>
+          <div v-if="q.answer" class="q-answer-preview">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>{{ truncateAnswer(q.answer, 120) }}</span>
+          </div>
+        </NuxtLink>
 
         <EmptyState v-if="group.questions.length === 0" title="No questions match filters" />
       </div>
@@ -56,6 +63,7 @@
 <script setup lang="ts">
 interface Question {
   id: string
+  code: string
   text: string
   area: string
   priority: string
@@ -67,6 +75,7 @@ interface Question {
 const props = defineProps<{
   questions: Record<string, Question[]>
   researchSlug?: string
+  sessionId?: string
 }>()
 
 const filterArea = ref('')
@@ -78,7 +87,7 @@ function clearFilters() {
 }
 
 const STATUS_ORDER = ['pending', 'in_progress', 'answered', 'deferred', 'skipped']
-const DEFAULT_OPEN = new Set(['pending', 'in_progress'])
+const DEFAULT_OPEN = new Set(['pending', 'in_progress', 'answered'])
 const openGroups = ref<Record<string, boolean>>(
   Object.fromEntries(STATUS_ORDER.map(s => [s, DEFAULT_OPEN.has(s)]))
 )
@@ -109,6 +118,28 @@ const visibleGroups = computed(() =>
     .map(s => ({ status: s, questions: filterQ(props.questions[s] ?? []) }))
     .filter(g => g.questions.length > 0 || isOpen(g.status))
 )
+
+function questionLink(q: Question): string {
+  if (props.sessionId && props.researchSlug) {
+    return `/research/${props.researchSlug}/session/${props.sessionId}/question/${q.code || q.id}`
+  }
+  return '#'
+}
+
+function truncateAnswer(text: string, max: number): string {
+  // Strip markdown formatting for preview
+  const plain = text
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+    .replace(/\n/g, ' ')
+    .replace(/\|[^|]+\|/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return plain.length > max ? plain.slice(0, max) + '...' : plain
+}
 </script>
 
 <style scoped>
@@ -169,18 +200,86 @@ const visibleGroups = computed(() =>
 .group-chevron.open { transform: rotate(90deg); }
 
 .group-body {
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--color-border);
-  margin-left: var(--space-3);
-  margin-bottom: var(--space-3);
-  margin-top: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  margin-left: var(--space-2);
 }
 
-.question-row {
+/* Question card */
+.question-card {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition-fast);
+}
+.question-card:hover {
+  border-color: var(--color-border-strong);
+}
+.question-answered {
+  border-left: 2px solid var(--color-success);
+}
+.question-child {
+  margin-left: var(--space-6);
+}
+
+.q-top {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-2);
 }
-.q-area { margin-top: var(--space-1); }
+.q-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.q-text {
+  flex: 1;
+  font-size: var(--type-sm);
+  font-weight: 500;
+  line-height: 1.4;
+}
+.q-badges {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+.q-area {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+  margin-left: calc(0.625rem + 0.6rem + var(--space-2));
+}
+.q-answer-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-left: calc(0.625rem + 0.6rem + var(--space-2));
+}
+.q-answer-preview svg {
+  flex-shrink: 0;
+  color: var(--color-success);
+  margin-top: 2px;
+}
+.q-answer-preview span {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 </style>
