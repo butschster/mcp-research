@@ -27,6 +27,8 @@ func NewOAuthHandler(oauthSvc *service.OAuthService, authSvc *service.AuthServic
 // GET  — renders login + consent HTML page
 // POST — validates credentials, creates code, redirects to client
 func (h *OAuthHandler) Authorize(w http.ResponseWriter, r *http.Request) {
+	h.log.Info("oauth authorize", "method", r.Method, "url", r.URL.String(), "remote", r.RemoteAddr)
+
 	clientID := r.URL.Query().Get("client_id")
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	scope := r.URL.Query().Get("scope")
@@ -93,6 +95,8 @@ func (h *OAuthHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 // Token handles POST /auth/token — exchanges code for tokens.
 // Accepts both application/x-www-form-urlencoded and application/json.
 func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
+	h.log.Info("oauth token", "method", r.Method, "content_type", r.Header.Get("Content-Type"), "remote", r.RemoteAddr)
+
 	var grantType, code, clientID, clientSecret, redirectURI string
 
 	contentType := r.Header.Get("Content-Type")
@@ -163,6 +167,8 @@ func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
 // RegisterClient handles POST /auth/register — RFC 7591 Dynamic Client Registration.
 // ChatGPT and other MCP clients use this to auto-create OAuth clients.
 func (h *OAuthHandler) RegisterClient(w http.ResponseWriter, r *http.Request) {
+	h.log.Info("oauth DCR register", "method", r.Method, "remote", r.RemoteAddr)
+
 	var input struct {
 		ClientName   string   `json:"client_name"`
 		RedirectURIs []string `json:"redirect_uris"`

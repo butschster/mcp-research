@@ -97,6 +97,8 @@ func sseAuthMiddleware(authSvc *service.AuthService, baseURL string, next http.H
 	resourceMetadataURL := baseURL + "/.well-known/oauth-protected-resource"
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		slog.Info("sse request", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr, "has_auth", r.Header.Get("Authorization") != "")
+
 		token := ""
 		if authHeader := r.Header.Get("Authorization"); len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 			token = authHeader[7:]
@@ -106,6 +108,7 @@ func sseAuthMiddleware(authSvc *service.AuthService, baseURL string, next http.H
 		}
 
 		if token == "" {
+			slog.Info("sse auth: no token", "path", r.URL.Path)
 			w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer resource_metadata="%s"`, resourceMetadataURL))
 			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 			return
@@ -113,6 +116,7 @@ func sseAuthMiddleware(authSvc *service.AuthService, baseURL string, next http.H
 
 		user, err := authSvc.ValidateToken(r.Context(), token)
 		if err != nil || user == nil {
+			slog.Info("sse auth: invalid token", "path", r.URL.Path, "error", err)
 			w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer resource_metadata="%s"`, resourceMetadataURL))
 			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 			return
