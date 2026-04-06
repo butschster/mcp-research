@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/butschster/mcp-research/internal/service"
 )
@@ -88,23 +90,42 @@ func (h *OAuthHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
-// Token handles POST /api/oauth/token — exchanges code for tokens.
+// Token handles POST /auth/token — exchanges code for tokens.
+// Accepts both application/x-www-form-urlencoded and application/json.
 func (h *OAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid form data")
-		return
+	var grantType, code, clientID, clientSecret, redirectURI string
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "application/json") {
+		var body struct {
+			GrantType    string `json:"grant_type"`
+			Code         string `json:"code"`
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+			RedirectURI  string `json:"redirect_uri"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		grantType = body.GrantType
+		code = body.Code
+		clientID = body.ClientID
+		clientSecret = body.ClientSecret
+		redirectURI = body.RedirectURI
+	} else {
+		r.ParseForm()
+		grantType = r.FormValue("grant_type")
+		code = r.FormValue("code")
+		clientID = r.FormValue("client_id")
+		clientSecret = r.FormValue("client_secret")
+		redirectURI = r.FormValue("redirect_uri")
 	}
 
-	grantType := r.FormValue("grant_type")
 	if grantType != "authorization_code" {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported grant_type: %s", grantType))
 		return
 	}
-
-	code := r.FormValue("code")
-	clientID := r.FormValue("client_id")
-	clientSecret := r.FormValue("client_secret")
-	redirectURI := r.FormValue("redirect_uri")
 
 	// Also support Basic auth for client credentials
 	if clientID == "" || clientSecret == "" {
@@ -180,7 +201,7 @@ func (h *OAuthHandler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Metadata handles GET /.well-known/oauth-authorization-server
+// OAuthMetadataHandler handles GET /.well-known/oauth-authorization-server
 func OAuthMetadataHandler(baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -191,7 +212,20 @@ func OAuthMetadataHandler(baseURL string) http.HandlerFunc {
 			"response_types_supported": []string{"code"},
 			"grant_types_supported":    []string{"authorization_code"},
 			"token_endpoint_auth_methods_supported": []string{"client_secret_post", "client_secret_basic"},
-			"code_challenge_methods_supported": []string{},
+			"code_challenge_methods_supported": []string{"S256"},
+			"scopes_supported": []string{"read", "write"},
+		})
+	}
+}
+
+// OAuthProtectedResourceHandler handles GET /.well-known/oauth-protected-resource
+// Tells MCP clients which auth server protects the MCP endpoint.
+func OAuthProtectedResourceHandler(baseURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"resource":               baseURL + "/sse",
+			"authorization_servers":  []string{baseURL},
+			"scopes_supported":      []string{"read", "write"},
 		})
 	}
 }

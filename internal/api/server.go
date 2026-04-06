@@ -117,7 +117,10 @@ func NewServer(
 			baseURL = cfg.BaseURL
 		}
 		mux.HandleFunc("GET /.well-known/oauth-authorization-server", handlers.OAuthMetadataHandler(baseURL))
+		mux.HandleFunc("GET /.well-known/openid-configuration", handlers.OAuthMetadataHandler(baseURL))
 
+		// OAuth2 Protected Resource Metadata (RFC 9728)
+		mux.HandleFunc("GET /.well-known/oauth-protected-resource", handlers.OAuthProtectedResourceHandler(baseURL))
 	}
 
 	// --- Read endpoints ---

@@ -63,7 +63,7 @@ func (s *Server) RunStdio(ctx context.Context, defaultUser *domain.User) error {
 	return s.server.Run(ctx, &sdkmcp.StdioTransport{})
 }
 
-func (s *Server) RunSSE(ctx context.Context, port int, authSvc *service.AuthService) error {
+func (s *Server) RunSSE(ctx context.Context, port int, authSvc *service.AuthService, baseURL string) error {
 	sseHandler := sdkmcp.NewSSEHandler(func(r *http.Request) *sdkmcp.Server {
 		return s.server
 	}, nil)
@@ -72,7 +72,7 @@ func (s *Server) RunSSE(ctx context.Context, port int, authSvc *service.AuthServ
 
 	// Wrap with auth middleware when auth service is available
 	if authSvc != nil {
-		handler = sseAuthMiddleware(authSvc, sseHandler)
+		handler = sseAuthMiddleware(authSvc, baseURL, sseHandler)
 	}
 
 	addr := fmt.Sprintf(":%d", port)
@@ -92,7 +92,10 @@ func (s *Server) MCPServer() *sdkmcp.Server {
 }
 
 // sseAuthMiddleware extracts bearer token from SSE requests and injects user into context.
-func sseAuthMiddleware(authSvc *service.AuthService, next http.Handler) http.Handler {
+// Returns WWW-Authenticate header on 401 to enable OAuth discovery per MCP spec.
+func sseAuthMiddleware(authSvc *service.AuthService, baseURL string, next http.Handler) http.Handler {
+	resourceMetadataURL := baseURL + "/.well-known/oauth-protected-resource"
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := ""
 		if authHeader := r.Header.Get("Authorization"); len(authHeader) > 7 && authHeader[:7] == "Bearer " {
@@ -103,12 +106,14 @@ func sseAuthMiddleware(authSvc *service.AuthService, next http.Handler) http.Han
 		}
 
 		if token == "" {
+			w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer resource_metadata="%s"`, resourceMetadataURL))
 			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 			return
 		}
 
 		user, err := authSvc.ValidateToken(r.Context(), token)
 		if err != nil || user == nil {
+			w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer resource_metadata="%s"`, resourceMetadataURL))
 			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 			return
 		}
