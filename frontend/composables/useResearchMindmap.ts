@@ -81,22 +81,23 @@ export function useResearchMindmap(researchId: string) {
   async function fetchAllData() {
     const config = useRuntimeConfig()
     const base = config.public.apiBase || ''
+    const { authFetch } = useAuth()
 
-    const researchRes = await $fetch<{ data: ResearchData }>(`${base}/api/researches/${researchId}`)
+    const researchRes = await authFetch<{ data: ResearchData }>(`${base}/api/researches/${researchId}`)
     const research = researchRes.data.research
     const sections = researchRes.data.sections ?? []
 
-    const tasksRes = await $fetch<{ data: TaskData[] }>(`${base}/api/researches/${researchId}/tasks`)
+    const tasksRes = await authFetch<{ data: TaskData[] }>(`${base}/api/researches/${researchId}/tasks`)
     const tasks = tasksRes.data ?? []
 
-    const sessionsRes = await $fetch<{ data: any[] }>(`${base}/api/researches/${researchId}/sessions`)
+    const sessionsRes = await authFetch<{ data: any[] }>(`${base}/api/researches/${researchId}/sessions`)
     const sessions = sessionsRes.data ?? []
 
     // Fetch entries for all sections in parallel
     const entriesBySection: Record<string, EntryData[]> = {}
     await Promise.all(
       sections.map(async (sec) => {
-        const res = await $fetch<{ data: EntryData[] }>(
+        const res = await authFetch<{ data: EntryData[] }>(
           `${base}/api/researches/${researchId}/sections/${sec.id}/entries`
         )
         entriesBySection[sec.id] = res.data ?? []
@@ -108,7 +109,7 @@ export function useResearchMindmap(researchId: string) {
     await Promise.all(
       sessions.map(async (sess: any) => {
         try {
-          const res = await $fetch<{ data: SessionData }>(`${base}/api/sessions/${sess.id}`)
+          const res = await authFetch<{ data: SessionData }>(`${base}/api/sessions/${sess.id}`)
           const questions = res.data?.questions ?? {}
           for (const statusGroup of Object.values(questions)) {
             for (const q of statusGroup) {
@@ -129,7 +130,7 @@ export function useResearchMindmap(researchId: string) {
     )
 
     // Fetch cross-references
-    const crossrefsRes = await $fetch<{ data: any[] }>(`${base}/api/researches/${researchId}/crossrefs`)
+    const crossrefsRes = await authFetch<{ data: any[] }>(`${base}/api/researches/${researchId}/crossrefs`)
     const crossrefs = crossrefsRes.data ?? []
 
     return { research, sections, entriesBySection, tasks, allQuestions, crossrefs }

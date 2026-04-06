@@ -48,6 +48,10 @@
 </template>
 
 <script setup lang="ts">
+const { authFetch } = useAuth()
+const config = useRuntimeConfig()
+const base = config.public.apiBase || ''
+
 const statusFilter = ref('')
 const tagFilter = ref('')
 
@@ -58,9 +62,7 @@ const apiUrl = computed(() =>
 const { data, pending, refresh } = useApi<{ data: any[] }>(apiUrl.value)
 
 watch(statusFilter, async () => {
-  const config = useRuntimeConfig()
-  const base = config.public.apiBase || ''
-  const res = await $fetch<{ data: any[] }>(`${base}${apiUrl.value}`)
+  const res = await authFetch<{ data: any[] }>(`${base}${apiUrl.value}`)
   data.value = res
 })
 
@@ -75,9 +77,7 @@ const filtered = computed(() =>
 // Real-time updates
 useRealtimeUpdates(async (event) => {
   if (event.entity === 'research') {
-    const config = useRuntimeConfig()
-    const base = config.public.apiBase || ''
-    const res = await $fetch<{ data: any[] }>(`${base}${apiUrl.value}`)
+    const res = await authFetch<{ data: any[] }>(`${base}${apiUrl.value}`)
     data.value = res
   }
 })

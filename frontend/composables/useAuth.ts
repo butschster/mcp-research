@@ -83,6 +83,15 @@ export function useAuth() {
     navigateTo('/login')
   }
 
+  // Authenticated $fetch wrapper for use outside useApi composable
+  function authFetch<T>(url: string, opts: Record<string, any> = {}) {
+    const headers: Record<string, string> = { ...(opts.headers || {}) }
+    if (token.value) {
+      headers['Authorization'] = `Bearer ${token.value}`
+    }
+    return $fetch<T>(url, { ...opts, headers })
+  }
+
   return {
     user: readonly(user),
     token: readonly(token),
@@ -95,5 +104,6 @@ export function useAuth() {
     login,
     register,
     logout,
+    authFetch,
   }
 }

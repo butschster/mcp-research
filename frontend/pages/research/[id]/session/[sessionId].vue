@@ -122,17 +122,15 @@ const completedTasks = computed(() => tasks.value.filter((t: any) => t.status ==
 // Active tab
 const activeTab = ref<'questions' | 'tasks'>('questions')
 
+const { authFetch } = useAuth()
+const rtBase = useRuntimeConfig().public.apiBase || ''
 useRealtimeUpdates(async (event) => {
   if (event.research_id && event.research_id !== id) return
-  const config = useRuntimeConfig()
-  const base = config.public.apiBase || ''
   if (['question', 'session'].includes(event.entity)) {
-    const res = await $fetch<any>(`${base}/api/sessions/${sessionId}`)
-    data.value = res
+    data.value = await authFetch<any>(`${rtBase}/api/sessions/${sessionId}`)
   }
   if (event.entity === 'task') {
-    const res = await $fetch<any>(`${base}/api/researches/${id}/tasks`)
-    tasksData.value = res
+    tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
   }
 })
 </script>

@@ -251,26 +251,22 @@ const { data: sessionData } = useApi<{ data: any }>(
 const sessionProgress = computed(() => sessionData.value?.data?.progress ?? null)
 
 // Real-time updates
+const { authFetch } = useAuth()
+const rtBase = useRuntimeConfig().public.apiBase || ''
 useRealtimeUpdates(async (event) => {
   if (event.research_id && event.research_id !== id) return
-  const config = useRuntimeConfig()
-  const base = config.public.apiBase || ''
 
   if (['research', 'section', 'session'].includes(event.entity)) {
-    const res = await $fetch<any>(`${base}/api/researches/${id}`)
-    researchData.value = res
+    researchData.value = await authFetch<any>(`${rtBase}/api/researches/${id}`)
   }
   if (event.entity === 'entry' && entriesUrl.value) {
-    const res = await $fetch<any>(`${base}${entriesUrl.value}`)
-    entriesData.value = res
+    entriesData.value = await authFetch<any>(`${rtBase}${entriesUrl.value}`)
   }
   if (event.entity === 'task') {
-    const res = await $fetch<any>(`${base}/api/researches/${id}/tasks`)
-    tasksData.value = res
+    tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
   }
   if (['question', 'session'].includes(event.entity) && activeSession.value?.id) {
-    const res = await $fetch<any>(`${base}/api/sessions/${activeSession.value.id}`)
-    sessionData.value = res
+    sessionData.value = await authFetch<any>(`${rtBase}/api/sessions/${activeSession.value.id}`)
   }
 })
 </script>
