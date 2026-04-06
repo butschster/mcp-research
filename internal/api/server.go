@@ -200,10 +200,27 @@ func NewServer(
 		}
 		mux.Handle("/mcp", mcpEndpoint)
 		log.Info("MCP Streamable HTTP endpoint registered at /mcp")
-	}
 
-	// Embedded frontend (catch-all, must be last)
-	mux.Handle("/", staticHandler())
+		// Catch-all: serve MCP for POST/DELETE with MCP headers, static frontend for everything else
+		static := staticHandler()
+		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Route MCP requests (POST/DELETE with JSON or MCP session header) to MCP handler
+			if (r.Method == http.MethodPost || r.Method == http.MethodDelete) &&
+				(r.Header.Get("Content-Type") == "application/json" || r.Header.Get("Mcp-Session-Id") != "") {
+				mcpEndpoint.ServeHTTP(w, r)
+				return
+			}
+			// GET with Accept: text/event-stream or MCP session → also MCP
+			if r.Method == http.MethodGet && (r.Header.Get("Accept") == "text/event-stream" || r.Header.Get("Mcp-Session-Id") != "") {
+				mcpEndpoint.ServeHTTP(w, r)
+				return
+			}
+			static.ServeHTTP(w, r)
+		}))
+	} else {
+		// Embedded frontend (catch-all, must be last)
+		mux.Handle("/", staticHandler())
+	}
 
 	return &Server{mux: mux, hub: hub, port: cfg.Port, log: log}
 }
