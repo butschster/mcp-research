@@ -96,6 +96,36 @@ func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID stri
 	return result, rows.Err()
 }
 
+// FindBySourceEntry returns all cross-references where the given entry is the source (outgoing links).
+func (r *CrossRefRepository) FindBySourceEntry(ctx context.Context, entryID string) ([]domain.CrossRef, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT source_type, source_id, source_research_id,
+		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
+		        target_ref, resolved
+		 FROM crossrefs WHERE source_type='entry' AND source_id=?
+		 ORDER BY created_at`, entryID)
+	if err != nil {
+		return nil, fmt.Errorf("query outgoing crossrefs: %w", err)
+	}
+	defer rows.Close()
+
+	var result []domain.CrossRef
+	for rows.Next() {
+		var cr domain.CrossRef
+		var resolved int
+		if err := rows.Scan(
+			&cr.SourceType, &cr.SourceID, &cr.SourceResearchID,
+			&cr.TargetEntryID, &cr.TargetResearchID,
+			&cr.TargetRef, &resolved,
+		); err != nil {
+			return nil, fmt.Errorf("scan crossref: %w", err)
+		}
+		cr.Resolved = resolved == 1
+		result = append(result, cr)
+	}
+	return result, rows.Err()
+}
+
 // FindByTargetEntry returns all sources that reference the given entry (incoming links).
 func (r *CrossRefRepository) FindByTargetEntry(ctx context.Context, entryID string) ([]domain.CrossRef, error) {
 	rows, err := r.db.QueryContext(ctx,
