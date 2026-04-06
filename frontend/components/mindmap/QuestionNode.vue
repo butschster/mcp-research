@@ -1,5 +1,5 @@
 <template>
-  <div class="mindmap-node question-node">
+  <div class="mindmap-node question-node" @click="navigate">
     <div class="q-header">
       <div class="q-title-row">
         <span v-if="data.code" class="mm-code">{{ data.code }}</span>
@@ -16,13 +16,16 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
 
-defineProps<{
+const props = defineProps<{
   data: {
+    id: string
     code: string
     text: string
     status: string
     answer: string
+    sessionId: string
     sessionTitle: string
+    researchSlug: string
   }
   targetPosition?: Position
 }>()
@@ -30,6 +33,12 @@ defineProps<{
 function truncate(text: string, len: number): string {
   if (!text) return ''
   return text.length > len ? text.slice(0, len) + '...' : text
+}
+
+function navigate() {
+  if (props.data.researchSlug && props.data.sessionId) {
+    navigateTo(`/research/${props.data.researchSlug}/session/${props.data.sessionId}/question/${props.data.code || props.data.id}`)
+  }
 }
 </script>
 
@@ -41,6 +50,12 @@ function truncate(text: string, len: number): string {
   padding: var(--space-4) var(--space-5);
   min-width: 340px;
   max-width: 420px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.question-node:hover {
+  border-color: rgba(240, 184, 73, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 .q-header {
   display: flex;

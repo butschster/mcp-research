@@ -30,7 +30,7 @@
     </div>
 
     <!-- Active session summary -->
-    <NuxtLink v-if="activeSession" :to="`/research/${researchSlug}/session/${activeSession.id}`" class="card session-widget">
+    <NuxtLink v-if="activeSession" :to="`/research/${researchSlug}/session/${activeSession.code || activeSession.id}`" class="card session-widget">
       <div class="session-widget-header">
         <div class="flex items-center gap-2">
           <span class="session-label">{{ activeSession?.status === 'active' ? 'Active session' : 'Session' }}</span>
@@ -76,7 +76,7 @@
           </span>
           <div class="todo-content">
             <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
-            <div v-if="t.result" class="card-meta todo-result" v-html="renderRefs(t.result, researchSlug)"></div>
+            <div v-if="t.result" class="card-meta todo-result" v-html="renderRefs(marked.parse(t.result) as string, researchSlug)"></div>
           </div>
           <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
           <StatusBadge :status="t.status" />
@@ -245,6 +245,9 @@
 </template>
 
 <script setup lang="ts">
+import { marked } from 'marked'
+marked.setOptions({ gfm: true, breaks: true })
+
 const route = useRoute()
 const id = route.params.id as string
 

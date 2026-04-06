@@ -105,7 +105,7 @@ export function useResearchMindmap(researchId: string) {
     )
 
     // Fetch questions from all sessions
-    const allQuestions: Array<{ id: string; text: string; status: string; answer: string; sessionTitle: string }> = []
+    const allQuestions: Array<{ id: string; code: string; text: string; status: string; answer: string; sessionId: string; sessionTitle: string }> = []
     await Promise.all(
       sessions.map(async (sess: any) => {
         try {
@@ -119,6 +119,7 @@ export function useResearchMindmap(researchId: string) {
                 text: q.text,
                 status: q.status,
                 answer: q.answer,
+                sessionId: sess.code || sess.id,
                 sessionTitle: sess.title,
               })
             }
@@ -241,11 +242,14 @@ export function useResearchMindmap(researchId: string) {
             type: 'question',
             position: { x: 0, y: 0 },
             data: {
+              id: q.id,
               code: q.code,
               text: q.text,
               status: q.status,
               answer: q.answer,
+              sessionId: q.sessionId,
               sessionTitle: q.sessionTitle,
+              researchSlug: research.code || researchId,
             },
           })
           rawEdges.push({

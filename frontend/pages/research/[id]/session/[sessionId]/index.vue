@@ -1,8 +1,7 @@
 <template>
   <div v-if="pending">
     <div class="skeleton-card skeleton-header"></div>
-    <div class="skeleton-card skeleton-progress"></div>
-    <div class="skeleton-card skeleton-questions"></div>
+    <div class="skeleton-card skeleton-content"></div>
   </div>
 
   <div v-else-if="session">
@@ -20,25 +19,13 @@
       <p v-if="session.focus" class="card-meta mt-2">Focus: {{ session.focus }}</p>
     </div>
 
-    <!-- Progress card -->
-    <div class="card progress-card">
-      <ProgressBar :value="progress.answered" :total="progress.total" />
-      <div class="progress-stats">
-        <span>Total: {{ progress.total }}</span>
-        <span class="stat-answered">Answered: {{ progress.answered }}</span>
-        <span class="stat-pending">Pending: {{ progress.pending }}</span>
-        <span v-if="progress.deferred" class="card-meta">Deferred: {{ progress.deferred }}</span>
-        <span v-if="progress.skipped" class="stat-skipped">Skipped: {{ progress.skipped }}</span>
-      </div>
-    </div>
-
-    <!-- Notes card -->
+    <!-- Notes -->
     <div v-if="session.notes" class="card notes-card">
       <h3 class="card-section-title">Session notes</h3>
       <p class="notes-text">{{ session.notes }}</p>
     </div>
 
-    <!-- Tabs: Questions / Tasks -->
+    <!-- Tabs -->
     <div class="content-tabs">
       <button
         :class="['content-tab', { active: activeTab === 'questions' }]"
@@ -46,7 +33,7 @@
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
         Questions
-        <span class="tab-count">{{ progress.total }}</span>
+        <span class="tab-count">{{ progress.answered }} / {{ progress.total }}</span>
       </button>
       <button
         :class="['content-tab', { active: activeTab === 'tasks' }]"
@@ -59,14 +46,30 @@
     </div>
 
     <!-- Questions panel -->
-    <div v-if="activeTab === 'questions'" class="card">
-      <QuestionList :questions="questions" :research-slug="researchSlug" />
+    <div v-if="activeTab === 'questions'">
+      <!-- Progress inside questions -->
+      <div class="panel-progress">
+        <ProgressBar :value="progress.answered" :total="progress.total" />
+        <div class="progress-stats">
+          <span class="stat-answered">{{ progress.answered }} answered</span>
+          <span class="stat-pending">{{ progress.pending }} pending</span>
+          <span v-if="progress.deferred" class="stat-muted">{{ progress.deferred }} deferred</span>
+          <span v-if="progress.skipped" class="stat-skipped">{{ progress.skipped }} skipped</span>
+        </div>
+      </div>
+      <QuestionList :questions="questions" :research-slug="researchSlug" :session-id="sessionId" />
     </div>
 
     <!-- Tasks panel -->
-    <div v-if="activeTab === 'tasks'" class="card">
+    <div v-if="activeTab === 'tasks'">
       <div v-if="tasks.length">
-        <ProgressBar :value="completedTasks" :total="tasks.length" />
+        <div class="panel-progress">
+          <ProgressBar :value="completedTasks" :total="tasks.length" />
+          <div class="progress-stats">
+            <span class="stat-answered">{{ completedTasks }} completed</span>
+            <span class="stat-pending">{{ tasks.length - completedTasks }} remaining</span>
+          </div>
+        </div>
         <div class="todo-list">
           <div v-for="t in tasks" :key="t.id" class="todo-item">
             <span :class="['todo-check', `todo-${t.status}`]">
@@ -79,7 +82,7 @@
             </span>
             <div class="todo-content">
               <span :class="['todo-text', { 'todo-done': t.status === 'completed' }]">{{ t.title }}</span>
-              <div v-if="t.result" class="card-meta todo-result" v-html="renderRefs(t.result, researchSlug)"></div>
+              <div v-if="t.result" class="todo-result markdown-content" v-html="renderRefs(marked.parse(t.result) as string, researchSlug)"></div>
             </div>
             <StatusBadge v-if="t.priority === 'high'" :status="t.priority" />
             <StatusBadge :status="t.status" />
@@ -94,6 +97,8 @@
 </template>
 
 <script setup lang="ts">
+import { marked } from 'marked'
+marked.setOptions({ gfm: true, breaks: true })
 const route = useRoute()
 const id = route.params.id as string
 const sessionId = route.params.sessionId as string
@@ -138,25 +143,30 @@ useRealtimeUpdates(async (event) => {
 <style scoped>
 .session-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
 .card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); letter-spacing: -0.01em; }
-.progress-card { margin-bottom: var(--space-6); }
 .notes-card { margin-bottom: var(--space-6); }
 .notes-text { white-space: pre-wrap; color: var(--color-text-muted); font-size: var(--type-sm); line-height: 1.6; }
+
+/* Panel progress (inside tab) */
+.panel-progress {
+  margin-bottom: var(--space-5);
+}
 .progress-stats {
   display: flex;
-  gap: var(--space-5);
-  font-size: var(--type-sm);
-  margin-top: var(--space-3);
-  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: var(--type-xs);
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
 }
 .stat-answered { color: var(--color-success); font-weight: 500; }
 .stat-pending  { color: var(--color-warning); font-weight: 500; }
 .stat-skipped  { color: var(--color-error); font-weight: 500; }
+.stat-muted    { color: var(--color-text-muted); }
 
 /* Content tabs */
 .content-tabs {
   display: flex;
   gap: 0;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--color-border);
 }
 .content-tab {
@@ -194,24 +204,25 @@ useRealtimeUpdates(async (event) => {
 }
 
 /* Todo list (tasks) */
-.todo-list { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-4); }
+.todo-list { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo-item {
-  display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-sm);
-  padding: var(--space-2) var(--space-3);
+  display: flex; align-items: flex-start; gap: var(--space-3); font-size: var(--type-sm);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--transition-fast);
 }
-.todo-item:hover { background: var(--color-surface-hover); }
-.todo-check { width: var(--space-5); text-align: center; flex-shrink: 0; color: var(--color-text-muted); }
+.todo-item:hover { border-color: var(--color-border-strong); }
+.todo-check { width: var(--space-5); text-align: center; flex-shrink: 0; color: var(--color-text-muted); margin-top: 1px; }
 .todo-content { flex: 1; min-width: 0; }
 .todo-done { text-decoration: line-through; color: var(--color-text-muted); }
-.todo-result { font-size: var(--type-xs); margin-top: var(--space-1); }
+.todo-result { font-size: var(--type-xs); margin-top: var(--space-2); }
 .todo-completed .todo-check { color: var(--color-success); }
 .todo-failed .todo-check { color: var(--color-error); }
 .todo-blocked .todo-check { color: var(--color-error); }
 .todo-in_progress .todo-check { color: var(--color-warning); }
 
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
-.skeleton-progress { height: 100px; margin-bottom: var(--space-4); }
-.skeleton-questions { height: 300px; }
+.skeleton-content { height: 400px; }
 </style>
