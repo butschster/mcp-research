@@ -173,11 +173,17 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 	return rm, nil
 }
 
-// Get returns a roadmap with all nodes and edges.
+// Get returns a roadmap with all nodes and edges. Accepts UUID or short code (e.g. RM1).
 func (s *RoadmapService) Get(ctx context.Context, id string) (*domain.Roadmap, error) {
 	rm, err := s.roadmaps.FindByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("find roadmap: %w", err)
+	}
+	if rm == nil && isCode(id) {
+		rm, err = s.roadmaps.FindByCode(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("find roadmap by code: %w", err)
+		}
 	}
 	if rm == nil {
 		return nil, ErrNotFound

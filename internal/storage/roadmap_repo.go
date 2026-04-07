@@ -66,6 +66,14 @@ func (r *RoadmapRepository) FindByID(ctx context.Context, id string) (*domain.Ro
 	return r.scanRoadmap(row)
 }
 
+// FindByCode returns a roadmap by its short code (e.g. RM1).
+func (r *RoadmapRepository) FindByCode(ctx context.Context, code string) (*domain.Roadmap, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, code, research_id, title, description, statuses, status, created_at, updated_at
+		 FROM roadmaps WHERE code=?`, code)
+	return r.scanRoadmap(row)
+}
+
 // FindByResearch returns all roadmaps for a research.
 func (r *RoadmapRepository) FindByResearch(ctx context.Context, researchID string) ([]*domain.Roadmap, error) {
 	rows, err := r.db.QueryContext(ctx,
