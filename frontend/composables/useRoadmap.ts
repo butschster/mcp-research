@@ -56,6 +56,8 @@ export function useRoadmap(roadmapId: string) {
   // Debounced position saves
   const pendingPositions = new Map<string, { x: number; y: number }>()
   let positionTimer: ReturnType<typeof setTimeout> | null = null
+  // Suppress refresh while we have local mutations in flight
+  let suppressRefreshUntil = 0
 
   async function fetchRoadmap() {
     const config = useRuntimeConfig()
@@ -193,6 +195,7 @@ export function useRoadmap(roadmapId: string) {
     const { authFetch } = useAuth()
 
     try {
+      suppressRefreshUntil = Date.now() + 2000
       await authFetch(`${base}/api/roadmap-nodes/${nodeId}`, {
         method: 'PUT',
         body: { status: newStatus },
@@ -218,6 +221,8 @@ export function useRoadmap(roadmapId: string) {
         node.position_y = y
       }
     }
+    // Suppress WebSocket-triggered refresh for 2s after drag
+    suppressRefreshUntil = Date.now() + 2000
     if (positionTimer) clearTimeout(positionTimer)
     positionTimer = setTimeout(flushPositions, 500)
   }
@@ -292,6 +297,10 @@ export function useRoadmap(roadmapId: string) {
     return { total, completed, percent: total > 0 ? Math.round((completed / total) * 100) : 0 }
   })
 
+  function shouldSuppressRefresh(): boolean {
+    return Date.now() < suppressRefreshUntil
+  }
+
   return {
     roadmap: readonly(roadmap),
     nodes,
@@ -305,5 +314,6 @@ export function useRoadmap(roadmapId: string) {
     autoLayout,
     layoutDirection: readonly(layoutDirection),
     setLayoutDirection,
+    shouldSuppressRefresh,
   }
 }

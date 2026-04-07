@@ -143,6 +143,7 @@ const {
   autoLayout,
   layoutDirection,
   setLayoutDirection,
+  shouldSuppressRefresh,
 } = useRoadmap(roadmapId)
 
 // Vue Flow instance
@@ -207,9 +208,9 @@ onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
 })
 
-// Real-time updates
+// Real-time updates (skip refresh if we just made a local change)
 useRealtimeUpdates(async (event) => {
-  if (event.entity === 'roadmap') {
+  if (event.entity === 'roadmap' && !shouldSuppressRefresh()) {
     await refresh()
     nextTick(() => fitView({ padding: 0.15, duration: 300 }))
   }
