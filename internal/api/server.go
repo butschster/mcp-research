@@ -41,6 +41,7 @@ func NewServer(
 	entrySvc *service.EntryService,
 	sessionSvc *service.SessionService,
 	taskSvc *service.TaskService,
+	roadmapSvc *service.RoadmapService,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
 	entryRepo *storage.EntryRepository,
@@ -56,6 +57,7 @@ func NewServer(
 	eh := handlers.NewEntryHandler(entrySvc, entryRepo, researchRepo, log)
 	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
+	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
 
 	// Build auth middleware functions
 	var requireAuth func(http.Handler) http.Handler
@@ -137,6 +139,7 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))
 	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crReadHandler.SetRoadmapService(roadmapSvc)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
 	elHandler := handlers.NewExternalLinkHandler(externalLinkRepo, researchSvc, log)
@@ -160,10 +163,13 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/sessions", wrapRead(sh.ListByResearch))
 	mux.Handle("GET /api/researches/{id}/sessions/{sessionId}", wrapRead(sh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/{entryId}", wrapRead(eh.GetByResearch))
+	mux.Handle("GET /api/researches/{id}/roadmaps", wrapRead(rmh.ListByResearch))
+	mux.Handle("GET /api/roadmaps/{id}", wrapRead(rmh.Get))
 
 	// --- Write endpoints ---
 	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
 	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crh.SetRoadmapService(roadmapSvc)
 
 	mux.Handle("POST /api/researches", wrap(wh.CreateResearch))
 	mux.Handle("PUT /api/researches/{id}", wrap(wh.UpdateResearch))
@@ -178,6 +184,10 @@ func NewServer(
 	mux.Handle("PUT /api/sessions/{id}", wrap(wh.UpdateSession))
 	mux.Handle("PUT /api/questions/{questionId}", wrap(wh.UpdateQuestion))
 	mux.Handle("POST /api/sessions/{id}/questions", wrap(wh.AddQuestions))
+	mux.Handle("POST /api/roadmaps", wrap(rmh.Create))
+	mux.Handle("PUT /api/roadmaps/{id}", wrap(rmh.Update))
+	mux.Handle("DELETE /api/roadmaps/{id}", wrap(rmh.Delete))
+	mux.Handle("PUT /api/roadmap-nodes/{nodeId}", wrap(rmh.UpdateNode))
 	mux.Handle("POST /api/researches/{id}/crossrefs/rebuild", wrap(crh.Rebuild))
 
 	// Backfill short codes for all records missing them

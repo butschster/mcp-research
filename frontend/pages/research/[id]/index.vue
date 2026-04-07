@@ -25,6 +25,11 @@
             Tasks
             <span v-if="tasks.length" class="btn-count">{{ tasks.length }}</span>
           </NuxtLink>
+          <NuxtLink :to="`/research/${researchSlug}/roadmaps`" class="btn btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            Roadmaps
+            <span v-if="roadmaps.length" class="btn-count">{{ roadmaps.length }}</span>
+          </NuxtLink>
           <NuxtLink :to="`/research/${researchSlug}/mindmap`" class="btn btn-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
             Mind map
@@ -183,6 +188,9 @@ const globalTags = computed(() => isAllEntries.value ? (tagsData.value?.data ?? 
 const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
 const tasks = computed(() => tasksData.value?.data ?? [])
 
+const { data: roadmapsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/roadmaps`)
+const roadmaps = computed(() => roadmapsData.value?.data ?? [])
+
 // All sessions
 const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
 const allSessions = computed(() => sessionsData.value?.data ?? [])
@@ -245,6 +253,9 @@ useRealtimeUpdates(async (event) => {
   }
   if (['question', 'session'].includes(event.entity)) {
     sessionsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions`)
+  }
+  if (event.entity === 'roadmap') {
+    roadmapsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/roadmaps`)
   }
 })
 </script>

@@ -122,6 +122,23 @@ func openAPISpec(_ bool) map[string]any {
 		),
 	}
 
+	paths["/api/researches/{id}/roadmaps"] = map[string]any{
+		"get": endpoint("List roadmaps", "Returns all roadmaps for a research (without nodes/edges). Use GET /api/roadmaps/{id} for the full graph.",
+			[]param{path("id", "Research UUID")},
+			response200(obj(
+				field("data", "array", "Array of roadmap objects (id, code, title, description, status, statuses)"),
+				field("count", "integer", "Total count"),
+			)),
+		),
+	}
+
+	paths["/api/roadmaps/{id}"] = map[string]any{
+		"get": endpoint("Get roadmap", "Returns a roadmap with all nodes and edges.",
+			[]param{path("id", "Roadmap UUID")},
+			response200(obj(field("data", "object", "Roadmap with id, code, research_id, title, description, status, statuses, nodes (array), edges (array)"))),
+		),
+	}
+
 	// --- Write endpoints (always documented, require bearer auth at runtime) ---
 	{
 		addMethod(paths, "/api/researches", "post", writeEndpoint(
@@ -272,6 +289,58 @@ func openAPISpec(_ bool) map[string]any {
 				field("rebuilt", "integer", "Number of entries scanned"),
 				field("status", "string", "Always 'ok'"),
 			)),
+		))
+
+		addMethod(paths, "/api/roadmaps", "post", writeEndpoint(
+			"Create roadmap",
+			"Creates a roadmap graph with optional initial nodes and edges. Use temp_id on nodes to reference them in edges.",
+			nil,
+			body(obj(
+				field("research_id", "string", "Research UUID (required)"),
+				field("title", "string", "Roadmap title (required)"),
+				field("description", "string", "Roadmap description"),
+				field("statuses", "array", "Available node statuses in order (e.g. ['not_started', 'in_progress', 'completed'])"),
+				field("nodes", "array", "Array of node objects: {temp_id, title, description, node_type, status, position_x, position_y, parent_id}"),
+				field("edges", "array", "Array of edge objects: {source (temp_id or node ID), target (temp_id or node ID), label, edge_type}"),
+			)),
+			response201(obj(field("data", "object", "Created roadmap with nodes and edges"))),
+		))
+
+		addMethod(paths, "/api/roadmaps/{id}", "put", writeEndpoint(
+			"Update roadmap",
+			"Partial update of roadmap metadata (title, description, statuses, status).",
+			[]param{path("id", "Roadmap UUID")},
+			body(obj(
+				field("title", "string", "New title"),
+				field("description", "string", "New description"),
+				field("statuses", "array", "New list of available node statuses"),
+				field("status", "string", "Roadmap status: active, completed, archived"),
+			)),
+			response200(obj(field("data", "object", "Updated roadmap object"))),
+		))
+
+		addMethod(paths, "/api/roadmaps/{id}", "delete", writeEndpoint(
+			"Delete roadmap",
+			"Deletes a roadmap and all its nodes and edges. Irreversible.",
+			[]param{path("id", "Roadmap UUID")},
+			nil,
+			response200(obj(field("deleted", "boolean", "Always true"))),
+		))
+
+		addMethod(paths, "/api/roadmap-nodes/{nodeId}", "put", writeEndpoint(
+			"Update roadmap node",
+			"Partial update of a roadmap node (title, description, node_type, status, position, parent).",
+			[]param{path("nodeId", "Node UUID")},
+			body(obj(
+				field("title", "string", "New title"),
+				field("description", "string", "New description"),
+				field("node_type", "string", "New type: step, milestone, decision, info, group"),
+				field("status", "string", "New status (from the roadmap's statuses list)"),
+				field("position_x", "number", "New X position"),
+				field("position_y", "number", "New Y position"),
+				field("parent_id", "string", "New parent node ID (empty to clear)"),
+			)),
+			response200(obj(field("data", "object", "Updated node object"))),
 		))
 	}
 

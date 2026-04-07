@@ -9,12 +9,13 @@
       <div class="crossrefs-list">
         <NuxtLink
           v-for="ref in outgoing"
-          :key="ref.target_entry_id || ref.target_ref"
+          :key="ref.target_entry_id || ref.target_roadmap_id || ref.target_ref"
           :to="refLink(ref, 'outgoing')"
           class="crossref-item"
         >
-          <span class="crossref-code">{{ ref.entry_code || ref.target_ref }}</span>
+          <span class="crossref-code">{{ ref.entry_code || ref.roadmap_code || ref.target_ref }}</span>
           <span v-if="ref.entry_title" class="crossref-entry-title">{{ ref.entry_title }}</span>
+          <span v-else-if="ref.roadmap_title" class="crossref-entry-title">{{ ref.roadmap_title }}</span>
           <span v-if="ref.research_code && ref.research_code !== researchSlug" class="crossref-research">{{ ref.research_name || ref.research_code }}</span>
           <span v-if="!ref.resolved" class="crossref-unresolved">unresolved</span>
         </NuxtLink>
@@ -48,7 +49,13 @@ const props = defineProps<{
 function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
   if (direction === 'outgoing') {
     const rCode = ref.research_code || props.researchSlug
-    const eCode = ref.entry_code || ref.target_ref
+    const targetRef = ref.target_ref || ''
+    // Roadmap references: [[RM1]] or [[RM1:N3]]
+    if (targetRef.startsWith('RM') || ref.target_roadmap_id) {
+      const rmCode = targetRef.split(':')[0]
+      return `/research/${rCode}/roadmap/${rmCode}`
+    }
+    const eCode = ref.entry_code || targetRef
     return `/research/${rCode}/entry/${eCode}`
   }
   if (ref.source_type === 'entry') {

@@ -29,8 +29,8 @@ func (r *CrossRefRepository) ReplaceForSource(ctx context.Context, sourceType, s
 	}
 
 	stmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO crossrefs (source_type, source_id, source_entry_id, source_research_id, target_entry_id, target_research_id, target_ref, resolved)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+		`INSERT INTO crossrefs (source_type, source_id, source_entry_id, source_research_id, target_entry_id, target_research_id, target_roadmap_id, target_node_id, target_ref, resolved)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)
 	}
@@ -41,12 +41,18 @@ func (r *CrossRefRepository) ReplaceForSource(ctx context.Context, sourceType, s
 		if ref.Resolved {
 			resolved = 1
 		}
-		var targetEntryID, targetResearchID *string
+		var targetEntryID, targetResearchID, targetRoadmapID, targetNodeID *string
 		if ref.TargetEntryID != "" {
 			targetEntryID = &ref.TargetEntryID
 		}
 		if ref.TargetResearchID != "" {
 			targetResearchID = &ref.TargetResearchID
+		}
+		if ref.TargetRoadmapID != "" {
+			targetRoadmapID = &ref.TargetRoadmapID
+		}
+		if ref.TargetNodeID != "" {
+			targetNodeID = &ref.TargetNodeID
 		}
 		// source_entry_id kept for backward compat (NULL for non-entry sources)
 		var sourceEntryID *string
@@ -57,6 +63,7 @@ func (r *CrossRefRepository) ReplaceForSource(ctx context.Context, sourceType, s
 			ref.SourceType, ref.SourceID,
 			sourceEntryID, ref.SourceResearchID,
 			targetEntryID, targetResearchID,
+			targetRoadmapID, targetNodeID,
 			ref.TargetRef, resolved,
 		); err != nil {
 			return fmt.Errorf("insert crossref: %w", err)
@@ -71,6 +78,7 @@ func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID stri
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT source_type, source_id, source_research_id,
 		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
+		        COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''),
 		        target_ref, resolved
 		 FROM crossrefs WHERE source_research_id=?
 		 ORDER BY created_at`, researchID)
@@ -86,6 +94,7 @@ func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID stri
 		if err := rows.Scan(
 			&cr.SourceType, &cr.SourceID, &cr.SourceResearchID,
 			&cr.TargetEntryID, &cr.TargetResearchID,
+			&cr.TargetRoadmapID, &cr.TargetNodeID,
 			&cr.TargetRef, &resolved,
 		); err != nil {
 			return nil, fmt.Errorf("scan crossref: %w", err)
@@ -101,6 +110,7 @@ func (r *CrossRefRepository) FindBySourceEntry(ctx context.Context, entryID stri
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT source_type, source_id, source_research_id,
 		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
+		        COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''),
 		        target_ref, resolved
 		 FROM crossrefs WHERE source_type='entry' AND source_id=?
 		 ORDER BY created_at`, entryID)
@@ -116,6 +126,7 @@ func (r *CrossRefRepository) FindBySourceEntry(ctx context.Context, entryID stri
 		if err := rows.Scan(
 			&cr.SourceType, &cr.SourceID, &cr.SourceResearchID,
 			&cr.TargetEntryID, &cr.TargetResearchID,
+			&cr.TargetRoadmapID, &cr.TargetNodeID,
 			&cr.TargetRef, &resolved,
 		); err != nil {
 			return nil, fmt.Errorf("scan crossref: %w", err)
@@ -131,6 +142,7 @@ func (r *CrossRefRepository) FindByTargetEntry(ctx context.Context, entryID stri
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT source_type, source_id, source_research_id,
 		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
+		        COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''),
 		        target_ref, resolved
 		 FROM crossrefs WHERE target_entry_id=?
 		 ORDER BY created_at`, entryID)
@@ -146,6 +158,7 @@ func (r *CrossRefRepository) FindByTargetEntry(ctx context.Context, entryID stri
 		if err := rows.Scan(
 			&cr.SourceType, &cr.SourceID, &cr.SourceResearchID,
 			&cr.TargetEntryID, &cr.TargetResearchID,
+			&cr.TargetRoadmapID, &cr.TargetNodeID,
 			&cr.TargetRef, &resolved,
 		); err != nil {
 			return nil, fmt.Errorf("scan crossref: %w", err)

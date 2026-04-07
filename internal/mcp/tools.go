@@ -37,4 +37,14 @@ func (s *Server) registerTools() {
 	tools.RegisterTaskUpdate(s.server, s.task, s.log)
 	tools.RegisterTaskList(s.server, s.task, s.log)
 	tools.RegisterTaskDelete(s.server, s.task, s.log)
+
+	// Roadmap tools
+	tools.RegisterRoadmapCreate(s.server, s.roadmap, s.log)
+	tools.RegisterRoadmapGet(s.server, s.roadmap, s.log)
+	tools.RegisterRoadmapList(s.server, s.roadmap, s.log)
+	tools.RegisterRoadmapUpdate(s.server, s.roadmap, s.log)
+	tools.RegisterRoadmapDelete(s.server, s.roadmap, s.log)
+	tools.RegisterRoadmapAddNodes(s.server, s.roadmap, s.log)
+	tools.RegisterRoadmapUpdateNode(s.server, s.roadmap, s.log)
+	tools.RegisterRoadmapRemoveNodes(s.server, s.roadmap, s.log)
 }

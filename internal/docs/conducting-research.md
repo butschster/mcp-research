@@ -57,6 +57,39 @@ As information accumulates:
 - Use tasks (`task_create`) to track work items
 - Mark sections as completed when they have sufficient coverage
 
+### Build Roadmaps
+
+When the research has a natural progression, sequence, or decision tree, create a visual roadmap:
+
+1. Identify whether the topic suits a roadmap (learning path, strategy, migration plan, onboarding flow)
+2. Create a roadmap with `roadmap_create` (MCP) or `POST /api/roadmaps` (API)
+3. Include all nodes and edges in one call using `temp_id` for node references in edges
+4. Define custom `statuses` that fit the domain (e.g. `["not_started", "learning", "mastered"]`)
+5. Update node statuses with `roadmap_update_node` as the user progresses
+6. Extend the graph with `roadmap_add_nodes` as new steps emerge
+
+**When to create a roadmap during research:**
+
+| Situation | Action |
+|-----------|--------|
+| Topic has a clear learning sequence | Create a roadmap after initial Q&A reveals the learning path |
+| Research uncovers a multi-step process | Build a roadmap showing the steps and dependencies |
+| User asks "how do I get from A to B?" | Create a roadmap with the progression |
+| Multiple alternatives exist | Use decision nodes to show branching paths |
+| Research maps a system architecture | Create a roadmap showing component dependencies |
+
+**Example: After a session on "learning Vue 3", create a roadmap:**
+- Nodes: HTML/CSS basics → JavaScript ES6+ → Vue 3 Fundamentals → Composition API → State Management → Testing → Deployment
+- Edge types: `default` for the main path, `optional` for alternatives
+- Statuses: `not_started`, `in_progress`, `completed`
+
+**Tips:**
+- Create roadmaps when enough information has been gathered (typically after 1-2 sessions)
+- Use `milestone` nodes to mark key achievements or checkpoints
+- Use `decision` nodes when the path branches based on choices
+- Use `info` nodes for prerequisites or reference material that isn't a step
+- Keep node descriptions concise — detailed content belongs in entries, link conceptually
+
 ## Step 3: Complete
 
 1. Mark all sections as completed with `section_update`
@@ -75,16 +108,20 @@ Every record gets an auto-assigned short code on creation:
 | Session | `SS` | per research | `SS1`, `SS2` |
 | Question | `Q` | per session | `Q1`, `Q2` |
 | Task | `T` | per research | `T1`, `T2` |
+| Roadmap | `RM` | per research | `RM1`, `RM2` |
+| Node | `N` | per roadmap | `N1`, `N2` |
 
 Short codes are returned by all create endpoints and included in list/get responses. They can be used in URLs instead of UUIDs: `/research/R1/entry/E2`.
 
 ## Cross-References
 
-Use `[[...]]` syntax in entry content to create links between entries:
+Use `[[...]]` syntax in entry content to create links between documents:
 
 - `[[E3]]` — link to entry E3 in the same research
 - `[[R2:E5]]` — link to entry E5 in research R2
 - `[[R2]]` — link to research R2
+- `[[RM1]]` — link to roadmap RM1 in the same research
+- `[[RM1:N3]]` — link to node N3 in roadmap RM1
 
 ### How it works
 
@@ -117,3 +154,6 @@ Use `[[...]]` syntax in entry content to create links between entries:
 - Use tasks to plan and track remaining work
 - Use `[[E1]]` cross-references to build connections between related entries
 - Run crossref rebuild after batch-creating entries to resolve forward references
+- Create roadmaps when the research reveals step-by-step processes, learning paths, or decision trees
+- Build the full roadmap graph in one `roadmap_create` call rather than adding nodes one at a time
+- Choose roadmap statuses that match the domain vocabulary (learning, marketing, engineering, etc.)

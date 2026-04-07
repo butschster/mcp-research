@@ -19,6 +19,7 @@ type Server struct {
 	entry    *service.EntryService
 	session  *service.SessionService
 	task     *service.TaskService
+	roadmap  *service.RoadmapService
 	log      *slog.Logger
 }
 
@@ -28,6 +29,7 @@ func NewServer(
 	entry *service.EntryService,
 	session *service.SessionService,
 	task *service.TaskService,
+	roadmap *service.RoadmapService,
 	log *slog.Logger,
 	version string,
 ) *Server {
@@ -44,6 +46,7 @@ func NewServer(
 		entry:    entry,
 		session:  session,
 		task:     task,
+		roadmap:  roadmap,
 		log:      log,
 	}
 
