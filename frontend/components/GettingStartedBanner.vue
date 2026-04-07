@@ -3,7 +3,7 @@
     <button class="btn-ghost gs-close" @click="dismiss">&times;</button>
     <div class="gs-header">
       <div>
-        <h2 class="gs-title">Welcome to MCP Research</h2>
+        <h2 class="gs-title">Welcome to Research</h2>
         <p class="gs-subtitle">A read-only view of your AI-driven research sessions</p>
       </div>
     </div>

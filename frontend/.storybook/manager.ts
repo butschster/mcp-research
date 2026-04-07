@@ -4,7 +4,7 @@ import { themes } from '@storybook/theming'
 addons.setConfig({
   theme: {
     ...themes.dark,
-    brandTitle: 'MCP Research — Component Library',
+    brandTitle: 'Research — Component Library',
     appBg: '#0c1220',
     appContentBg: '#151d2e',
     appBorderColor: 'rgba(148, 163, 184, 0.12)',

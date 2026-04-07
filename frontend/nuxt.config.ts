@@ -13,11 +13,11 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'MCP Research',
+      title: 'Research',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'description', content: 'AI-driven structured research sessions' },
-        { property: 'og:title', content: 'MCP Research' },
+        { property: 'og:title', content: 'Research' },
         { property: 'og:description', content: 'AI-driven structured research sessions' },
       ],
       link: [
