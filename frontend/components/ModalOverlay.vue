@@ -49,4 +49,11 @@ const sizeClass = computed(() => {
   overflow-y: auto;
 }
 .modal-sm { max-width: 360px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .modal-overlay { padding: var(--space-4); }
+  .modal-card { max-width: 100%; padding: var(--space-4); }
+  .modal-lg { max-height: calc(100dvh - var(--space-8)); }
+}
 </style>

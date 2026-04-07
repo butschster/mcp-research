@@ -739,9 +739,29 @@ body::after {
   .page-title { font-size: var(--type-xl); }
   .ws-label { display: none; }
   .entry-nav-btn { font-size: var(--type-xs); max-width: 48%; }
+
+  /* Cards: reduce padding on mobile */
+  .card { padding: var(--space-4); }
+
+  /* Empty state: reduce padding */
+  .empty-state { padding: var(--space-8) var(--space-4); }
+
+  /* Markdown tables: horizontal scroll on mobile */
+  .markdown-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Buttons: ensure touch-friendly min height */
+  .btn { min-height: 36px; padding: 0.5rem 0.875rem; }
+  .btn-sm { min-height: 32px; padding: 0.375rem 0.625rem; }
+
+  /* Filter bar */
+  .filter-bar { flex-wrap: wrap; }
+  .filter-bar select { flex: 1; min-width: 0; }
 }
 
 @media (max-width: 480px) {
-  .filter-bar { flex-wrap: wrap; }
-  .filter-bar select { flex: 1; min-width: 0; }
+  .container { padding: 0 var(--space-3); }
+  .page-title { font-size: var(--type-lg); }
+
+  /* Stack grids that use minmax for skeleton loaders etc. */
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }

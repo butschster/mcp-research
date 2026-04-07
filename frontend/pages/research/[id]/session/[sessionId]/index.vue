@@ -255,4 +255,13 @@ useRealtimeUpdates(async (event) => {
 
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
 .skeleton-content { height: 400px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .session-header { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .add-form-row { flex-wrap: wrap; }
+  .add-input-sm { flex: 1 1 100%; }
+  .progress-stats { flex-wrap: wrap; gap: var(--space-2); }
+  .content-tab { padding: var(--space-2) var(--space-3); font-size: var(--type-xs); }
+}
 </style>

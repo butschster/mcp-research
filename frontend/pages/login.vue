@@ -150,4 +150,9 @@ async function handleSubmit() {
 .auth-link:hover {
   text-decoration: underline;
 }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .auth-card { padding: var(--space-5); margin: 0 var(--space-2); }
+}
 </style>

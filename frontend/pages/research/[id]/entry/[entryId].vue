@@ -267,6 +267,14 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
 .skeleton-content { height: 500px; }
 
+/* Responsive */
+@media (max-width: 768px) {
+  .entry-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .entry-actions { flex-wrap: wrap; }
+  .title-with-code { flex-wrap: wrap; gap: var(--space-2); }
+  .entry-content { padding: var(--space-4); }
+}
+
 /* Print */
 @media print {
   .entry-content { padding: 0; border: none; }

@@ -281,4 +281,15 @@ function selectCurrent() {
 .search-hints { display: flex; gap: var(--space-6); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--color-border); }
 .hint-item { font-size: var(--type-xs); color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-2); }
 .hint-item kbd { background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2); font-size: 0.625rem; font-family: inherit; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .search-trigger { min-width: 0; padding: var(--space-2); }
+  .search-placeholder { display: none; }
+  .search-shortcut { display: none; }
+  .search-overlay { padding-top: var(--space-4); }
+  .search-modal { margin: 0 var(--space-3); max-height: calc(100dvh - var(--space-8)); }
+  .search-results { max-height: 60dvh; }
+  .search-hints { flex-wrap: wrap; gap: var(--space-3); }
+}
 </style>

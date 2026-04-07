@@ -403,4 +403,19 @@ useRealtimeUpdates(async (event) => {
 .mindmap-flow :deep(.vue-flow__controls-button:hover) {
   background: var(--color-surface-hover);
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .mindmap-toolbar {
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+  .toolbar-right {
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  .toolbar-title { display: none; }
+  .toolbar-sep { display: none; }
+}
 </style>

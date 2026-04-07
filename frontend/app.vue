@@ -102,6 +102,15 @@ onMounted(() => {
 .footer-link  { text-decoration: none; transition: color var(--transition-fast); }
 .footer-link:hover { color: var(--color-primary); text-decoration: none; }
 
+/* Responsive nav */
+@media (max-width: 768px) {
+  .nav-right { gap: var(--space-2); }
+  .user-name { display: none; }
+}
+@media (max-width: 480px) {
+  .nav-right { gap: var(--space-1); }
+}
+
 /* User dropdown menu */
 .user-menu {
   position: relative;

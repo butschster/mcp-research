@@ -195,4 +195,12 @@ onMounted(() => {
   cursor: pointer;
   font-family: inherit;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .settings-section { padding: var(--space-4); }
+  .keys-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .key-form { flex-direction: column; }
+  .key-form .auth-input { min-width: 0; }
+}
 </style>

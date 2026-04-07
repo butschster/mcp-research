@@ -18,6 +18,7 @@ defineProps<{
 .breadcrumbs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.375rem;
   font-size: var(--type-xs);
   color: var(--color-text-muted);
