@@ -51,323 +51,61 @@
     </div>
 
     <!-- Research details panel -->
-    <div v-if="detailsOpen" class="card details-panel">
-      <div class="details-grid">
-        <!-- Goal -->
-        <div class="detail-field" @dblclick="startEdit('goal')">
-          <label class="detail-label">Goal</label>
-          <div v-if="editingField !== 'goal'" class="detail-value" :class="{ 'detail-empty': !research.goal }">
-            {{ research.goal || 'Not set — double-click to edit' }}
-          </div>
-          <div v-else class="detail-edit">
-            <input v-model="editValue" class="detail-input" @keydown.enter="saveEdit('goal')" @keydown.escape="cancelEdit" ref="editInput" />
-            <div class="detail-edit-actions">
-              <button class="btn btn-sm btn-primary" @click="saveEdit('goal')">Save</button>
-              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Description -->
-        <div class="detail-field" @dblclick="startEdit('description')">
-          <label class="detail-label">Description</label>
-          <div v-if="editingField !== 'description'" class="detail-value" :class="{ 'detail-empty': !research.description }">
-            {{ research.description || 'Not set — double-click to edit' }}
-          </div>
-          <div v-else class="detail-edit">
-            <textarea v-model="editValue" class="detail-textarea" rows="3" @keydown.escape="cancelEdit" ref="editInput"></textarea>
-            <div class="detail-edit-actions">
-              <button class="btn btn-sm btn-primary" @click="saveEdit('description')">Save</button>
-              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Instruction -->
-        <div class="detail-field detail-field-wide" @dblclick="startEdit('instruction')">
-          <label class="detail-label">Instruction</label>
-          <div v-if="editingField !== 'instruction'" class="detail-value detail-value-pre" :class="{ 'detail-empty': !research.instruction }">
-            {{ research.instruction || 'Not set — double-click to edit' }}
-          </div>
-          <div v-else class="detail-edit">
-            <textarea v-model="editValue" class="detail-textarea" rows="6" @keydown.escape="cancelEdit" ref="editInput"></textarea>
-            <div class="detail-edit-actions">
-              <button class="btn btn-sm btn-primary" @click="saveEdit('instruction')">Save</button>
-              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Memory -->
-        <div class="detail-field detail-field-wide">
-          <label class="detail-label">Memory <span class="detail-count">{{ research.memory?.length || 0 }}</span></label>
-          <div v-if="research.memory?.length" class="memory-list">
-            <div v-for="(item, i) in research.memory" :key="i" class="memory-item">
-              <span class="memory-bullet">{{ i + 1 }}</span>
-              <span>{{ item }}</span>
-            </div>
-          </div>
-          <div v-else class="detail-value detail-empty">No memory entries yet</div>
-        </div>
-
-        <!-- Tags -->
-        <div class="detail-field" @dblclick="startEdit('tags')">
-          <label class="detail-label">Tags</label>
-          <div v-if="editingField !== 'tags'">
-            <div v-if="research.tags?.length" class="tags-row">
-              <span v-for="tag in research.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
-            </div>
-            <div v-else class="detail-value detail-empty">No tags — double-click to edit</div>
-          </div>
-          <div v-else class="detail-edit">
-            <input v-model="editValue" class="detail-input" placeholder="tag1, tag2, tag3" @keydown.enter="saveEdit('tags')" @keydown.escape="cancelEdit" ref="editInput" />
-            <span class="detail-hint">Comma-separated</span>
-            <div class="detail-edit-actions">
-              <button class="btn btn-sm btn-primary" @click="saveEdit('tags')">Save</button>
-              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ResearchDetailsPanel
+      :research="research"
+      :open="detailsOpen"
+      @save="handleDetailsSave"
+      @update:open="detailsOpen = $event"
+    />
 
     <!-- Active sessions -->
-    <div v-if="activeSessions.length" class="active-sessions-grid">
-      <NuxtLink
-        v-for="sess in activeSessions"
-        :key="sess.id"
-        :to="`/research/${researchSlug}/session/${sess.code || sess.id}`"
-        class="card session-widget session-active"
-      >
-        <div class="session-widget-header">
-          <div class="flex items-center gap-2">
-            <span v-if="sess.code" class="short-code">{{ sess.code }}</span>
-            <StatusBadge status="active" />
-          </div>
-        </div>
-        <h3 class="session-title">{{ sess.title }}</h3>
-      </NuxtLink>
-    </div>
+    <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug" />
 
     <!-- Closed sessions (collapsed) -->
-    <div v-if="closedSessions.length" class="past-sessions">
-      <button class="btn-ghost past-sessions-toggle" @click="showPastSessions = !showPastSessions">
-        Completed sessions
-        <span class="past-sessions-count">{{ closedSessions.length }}</span>
-        <span class="past-sessions-chevron" :class="{ open: showPastSessions }">&rsaquo;</span>
-      </button>
-      <div v-show="showPastSessions" class="past-sessions-list">
-        <NuxtLink
-          v-for="sess in closedSessions"
-          :key="sess.id"
-          :to="`/research/${researchSlug}/session/${sess.code || sess.id}`"
-          class="past-session-item"
-        >
-          <span v-if="sess.code" class="short-code">{{ sess.code }}</span>
-          <span class="past-session-title">{{ sess.title }}</span>
-          <StatusBadge :status="sess.status" />
-        </NuxtLink>
-      </div>
-    </div>
+    <ResearchPastSessionsList :sessions="closedSessions" :research-slug="researchSlug" />
 
     <!-- Sidebar layout: sections + entries -->
     <div class="layout-sidebar">
       <!-- Sidebar -->
-      <nav class="sidebar">
-        <!-- All entries -->
-        <div
-          :class="['sidebar-item', { active: isAllEntries }]"
-          @click="activeSection = '__all__'"
-        >
-          <div class="sidebar-item-content">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-            <span class="sidebar-item-name">All entries</span>
-            <span class="sidebar-count">{{ totalEntryCount }}</span>
-          </div>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- Per-section -->
-        <div
-          v-for="section in sections"
-          :key="section.id"
-          :class="['sidebar-item', { active: activeSection === section.id }]"
-          @click="activeSection = section.id"
-        >
-          <div class="sidebar-item-content">
-            <span class="sidebar-item-name">{{ section.display_name || section.name }}</span>
-            <span class="sidebar-count">{{ section.entries_count }}</span>
-          </div>
-          <div v-if="section.entries_count > 0" class="sidebar-progress">
-            <div class="sidebar-progress-fill" :style="{ width: sectionProgressWidth(section) }"></div>
-          </div>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- External links -->
-        <div
-          :class="['sidebar-item', { active: activeSection === '__links__' }]"
-          @click="activeSection = '__links__'"
-        >
-          <div class="sidebar-item-content">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <span class="sidebar-item-name">External links</span>
-            <span v-if="researchLinksTotal" class="sidebar-count">{{ researchLinksTotal }}</span>
-          </div>
-        </div>
-      </nav>
+      <ResearchSidebar
+        :sections="sections"
+        :active-section="activeSection"
+        :total-entry-count="totalEntryCount"
+        :links-total="researchLinksTotal"
+        @update:active-section="activeSection = $event"
+      />
 
       <!-- Main: entries -->
       <div>
         <!-- All entries view -->
-        <template v-if="isAllEntries">
-          <div class="section-header">
-            <h2 class="section-title">All entries</h2>
-          </div>
-
-          <!-- Global tags with counters -->
-          <div v-if="globalTags.length" class="tags-panel mb-4">
-            <span
-              v-for="tc in globalTags"
-              :key="tc.tag"
-              :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tc.tag)}`, { 'tag-active': activeTag === tc.tag }]"
-              @click="activeTag = activeTag === tc.tag ? '' : tc.tag"
-            >{{ tc.tag }}<span v-if="tc.count > 1" class="tag-count">{{ tc.count }}</span></span>
-          </div>
-
-          <!-- Loading -->
-          <div v-if="allEntriesPending">
-            <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
-          </div>
-
-          <template v-else-if="filteredAllEntries.length">
-            <!-- Group by section -->
-            <template v-for="group in groupedEntries" :key="group.section.id">
-              <h3 class="group-section-title">{{ group.section.display_name || group.section.name }}</h3>
-              <div class="grid entries-grid mb-4">
-                <NuxtLink
-                  v-for="entry in group.entries"
-                  :key="entry.id"
-                  :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`"
-                  class="card entry-card"
-                >
-                  <div class="entry-card-header">
-                    <div class="entry-title-row">
-                      <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-                      <h3 class="card-title">{{ entry.title }}</h3>
-                    </div>
-                    <StatusBadge :status="entry.status" />
-                  </div>
-                  <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
-                  <div v-if="entry.tags?.length" class="entry-tags">
-                    <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
-                  </div>
-                </NuxtLink>
-              </div>
-            </template>
-          </template>
-
-          <EmptyState
-            v-else
-            icon="&#x1F4C4;"
-            title="No entries yet"
-            description="Claude will populate this research with entries."
-          />
-        </template>
+        <ResearchEntriesView
+          v-if="isAllEntries"
+          :entries="allEntries"
+          :sections="sections"
+          :research-slug="researchSlug"
+          :loading="allEntriesPending"
+          mode="all"
+          :tags="globalTags"
+        />
 
         <!-- Single section view -->
-        <template v-else-if="currentSection">
-          <div class="section-header">
-            <h2 class="section-title">{{ currentSection.display_name || currentSection.name }}</h2>
-            <StatusBadge :status="currentSection.status" />
-          </div>
-          <p v-if="currentSection.description" class="card-meta mb-4">
-            {{ currentSection.description }}
-          </p>
-
-          <!-- Tag filter for entries -->
-          <div v-if="entryTagCounts.length" class="tags-panel mb-4">
-            <span
-              v-for="tc in entryTagCounts"
-              :key="tc.tag"
-              :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tc.tag)}`, { 'tag-active': activeTag === tc.tag }]"
-              @click="activeTag = activeTag === tc.tag ? '' : tc.tag"
-            >{{ tc.tag }}<span v-if="tc.count > 1" class="tag-count">{{ tc.count }}</span></span>
-          </div>
-
-          <!-- Entries loading -->
-          <div v-if="entriesPending">
-            <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
-          </div>
-
-          <div v-else-if="filteredEntries.length" class="grid entries-grid">
-            <NuxtLink
-              v-for="entry in filteredEntries"
-              :key="entry.id"
-              :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`"
-              class="card entry-card"
-            >
-              <div class="entry-card-header">
-                <div class="entry-title-row">
-                  <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-                  <h3 class="card-title">{{ entry.title }}</h3>
-                </div>
-                <StatusBadge :status="entry.status" />
-              </div>
-              <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
-              <div v-if="entry.tags?.length" class="entry-tags">
-                <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
-              </div>
-            </NuxtLink>
-          </div>
-
-          <EmptyState
-            v-else
-            icon="&#x1F4C4;"
-            title="No entries yet"
-            description="Claude will populate this section with research entries."
-          />
-        </template>
+        <ResearchEntriesView
+          v-else-if="currentSection"
+          :entries="entries"
+          :sections="sections"
+          :research-slug="researchSlug"
+          :loading="entriesPending"
+          mode="section"
+          :section-info="currentSection"
+          :tags="[]"
+        />
 
         <!-- External links view -->
-        <template v-else-if="isLinksView">
-          <div class="section-header">
-            <h2 class="section-title">External links</h2>
-          </div>
-
-          <div v-if="researchLinksLoading">
-            <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
-          </div>
-
-          <div v-else-if="researchLinksGrouped.length">
-            <div v-for="group in researchLinksGrouped" :key="group.domain" class="links-domain-group">
-              <h3 class="links-domain-title">{{ group.domain }}</h3>
-              <div class="links-list">
-                <a
-                  v-for="link in group.links"
-                  :key="link.url"
-                  :href="link.url"
-                  target="_blank"
-                  rel="noopener"
-                  class="card link-card"
-                >
-                  <div class="link-card-header">
-                    <span class="link-title">{{ link.title || link.url }}</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="link-external-icon"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </div>
-                  <div v-if="link.entry_code" class="link-source">
-                    <span class="short-code">{{ link.entry_code }}</span>
-                    <span class="card-meta">{{ link.entry_title }}</span>
-                  </div>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <EmptyState v-else icon="&#x1F517;" title="No external links" description="Links from entry content will appear here." />
-        </template>
+        <ResearchExternalLinksView
+          v-else-if="isLinksView"
+          :groups="researchLinksGrouped"
+          :loading="researchLinksLoading"
+        />
 
         <EmptyState
           v-else
@@ -383,9 +121,6 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
-marked.setOptions({ gfm: true, breaks: true })
-
 const route = useRoute()
 const id = route.params.id as string
 
@@ -419,10 +154,6 @@ const currentSection = computed(() =>
   isAllEntries.value ? null : sections.value.find((s: any) => s.id === activeSection.value) ?? null
 )
 
-// Entry tag filter
-const activeTag = ref('')
-watch(activeSection, () => { activeTag.value = '' })
-
 // --- Section entries ---
 const entriesUrl = computed(() =>
   !isAllEntries.value && activeSection.value
@@ -434,19 +165,6 @@ const { data: entriesData, pending: entriesPending } = useApi<{ data: any[] }>(
 )
 const entries = computed(() =>
   !isAllEntries.value && activeSection.value ? (entriesData.value?.data ?? []) : []
-)
-
-const entryTagCounts = computed(() => {
-  const map = new Map<string, number>()
-  for (const e of entries.value) for (const t of (e.tags ?? [])) map.set(t, (map.get(t) || 0) + 1)
-  return [...map.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([tag, count]) => ({ tag, count }))
-})
-const entryTags = computed(() => entryTagCounts.value.map(tc => tc.tag))
-
-const filteredEntries = computed(() =>
-  activeTag.value ? entries.value.filter((e: any) => e.tags?.includes(activeTag.value)) : entries.value
 )
 
 // --- All entries ---
@@ -461,47 +179,6 @@ const { data: tagsData } = useApi<{ data: any[] }>(
 )
 const globalTags = computed(() => isAllEntries.value ? (tagsData.value?.data ?? []) : [])
 
-const filteredAllEntries = computed(() =>
-  activeTag.value
-    ? allEntries.value.filter((e: any) => e.tags?.includes(activeTag.value))
-    : allEntries.value
-)
-
-// Group entries by section for the all-entries view
-const groupedEntries = computed(() => {
-  const groups: { section: any; entries: any[] }[] = []
-  const sectionMap = new Map<string, any[]>()
-
-  for (const entry of filteredAllEntries.value) {
-    const list = sectionMap.get(entry.section_id) ?? []
-    list.push(entry)
-    sectionMap.set(entry.section_id, list)
-  }
-
-  for (const section of sections.value) {
-    const sectionEntries = sectionMap.get(section.id)
-    if (sectionEntries?.length) {
-      groups.push({ section, entries: sectionEntries })
-    }
-  }
-
-  return groups
-})
-
-// Tag color
-function tagHue(tag: string): number {
-  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
-}
-
-// Section progress
-function sectionProgressWidth(section: any): string {
-  if (section.status === 'completed') return '100%'
-  if (section.status === 'active') return '50%'
-  if (section.status === 'draft') return '10%'
-  return '0%'
-}
-
-
 // Tasks (count only, for header button)
 const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
 const tasks = computed(() => tasksData.value?.data ?? [])
@@ -511,7 +188,6 @@ const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${
 const allSessions = computed(() => sessionsData.value?.data ?? [])
 const activeSessions = computed(() => allSessions.value.filter((s: any) => s.status === 'active'))
 const closedSessions = computed(() => allSessions.value.filter((s: any) => s.status !== 'active'))
-const showPastSessions = ref(false)
 
 // External links
 const { data: researchLinksData, pending: researchLinksLoading } = useApi<{ data: any[]; total: number }>(
@@ -526,40 +202,19 @@ const rtBase = useRuntimeConfig().public.apiBase || ''
 
 // Details panel
 const detailsOpen = ref(false)
-const editingField = ref<string | null>(null)
-const editValue = ref('')
-const editInput = ref<HTMLElement | null>(null)
 
-function startEdit(field: string) {
-  if (field === 'tags') {
-    editValue.value = (research.value?.tags ?? []).join(', ')
-  } else {
-    editValue.value = research.value?.[field] ?? ''
-  }
-  editingField.value = field
-  nextTick(() => editInput.value?.focus?.())
-}
-
-function cancelEdit() {
-  editingField.value = null
-  editValue.value = ''
-}
-
-async function saveEdit(field: string) {
+async function handleDetailsSave(field: string, value: any) {
   const body: Record<string, any> = {}
   if (field === 'tags') {
-    body.tags = editValue.value.split(',').map((t: string) => t.trim()).filter(Boolean)
+    body.tags = value
   } else {
-    body[field] = editValue.value
+    body[field] = value
   }
   await authFetch(`${rtBase}/api/researches/${id}`, { method: 'PUT', body })
   researchData.value = await authFetch<any>(`${rtBase}/api/researches/${id}`)
-  editingField.value = null
-  editValue.value = ''
 }
 
 // Archive toggle
-
 async function toggleArchive() {
   const newStatus = research.value.status === 'archived' ? 'active' : 'archived'
   await authFetch(`${rtBase}/api/researches/${id}`, {
@@ -607,7 +262,6 @@ useRealtimeUpdates(async (event) => {
   opacity: 0.7;
 }
 .title-with-code { display: flex; align-items: center; gap: var(--space-3); }
-.entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .short-code {
   font-size: var(--type-xs);
   font-weight: 600;
@@ -618,297 +272,6 @@ useRealtimeUpdates(async (event) => {
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
-}
-
-/* Details panel */
-.details-panel { margin-bottom: var(--space-6); }
-.details-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-5);
-}
-.detail-field-wide { grid-column: 1 / -1; }
-.detail-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--type-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
-}
-.detail-count {
-  font-size: 0.625rem;
-  background: var(--color-surface-hover);
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-  font-variant-numeric: tabular-nums;
-}
-.detail-value {
-  font-size: var(--type-sm);
-  color: var(--color-text);
-  line-height: 1.6;
-  cursor: default;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  transition: border-color var(--transition-fast);
-}
-.detail-value:hover { border-color: var(--color-border); }
-.detail-value-pre { white-space: pre-wrap; }
-.detail-empty {
-  color: var(--color-text-muted);
-  font-style: italic;
-  opacity: 0.6;
-}
-.detail-edit { display: flex; flex-direction: column; gap: var(--space-2); }
-.detail-input, .detail-textarea {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--type-sm);
-  font-family: inherit;
-  line-height: 1.5;
-}
-.detail-textarea { resize: vertical; min-height: 60px; }
-.detail-input:focus, .detail-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
-.detail-edit-actions { display: flex; gap: var(--space-2); }
-.detail-hint { font-size: var(--type-xs); color: var(--color-text-muted); }
-.memory-list { display: flex; flex-direction: column; gap: var(--space-2); }
-.memory-item {
-  display: flex;
-  gap: var(--space-3);
-  font-size: var(--type-sm);
-  line-height: 1.5;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface-hover);
-  border-radius: var(--radius-sm);
-}
-.memory-bullet {
-  font-size: var(--type-xs);
-  font-weight: 700;
-  color: var(--color-text-muted);
-  min-width: 1.2em;
-  text-align: right;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-/* Sidebar */
-.sidebar-item-content {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.sidebar-item-content svg {
-  flex-shrink: 0;
-  opacity: 0.5;
-}
-.sidebar-item.active .sidebar-item-content svg { opacity: 1; }
-.sidebar-item-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--type-sm);
-}
-.sidebar-count {
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  min-width: 1.2em;
-  text-align: right;
-}
-.sidebar-divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: var(--space-1) var(--space-3);
-}
-
-/* Active sessions grid */
-.active-sessions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
-/* Session widget */
-.session-widget {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  margin-bottom: 0;
-  border-color: var(--color-border);
-  position: relative;
-  overflow: hidden;
-}
-.session-active {
-  border-color: rgba(108, 197, 224, 0.15);
-}
-.session-widget:hover { text-decoration: none; }
-.session-widget::after {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(108, 197, 224, 0.3), transparent);
-}
-.session-widget-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: var(--space-1);
-}
-.session-title { font-size: var(--type-sm); font-weight: 600; letter-spacing: -0.01em; }
-.session-focus { font-size: var(--type-xs); color: var(--color-text-muted); margin-top: var(--space-1); line-height: 1.4; }
-
-/* Session stats (questions + tasks summary) */
-.session-stats {
-  display: flex;
-  gap: var(--space-6);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-.session-stat {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--type-sm);
-  color: var(--color-text-muted);
-  flex: 1;
-  min-width: 0;
-}
-.session-stat svg { flex-shrink: 0; opacity: 0.6; }
-.session-stat span { white-space: nowrap; }
-.stat-progress { flex: 1; min-width: 60px; }
-
-/* Past sessions */
-.past-sessions { margin-bottom: var(--space-4); display: flex; flex-direction: column; align-items: flex-end; }
-.past-sessions-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--type-sm);
-  color: var(--color-text-muted);
-  padding: var(--space-2) 0;
-}
-.past-sessions-toggle:hover { color: var(--color-text); }
-.past-sessions-count {
-  font-size: var(--type-xs);
-  background: var(--color-surface-hover);
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  font-variant-numeric: tabular-nums;
-}
-.past-sessions-chevron {
-  margin-left: auto;
-  font-size: var(--type-lg);
-  color: var(--color-text-muted);
-  transition: transform var(--transition-base);
-  display: inline-block;
-}
-.past-sessions-chevron.open { transform: rotate(90deg); }
-.past-sessions-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-  width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-2);
-}
-.past-session-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  color: inherit;
-  font-size: var(--type-sm);
-  transition: background var(--transition-fast);
-}
-.past-session-item:hover { background: var(--color-surface-hover); }
-.past-session-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Sections + Entries */
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
-.section-title { font-size: var(--type-xl); font-weight: 600; letter-spacing: -0.02em; }
-.tags-panel { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.tag-active { background: var(--color-primary-muted); color: var(--color-primary); }
-.tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
-.tag-clickable:hover { background: var(--color-primary-muted); color: var(--color-primary); }
-.tag-count {
-  font-size: 0.75em;
-  opacity: 0.7;
-  margin-left: 0.15em;
-}
-
-.group-section-title {
-  font-size: var(--type-base);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.entries-grid { grid-template-columns: 1fr; }
-.entry-card { display: block; text-decoration: none; color: inherit; }
-.entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
-.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
-
-/* External links */
-.links-domain-group { margin-bottom: var(--space-5); }
-.links-domain-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-}
-.links-list { display: flex; flex-direction: column; gap: var(--space-2); }
-.link-card {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  transition: border-color var(--transition-fast);
-}
-.link-card:hover { border-color: var(--color-border-strong); }
-.link-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-2);
-}
-.link-title {
-  font-size: var(--type-sm);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.link-external-icon { opacity: 0.3; flex-shrink: 0; }
-.link-card:hover .link-external-icon { opacity: 0.7; }
-.link-source {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-  font-size: var(--type-xs);
 }
 
 /* Skeleton */

@@ -1,4 +1,4 @@
-.PHONY: build build-all run run-memory run-sse test clean frontend-install frontend-dev frontend-build frontend-embed
+.PHONY: build build-all run run-memory run-sse test clean frontend-install frontend-dev frontend-build frontend-embed storybook storybook-build
 
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
@@ -39,6 +39,13 @@ frontend-dev:
 
 frontend-build:
 	cd frontend && NUXT_PUBLIC_API_BASE= npm run generate
+
+# Storybook
+storybook:
+	cd frontend && npm run storybook
+
+storybook-build:
+	cd frontend && npm run build-storybook
 
 # Build frontend and copy to Go embed directory
 frontend-embed: frontend-build

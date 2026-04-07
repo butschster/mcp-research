@@ -56,103 +56,30 @@
     </div>
 
     <!-- Cross-references -->
-    <div v-if="hasRefs" class="crossrefs-block card no-print">
-      <h3 class="crossrefs-title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        Cross-references
-      </h3>
-      <div v-if="outgoingRefs.length" class="crossrefs-section">
-        <h4 class="crossrefs-subtitle">References from this entry</h4>
-        <div class="crossrefs-list">
-          <NuxtLink
-            v-for="ref in outgoingRefs"
-            :key="ref.target_entry_id || ref.target_ref"
-            :to="refLink(ref, 'outgoing')"
-            class="crossref-item"
-          >
-            <span class="crossref-code">{{ ref.entry_code || ref.target_ref }}</span>
-            <span v-if="ref.entry_title" class="crossref-entry-title">{{ ref.entry_title }}</span>
-            <span v-if="ref.research_code && ref.research_code !== researchSlug" class="crossref-research">{{ ref.research_name || ref.research_code }}</span>
-            <span v-if="!ref.resolved" class="crossref-unresolved">unresolved</span>
-          </NuxtLink>
-        </div>
-      </div>
-      <div v-if="incomingRefs.length" class="crossrefs-section">
-        <h4 class="crossrefs-subtitle">Referenced by</h4>
-        <div class="crossrefs-list">
-          <NuxtLink
-            v-for="ref in incomingRefs"
-            :key="ref.source_id"
-            :to="refLink(ref, 'incoming')"
-            class="crossref-item"
-          >
-            <span class="crossref-code">{{ ref.entry_code || ref.source_type }}</span>
-            <span v-if="ref.entry_title" class="crossref-entry-title">{{ ref.entry_title }}</span>
-            <span v-if="ref.research_code && ref.research_code !== researchSlug" class="crossref-research">{{ ref.research_name || ref.research_code }}</span>
-          </NuxtLink>
-        </div>
-      </div>
-    </div>
+    <EntryCrossReferencesBlock
+      :outgoing="outgoingRefs"
+      :incoming="incomingRefs"
+      :research-slug="researchSlug"
+    />
 
     <!-- External links -->
-    <div v-if="externalLinks.length" class="crossrefs-block card no-print">
-      <h3 class="crossrefs-title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        External links
-      </h3>
-      <div class="crossrefs-list">
-        <a
-          v-for="link in externalLinks"
-          :key="link.id"
-          :href="link.url"
-          target="_blank"
-          rel="noopener"
-          class="crossref-item external-link-item"
-        >
-          <span class="external-link-domain">{{ link.domain }}</span>
-          <span class="crossref-entry-title">{{ link.title || link.url }}</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="external-link-icon"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </div>
-    </div>
+    <EntryExternalLinksBlock :links="externalLinks" />
 
     <!-- Related by tags -->
-    <div v-if="relatedEntries.length" class="crossrefs-block card no-print">
-      <h3 class="crossrefs-title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-        Related by tags
-      </h3>
-      <div class="crossrefs-list">
-        <NuxtLink
-          v-for="rel in relatedEntries"
-          :key="rel.id"
-          :to="`/research/${rel.research_id === research?.id ? researchSlug : rel.research_id}/entry/${rel.code || rel.id}`"
-          class="crossref-item"
-        >
-          <span class="crossref-code">{{ rel.code }}</span>
-          <span class="crossref-entry-title">{{ rel.title }}</span>
-          <div class="related-tags">
-            <span
-              v-for="tag in sharedTags(rel)"
-              :key="tag"
-              :class="['tag-dot', `tag-hue-${tagHue(tag)}`]"
-              :title="tag"
-            ></span>
-          </div>
-        </NuxtLink>
-      </div>
-    </div>
+    <EntryRelatedEntriesBlock
+      :entries="relatedEntries"
+      :current-tags="entry.tags ?? []"
+      :research-slug="researchSlug"
+      :research-id="research?.id ?? ''"
+    />
 
     <!-- Prev / Next navigation -->
-    <div v-if="siblings.length > 1" class="entry-nav no-print">
-      <NuxtLink v-if="prevEntry" :to="`/research/${researchSlug}/entry/${prevEntry.code || prevEntry.id}`" class="btn btn-sm entry-nav-btn">
-        &larr; {{ prevEntry.title }}
-      </NuxtLink>
-      <span v-else class="entry-nav-placeholder"></span>
-      <NuxtLink v-if="nextEntry" :to="`/research/${researchSlug}/entry/${nextEntry.code || nextEntry.id}`" class="btn btn-sm entry-nav-btn entry-nav-next">
-        {{ nextEntry.title }} &rarr;
-      </NuxtLink>
-    </div>
+    <EntryEntryNavigation
+      v-if="siblings.length > 1"
+      :prev="prevEntry"
+      :next="nextEntry"
+      :research-slug="researchSlug"
+    />
   </div>
 
   <EmptyState v-else icon="&#x1F50D;" title="Entry not found" />
@@ -160,6 +87,7 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { tagHue } from '~/composables/useTagHue'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -190,11 +118,6 @@ const linkedSession = computed(() => {
   return (sessionsData.value?.data ?? []).find((s: any) => s.id === entry.value.session_id) ?? null
 })
 
-// Tag color
-function tagHue(tag: string): number {
-  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
-}
-
 // Rendered markdown
 const renderedContent = computed(() => {
   if (!entry.value?.content) return ''
@@ -220,21 +143,6 @@ const { data: refsData } = useApi<{ outgoing: any[]; incoming: any[] }>(
 )
 const outgoingRefs = computed(() => refsData.value?.outgoing ?? [])
 const incomingRefs = computed(() => refsData.value?.incoming ?? [])
-const hasRefs = computed(() => outgoingRefs.value.length > 0 || incomingRefs.value.length > 0)
-
-function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
-  if (direction === 'outgoing') {
-    const rCode = ref.research_code || researchSlug.value
-    const eCode = ref.entry_code || ref.target_ref
-    return `/research/${rCode}/entry/${eCode}`
-  }
-  // incoming: link to the source entry
-  if (ref.source_type === 'entry') {
-    const rCode = ref.research_code || researchSlug.value
-    return `/research/${rCode}/entry/${ref.entry_code || ref.source_id}`
-  }
-  return '#'
-}
 
 // External links
 const { data: linksData } = useApi<{ data: any[] }>(
@@ -247,12 +155,6 @@ const { data: relatedData } = useApi<{ data: any[] }>(
   computed(() => entry.value ? `/api/entries/${entry.value.id}/related` : `/api/entries/__none__/related`)
 )
 const relatedEntries = computed(() => relatedData.value?.data ?? [])
-
-function sharedTags(rel: any): string[] {
-  if (!entry.value?.tags || !rel.tags) return []
-  const mine = new Set(entry.value.tags)
-  return rel.tags.filter((t: string) => mine.has(t))
-}
 
 // Sibling entries for prev/next navigation
 const { data: siblingsData } = useApi<{ data: any[] }>(
@@ -360,137 +262,6 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   margin: 0;
 }
 .source-view code { background: none; padding: 0; font-size: inherit; }
-
-/* Cross-references */
-.crossrefs-block {
-  margin-top: var(--space-6);
-  padding: var(--space-6);
-  border-radius: var(--radius-lg);
-}
-.crossrefs-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--type-sm);
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 var(--space-4) 0;
-}
-.crossrefs-section + .crossrefs-section {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-.crossrefs-subtitle {
-  font-size: var(--type-xs);
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 var(--space-2) 0;
-}
-.crossrefs-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.crossref-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  color: var(--color-text);
-  transition: background 0.15s;
-}
-.crossref-item:hover {
-  background: var(--color-surface-hover);
-}
-.crossref-code {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: var(--type-xs);
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-muted);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.crossref-entry-title {
-  font-size: var(--type-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.crossref-research {
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.related-tags {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.tag-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-}
-.tag-dot.tag-hue-0 { background: hsl(200, 60%, 55%); }
-.tag-dot.tag-hue-1 { background: hsl(160, 50%, 50%); }
-.tag-dot.tag-hue-2 { background: hsl(280, 45%, 55%); }
-.tag-dot.tag-hue-3 { background: hsl(30, 60%, 55%); }
-.tag-dot.tag-hue-4 { background: hsl(340, 50%, 55%); }
-.tag-dot.tag-hue-5 { background: hsl(60, 50%, 50%); }
-.crossref-unresolved {
-  font-size: var(--type-xs);
-  color: var(--color-warning, #d4a017);
-  font-style: italic;
-  margin-left: auto;
-}
-
-/* External links */
-.external-link-domain {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: var(--type-xs);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  background: var(--color-surface-hover);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.external-link-icon {
-  margin-left: auto;
-  opacity: 0.4;
-  flex-shrink: 0;
-}
-.external-link-item:hover .external-link-icon { opacity: 0.8; }
-
-/* Navigation */
-.entry-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--color-border);
-  gap: var(--space-4);
-}
-.entry-nav-btn {
-  max-width: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.entry-nav-next { margin-left: auto; text-align: right; }
-.entry-nav-placeholder { flex: 1; }
 
 /* Skeleton */
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
