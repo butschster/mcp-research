@@ -15,6 +15,8 @@
 </template>
 
 <script setup lang="ts">
+import { renderRefs } from '~/composables/useCrossRefs'
+
 defineProps<{
   task: any
   researchSlug: string

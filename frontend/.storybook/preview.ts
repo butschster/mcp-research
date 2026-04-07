@@ -49,7 +49,7 @@ const preview: Preview = {
     (story) => ({
       components: { story },
       template: `
-        <div style="background: var(--color-bg); color: var(--color-text); min-height: 100vh; padding: 1.5rem; font-family: 'Outfit', system-ui, sans-serif;">
+        <div style="background: var(--color-bg); color: var(--color-text); padding: 1.5rem; font-family: 'Outfit', system-ui, sans-serif;">
           <story />
         </div>
       `,

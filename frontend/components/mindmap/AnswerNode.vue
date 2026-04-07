@@ -11,6 +11,7 @@
 
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
+import { renderRefs } from '~/composables/useCrossRefs'
 
 const props = defineProps<{
   data: {

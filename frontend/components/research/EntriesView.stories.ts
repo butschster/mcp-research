@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
-import { h } from 'vue'
 import EntriesView from './EntriesView.vue'
-import { mockEntries, mockEntry, mockEntryDraft } from '../../__mocks__/entry'
+import { mockEntry, mockEntryDraft } from '../../__mocks__/entry'
 import { mockSections, mockSection, mockSectionCompleted } from '../../__mocks__/section'
 
 const meta: Meta<typeof EntriesView> = {
@@ -10,13 +9,7 @@ const meta: Meta<typeof EntriesView> = {
   tags: ['autodocs'],
   decorators: [
     () => ({
-      setup() {
-        // Provide renderRefs as a global since the component uses it via auto-import
-        ;(window as any).renderRefs = (text: string) => text
-      },
-      render() {
-        return h('div', { style: 'max-width: 800px' }, [h('story')])
-      },
+      template: '<div style="max-width: 800px"><story /></div>',
     }),
   ],
   argTypes: {

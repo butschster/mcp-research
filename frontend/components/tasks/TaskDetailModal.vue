@@ -115,6 +115,7 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { renderRefs } from '~/composables/useCrossRefs'
 marked.setOptions({ gfm: true, breaks: true })
 
 const props = defineProps<{

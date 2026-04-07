@@ -13,6 +13,8 @@
 </template>
 
 <script setup lang="ts">
+import { renderRefs } from '~/composables/useCrossRefs'
+
 defineProps<{
   entry: {
     id: string

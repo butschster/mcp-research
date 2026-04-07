@@ -114,6 +114,7 @@
 
 <script setup lang="ts">
 import { tagHue } from '~/composables/useTagHue'
+import { renderRefs } from '~/composables/useCrossRefs'
 
 const props = defineProps<{
   entries: any[]

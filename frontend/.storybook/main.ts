@@ -33,7 +33,27 @@ const config: StorybookConfig = {
       plugins: [
         vue(),
         AutoImport({
-          imports: ['vue', 'vue-router'],
+          imports: [
+            'vue',
+            'vue-router',
+            {
+              [path.resolve(__dirname, '../composables/useCrossRefs')]: ['renderRefs'],
+              [path.resolve(__dirname, '../composables/useTagHue')]: ['tagHue'],
+              [path.resolve(__dirname, './stubs/imports')]: [
+                'useApi',
+                'useAuth',
+                'useRuntimeConfig',
+                'useRealtimeUpdates',
+                'useKeyboardNav',
+                'navigateTo',
+                'useFetch',
+                'useAsyncData',
+                'useCookie',
+                'useHead',
+                'definePageMeta',
+              ],
+            },
+          ],
           dts: false,
         }),
       ],
