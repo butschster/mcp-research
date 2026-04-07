@@ -48,7 +48,13 @@ const props = defineProps<{
 function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
   if (direction === 'outgoing') {
     const rCode = ref.research_code || props.researchSlug
-    const eCode = ref.entry_code || ref.target_ref
+    const targetRef = ref.target_ref || ''
+    // Roadmap references: [[RM1]] or [[RM1:N3]]
+    if (targetRef.startsWith('RM') || ref.target_roadmap_id) {
+      const rmCode = targetRef.split(':')[0]
+      return `/research/${rCode}/roadmap/${rmCode}`
+    }
+    const eCode = ref.entry_code || targetRef
     return `/research/${rCode}/entry/${eCode}`
   }
   if (ref.source_type === 'entry') {
