@@ -61,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import { renderRefs } from '~/composables/useCrossRefs'
 interface Question {
   id: string
   code: string

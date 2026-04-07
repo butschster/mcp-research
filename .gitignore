@@ -6,6 +6,7 @@ frontend/node_modules
 frontend/.nuxt/*
 frontend/dist/*
 frontend/.output/*
+frontend/storybook-static
 internal/api/static/*
 !internal/api/static/.gitkeep
 bin/*
