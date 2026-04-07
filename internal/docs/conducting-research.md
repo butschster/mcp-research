@@ -115,11 +115,13 @@ Short codes are returned by all create endpoints and included in list/get respon
 
 ## Cross-References
 
-Use `[[...]]` syntax in entry content to create links between entries:
+Use `[[...]]` syntax in entry content to create links between documents:
 
 - `[[E3]]` — link to entry E3 in the same research
 - `[[R2:E5]]` — link to entry E5 in research R2
 - `[[R2]]` — link to research R2
+- `[[RM1]]` — link to roadmap RM1 in the same research
+- `[[RM1:N3]]` — link to node N3 in roadmap RM1
 
 ### How it works
 

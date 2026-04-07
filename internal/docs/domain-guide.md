@@ -251,10 +251,12 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | `[[E3]]` | Entry E3 in same research |
 | `[[R2:E5]]` | Entry E5 in research R2 |
 | `[[R2]]` | Research R2 itself |
+| `[[RM1]]` | Roadmap RM1 in same research |
+| `[[RM1:N3]]` | Node N3 in roadmap RM1 |
 
 **Where they work:** Entry content, question text/answers/rationale, task titles/results, session notes. All rendered as clickable links in the web UI.
 
-**Resolution:** References are resolved when the target exists. Unresolved references are tracked and can be resolved later via rebuild.
+**Resolution:** References are resolved when the target exists. Unresolved references are tracked and can be resolved later via rebuild. Roadmap references (`[[RM1]]`, `[[RM1:N3]]`) are resolved against the roadmaps and roadmap_nodes tables.
 
 **Visualization:** Shown on entry detail pages (outgoing/incoming), in the mindmap (dashed edges), and preserved in export.
 
