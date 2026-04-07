@@ -108,3 +108,67 @@
   align-items: center;
   gap: 0;
 }
+
+/* Branching layout — multiple columns side by side */
+.rm-branch-row {
+  display: flex;
+  gap: var(--space-6);
+  align-items: flex-start;
+  justify-content: center;
+}
+.rm-branch-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.rm-branch-label {
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  padding: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+/* Converge indicator */
+.rm-converge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.rm-converge-lines {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-6);
+  margin-bottom: 0;
+}
+.rm-converge-label {
+  font-size: 0.5625rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-1) 0;
+}
+
+/* Section divider in graph */
+.rm-section-divider {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.rm-section-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+.rm-section-divider-text {
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
