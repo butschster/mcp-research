@@ -118,7 +118,7 @@ const RoadmapPageMock = defineComponent({
 })
 
 const meta: Meta<typeof RoadmapPageMock> = {
-  title: 'Roadmap/RoadmapPage',
+  title: 'Pages/Roadmap',
   component: RoadmapPageMock,
   tags: ['autodocs'],
   parameters: {
