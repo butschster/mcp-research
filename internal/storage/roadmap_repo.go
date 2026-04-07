@@ -213,6 +213,14 @@ func (r *RoadmapNodeRepository) FindByID(ctx context.Context, id string) (*domai
 	return r.scanNode(row)
 }
 
+// FindByCode returns a node by its short code (e.g. N3) within a roadmap.
+func (r *RoadmapNodeRepository) FindByCode(ctx context.Context, roadmapID, code string) (*domain.RoadmapNode, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, created_at, updated_at
+		 FROM roadmap_nodes WHERE roadmap_id=? AND code=?`, roadmapID, code)
+	return r.scanNode(row)
+}
+
 // FindByRoadmap returns all nodes for a roadmap.
 func (r *RoadmapNodeRepository) FindByRoadmap(ctx context.Context, roadmapID string) ([]*domain.RoadmapNode, error) {
 	rows, err := r.db.QueryContext(ctx,

@@ -71,6 +71,7 @@ func main() {
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, events, log)
 	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, crossrefRepo, externalLinkRepo, events, log)
+	entrySvc.SetRoadmapRepos(roadmapRepo, roadmapNodeRepo)
 	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
 	roadmapSvc := service.NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, events, log)

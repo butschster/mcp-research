@@ -57,12 +57,20 @@ type EntryService struct {
 	sessions      *storage.SessionRepository
 	crossrefs     *storage.CrossRefRepository
 	externalLinks *storage.ExternalLinkRepository
+	roadmaps      *storage.RoadmapRepository
+	roadmapNodes  *storage.RoadmapNodeRepository
 	events        EventNotifier
 	log           *slog.Logger
 }
 
 func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, sessions *storage.SessionRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
 	return &EntryService{entries: entries, sections: sections, researches: researches, sessions: sessions, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
+}
+
+// SetRoadmapRepos enables [[RM1]] and [[RM1:N3]] cross-reference resolution.
+func (s *EntryService) SetRoadmapRepos(roadmaps *storage.RoadmapRepository, nodes *storage.RoadmapNodeRepository) {
+	s.roadmaps = roadmaps
+	s.roadmapNodes = nodes
 }
 
 func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*domain.Entry, error) {
@@ -348,28 +356,65 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 			TargetRef:        raw,
 		}
 
-		researchCode, entryCode := parseRef(raw)
+		kind, first, second := parseRef(raw)
 
-		if researchCode != "" {
-			targetResearch, err := s.researches.FindByCode(ctx, researchCode)
-			if err == nil && targetResearch != nil {
-				cr.TargetResearchID = targetResearch.ID
-				if entryCode != "" {
-					targetEntry, err := s.entries.FindByCode(ctx, targetResearch.ID, entryCode)
-					if err == nil && targetEntry != nil {
-						cr.TargetEntryID = targetEntry.ID
-						cr.Resolved = true
-					}
-				} else {
+		switch kind {
+		case "roadmap":
+			// [[RM1]] — link to a roadmap in the same research
+			if s.roadmaps != nil {
+				rm, err := s.roadmaps.FindByCode(ctx, first)
+				if err == nil && rm != nil {
+					cr.TargetRoadmapID = rm.ID
+					cr.TargetResearchID = rm.ResearchID
 					cr.Resolved = true
 				}
 			}
-		} else if entryCode != "" {
-			cr.TargetResearchID = researchID
-			targetEntry, err := s.entries.FindByCode(ctx, researchID, entryCode)
-			if err == nil && targetEntry != nil {
-				cr.TargetEntryID = targetEntry.ID
+		case "node":
+			// [[RM1:N3]] — link to a specific node in a roadmap
+			if s.roadmaps != nil && s.roadmapNodes != nil {
+				rm, err := s.roadmaps.FindByCode(ctx, first)
+				if err == nil && rm != nil {
+					cr.TargetRoadmapID = rm.ID
+					cr.TargetResearchID = rm.ResearchID
+					node, err := s.roadmapNodes.FindByCode(ctx, rm.ID, second)
+					if err == nil && node != nil {
+						cr.TargetNodeID = node.ID
+						cr.Resolved = true
+					}
+				}
+			}
+		case "research":
+			// [[R2]] — link to a research
+			targetResearch, err := s.researches.FindByCode(ctx, first)
+			if err == nil && targetResearch != nil {
+				cr.TargetResearchID = targetResearch.ID
 				cr.Resolved = true
+			}
+		case "entry":
+			// [[E3]] or [[R2:E5]] — link to an entry
+			if first != "" {
+				// Cross-research: [[R2:E5]]
+				targetResearch, err := s.researches.FindByCode(ctx, first)
+				if err == nil && targetResearch != nil {
+					cr.TargetResearchID = targetResearch.ID
+					if second != "" {
+						targetEntry, err := s.entries.FindByCode(ctx, targetResearch.ID, second)
+						if err == nil && targetEntry != nil {
+							cr.TargetEntryID = targetEntry.ID
+							cr.Resolved = true
+						}
+					} else {
+						cr.Resolved = true
+					}
+				}
+			} else if second != "" {
+				// Same-research: [[E3]]
+				cr.TargetResearchID = researchID
+				targetEntry, err := s.entries.FindByCode(ctx, researchID, second)
+				if err == nil && targetEntry != nil {
+					cr.TargetEntryID = targetEntry.ID
+					cr.Resolved = true
+				}
 			}
 		}
 
@@ -381,16 +426,27 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 	}
 }
 
-// parseRef splits "R2:E5" into (researchCode="R2", entryCode="E5"),
-// "E5" into ("", "E5"), "R2" into ("R2", "").
-func parseRef(ref string) (researchCode, entryCode string) {
+// parseRef splits references:
+//   "R2:E5"  → kind="entry",   first="R2",  second="E5"
+//   "E5"     → kind="entry",   first="",    second="E5"
+//   "R2"     → kind="research",first="R2",  second=""
+//   "RM1"    → kind="roadmap", first="RM1", second=""
+//   "RM1:N3" → kind="node",    first="RM1", second="N3"
+func parseRef(ref string) (kind, first, second string) {
 	if idx := strings.IndexByte(ref, ':'); idx >= 0 {
-		return ref[:idx], ref[idx+1:]
+		left, right := ref[:idx], ref[idx+1:]
+		if strings.HasPrefix(left, "RM") {
+			return "node", left, right
+		}
+		return "entry", left, right
+	}
+	if strings.HasPrefix(ref, "RM") {
+		return "roadmap", ref, ""
 	}
 	if len(ref) > 1 && ref[0] == 'R' {
-		return ref, ""
+		return "research", ref, ""
 	}
-	return "", ref
+	return "entry", "", ref
 }
 
 // autoTitle extracts title from the first non-empty line of content.
