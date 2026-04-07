@@ -39,12 +39,12 @@ func isCode(s string) bool {
 	if len(s) < 2 || len(s) > 10 {
 		return false
 	}
-	// Determine prefix length: SS has 2-char prefix, others have 1-char
+	// Determine prefix length: SS, RM have 2-char prefix, others have 1-char
 	prefixLen := 0
 	switch {
-	case len(s) >= 2 && s[:2] == "SS":
+	case len(s) >= 2 && (s[:2] == "SS" || s[:2] == "RM"):
 		prefixLen = 2
-	case s[0] == 'R' || s[0] == 'E' || s[0] == 'S' || s[0] == 'T' || s[0] == 'Q':
+	case s[0] == 'R' || s[0] == 'E' || s[0] == 'S' || s[0] == 'T' || s[0] == 'Q' || s[0] == 'N':
 		prefixLen = 1
 	default:
 		return false

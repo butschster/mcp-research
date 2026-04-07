@@ -156,6 +156,92 @@ Todo item for tracking work within a research.
 
 ---
 
+### Roadmap
+
+Visual graph for learning paths, strategy maps, decision trees, or step-by-step guides. Unlike the auto-generated mindmap, roadmaps are deliberately designed by the AI or user.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Roadmap title |
+| `description` | string | What this roadmap visualizes |
+| `statuses` | string[] | Available node statuses in order (e.g. `["not_started", "in_progress", "completed"]`) |
+| `status` | enum | `active` / `completed` / `archived` |
+| `code` | string | Auto-assigned: `RM1`, `RM2`... (per research) |
+
+**Key rules:**
+- A research can have multiple roadmaps for different aspects.
+- `statuses` defines the vocabulary for node progress. Choose statuses that fit the domain:
+  - Learning path: `not_started`, `learning`, `practiced`, `mastered`
+  - Marketing strategy: `planned`, `approved`, `launched`
+  - Technical plan: `todo`, `in_progress`, `review`, `done`
+- Leave `statuses` empty for purely structural graphs with no progress tracking.
+- Create the entire graph in one `roadmap_create` call when possible — nodes and edges together.
+
+**When to create a roadmap:**
+- The research topic has a natural sequence or progression (learning path, onboarding flow, migration plan)
+- You need to visualize dependencies or decision points (architecture decisions, strategy branches)
+- The user wants a step-by-step guide with trackable progress
+- Information needs spatial/hierarchical organization beyond flat sections
+
+**When NOT to use a roadmap (use sections/entries instead):**
+- Content is purely textual with no inherent sequence
+- A simple list or table would suffice
+- The information doesn't have meaningful relationships between items
+
+---
+
+### Roadmap Node
+
+A node in a roadmap graph. Represents a step, milestone, decision point, or informational block.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Node title |
+| `description` | string | Detailed text content (expandable in UI) |
+| `node_type` | string | `step` / `milestone` / `decision` / `info` / `group` |
+| `status` | string | Current status (from parent roadmap's `statuses` list, or empty) |
+| `position_x` | float | X position for layout |
+| `position_y` | float | Y position for layout |
+| `parent_id` | string | Optional: parent node for hierarchical nesting |
+| `code` | string | Auto-assigned: `N1`, `N2`... (per roadmap) |
+
+**Node types:**
+- `step` — Regular action item or learning step (default)
+- `milestone` — Key achievement or checkpoint
+- `decision` — Fork in the path where a choice is needed
+- `info` — Reference material or prerequisite note
+- `group` — Container for related steps (visual grouping)
+
+**Key rules:**
+- Use `temp_id` during creation to reference nodes in edges before they have real IDs.
+- Status is free-form but should match the roadmap's `statuses` list for consistent UI rendering.
+- Position coordinates are optional — the frontend can auto-layout, but explicit positions give more control.
+
+---
+
+### Roadmap Edge
+
+A directed connection between two roadmap nodes.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_node_id` | string | Source node UUID |
+| `target_node_id` | string | Target node UUID |
+| `label` | string | Edge label (e.g. "next", "if yes", "alternative") |
+| `edge_type` | string | `default` / `success` / `warning` / `optional` |
+
+**Edge types:**
+- `default` — Normal progression
+- `success` — Positive outcome path (e.g. "if passed")
+- `warning` — Failure or risk path (e.g. "if blocked")
+- `optional` — Non-required alternative path
+
+**Key rules:**
+- Edges are deleted automatically when their source or target node is removed (cascade).
+- Use labels to clarify the relationship, especially for `decision` nodes with multiple outgoing edges.
+
+---
+
 ### CrossRef
 
 Links between documents, extracted automatically from `[[...]]` patterns.
@@ -184,9 +270,10 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 5. question_create → Follow-up questions (if needed)
 6. entry_create → Synthesize answers into entries with [[refs]]
 7. task_create → Track remaining work
-8. research_update → Add to memory (insights for future sessions)
-9. Repeat 3-8 for new sessions on uncovered areas
-10. Mark sections completed → research completed
+8. roadmap_create → Build visual graphs for step-by-step guides, learning paths, or decision trees
+9. research_update → Add to memory (insights for future sessions)
+10. Repeat 3-9 for new sessions on uncovered areas
+11. Mark sections completed → research completed
 ```
 
 ## Short Codes
@@ -199,3 +286,5 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | Session | `SS1`, `SS2` | Per research | `/research/R2/session/SS1` |
 | Question | `Q1`, `Q2` | Per session | `/research/R2/session/SS1/question/Q3` |
 | Task | `T1`, `T2` | Per research | — |
+| Roadmap | `RM1`, `RM2` | Per research | `/research/R2/roadmap/RM1` |
+| Node | `N1`, `N2` | Per roadmap | — |

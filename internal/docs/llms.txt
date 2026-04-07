@@ -1,6 +1,6 @@
 # Research
 
-> Structured AI-driven research sessions. Design research structures, conduct interactive Q&A sessions, manage tasks, create cross-referenced knowledge entries, and track progress.
+> Structured AI-driven research sessions. Design research structures, conduct interactive Q&A sessions, manage tasks, build visual roadmaps, create cross-referenced knowledge entries, and track progress.
 
 ## Data Model
 
@@ -14,6 +14,10 @@ Research (R1, R2...) — statuses: active, completed, archived
   |
   |-- Task (T1, T2...) — todo items for tracking work
   |
+  |-- Roadmap (RM1, RM2...) — visual graphs for learning paths, strategy maps, step-by-step guides
+  |     |-- Node (N1, N2...) — graph nodes with type, status, and content
+  |     |-- Edge — directed connections between nodes with labels
+  |
   Entry -?-> Session — optional link (session_id tracks which session produced the entry)
   Entry --[[E3]]--> Entry — cross-references form a knowledge graph
 ```
@@ -24,7 +28,9 @@ A research can have **multiple sessions** (e.g. initial exploration, deep-dive, 
 
 ## Docs
 
-- [Domain Guide](/llms/domain-guide.md): Complete reference for every entity (Research, Section, Entry, Session, Question, Task, CrossRef). Describes fields, statuses, relationships, lifecycle, and when to use each entity. Includes tagging strategy, cross-reference syntax, and tips.
-- [Conducting Research](/llms/conducting-research.md): Step-by-step guide on how to initialize, conduct, and complete a research project. Interview workflow, entry creation with cross-references, task tracking, and best practices.
+- [Domain Guide](/llms/domain-guide.md): Complete reference for every entity (Research, Section, Entry, Session, Question, Task, Roadmap, CrossRef). Describes fields, statuses, relationships, lifecycle, and when to use each entity. Includes tagging strategy, cross-reference syntax, and tips.
+- [Conducting Research](/llms/conducting-research.md): Step-by-step guide on how to initialize, conduct, and complete a research project. Interview workflow, entry creation with cross-references, task tracking, roadmap creation, and best practices.
+- [Tasks](/llms/tasks.md): Guide to using tasks for tracking work items, action items, and outcomes within a research. When to create tasks, statuses, priorities, tasks vs questions, and best practices.
+- [Roadmaps](/llms/roadmaps.md): Guide to building visual directed graphs — learning paths, strategy maps, decision trees. When to create roadmaps, node/edge types, custom statuses by domain, how to build a graph step by step, and best practices.
 - [Export](/llms/export.md): How to export research data as markdown documents or PDF. API endpoint reference and web UI export page.
 - [REST API — OpenAPI Specification](/api/openapi.yaml): OpenAPI 3.1 spec for all REST endpoints with request/response schemas.

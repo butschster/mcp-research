@@ -81,6 +81,18 @@ func BackfillCodes(ctx context.Context, db *sql.DB) (int, error) {
 	}
 	total += n
 
+	n, err = backfillScoped(ctx, db, "roadmaps", "RM", "research_id")
+	if err != nil {
+		return total, fmt.Errorf("backfill roadmaps: %w", err)
+	}
+	total += n
+
+	n, err = backfillScoped(ctx, db, "roadmap_nodes", "N", "roadmap_id")
+	if err != nil {
+		return total, fmt.Errorf("backfill roadmap nodes: %w", err)
+	}
+	total += n
+
 	return total, nil
 }
 
