@@ -49,6 +49,7 @@ function statusSlug(s: string): string {
   padding: var(--space-4) var(--space-5);
   min-width: 280px;
   max-width: 380px;
+  cursor: pointer;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .step-node:hover {
