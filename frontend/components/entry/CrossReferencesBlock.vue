@@ -9,12 +9,13 @@
       <div class="crossrefs-list">
         <NuxtLink
           v-for="ref in outgoing"
-          :key="ref.target_entry_id || ref.target_ref"
+          :key="ref.target_entry_id || ref.target_roadmap_id || ref.target_ref"
           :to="refLink(ref, 'outgoing')"
           class="crossref-item"
         >
-          <span class="crossref-code">{{ ref.entry_code || ref.target_ref }}</span>
+          <span class="crossref-code">{{ ref.entry_code || ref.roadmap_code || ref.target_ref }}</span>
           <span v-if="ref.entry_title" class="crossref-entry-title">{{ ref.entry_title }}</span>
+          <span v-else-if="ref.roadmap_title" class="crossref-entry-title">{{ ref.roadmap_title }}</span>
           <span v-if="ref.research_code && ref.research_code !== researchSlug" class="crossref-research">{{ ref.research_name || ref.research_code }}</span>
           <span v-if="!ref.resolved" class="crossref-unresolved">unresolved</span>
         </NuxtLink>

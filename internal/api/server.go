@@ -139,6 +139,7 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))
 	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crReadHandler.SetRoadmapService(roadmapSvc)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
 	elHandler := handlers.NewExternalLinkHandler(externalLinkRepo, researchSvc, log)
@@ -168,6 +169,7 @@ func NewServer(
 	// --- Write endpoints ---
 	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
 	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crh.SetRoadmapService(roadmapSvc)
 
 	mux.Handle("POST /api/researches", wrap(wh.CreateResearch))
 	mux.Handle("PUT /api/researches/{id}", wrap(wh.UpdateResearch))

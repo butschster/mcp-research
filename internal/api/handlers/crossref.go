@@ -14,11 +14,16 @@ type CrossRefHandler struct {
 	crossrefs   *storage.CrossRefRepository
 	entrySvc    *service.EntryService
 	researchSvc *service.ResearchService
+	roadmapSvc  *service.RoadmapService
 	log         *slog.Logger
 }
 
 func NewCrossRefHandler(crossrefs *storage.CrossRefRepository, entrySvc *service.EntryService, researchSvc *service.ResearchService, log *slog.Logger) *CrossRefHandler {
 	return &CrossRefHandler{crossrefs: crossrefs, entrySvc: entrySvc, researchSvc: researchSvc, log: log}
+}
+
+func (h *CrossRefHandler) SetRoadmapService(svc *service.RoadmapService) {
+	h.roadmapSvc = svc
 }
 
 // ListForResearch returns all stored cross-references for a research.
@@ -73,8 +78,10 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 		SourceType       string `json:"source_type"`
 		SourceID         string `json:"source_id"`
 		SourceResearchID string `json:"source_research_id"`
-		TargetEntryID    string `json:"target_entry_id"`
-		TargetResearchID string `json:"target_research_id"`
+		TargetEntryID    string `json:"target_entry_id,omitempty"`
+		TargetResearchID string `json:"target_research_id,omitempty"`
+		TargetRoadmapID  string `json:"target_roadmap_id,omitempty"`
+		TargetNodeID     string `json:"target_node_id,omitempty"`
 		TargetRef        string `json:"target_ref"`
 		Resolved         bool   `json:"resolved"`
 		// Enriched fields
@@ -82,6 +89,8 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 		EntryCode     string `json:"entry_code,omitempty"`
 		ResearchName  string `json:"research_name,omitempty"`
 		ResearchCode  string `json:"research_code,omitempty"`
+		RoadmapTitle  string `json:"roadmap_title,omitempty"`
+		RoadmapCode   string `json:"roadmap_code,omitempty"`
 	}
 
 	enrichOutgoing := make([]enrichedRef, 0, len(outgoing))
@@ -92,6 +101,8 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 			SourceResearchID: ref.SourceResearchID,
 			TargetEntryID:    ref.TargetEntryID,
 			TargetResearchID: ref.TargetResearchID,
+			TargetRoadmapID:  ref.TargetRoadmapID,
+			TargetNodeID:     ref.TargetNodeID,
 			TargetRef:        ref.TargetRef,
 			Resolved:         ref.Resolved,
 		}
@@ -99,6 +110,12 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 			if te, _ := h.entrySvc.Get(r.Context(), ref.TargetEntryID); te != nil {
 				er.EntryTitle = te.Title
 				er.EntryCode = te.Code
+			}
+		}
+		if ref.TargetRoadmapID != "" && h.roadmapSvc != nil {
+			if rm, _ := h.roadmapSvc.Get(r.Context(), ref.TargetRoadmapID); rm != nil {
+				er.RoadmapTitle = rm.Title
+				er.RoadmapCode = rm.Code
 			}
 		}
 		targetResID := ref.TargetResearchID
