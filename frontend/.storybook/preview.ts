@@ -1,6 +1,7 @@
 import type { Preview } from '@storybook/vue3'
 import { setup } from '@storybook/vue3'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { INITIAL_VIEWPORTS } from '@storybook/addon-viewport'
 import '../assets/css/main.css'
 
 const router = createRouter({
@@ -35,6 +36,27 @@ const preview: Preview = {
   parameters: {
     backgrounds: { disable: true },
     layout: 'padded',
+    viewport: {
+      viewports: {
+        mobile: {
+          name: 'Mobile',
+          styles: { width: '375px', height: '812px' },
+        },
+        mobileLarge: {
+          name: 'Mobile Large',
+          styles: { width: '414px', height: '896px' },
+        },
+        tablet: {
+          name: 'Tablet',
+          styles: { width: '768px', height: '1024px' },
+        },
+        desktop: {
+          name: 'Desktop',
+          styles: { width: '1280px', height: '800px' },
+        },
+        ...INITIAL_VIEWPORTS,
+      },
+    },
     controls: {
       matchers: {
         color: /(background|color)$/i,

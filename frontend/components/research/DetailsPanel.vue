@@ -204,4 +204,10 @@ function saveEdit(field: string) {
   margin-top: 2px;
 }
 .tags-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .details-grid { grid-template-columns: 1fr; }
+  .detail-field-wide { grid-column: 1; }
+}
 </style>

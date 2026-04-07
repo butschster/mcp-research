@@ -379,6 +379,15 @@ function printPage() {
 .task-desc { font-size: var(--type-xs); color: var(--color-text-muted); margin-top: var(--space-1); }
 .task-result { font-size: var(--type-sm); margin-top: var(--space-2); }
 
+/* Responsive */
+@media (max-width: 768px) {
+  .export-toolbar { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .doc-title { font-size: var(--type-xl); }
+  .doc-meta { flex-wrap: wrap; gap: var(--space-2); }
+  .doc-toc { padding: var(--space-4); }
+  .task-row { flex-wrap: wrap; }
+}
+
 /* Print */
 .no-print { }
 @media print {

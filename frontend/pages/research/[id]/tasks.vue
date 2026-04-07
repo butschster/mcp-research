@@ -227,4 +227,10 @@ useRealtimeUpdates(async (event) => {
   gap: var(--space-4);
 }
 .skeleton-column { height: 400px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tasks-header { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .kanban-skeleton { grid-template-columns: 1fr; }
+}
 </style>

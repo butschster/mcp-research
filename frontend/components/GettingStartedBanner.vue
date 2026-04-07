@@ -100,4 +100,10 @@ function copyInit() {
 }
 .gs-step-content strong { display: block; font-weight: 600; margin-bottom: var(--space-1); font-size: var(--type-base); }
 .gs-step-content p { font-size: var(--type-sm); color: var(--color-text-muted); line-height: 1.5; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .getting-started { padding: var(--space-5); margin-bottom: var(--space-5); }
+  .gs-title { font-size: var(--type-lg); }
+}
 </style>

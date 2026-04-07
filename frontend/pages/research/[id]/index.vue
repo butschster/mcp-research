@@ -278,4 +278,11 @@ useRealtimeUpdates(async (event) => {
 .skeleton-header { height: 60px; margin-bottom: var(--space-6); }
 .skeleton-sidebar { height: 300px; }
 .skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .research-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .research-actions { flex-wrap: wrap; gap: var(--space-2); }
+  .title-with-code { flex-wrap: wrap; }
+}
 </style>

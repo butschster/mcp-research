@@ -119,4 +119,9 @@ useRealtimeUpdates(async (event) => {
   transition: opacity var(--transition-fast);
 }
 .tag-clear:hover { opacity: 1; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .skeleton-list { grid-template-columns: 1fr; }
+}
 </style>
