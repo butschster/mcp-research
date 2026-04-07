@@ -1,16 +1,19 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
-import { defineComponent, computed } from 'vue'
+import { defineComponent, computed, ref } from 'vue'
 import RoadmapStepNode from './RoadmapStepNode.vue'
 import RoadmapRootNode from './RoadmapRootNode.vue'
 import RoadmapEdgeLabel from './RoadmapEdgeLabel.vue'
+import RoadmapNodePopover from './RoadmapNodePopover.vue'
 import './RoadmapPageMock.css'
 
 /**
  * Complete roadmap page mocks showing various graph topologies:
  * linear flows, branching decisions, parallel tracks, and convergence points.
+ * Includes interactive toolbar with layout toggle, auto-layout, fit view,
+ * and node click popover for status changes.
  */
 
-// --- Helper: Toolbar ---
+// --- Helper: Toolbar (matches real page toolbar) ---
 const toolbarTemplate = (researchName: string, rmCode: string, rmTitle: string, completedKey: string) => `
   <div class="rm-toolbar">
     <div class="rm-toolbar-left">
@@ -29,6 +32,21 @@ const toolbarTemplate = (researchName: string, rmCode: string, rmTitle: string, 
           <div class="rm-progress-fill" :style="{ width: ((statusCounts['${completedKey}'] || 0) / totalNodes * 100) + '%' }"></div>
         </div>
       </div>
+      <span class="rm-toolbar-sep"></span>
+      <button class="btn btn-sm active" title="Left to right">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+      <button class="btn btn-sm" title="Top to bottom">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+      </button>
+      <span class="rm-toolbar-sep"></span>
+      <button class="btn btn-sm" title="Auto layout">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Auto layout
+      </button>
+      <button class="btn btn-sm" title="Fit view">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+      </button>
     </div>
   </div>
 `
@@ -48,8 +66,23 @@ function countStatuses(nodes: any[]) {
 // =============================================================================
 const VueLearningPathComponent = defineComponent({
   name: 'VueLearningPath',
-  components: { RoadmapStepNode, RoadmapRootNode, RoadmapEdgeLabel },
+  components: { RoadmapStepNode, RoadmapRootNode, RoadmapEdgeLabel, RoadmapNodePopover },
   setup() {
+    const selectedNode = ref<any>(null)
+    const popoverPosition = ref({ x: 200, y: 200 })
+    const roadmapStatuses = ['not_started', 'in_progress', 'completed']
+
+    function onNodeClick(node: any, event: MouseEvent) {
+      if (node.nodeType === 'root') return
+      selectedNode.value = { ...node }
+      popoverPosition.value = { x: event.clientX + 12, y: event.clientY - 20 }
+    }
+    function onUpdateStatus(nodeId: string, status: string) {
+      const n = nodes.find((n: any) => n.id === nodeId)
+      if (n) n.status = status
+      selectedNode.value = null
+    }
+
     const nodes = [
       { id: 'root', code: 'RM1', title: 'Vue 3 Learning Path', description: 'From zero to production-ready Vue 3 development', status: 'active', statuses: ['not_started', 'in_progress', 'completed'], nodeCount: 9, edgeCount: 9, nodeType: 'root' },
       { id: 'n1', code: 'N1', title: 'HTML & CSS Fundamentals', description: 'Semantic HTML, Flexbox, Grid, responsive design', nodeType: 'step', status: 'completed' },
@@ -73,7 +106,7 @@ const VueLearningPathComponent = defineComponent({
     ]
     const statusCounts = computed(() => countStatuses(nodes))
     const totalNodes = nodes.filter(n => n.nodeType !== 'root').length
-    return { nodes, edges, statusCounts, totalNodes }
+    return { nodes, edges, statusCounts, totalNodes, selectedNode, popoverPosition, roadmapStatuses, onNodeClick, onUpdateStatus }
   },
   template: `
     <div class="roadmap-page-mock">
@@ -83,7 +116,7 @@ const VueLearningPathComponent = defineComponent({
         <div class="rm-connector"><svg width="2" height="32"><line x1="1" y1="0" x2="1" y2="32" stroke="var(--color-border-strong)" stroke-width="2" /></svg></div>
         <div class="rm-graph-flow">
           <template v-for="(node, i) in nodes.slice(1)" :key="node.id">
-            <div class="rm-graph-item">
+            <div class="rm-graph-item" @click="onNodeClick(node, $event)">
               <RoadmapStepNode :data="node" />
               <div v-if="edges[i] && edges[i].label" class="rm-edge-label-wrapper">
                 <svg width="2" height="12"><line x1="1" y1="0" x2="1" y2="12" stroke="var(--color-border)" stroke-width="1" stroke-dasharray="3 3" /></svg>
@@ -97,6 +130,14 @@ const VueLearningPathComponent = defineComponent({
           </template>
         </div>
       </div>
+      <RoadmapNodePopover
+        v-if="selectedNode"
+        :node="selectedNode"
+        :statuses="roadmapStatuses"
+        :position="popoverPosition"
+        @update-status="onUpdateStatus"
+        @close="selectedNode = null"
+      />
     </div>
   `,
 })
