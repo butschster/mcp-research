@@ -27,7 +27,6 @@ const config: StorybookConfig = {
           '@': path.resolve(__dirname, '..'),
           '#imports': path.resolve(__dirname, './stubs/imports.ts'),
           '#app': path.resolve(__dirname, './stubs/app.ts'),
-          '@vue-flow/core': path.resolve(__dirname, './stubs/vue-flow.ts'),
         },
       },
       plugins: [

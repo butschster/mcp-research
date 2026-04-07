@@ -1,149 +1,169 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
-import { defineComponent, computed, ref, reactive } from 'vue'
+import { defineComponent, computed, ref, markRaw, onMounted, nextTick } from 'vue'
+import { VueFlow, useVueFlow, Position } from '@vue-flow/core'
+import '@vue-flow/core/dist/style.css'
+import '@vue-flow/core/dist/theme-default.css'
+import dagre from '@dagrejs/dagre'
 import RoadmapStepNode from './RoadmapStepNode.vue'
 import RoadmapRootNode from './RoadmapRootNode.vue'
 import RoadmapNodePopover from './RoadmapNodePopover.vue'
 
 /**
- * Roadmap page stories using API-shaped JSON data.
- * Each story provides a mock API response (roadmap with nodes[] and edges[])
- * and renders it as the real page would.
+ * Interactive roadmap page using real Vue Flow with dagre auto-layout.
+ * Each story provides a mock API response and renders it as the real page would.
  */
 
 // --- API response shape (matches GET /api/roadmaps/{id}) ---
+interface MockNode {
+  id: string; code: string; title: string; description: string
+  node_type: string; status: string
+  position_x: number; position_y: number; parent_id: string
+}
+interface MockEdge {
+  id: string; source_node_id: string; target_node_id: string
+  label: string; edge_type: string
+}
 interface MockRoadmap {
-  id: string
-  code: string
-  research_id: string
-  title: string
-  description: string
-  statuses: string[]
-  status: string
-  nodes: Array<{
-    id: string
-    code: string
-    title: string
-    description: string
-    node_type: string
-    status: string
-    position_x: number
-    position_y: number
-    parent_id: string
-  }>
-  edges: Array<{
-    id: string
-    source_node_id: string
-    target_node_id: string
-    label: string
-    edge_type: string
-  }>
+  id: string; code: string; research_id: string
+  title: string; description: string
+  statuses: string[]; status: string
+  nodes: MockNode[]; edges: MockEdge[]
 }
 
-// --- Reusable page component that renders any MockRoadmap ---
+const EDGE_STYLES: Record<string, Record<string, any>> = {
+  default: { stroke: 'rgba(140,150,170,0.5)', strokeWidth: 2 },
+  success: { stroke: 'rgba(107,203,119,0.6)', strokeWidth: 2 },
+  warning: { stroke: 'rgba(240,184,73,0.6)', strokeWidth: 2 },
+  optional: { stroke: 'rgba(140,150,170,0.35)', strokeWidth: 1.5, strokeDasharray: '4 4' },
+}
+
+const NODE_SIZES: Record<string, { width: number; height: number }> = {
+  'roadmap-root': { width: 400, height: 160 },
+  'roadmap-step': { width: 320, height: 120 },
+}
+
+function buildVueFlowGraph(data: MockRoadmap) {
+  const targets = new Set(data.edges.map(e => e.target_node_id))
+  const rootId = data.nodes.find(n => !targets.has(n.id))?.id ?? data.nodes[0]?.id
+
+  // Build nodes
+  const nodes = data.nodes.map(n => {
+    const isRoot = n.id === rootId
+    const type = isRoot ? 'roadmap-root' : 'roadmap-step'
+    return {
+      id: n.id,
+      type,
+      position: { x: 0, y: 0 },
+      data: isRoot
+        ? { code: data.code, title: data.title, description: data.description, status: data.status, statuses: data.statuses, nodeCount: data.nodes.length, edgeCount: data.edges.length }
+        : { code: n.code, title: n.title, description: n.description, nodeType: n.node_type, status: n.status },
+    }
+  })
+
+  // Build edges
+  const edges = data.edges.map(e => ({
+    id: e.id,
+    source: e.source_node_id,
+    target: e.target_node_id,
+    type: 'smoothstep',
+    label: e.label || undefined,
+    style: EDGE_STYLES[e.edge_type] ?? EDGE_STYLES.default,
+    labelStyle: { fill: 'var(--color-text-muted)', fontSize: '0.625rem' },
+    labelBgStyle: { fill: 'var(--color-surface)', fillOpacity: 0.9 },
+    labelBgPadding: [4, 2] as [number, number],
+    labelBgBorderRadius: 3,
+  }))
+
+  // Dagre layout
+  const g = new dagre.graphlib.Graph()
+  g.setDefaultEdgeLabel(() => ({}))
+  g.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 140 })
+
+  for (const node of nodes) {
+    const size = NODE_SIZES[node.type] ?? NODE_SIZES['roadmap-step']
+    g.setNode(node.id, { width: size.width, height: size.height })
+  }
+  for (const edge of edges) {
+    g.setEdge(edge.source, edge.target)
+  }
+  dagre.layout(g)
+
+  for (const node of nodes) {
+    const pos = g.node(node.id)
+    const size = NODE_SIZES[node.type] ?? NODE_SIZES['roadmap-step']
+    node.position = { x: pos.x - size.width / 2, y: pos.y - size.height / 2 }
+    ;(node as any).sourcePosition = Position.Bottom
+    ;(node as any).targetPosition = Position.Top
+  }
+
+  return { nodes, edges }
+}
+
+// --- Page component ---
 const RoadmapPageView = defineComponent({
   name: 'RoadmapPageView',
-  components: { RoadmapStepNode, RoadmapRootNode, RoadmapNodePopover },
+  components: { VueFlow, RoadmapStepNode, RoadmapRootNode, RoadmapNodePopover },
   props: {
     roadmap: { type: Object as () => MockRoadmap, required: true },
     researchName: { type: String, default: 'Research' },
   },
   setup(props) {
-    const data = reactive({ ...props.roadmap, nodes: props.roadmap.nodes.map(n => ({ ...n })) })
+    const nodeTypes = {
+      'roadmap-root': markRaw(RoadmapRootNode),
+      'roadmap-step': markRaw(RoadmapStepNode),
+    }
 
-    // Find root: node with no incoming edges
-    const targets = new Set(data.edges.map(e => e.target_node_id))
-    const rootId = data.nodes.find(n => !targets.has(n.id))?.id ?? data.nodes[0]?.id
+    const data = ref({ ...props.roadmap, nodes: props.roadmap.nodes.map(n => ({ ...n })) })
+    const graph = computed(() => buildVueFlowGraph(data.value))
 
     // Progress
-    const lastStatus = data.statuses.length > 0 ? data.statuses[data.statuses.length - 1] : null
+    const lastStatus = data.value.statuses.length > 0 ? data.value.statuses[data.value.statuses.length - 1] : null
     const progress = computed(() => {
-      const total = data.nodes.length
-      const completed = lastStatus ? data.nodes.filter(n => n.status === lastStatus).length : 0
+      const total = data.value.nodes.length
+      const completed = lastStatus ? data.value.nodes.filter(n => n.status === lastStatus).length : 0
       return { total, completed, percent: total > 0 ? Math.round((completed / total) * 100) : 0 }
     })
-
-    // Build adjacency for rendering order (BFS from root)
-    function getOrderedNodes() {
-      const adj = new Map<string, string[]>()
-      for (const e of data.edges) {
-        if (!adj.has(e.source_node_id)) adj.set(e.source_node_id, [])
-        adj.get(e.source_node_id)!.push(e.target_node_id)
-      }
-      const visited = new Set<string>()
-      const order: string[] = []
-      const queue = [rootId]
-      while (queue.length) {
-        const id = queue.shift()!
-        if (visited.has(id)) continue
-        visited.add(id)
-        order.push(id)
-        for (const child of adj.get(id) ?? []) queue.push(child)
-      }
-      // Add any unvisited nodes
-      for (const n of data.nodes) {
-        if (!visited.has(n.id)) order.push(n.id)
-      }
-      return order
-    }
-
-    const nodeMap = computed(() => new Map(data.nodes.map(n => [n.id, n])))
-    const orderedIds = getOrderedNodes()
-    const rootNode = computed(() => nodeMap.value.get(rootId)!)
-    const stepNodes = computed(() => orderedIds.filter(id => id !== rootId).map(id => nodeMap.value.get(id)!).filter(Boolean))
-
-    // Edge lookup: source → edges[]
-    const edgesBySource = computed(() => {
-      const map = new Map<string, typeof data.edges>()
-      for (const e of data.edges) {
-        if (!map.has(e.source_node_id)) map.set(e.source_node_id, [])
-        map.get(e.source_node_id)!.push(e)
-      }
-      return map
-    })
-
-    function getEdgeLabel(fromId: string, toId: string) {
-      const edges = edgesBySource.value.get(fromId)
-      return edges?.find(e => e.target_node_id === toId)
-    }
 
     // Popover
     const selectedNode = ref<any>(null)
     const popoverPos = ref({ x: 0, y: 0 })
 
-    function onNodeClick(node: any, event: MouseEvent) {
-      if (node.id === rootId) return
+    function onNodeClick({ node, event }: { node: any; event: MouseEvent }) {
+      if (node.type === 'roadmap-root') return
       selectedNode.value = {
         id: node.id,
-        title: node.title,
-        description: node.description,
-        nodeType: node.node_type,
-        status: node.status,
+        title: node.data.title,
+        description: node.data.description || '',
+        nodeType: node.data.nodeType || 'step',
+        status: node.data.status || '',
       }
       popoverPos.value = { x: event.clientX + 12, y: event.clientY - 20 }
     }
 
     function onUpdateStatus(nodeId: string, status: string) {
-      const n = data.nodes.find(n => n.id === nodeId)
+      const n = data.value.nodes.find(n => n.id === nodeId)
       if (n) n.status = status
       selectedNode.value = null
     }
 
-    return {
-      data, rootId, rootNode, stepNodes, orderedIds,
-      edgesBySource, getEdgeLabel, progress,
-      selectedNode, popoverPos, onNodeClick, onUpdateStatus,
-    }
+    // Fit view on mount
+    const { fitView } = useVueFlow()
+    onMounted(() => {
+      nextTick(() => fitView({ padding: 0.15, duration: 300 }))
+    })
+
+    return { nodeTypes, graph, progress, data, selectedNode, popoverPos, onNodeClick, onUpdateStatus, fitView }
   },
   template: `
-    <div style="min-height:100vh;background:var(--color-bg);display:flex;flex-direction:column;">
+    <div style="height:100vh;display:flex;flex-direction:column;background:var(--color-bg);">
       <!-- Toolbar -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-5);background:rgba(21,29,46,0.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--color-border);gap:var(--space-4);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-5);background:rgba(21,29,46,0.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--color-border);gap:var(--space-4);flex-shrink:0;">
         <div style="display:flex;align-items:center;gap:var(--space-3);">
           <button class="btn btn-sm" style="gap:var(--space-1);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
             Back
           </button>
-          <span style="font-size:var(--type-sm);font-weight:600;color:var(--color-text);letter-spacing:-0.01em;">{{ researchName }}</span>
+          <span style="font-size:var(--type-sm);font-weight:600;color:var(--color-text);">{{ researchName }}</span>
           <span style="width:1px;height:20px;background:var(--color-border-strong);"></span>
           <span style="font-size:var(--type-xs);color:var(--color-primary);font-weight:500;">{{ data.code }} — {{ data.title }}</span>
         </div>
@@ -153,39 +173,30 @@ const RoadmapPageView = defineComponent({
             <div :style="{ width: progress.percent + '%', height: '100%', background: 'rgba(107,203,119,0.8)', borderRadius: '2px', transition: 'width 0.3s' }"></div>
           </div>
           <span style="width:1px;height:20px;background:var(--color-border-strong);margin:0 var(--space-1);"></span>
-          <button class="btn btn-sm active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
-          <button class="btn btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-          <span style="width:1px;height:20px;background:var(--color-border-strong);margin:0 var(--space-1);"></span>
-          <button class="btn btn-sm">Auto layout</button>
-          <button class="btn btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg></button>
+          <button class="btn btn-sm" @click="fitView({ padding: 0.15, duration: 300 })">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+            Fit
+          </button>
         </div>
       </div>
 
-      <!-- Graph -->
-      <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:var(--space-6) var(--space-4);overflow-y:auto;gap:var(--space-2);">
-        <!-- Root -->
-        <RoadmapRootNode :data="{
-          code: data.code,
-          title: data.title,
-          description: data.description,
-          status: data.status,
-          statuses: data.statuses,
-          nodeCount: data.nodes.length,
-          edgeCount: data.edges.length,
-        }" />
-
-        <!-- Step nodes in traversal order -->
-        <template v-for="(node, i) in stepNodes" :key="node.id">
-          <div style="display:flex;flex-direction:column;align-items:center;" @click="onNodeClick(node, $event)">
-            <RoadmapStepNode :data="{
-              code: node.code,
-              title: node.title,
-              description: node.description,
-              nodeType: node.node_type,
-              status: node.status,
-            }" />
-          </div>
-        </template>
+      <!-- Vue Flow Canvas -->
+      <div style="flex:1;min-height:0;">
+        <VueFlow
+          :nodes="graph.nodes"
+          :edges="graph.edges"
+          :node-types="nodeTypes"
+          :default-viewport="{ x: 0, y: 0, zoom: 0.85 }"
+          :min-zoom="0.1"
+          :max-zoom="2"
+          :fit-view-on-init="true"
+          :nodes-draggable="true"
+          :nodes-connectable="false"
+          :pan-on-drag="true"
+          :zoom-on-scroll="true"
+          style="width:100%;height:100%;"
+          @node-click="onNodeClick"
+        />
       </div>
 
       <!-- Popover -->
@@ -239,17 +250,17 @@ const frameworkDecision: MockRoadmap = {
   statuses: ['not_started', 'evaluating', 'decided'],
   status: 'active',
   nodes: [
-    { id: 'n1', code: 'N1', title: 'Define Requirements', description: 'Performance needs, team size, SSR requirement, ecosystem', node_type: 'step', status: 'decided', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n2', code: 'N2', title: 'Framework Shortlist', description: 'Narrowed down to 3 candidates based on requirements', node_type: 'milestone', status: 'decided', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n3', code: 'N3', title: 'Evaluate React 19', description: 'Server components, suspense, concurrent features', node_type: 'step', status: 'evaluating', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n1', code: 'N1', title: 'Define Requirements', description: 'Performance, team size, SSR, ecosystem', node_type: 'step', status: 'decided', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n2', code: 'N2', title: 'Framework Shortlist', description: 'Narrowed to 3 candidates', node_type: 'milestone', status: 'decided', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n3', code: 'N3', title: 'Evaluate React 19', description: 'Server components, suspense, concurrent', node_type: 'step', status: 'evaluating', position_x: 0, position_y: 0, parent_id: '' },
     { id: 'n4', code: 'N4', title: 'Evaluate Vue 3', description: 'Composition API, Nuxt 4, Volar DX', node_type: 'step', status: 'evaluating', position_x: 0, position_y: 0, parent_id: '' },
     { id: 'n5', code: 'N5', title: 'Evaluate Svelte 5', description: 'Runes, compiled output, SvelteKit', node_type: 'step', status: 'evaluating', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n6', code: 'N6', title: 'Build React POC', description: 'Prototype dashboard with Next.js App Router', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n7', code: 'N7', title: 'Build Vue POC', description: 'Prototype dashboard with Nuxt 4', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n8', code: 'N8', title: 'Build Svelte POC', description: 'Prototype dashboard with SvelteKit', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n9', code: 'N9', title: 'Compare Benchmarks', description: 'Bundle size, lighthouse score, DX survey, build time', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n10', code: 'N10', title: 'Team Vote', description: 'Present findings, collect preferences, make final call', node_type: 'decision', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n11', code: 'N11', title: 'Framework Chosen', description: 'Final decision documented and communicated', node_type: 'milestone', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n6', code: 'N6', title: 'Build React POC', description: 'Prototype with Next.js', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n7', code: 'N7', title: 'Build Vue POC', description: 'Prototype with Nuxt 4', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n8', code: 'N8', title: 'Build Svelte POC', description: 'Prototype with SvelteKit', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n9', code: 'N9', title: 'Compare Benchmarks', description: 'Bundle size, lighthouse, DX survey', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n10', code: 'N10', title: 'Team Vote', description: 'Present findings, make final call', node_type: 'decision', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n11', code: 'N11', title: 'Framework Chosen', description: 'Decision documented', node_type: 'milestone', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
   ],
   edges: [
     { id: 'e1', source_node_id: 'n1', target_node_id: 'n2', label: 'next', edge_type: 'default' },
@@ -274,35 +285,35 @@ const fullStackRoadmap: MockRoadmap = {
   statuses: ['not_started', 'learning', 'practiced', 'mastered'],
   status: 'active',
   nodes: [
-    { id: 'n0', code: 'N1', title: 'Git & Terminal Basics', description: 'Version control, CLI navigation, SSH keys', node_type: 'step', status: 'mastered', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n0', code: 'N1', title: 'Git & Terminal Basics', description: 'Version control, CLI, SSH keys', node_type: 'step', status: 'mastered', position_x: 0, position_y: 0, parent_id: '' },
     { id: 'n1', code: 'N2', title: 'HTML/CSS/JS', description: 'Semantic HTML, modern CSS, ES2024', node_type: 'step', status: 'mastered', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n2', code: 'N3', title: 'React or Vue', description: 'Pick one framework, build 3 projects', node_type: 'decision', status: 'practiced', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n3', code: 'N4', title: 'State & Routing', description: 'Client-side state management, SPA routing', node_type: 'step', status: 'learning', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n4', code: 'N5', title: 'Testing Frontend', description: 'Unit tests, component tests, E2E with Playwright', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n5', code: 'N6', title: 'Go or Node.js', description: 'Pick one backend language, learn fundamentals', node_type: 'decision', status: 'mastered', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n6', code: 'N7', title: 'REST API Design', description: 'HTTP methods, status codes, JSON:API, OpenAPI', node_type: 'step', status: 'practiced', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n7', code: 'N8', title: 'Database & SQL', description: 'PostgreSQL, migrations, indexing, query optimization', node_type: 'step', status: 'learning', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n8', code: 'N9', title: 'Auth & Security', description: 'JWT, OAuth2, CORS, rate limiting, OWASP', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n9', code: 'N10', title: 'Full-Stack Capable', description: 'Can build and deploy a complete web app independently', node_type: 'milestone', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n10', code: 'N11', title: 'Docker & CI/CD', description: 'Containerization, GitHub Actions, automated deploys', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n11', code: 'N12', title: 'System Design Basics', description: 'Load balancing, caching, queues, microservices intro', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n12', code: 'N13', title: 'Monitoring & Observability', description: 'Logging, metrics, tracing, alerting', node_type: 'info', status: '', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n13', code: 'N14', title: 'Senior Engineer Ready', description: 'Portfolio of 5+ projects, mentoring, system design skills', node_type: 'milestone', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n2', code: 'N3', title: 'React or Vue', description: 'Pick one, build 3 projects', node_type: 'decision', status: 'practiced', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n3', code: 'N4', title: 'State & Routing', description: 'Client state, SPA routing', node_type: 'step', status: 'learning', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n4', code: 'N5', title: 'Testing Frontend', description: 'Unit, component, E2E tests', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n5', code: 'N6', title: 'Go or Node.js', description: 'Pick backend language', node_type: 'decision', status: 'mastered', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n6', code: 'N7', title: 'REST API Design', description: 'HTTP, status codes, OpenAPI', node_type: 'step', status: 'practiced', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n7', code: 'N8', title: 'Database & SQL', description: 'PostgreSQL, migrations, indexing', node_type: 'step', status: 'learning', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n8', code: 'N9', title: 'Auth & Security', description: 'JWT, OAuth2, CORS, OWASP', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n9', code: 'N10', title: 'Full-Stack Capable', description: 'Build and deploy complete web app', node_type: 'milestone', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n10', code: 'N11', title: 'Docker & CI/CD', description: 'Containers, GitHub Actions', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n11', code: 'N12', title: 'System Design', description: 'Load balancing, caching, queues', node_type: 'step', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n12', code: 'N13', title: 'Monitoring', description: 'Logging, metrics, tracing', node_type: 'info', status: '', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n13', code: 'N14', title: 'Senior Engineer Ready', description: '5+ projects, mentoring, system design', node_type: 'milestone', status: 'not_started', position_x: 0, position_y: 0, parent_id: '' },
   ],
   edges: [
-    { id: 'e1', source_node_id: 'n0', target_node_id: 'n1', label: 'frontend track', edge_type: 'default' },
-    { id: 'e2', source_node_id: 'n0', target_node_id: 'n5', label: 'backend track', edge_type: 'default' },
-    { id: 'e3', source_node_id: 'n1', target_node_id: 'n2', label: 'next', edge_type: 'default' },
-    { id: 'e4', source_node_id: 'n2', target_node_id: 'n3', label: 'next', edge_type: 'default' },
-    { id: 'e5', source_node_id: 'n3', target_node_id: 'n4', label: 'next', edge_type: 'default' },
-    { id: 'e6', source_node_id: 'n5', target_node_id: 'n6', label: 'next', edge_type: 'default' },
-    { id: 'e7', source_node_id: 'n6', target_node_id: 'n7', label: 'next', edge_type: 'default' },
-    { id: 'e8', source_node_id: 'n7', target_node_id: 'n8', label: 'next', edge_type: 'default' },
+    { id: 'e1', source_node_id: 'n0', target_node_id: 'n1', label: 'frontend', edge_type: 'default' },
+    { id: 'e2', source_node_id: 'n0', target_node_id: 'n5', label: 'backend', edge_type: 'default' },
+    { id: 'e3', source_node_id: 'n1', target_node_id: 'n2', label: '', edge_type: 'default' },
+    { id: 'e4', source_node_id: 'n2', target_node_id: 'n3', label: '', edge_type: 'default' },
+    { id: 'e5', source_node_id: 'n3', target_node_id: 'n4', label: '', edge_type: 'default' },
+    { id: 'e6', source_node_id: 'n5', target_node_id: 'n6', label: '', edge_type: 'default' },
+    { id: 'e7', source_node_id: 'n6', target_node_id: 'n7', label: '', edge_type: 'default' },
+    { id: 'e8', source_node_id: 'n7', target_node_id: 'n8', label: '', edge_type: 'default' },
     { id: 'e9', source_node_id: 'n4', target_node_id: 'n9', label: 'converge', edge_type: 'success' },
     { id: 'e10', source_node_id: 'n8', target_node_id: 'n9', label: 'converge', edge_type: 'success' },
-    { id: 'e11', source_node_id: 'n9', target_node_id: 'n10', label: 'next', edge_type: 'default' },
-    { id: 'e12', source_node_id: 'n10', target_node_id: 'n11', label: 'next', edge_type: 'default' },
-    { id: 'e13', source_node_id: 'n11', target_node_id: 'n13', label: 'next', edge_type: 'default' },
+    { id: 'e11', source_node_id: 'n9', target_node_id: 'n10', label: '', edge_type: 'default' },
+    { id: 'e12', source_node_id: 'n10', target_node_id: 'n11', label: '', edge_type: 'default' },
+    { id: 'e13', source_node_id: 'n11', target_node_id: 'n13', label: '', edge_type: 'default' },
     { id: 'e14', source_node_id: 'n12', target_node_id: 'n11', label: 'reference', edge_type: 'optional' },
   ],
 }
@@ -314,69 +325,53 @@ const marketingLaunch: MockRoadmap = {
   statuses: ['planned', 'approved', 'in_progress', 'launched'],
   status: 'active',
   nodes: [
-    { id: 'n1', code: 'N1', title: 'Market Research', description: 'Competitors, target segments, pricing validation', node_type: 'step', status: 'launched', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n2', code: 'N2', title: 'Messaging & Positioning', description: 'Value proposition, differentiators, elevator pitch', node_type: 'step', status: 'approved', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n3', code: 'N3', title: 'Launch Channel Decision', description: 'Choose primary distribution channel', node_type: 'decision', status: 'in_progress', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n4', code: 'N4', title: 'Product Hunt Launch', description: 'Prepare assets, schedule launch day', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n5', code: 'N5', title: 'Content Marketing', description: 'SEO blog posts, case studies, comparison pages', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n6', code: 'N6', title: 'Paid Ads Campaign', description: 'Google Ads, LinkedIn sponsored, retargeting', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n7', code: 'N7', title: 'Budget: $15K allocated', description: 'Covers ads ($8K), content ($4K), tooling ($3K)', node_type: 'info', status: '', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n8', code: 'N8', title: 'Beta Program (50 users)', description: 'Onboard early adopters, collect NPS, iterate', node_type: 'milestone', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
-    { id: 'n9', code: 'N9', title: 'Public Launch', description: 'Coordinated launch across all chosen channels', node_type: 'milestone', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n1', code: 'N1', title: 'Market Research', description: 'Competitors, segments, pricing', node_type: 'step', status: 'launched', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n2', code: 'N2', title: 'Messaging & Positioning', description: 'Value prop, differentiators', node_type: 'step', status: 'approved', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n3', code: 'N3', title: 'Channel Decision', description: 'Choose distribution channel', node_type: 'decision', status: 'in_progress', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n4', code: 'N4', title: 'Product Hunt', description: 'Assets, launch day, upvotes', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n5', code: 'N5', title: 'Content Marketing', description: 'SEO, case studies, landing pages', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n6', code: 'N6', title: 'Paid Ads', description: 'Google, LinkedIn, retargeting', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n7', code: 'N7', title: 'Budget: $15K', description: 'Ads $8K, content $4K, tools $3K', node_type: 'info', status: '', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n8', code: 'N8', title: 'Beta (50 users)', description: 'Early adopters, NPS, iterate', node_type: 'milestone', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
+    { id: 'n9', code: 'N9', title: 'Public Launch', description: 'All channels coordinated', node_type: 'milestone', status: 'planned', position_x: 0, position_y: 0, parent_id: '' },
   ],
   edges: [
     { id: 'e1', source_node_id: 'n1', target_node_id: 'n2', label: 'next', edge_type: 'success' },
-    { id: 'e2', source_node_id: 'n2', target_node_id: 'n3', label: 'next', edge_type: 'default' },
+    { id: 'e2', source_node_id: 'n2', target_node_id: 'n3', label: '', edge_type: 'default' },
     { id: 'e3', source_node_id: 'n3', target_node_id: 'n4', label: 'if PH', edge_type: 'default' },
     { id: 'e4', source_node_id: 'n3', target_node_id: 'n5', label: 'if content', edge_type: 'default' },
     { id: 'e5', source_node_id: 'n3', target_node_id: 'n6', label: 'if paid', edge_type: 'default' },
-    { id: 'e6', source_node_id: 'n7', target_node_id: 'n6', label: 'budget for', edge_type: 'optional' },
-    { id: 'e7', source_node_id: 'n4', target_node_id: 'n8', label: 'leads to', edge_type: 'success' },
-    { id: 'e8', source_node_id: 'n5', target_node_id: 'n8', label: 'leads to', edge_type: 'success' },
-    { id: 'e9', source_node_id: 'n6', target_node_id: 'n8', label: 'leads to', edge_type: 'success' },
+    { id: 'e6', source_node_id: 'n7', target_node_id: 'n6', label: 'budget', edge_type: 'optional' },
+    { id: 'e7', source_node_id: 'n4', target_node_id: 'n8', label: '', edge_type: 'success' },
+    { id: 'e8', source_node_id: 'n5', target_node_id: 'n8', label: '', edge_type: 'success' },
+    { id: 'e9', source_node_id: 'n6', target_node_id: 'n8', label: '', edge_type: 'success' },
     { id: 'e10', source_node_id: 'n8', target_node_id: 'n9', label: 'feedback OK', edge_type: 'success' },
     { id: 'e11', source_node_id: 'n8', target_node_id: 'n3', label: 'pivot', edge_type: 'warning' },
   ],
 }
 
 // =============================================================================
-// Meta + Exports
-// =============================================================================
 const meta: Meta<typeof RoadmapPageView> = {
   title: 'Pages/Roadmap',
   component: RoadmapPageView,
   tags: ['autodocs'],
-  parameters: {
-    layout: 'fullscreen',
-  },
+  parameters: { layout: 'fullscreen' },
 }
 export default meta
 type Story = StoryObj<typeof RoadmapPageView>
 
 export const LinearLearningPath: Story = {
-  args: {
-    roadmap: vueLearningPath,
-    researchName: 'Frontend Research',
-  },
+  args: { roadmap: vueLearningPath, researchName: 'Frontend Research' },
 }
 
 export const BranchingDecisionTree: Story = {
-  args: {
-    roadmap: frameworkDecision,
-    researchName: 'Architecture Research',
-  },
+  args: { roadmap: frameworkDecision, researchName: 'Architecture Research' },
 }
 
 export const ParallelTracks: Story = {
-  args: {
-    roadmap: fullStackRoadmap,
-    researchName: 'Career Development Research',
-  },
+  args: { roadmap: fullStackRoadmap, researchName: 'Career Development' },
 }
 
 export const MarketingStrategy: Story = {
-  args: {
-    roadmap: marketingLaunch,
-    researchName: 'Product Analytics Research',
-  },
+  args: { roadmap: marketingLaunch, researchName: 'Product Analytics' },
 }
