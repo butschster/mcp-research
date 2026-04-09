@@ -52,7 +52,7 @@
     <!-- Content -->
     <div class="entry-content card">
       <div v-if="viewMode === 'rendered'" class="markdown-content" v-html="renderedContent"></div>
-      <pre v-else class="source-view"><code>{{ entry.content }}</code></pre>
+      <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
     </div>
 
     <!-- Cross-references -->
@@ -124,6 +124,103 @@ const renderedContent = computed(() => {
   const html = marked.parse(entry.value.content) as string
   return renderRefs(html, researchSlug.value)
 })
+
+// Syntax-highlighted markdown source
+const highlightedSource = computed(() => {
+  if (!entry.value?.content) return ''
+  return highlightMarkdown(entry.value.content)
+})
+
+function highlightMarkdown(src: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  const lines = src.split('\n')
+  const result: string[] = []
+  let inCodeBlock = false
+  let codeLang = ''
+
+  for (const raw of lines) {
+    const line = esc(raw)
+
+    // Fenced code blocks
+    if (/^```/.test(raw)) {
+      if (!inCodeBlock) {
+        inCodeBlock = true
+        codeLang = raw.slice(3).trim()
+        result.push(`<span class="md-fence">${line}</span>`)
+      } else {
+        inCodeBlock = false
+        codeLang = ''
+        result.push(`<span class="md-fence">${line}</span>`)
+      }
+      continue
+    }
+    if (inCodeBlock) {
+      result.push(`<span class="md-code-line">${line}</span>`)
+      continue
+    }
+
+    // Headings
+    if (/^#{1,6}\s/.test(raw)) {
+      const match = line.match(/^(#{1,6})\s(.*)$/)
+      if (match) {
+        result.push(`<span class="md-heading-marker">${match[1]}</span> <span class="md-heading">${inlineHighlight(match[2])}</span>`)
+        continue
+      }
+    }
+
+    // Blockquotes
+    if (/^&gt;\s?/.test(line)) {
+      result.push(`<span class="md-blockquote">${inlineHighlight(line)}</span>`)
+      continue
+    }
+
+    // Horizontal rule
+    if (/^(---|\*\*\*|___)$/.test(raw)) {
+      result.push(`<span class="md-hr">${line}</span>`)
+      continue
+    }
+
+    // Unordered list
+    if (/^(\s*)([-*+])\s/.test(raw)) {
+      const match = line.match(/^(\s*)([-*+])\s(.*)$/)
+      if (match) {
+        result.push(`${match[1]}<span class="md-list-marker">${match[2]}</span> ${inlineHighlight(match[3])}`)
+        continue
+      }
+    }
+
+    // Ordered list
+    if (/^\s*\d+\.\s/.test(raw)) {
+      const match = line.match(/^(\s*)(\d+\.)\s(.*)$/)
+      if (match) {
+        result.push(`${match[1]}<span class="md-list-marker">${match[2]}</span> ${inlineHighlight(match[3])}`)
+        continue
+      }
+    }
+
+    // Regular line with inline highlighting
+    result.push(inlineHighlight(line))
+  }
+
+  return result.join('\n')
+}
+
+function inlineHighlight(line: string): string {
+  return line
+    // Images ![alt](url) — before links
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<span class="md-image">![$1]($2)</span>')
+    // Links [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<span class="md-link">[$1](<span class="md-url">$2</span>)</span>')
+    // Cross-references [[...]]
+    .replace(/\[\[([^\]]+)\]\]/g, '<span class="md-crossref">[[$1]]</span>')
+    // Bold **text** or __text__
+    .replace(/(\*\*|__)(.+?)\1/g, '<span class="md-bold">$1$2$1</span>')
+    // Italic *text* or _text_ (not inside bold markers)
+    .replace(/(?<!\*)(\*|_)(?!\*)(.+?)\1(?!\*)/g, '<span class="md-italic">$1$2$1</span>')
+    // Inline code `code`
+    .replace(/`([^`]+)`/g, '<span class="md-inline-code">`$1`</span>')
+}
 
 // View toggle
 const viewMode = ref<'rendered' | 'source'>('rendered')
@@ -262,6 +359,22 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   margin: 0;
 }
 .source-view code { background: none; padding: 0; font-size: inherit; }
+
+/* Markdown syntax highlighting */
+.source-view :deep(.md-heading-marker) { color: #e06c75; font-weight: 700; }
+.source-view :deep(.md-heading) { color: #e5c07b; font-weight: 600; }
+.source-view :deep(.md-bold) { color: #d19a66; font-weight: 600; }
+.source-view :deep(.md-italic) { color: #c678dd; font-style: italic; }
+.source-view :deep(.md-inline-code) { color: #98c379; background: rgba(152, 195, 121, 0.08); border-radius: 3px; padding: 0 0.15em; }
+.source-view :deep(.md-link) { color: #61afef; }
+.source-view :deep(.md-url) { color: #56b6c2; opacity: 0.7; }
+.source-view :deep(.md-image) { color: #c678dd; }
+.source-view :deep(.md-crossref) { color: #6cc5e0; background: rgba(108, 197, 224, 0.1); border-radius: 3px; padding: 0 0.15em; }
+.source-view :deep(.md-blockquote) { color: #5c6370; font-style: italic; border-left: 2px solid #5c6370; padding-left: 0.75em; display: inline-block; }
+.source-view :deep(.md-list-marker) { color: #e06c75; font-weight: 600; }
+.source-view :deep(.md-hr) { color: #5c6370; }
+.source-view :deep(.md-fence) { color: #98c379; }
+.source-view :deep(.md-code-line) { color: #abb2bf; opacity: 0.85; }
 
 /* Skeleton */
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
