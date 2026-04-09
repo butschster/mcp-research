@@ -13,7 +13,7 @@ import (
 // --- Request DTOs ---
 
 type CreateRoadmapNodeRequest struct {
-	TempID      string  // Client-provided temp ID for edge references during bulk create
+	TempID      string // Client-provided temp ID for edge references during bulk create
 	Title       string
 	Description string
 	NodeType    string
@@ -21,6 +21,9 @@ type CreateRoadmapNodeRequest struct {
 	PositionX   float64
 	PositionY   float64
 	ParentID    string
+	RefType     string // Reference type: entry, task, session, research, question
+	RefID       string // ID of the referenced entity
+	Metadata    string // JSON blob for node-type-specific data
 }
 
 type CreateRoadmapEdgeRequest struct {
@@ -54,6 +57,9 @@ type UpdateRoadmapNodeRequest struct {
 	PositionX   *float64
 	PositionY   *float64
 	ParentID    *string
+	RefType     *string
+	RefID       *string
+	Metadata    *string
 }
 
 // --- Service ---
@@ -65,6 +71,12 @@ type RoadmapService struct {
 	researches *storage.ResearchRepository
 	events     EventNotifier
 	log        *slog.Logger
+	// Optional repos for reference resolution (set via SetRefResolvers)
+	entries   *storage.EntryRepository
+	tasks     *storage.TaskRepository
+	sessions  *storage.SessionRepository
+	questions *storage.QuestionRepository
+	sections  *storage.SectionRepository
 }
 
 func NewRoadmapService(
@@ -83,6 +95,21 @@ func NewRoadmapService(
 		events:     events,
 		log:        log,
 	}
+}
+
+// SetRefResolvers injects repositories needed for resolving node references.
+func (s *RoadmapService) SetRefResolvers(
+	entries *storage.EntryRepository,
+	tasks *storage.TaskRepository,
+	sessions *storage.SessionRepository,
+	questions *storage.QuestionRepository,
+	sections *storage.SectionRepository,
+) {
+	s.entries = entries
+	s.tasks = tasks
+	s.sessions = sessions
+	s.questions = questions
+	s.sections = sections
 }
 
 // Create creates a roadmap with initial nodes and edges in one call.
@@ -127,6 +154,9 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 			PositionX:   nr.PositionX,
 			PositionY:   nr.PositionY,
 			ParentID:    nr.ParentID,
+			RefType:     nr.RefType,
+			RefID:       nr.RefID,
+			Metadata:    nr.Metadata,
 		}
 		if err := s.nodes.Create(ctx, node); err != nil {
 			return nil, fmt.Errorf("create node %q: %w", nr.Title, err)
@@ -201,7 +231,205 @@ func (s *RoadmapService) Get(ctx context.Context, id string) (*domain.Roadmap, e
 		return nil, fmt.Errorf("find edges: %w", err)
 	}
 
+	// Resolve references (lazy sync)
+	s.resolveNodeRefs(ctx, rm.Nodes)
+
 	return rm, nil
+}
+
+// GetByIDOrCode returns a roadmap scoped to a research. Accepts UUID or short code (e.g. RM1).
+// Validates that the roadmap belongs to the given research.
+func (s *RoadmapService) GetByIDOrCode(ctx context.Context, researchID, idOrCode string) (*domain.Roadmap, error) {
+	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+		return nil, ErrNotFound
+	}
+
+	rm, err := s.roadmaps.FindByID(ctx, idOrCode)
+	if err != nil {
+		return nil, fmt.Errorf("find roadmap: %w", err)
+	}
+	if rm == nil && isCode(idOrCode) {
+		rm, err = s.roadmaps.FindByCodeAndResearch(ctx, idOrCode, researchID)
+		if err != nil {
+			return nil, fmt.Errorf("find roadmap by code: %w", err)
+		}
+	}
+	if rm == nil {
+		return nil, ErrNotFound
+	}
+	if rm.ResearchID != researchID {
+		return nil, ErrNotFound
+	}
+
+	rm.Nodes, err = s.nodes.FindByRoadmap(ctx, rm.ID)
+	if err != nil {
+		return nil, fmt.Errorf("find nodes: %w", err)
+	}
+	rm.Edges, err = s.edges.FindByRoadmap(ctx, rm.ID)
+	if err != nil {
+		return nil, fmt.Errorf("find edges: %w", err)
+	}
+
+	s.resolveNodeRefs(ctx, rm.Nodes)
+
+	return rm, nil
+}
+
+// resolveNodeRefs populates RefData for nodes that have ref_type/ref_id set.
+func (s *RoadmapService) resolveNodeRefs(ctx context.Context, nodes []*domain.RoadmapNode) {
+	for _, node := range nodes {
+		if node.RefType == "" || node.RefID == "" {
+			continue
+		}
+		refData := s.resolveRef(ctx, node.RefType, node.RefID)
+		if refData != nil {
+			node.RefData = refData
+		}
+	}
+}
+
+func (s *RoadmapService) resolveRef(ctx context.Context, refType, refID string) *domain.RoadmapNodeRefData {
+	switch domain.RoadmapNodeRefType(refType) {
+	case domain.RefTypeEntry:
+		return s.resolveEntryRef(ctx, refID)
+	case domain.RefTypeTask:
+		return s.resolveTaskRef(ctx, refID)
+	case domain.RefTypeSession:
+		return s.resolveSessionRef(ctx, refID)
+	case domain.RefTypeResearch:
+		return s.resolveResearchRef(ctx, refID)
+	case domain.RefTypeQuestion:
+		return s.resolveQuestionRef(ctx, refID)
+	default:
+		return nil
+	}
+}
+
+func (s *RoadmapService) resolveEntryRef(ctx context.Context, id string) *domain.RoadmapNodeRefData {
+	if s.entries == nil {
+		return nil
+	}
+	entry, err := s.entries.FindByID(ctx, id)
+	if err != nil || entry == nil {
+		return nil
+	}
+	data := &domain.RoadmapNodeRefData{
+		Title:       entry.Title,
+		Status:      string(entry.Status),
+		Code:        entry.Code,
+		Description: entry.Description,
+		ResearchID:  entry.ResearchID,
+	}
+	// Include content preview (first 200 chars)
+	if len(entry.Content) > 200 {
+		data.Content = entry.Content[:200] + "..."
+	} else {
+		data.Content = entry.Content
+	}
+	// Resolve section name
+	if s.sections != nil && entry.SectionID != "" {
+		section, err := s.sections.FindByID(ctx, entry.SectionID)
+		if err == nil && section != nil {
+			data.SectionName = section.DisplayName
+			if data.SectionName == "" {
+				data.SectionName = section.Name
+			}
+		}
+	}
+	return data
+}
+
+func (s *RoadmapService) resolveTaskRef(ctx context.Context, id string) *domain.RoadmapNodeRefData {
+	if s.tasks == nil {
+		return nil
+	}
+	task, err := s.tasks.FindByID(ctx, id)
+	if err != nil || task == nil {
+		return nil
+	}
+	return &domain.RoadmapNodeRefData{
+		Title:      task.Title,
+		Status:     string(task.Status),
+		Code:       task.Code,
+		ResearchID: task.ResearchID,
+		Priority:   string(task.Priority),
+		Result:     task.Result,
+	}
+}
+
+func (s *RoadmapService) resolveSessionRef(ctx context.Context, id string) *domain.RoadmapNodeRefData {
+	if s.sessions == nil {
+		return nil
+	}
+	session, err := s.sessions.FindByID(ctx, id)
+	if err != nil || session == nil {
+		return nil
+	}
+	data := &domain.RoadmapNodeRefData{
+		Title:       session.Title,
+		Status:      string(session.Status),
+		Code:        session.Code,
+		Description: session.Focus,
+		ResearchID:  session.ResearchID,
+	}
+	// Count questions
+	if s.questions != nil {
+		questions, err := s.questions.FindBySession(ctx, id, storage.QuestionFilter{})
+		if err == nil {
+			data.TotalQuestions = len(questions)
+			for _, q := range questions {
+				if q.Answer != "" {
+					data.AnsweredQuestions++
+				}
+			}
+		}
+	}
+	return data
+}
+
+func (s *RoadmapService) resolveResearchRef(ctx context.Context, id string) *domain.RoadmapNodeRefData {
+	research, err := s.researches.FindByID(ctx, id)
+	if err != nil || research == nil {
+		return nil
+	}
+	data := &domain.RoadmapNodeRefData{
+		Title:       research.Name,
+		Status:      string(research.Status),
+		Code:        research.Code,
+		Description: research.Description,
+		ResearchID:  research.ID,
+	}
+	// Count sections
+	if s.sections != nil {
+		sections, err := s.sections.FindByResearch(ctx, id)
+		if err == nil {
+			data.SectionCount = len(sections)
+		}
+	}
+	// Count entries
+	if s.entries != nil {
+		entries, err := s.entries.FindByResearch(ctx, id, storage.EntryFilter{})
+		if err == nil {
+			data.EntryCount = len(entries)
+		}
+	}
+	return data
+}
+
+func (s *RoadmapService) resolveQuestionRef(ctx context.Context, id string) *domain.RoadmapNodeRefData {
+	if s.questions == nil {
+		return nil
+	}
+	q, err := s.questions.FindByID(ctx, id)
+	if err != nil || q == nil {
+		return nil
+	}
+	return &domain.RoadmapNodeRefData{
+		Title:       q.Text,
+		Status:      string(q.Status),
+		Code:        q.Code,
+		Description: q.Answer,
+	}
 }
 
 // List returns all roadmaps for a research (without nodes/edges).
@@ -296,6 +524,9 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 			PositionX:   nr.PositionX,
 			PositionY:   nr.PositionY,
 			ParentID:    nr.ParentID,
+			RefType:     nr.RefType,
+			RefID:       nr.RefID,
+			Metadata:    nr.Metadata,
 		}
 		if err := s.nodes.Create(ctx, node); err != nil {
 			return nil, fmt.Errorf("create node %q: %w", nr.Title, err)
@@ -379,6 +610,15 @@ func (s *RoadmapService) UpdateNode(ctx context.Context, nodeID string, req Upda
 	}
 	if req.ParentID != nil {
 		node.ParentID = *req.ParentID
+	}
+	if req.RefType != nil {
+		node.RefType = *req.RefType
+	}
+	if req.RefID != nil {
+		node.RefID = *req.RefID
+	}
+	if req.Metadata != nil {
+		node.Metadata = *req.Metadata
 	}
 
 	if err := s.nodes.Update(ctx, node); err != nil {

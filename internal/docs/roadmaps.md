@@ -43,6 +43,45 @@ Use sections and entries instead when:
 | `decision` | Fork in the path where a choice is needed | Amber left accent |
 | `info` | Reference material, prerequisite, or note | Blue left accent |
 | `group` | Container for related steps (visual grouping) | Gray left accent |
+| `checklist` | List of sub-items with checkboxes | Use metadata for items |
+| `note` | Free-form sticky note | For annotations |
+| `link` | External URL reference | Use metadata for URL |
+| `metric` | KPI or numeric indicator | Use metadata for value |
+
+## Entity References (ref_type + ref_id)
+
+Nodes can link to existing research entities. When a node has `ref_type` and `ref_id`, the roadmap displays live data from the referenced entity (title, status, progress). This enables roadmaps that act as dashboards over research content.
+
+| ref_type | References | Synced fields |
+|----------|-----------|---------------|
+| `entry` | An entry in any research | Title, status, content preview, section name |
+| `task` | A task in the research | Title, status, priority, result |
+| `session` | An interview session | Title, status, question progress (X/Y answered) |
+| `research` | Another research | Name, status, section count, entry count |
+| `question` | A question in a session | Text, status, answer |
+
+Referenced data is resolved at read time (lazy sync) — always shows the current state of the entity.
+
+### Creating Reference Nodes
+
+```
+roadmap_create({
+  research_id: "...",
+  title: "Project Dashboard",
+  statuses: ["todo", "in_progress", "done"],
+  nodes: [
+    { temp_id: "n1", title: "Analyze competitors", node_type: "step", ref_type: "task", ref_id: "<task-uuid>" },
+    { temp_id: "n2", title: "Architecture doc", node_type: "step", ref_type: "entry", ref_id: "<entry-uuid>" },
+    { temp_id: "n3", title: "User interviews", node_type: "step", ref_type: "session", ref_id: "<session-uuid>" },
+    { temp_id: "n4", title: "Related research", node_type: "info", ref_type: "research", ref_id: "<research-uuid>" },
+  ],
+  edges: [
+    { source: "n1", target: "n2" },
+    { source: "n2", target: "n3" },
+    { source: "n3", target: "n4" },
+  ]
+})
+```
 
 ## Edge Types
 

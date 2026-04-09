@@ -12,8 +12,14 @@
       <span v-for="s in data.statuses" :key="s" class="rm-root-status-chip">{{ s }}</span>
     </div>
     <div class="rm-root-stats">
-      <span>{{ data.nodeCount }} nodes</span>
-      <span>{{ data.edgeCount }} edges</span>
+      <span class="rm-root-stat">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+        {{ data.nodeCount }} nodes
+      </span>
+      <span class="rm-root-stat">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        {{ data.edgeCount }} edges
+      </span>
     </div>
     <Handle type="source" :position="sourcePosition" />
   </div>
@@ -44,12 +50,12 @@ function truncate(text: string, len: number): string {
 <style scoped>
 .roadmap-root-node {
   background: var(--color-surface);
-  border: 2px solid var(--color-primary);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-5) var(--space-6);
   min-width: 320px;
   max-width: 400px;
-  box-shadow: 0 4px 24px rgba(108, 197, 224, 0.15);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
 }
 .rm-root-header {
   display: flex;
@@ -105,10 +111,13 @@ function truncate(text: string, len: number): string {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+.rm-root-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: var(--type-xs);
   color: var(--color-text-muted);
-}
-.rm-root-stats span {
   background: var(--color-surface-hover);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;

@@ -6,6 +6,7 @@ import '@vue-flow/core/dist/theme-default.css'
 import dagre from '@dagrejs/dagre'
 import RoadmapStepNode from './RoadmapStepNode.vue'
 import RoadmapRootNode from './RoadmapRootNode.vue'
+import RoadmapRefNode from './RoadmapRefNode.vue'
 import RoadmapNodePopover from './RoadmapNodePopover.vue'
 
 /**
@@ -14,10 +15,18 @@ import RoadmapNodePopover from './RoadmapNodePopover.vue'
  */
 
 // --- API response shape (matches GET /api/roadmaps/{id}) ---
+interface MockRefData {
+  title?: string; status?: string; code?: string; description?: string
+  research_id?: string; section_name?: string; content?: string
+  priority?: string; result?: string
+  total_questions?: number; answered_questions?: number
+  section_count?: number; entry_count?: number
+}
 interface MockNode {
   id: string; code: string; title: string; description: string
   node_type: string; status: string
   position_x: number; position_y: number; parent_id: string
+  ref_type?: string; ref_id?: string; metadata?: string; ref_data?: MockRefData
 }
 interface MockEdge {
   id: string; source_node_id: string; target_node_id: string
@@ -40,6 +49,7 @@ const EDGE_STYLES: Record<string, Record<string, any>> = {
 const NODE_SIZES: Record<string, { width: number; height: number }> = {
   'roadmap-root': { width: 400, height: 160 },
   'roadmap-step': { width: 320, height: 120 },
+  'roadmap-ref': { width: 340, height: 140 },
 }
 
 function buildVueFlowGraph(data: MockRoadmap) {
@@ -49,14 +59,25 @@ function buildVueFlowGraph(data: MockRoadmap) {
   // Build nodes
   const nodes = data.nodes.map(n => {
     const isRoot = n.id === rootId
-    const type = isRoot ? 'roadmap-root' : 'roadmap-step'
+    const hasRef = !isRoot && n.ref_type && n.ref_id
+
+    let type: string
+    if (isRoot) type = 'roadmap-root'
+    else if (hasRef) type = 'roadmap-ref'
+    else type = 'roadmap-step'
+
+    let nodeData: Record<string, any>
+    if (isRoot) {
+      nodeData = { code: data.code, title: data.title, description: data.description, status: data.status, statuses: data.statuses, nodeCount: data.nodes.length, edgeCount: data.edges.length }
+    } else {
+      nodeData = { code: n.code, title: n.title, description: n.description, nodeType: n.node_type, status: n.status, refType: n.ref_type, refId: n.ref_id, metadata: n.metadata, refData: n.ref_data }
+    }
+
     return {
       id: n.id,
       type,
       position: { x: 0, y: 0 },
-      data: isRoot
-        ? { code: data.code, title: data.title, description: data.description, status: data.status, statuses: data.statuses, nodeCount: data.nodes.length, edgeCount: data.edges.length }
-        : { code: n.code, title: n.title, description: n.description, nodeType: n.node_type, status: n.status },
+      data: nodeData,
     }
   })
 
@@ -102,7 +123,7 @@ function buildVueFlowGraph(data: MockRoadmap) {
 // --- Page component ---
 const RoadmapPageView = defineComponent({
   name: 'RoadmapPageView',
-  components: { VueFlow, RoadmapStepNode, RoadmapRootNode, RoadmapNodePopover },
+  components: { VueFlow, RoadmapStepNode, RoadmapRootNode, RoadmapRefNode, RoadmapNodePopover },
   props: {
     roadmap: { type: Object as () => MockRoadmap, required: true },
     researchName: { type: String, default: 'Research' },
@@ -111,6 +132,7 @@ const RoadmapPageView = defineComponent({
     const nodeTypes = {
       'roadmap-root': markRaw(RoadmapRootNode),
       'roadmap-step': markRaw(RoadmapStepNode),
+      'roadmap-ref': markRaw(RoadmapRefNode),
     }
 
     const data = ref({ ...props.roadmap, nodes: props.roadmap.nodes.map(n => ({ ...n })) })
@@ -136,6 +158,9 @@ const RoadmapPageView = defineComponent({
         description: node.data.description || '',
         nodeType: node.data.nodeType || 'step',
         status: node.data.status || '',
+        refType: node.data.refType,
+        refId: node.data.refId,
+        refData: node.data.refData,
       }
       popoverPos.value = { x: event.clientX + 12, y: event.clientY - 20 }
     }
@@ -350,6 +375,127 @@ const marketingLaunch: MockRoadmap = {
   ],
 }
 
+const projectDashboard: MockRoadmap = {
+  id: 'rm-5', code: 'RM5', research_id: 'r-5',
+  title: 'Product Release Dashboard',
+  description: 'Cross-research roadmap linking tasks, entries, sessions, and related researches',
+  statuses: ['todo', 'in_progress', 'review', 'done'],
+  status: 'active',
+  nodes: [
+    // Root is a plain step (no ref)
+    { id: 'n1', code: 'N1', title: 'Research Phase', description: 'Gather requirements and analyze the problem space', node_type: 'milestone', status: 'done', position_x: 0, position_y: 0, parent_id: '' },
+    // Entry ref: architecture doc
+    { id: 'n2', code: 'N2', title: 'Architecture doc', description: '', node_type: 'step', status: 'done', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'entry', ref_id: 'entry-1',
+      ref_data: { title: 'Microservices Architecture Overview', status: 'final', code: 'E3', section_name: 'Architecture', content: 'Service mesh provides transparent routing, load balancing, and observability between microservices...' },
+    },
+    // Session ref: user interviews
+    { id: 'n3', code: 'N3', title: 'User interviews', description: '', node_type: 'step', status: 'in_progress', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'session', ref_id: 'session-1',
+      ref_data: { title: 'UX Deep-dive Interviews', status: 'active', code: 'SS2', description: 'Understanding pain points', total_questions: 12, answered_questions: 8 },
+    },
+    // Research ref: related market analysis
+    { id: 'n4', code: 'N4', title: 'Market analysis', description: '', node_type: 'info', status: '', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'research', ref_id: 'research-2',
+      ref_data: { title: 'Competitive Market Analysis 2025', status: 'in_progress', code: 'R3', section_count: 5, entry_count: 23 },
+    },
+    // Regular decision node (no ref)
+    { id: 'n5', code: 'N5', title: 'Choose tech stack', description: 'Based on research findings, pick the stack', node_type: 'decision', status: 'in_progress', position_x: 0, position_y: 0, parent_id: '' },
+    // Task ref: implement auth
+    { id: 'n6', code: 'N6', title: 'Implement auth', description: '', node_type: 'step', status: 'in_progress', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'task', ref_id: 'task-1',
+      ref_data: { title: 'Implement OAuth2 + PKCE flow', status: 'in_progress', code: 'T2', priority: 'high' },
+    },
+    // Task ref: CI/CD pipeline
+    { id: 'n7', code: 'N7', title: 'Set up CI/CD', description: '', node_type: 'step', status: 'done', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'task', ref_id: 'task-2',
+      ref_data: { title: 'Configure GitHub Actions pipeline', status: 'done', code: 'T5', priority: 'medium', result: 'Build, test, deploy stages. Avg 3m20s.' },
+    },
+    // Task ref: security audit (critical)
+    { id: 'n8', code: 'N8', title: 'Security audit', description: '', node_type: 'step', status: 'todo', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'task', ref_id: 'task-3',
+      ref_data: { title: 'Patch session token vulnerability', status: 'todo', code: 'T1', priority: 'critical' },
+    },
+    // Question ref
+    { id: 'n9', code: 'N9', title: 'Key question', description: '', node_type: 'step', status: 'done', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'question', ref_id: 'question-1',
+      ref_data: { title: 'What are the main scalability bottlenecks?', status: 'answered', code: 'Q3', description: 'DB pooling and caching are the primary bottlenecks.' },
+    },
+    // Entry ref: API docs
+    { id: 'n10', code: 'N10', title: 'API documentation', description: '', node_type: 'step', status: 'in_progress', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'entry', ref_id: 'entry-2',
+      ref_data: { title: 'REST API Reference v2', status: 'draft', code: 'E12', section_name: 'Documentation', content: '21 endpoints across research, entry, session, task, and roadmap domains. All write endpoints require bearer auth...' },
+    },
+    // Final milestone (no ref)
+    { id: 'n11', code: 'N11', title: 'Release v1.0', description: 'All tracks converge — ship it', node_type: 'milestone', status: 'todo', position_x: 0, position_y: 0, parent_id: '' },
+  ],
+  edges: [
+    { id: 'e1', source_node_id: 'n1', target_node_id: 'n2', label: 'document', edge_type: 'default' },
+    { id: 'e2', source_node_id: 'n1', target_node_id: 'n3', label: 'interview', edge_type: 'default' },
+    { id: 'e3', source_node_id: 'n1', target_node_id: 'n4', label: 'reference', edge_type: 'optional' },
+    { id: 'e4', source_node_id: 'n2', target_node_id: 'n5', label: 'informs', edge_type: 'success' },
+    { id: 'e5', source_node_id: 'n3', target_node_id: 'n5', label: 'informs', edge_type: 'success' },
+    { id: 'e6', source_node_id: 'n9', target_node_id: 'n5', label: 'answers', edge_type: 'success' },
+    { id: 'e7', source_node_id: 'n5', target_node_id: 'n6', label: 'build', edge_type: 'default' },
+    { id: 'e8', source_node_id: 'n5', target_node_id: 'n7', label: 'infra', edge_type: 'default' },
+    { id: 'e9', source_node_id: 'n6', target_node_id: 'n8', label: 'then', edge_type: 'default' },
+    { id: 'e10', source_node_id: 'n6', target_node_id: 'n10', label: 'document', edge_type: 'optional' },
+    { id: 'e11', source_node_id: 'n7', target_node_id: 'n11', label: '', edge_type: 'success' },
+    { id: 'e12', source_node_id: 'n8', target_node_id: 'n11', label: '', edge_type: 'success' },
+    { id: 'e13', source_node_id: 'n10', target_node_id: 'n11', label: '', edge_type: 'success' },
+  ],
+}
+
+const mixedRefRoadmap: MockRoadmap = {
+  id: 'rm-6', code: 'RM6', research_id: 'r-6',
+  title: 'UX Research Plan',
+  description: 'Interview-driven research with linked sessions and entries',
+  statuses: ['planned', 'active', 'completed'],
+  status: 'active',
+  nodes: [
+    { id: 'n1', code: 'N1', title: 'Define research goals', description: 'Identify key questions and target users', node_type: 'step', status: 'completed', position_x: 0, position_y: 0, parent_id: '' },
+    // Session: initial exploration
+    { id: 'n2', code: 'N2', title: 'Initial exploration', description: '', node_type: 'step', status: 'completed', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'session', ref_id: 'ss-1',
+      ref_data: { title: 'Broad Exploration Session', status: 'completed', code: 'SS1', total_questions: 6, answered_questions: 6 },
+    },
+    // Entry: synthesis from first session
+    { id: 'n3', code: 'N3', title: 'Synthesis notes', description: '', node_type: 'step', status: 'completed', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'entry', ref_id: 'e-1',
+      ref_data: { title: 'Session 1 Synthesis', status: 'final', code: 'E1', section_name: 'Findings', content: 'Users primarily struggle with onboarding flow — 7 out of 8 participants mentioned confusion at the account setup step.' },
+    },
+    // Session: deep-dive
+    { id: 'n4', code: 'N4', title: 'Deep-dive interviews', description: '', node_type: 'step', status: 'active', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'session', ref_id: 'ss-2',
+      ref_data: { title: 'Onboarding Deep-dive', status: 'active', code: 'SS2', total_questions: 10, answered_questions: 4 },
+    },
+    // Task: create prototype
+    { id: 'n5', code: 'N5', title: 'Build prototype', description: '', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'task', ref_id: 't-1',
+      ref_data: { title: 'Create Figma prototype for new onboarding', status: 'todo', code: 'T3', priority: 'high' },
+    },
+    // Session: usability test
+    { id: 'n6', code: 'N6', title: 'Usability testing', description: '', node_type: 'step', status: 'planned', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'session', ref_id: 'ss-3',
+      ref_data: { title: 'Prototype Usability Test', status: 'planned', code: 'SS3', total_questions: 8, answered_questions: 0 },
+    },
+    // Entry: final report
+    { id: 'n7', code: 'N7', title: 'Final report', description: '', node_type: 'milestone', status: 'planned', position_x: 0, position_y: 0, parent_id: '',
+      ref_type: 'entry', ref_id: 'e-2',
+      ref_data: { title: 'UX Research Final Report', status: 'draft', code: 'E8', section_name: 'Reports' },
+    },
+  ],
+  edges: [
+    { id: 'e1', source_node_id: 'n1', target_node_id: 'n2', label: 'explore', edge_type: 'default' },
+    { id: 'e2', source_node_id: 'n2', target_node_id: 'n3', label: 'synthesize', edge_type: 'success' },
+    { id: 'e3', source_node_id: 'n3', target_node_id: 'n4', label: 'deep-dive', edge_type: 'default' },
+    { id: 'e4', source_node_id: 'n4', target_node_id: 'n5', label: 'prototype', edge_type: 'default' },
+    { id: 'e5', source_node_id: 'n5', target_node_id: 'n6', label: 'test', edge_type: 'default' },
+    { id: 'e6', source_node_id: 'n6', target_node_id: 'n7', label: 'report', edge_type: 'success' },
+    { id: 'e7', source_node_id: 'n4', target_node_id: 'n7', label: 'if blocked', edge_type: 'warning' },
+  ],
+}
+
 // =============================================================================
 const meta: Meta<typeof RoadmapPageView> = {
   title: 'Pages/Roadmap',
@@ -374,4 +520,14 @@ export const ParallelTracks: Story = {
 
 export const MarketingStrategy: Story = {
   args: { roadmap: marketingLaunch, researchName: 'Product Analytics' },
+}
+
+export const ProjectDashboardWithRefs: Story = {
+  name: 'Project Dashboard (entity references)',
+  args: { roadmap: projectDashboard, researchName: 'Product Release' },
+}
+
+export const UXResearchPlan: Story = {
+  name: 'UX Research Plan (sessions + entries)',
+  args: { roadmap: mixedRefRoadmap, researchName: 'Onboarding UX Research' },
 }

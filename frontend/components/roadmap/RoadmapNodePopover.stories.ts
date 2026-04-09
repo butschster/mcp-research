@@ -144,3 +144,124 @@ export const CustomDomainStatuses: Story = {
     position: { x: 20, y: 20 },
   },
 }
+
+// --- Reference node popovers ---
+
+export const EntryRefPopover: Story = {
+  name: 'Entry Reference',
+  args: {
+    node: {
+      id: 'n20',
+      title: 'Architecture Overview',
+      description: 'Main architecture document for the project',
+      nodeType: 'step',
+      status: 'in_progress',
+      refType: 'entry',
+      refId: 'entry-uuid',
+      refData: {
+        title: 'Microservices Architecture Overview',
+        status: 'draft',
+        code: 'E3',
+        section_name: 'Architecture',
+        content: 'Service mesh provides transparent routing, load balancing, and observability between microservices without requiring application-level changes...',
+      },
+    },
+    statuses: ['not_started', 'in_progress', 'completed'],
+    position: { x: 20, y: 20 },
+  },
+}
+
+export const TaskRefPopover: Story = {
+  name: 'Task Reference (with result)',
+  args: {
+    node: {
+      id: 'n21',
+      title: 'Set up CI/CD pipeline',
+      description: '',
+      nodeType: 'step',
+      status: 'done',
+      refType: 'task',
+      refId: 'task-uuid',
+      refData: {
+        title: 'Configure GitHub Actions CI/CD',
+        status: 'done',
+        code: 'T5',
+        priority: 'high',
+        result: 'Pipeline configured with build, test, and deploy stages. Average build time: 3m 20s. Deploys to staging automatically on merge.',
+      },
+    },
+    statuses: ['todo', 'in_progress', 'review', 'done'],
+    position: { x: 20, y: 20 },
+  },
+}
+
+export const SessionRefPopover: Story = {
+  name: 'Session Reference',
+  args: {
+    node: {
+      id: 'n22',
+      title: 'User interviews',
+      description: '',
+      nodeType: 'step',
+      status: 'active',
+      refType: 'session',
+      refId: 'session-uuid',
+      refData: {
+        title: 'Deep-dive User Interviews',
+        status: 'active',
+        code: 'SS2',
+        total_questions: 12,
+        answered_questions: 8,
+      },
+    },
+    statuses: ['planned', 'active', 'completed'],
+    position: { x: 20, y: 20 },
+  },
+}
+
+export const ResearchRefPopover: Story = {
+  name: 'Research Reference',
+  args: {
+    node: {
+      id: 'n23',
+      title: 'Related market analysis',
+      description: '',
+      nodeType: 'info',
+      status: '',
+      refType: 'research',
+      refId: 'research-uuid',
+      refData: {
+        title: 'Competitive Market Analysis 2025',
+        status: 'in_progress',
+        code: 'R3',
+        section_count: 5,
+        entry_count: 23,
+      },
+    },
+    statuses: [],
+    position: { x: 20, y: 20 },
+  },
+}
+
+export const QuestionRefPopover: Story = {
+  name: 'Question Reference',
+  args: {
+    node: {
+      id: 'n24',
+      title: 'Key scalability question',
+      description: '',
+      nodeType: 'step',
+      status: 'answered',
+      refType: 'question',
+      refId: 'question-uuid',
+      refData: {
+        title: 'What are the main scalability bottlenecks in the current architecture?',
+        status: 'answered',
+        code: 'Q3',
+        description: 'Database connection pooling and lack of caching layer are the primary bottlenecks. Recommendation: add Redis cache and switch to connection pool with max 50 connections.',
+      },
+    },
+    statuses: ['pending', 'answered', 'verified'],
+    position: { x: 20, y: 20 },
+  },
+}

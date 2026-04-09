@@ -169,6 +169,7 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/sessions/{sessionId}", wrapRead(sh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/{entryId}", wrapRead(eh.GetByResearch))
 	mux.Handle("GET /api/researches/{id}/roadmaps", wrapRead(rmh.ListByResearch))
+	mux.Handle("GET /api/researches/{id}/roadmaps/{roadmapId}", wrapRead(rmh.GetByResearch))
 	mux.Handle("GET /api/roadmaps/{id}", wrapRead(rmh.Get))
 
 	// --- Write endpoints ---

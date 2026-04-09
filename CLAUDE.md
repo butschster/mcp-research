@@ -35,6 +35,57 @@ make frontend-embed
 
 **Config path:** `./mcp-research --config /path/to/config.yaml`
 
+## Testing Local HTTP API
+
+When the service is running locally (e.g. `make run-sse` on port 8088), use curl to test the REST API.
+
+### Step 1: Get auth token
+
+If `auth_enabled` is true with a `default_user`, fetch the auto-login token:
+
+```bash
+# Get auto-login JWT from the auth info endpoint
+curl -s http://localhost:8088/api/auth/info | python3 -m json.tool
+# Response includes "auto_login_token": "eyJ..."
+
+# Save it for subsequent requests
+TOKEN=$(curl -s http://localhost:8088/api/auth/info | python3 -c "import sys,json; print(json.load(sys.stdin).get('auto_login_token',''))")
+```
+
+If auth is disabled, skip the `Authorization` header in all requests.
+
+### Step 2: Use the token in requests
+
+```bash
+# Read endpoints
+curl -s http://localhost:8088/api/researches -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8088/api/roadmaps/{id} -H "Authorization: Bearer $TOKEN"
+
+# Write endpoints (also need the token when auth is enabled)
+curl -s -X POST http://localhost:8088/api/researches \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test", "description": "...", "goal": "..."}'
+```
+
+### Step 3: Typical test flow
+
+1. **Create research** — `POST /api/researches` (returns `research_id` in `data.research.id` or `data.research_id`)
+2. **Get research** — `GET /api/researches/{id}` (returns sections array with their IDs)
+3. **Create entities** — entries (`POST /api/entries`), tasks (`POST /api/tasks`), sessions (`POST /api/sessions`)
+4. **Create roadmap with refs** — `POST /api/roadmaps` with `ref_type`/`ref_id` on nodes
+5. **GET roadmap** — `GET /api/roadmaps/{id}` verifies `ref_data` is populated (lazy sync)
+6. **Update source entity** — e.g. `PUT /api/tasks/{id}` to change status
+7. **GET roadmap again** — `ref_data` should reflect the updated status
+
+### Response format notes
+
+- Research create returns: `data.research_id` (not `data.id`)
+- Entry create returns: `data.entry_id` (not `data.id`)
+- Session create returns: `data.id` (nested under `data`)
+- Task create returns: `data.id`
+- Roadmap GET returns full `ref_data` for nodes with `ref_type`/`ref_id` (resolved at read time)
+
 ## Architecture
 
 Single Go binary serving multiple protocols from one process:
@@ -231,7 +282,10 @@ Read-only endpoints remain unauthenticated (unless `auth_enabled`).
 | `GET` | `/api/researches/{id}/crossrefs` | List cross-references |
 | `GET` | `/api/researches/{id}/tasks` | List tasks |
 | `GET` | `/api/researches/{id}/sessions` | List sessions |
-| `GET` | `/api/sessions/{id}` | Get session + questions + progress |
+| `GET` | `/api/researches/{id}/sessions/{sessionId}` | Get session + questions + progress (research-scoped) |
+| `GET` | `/api/researches/{id}/roadmaps` | List roadmaps for research |
+| `GET` | `/api/researches/{id}/roadmaps/{roadmapId}` | Get roadmap with nodes/edges (research-scoped, with ref_data) |
+| `GET` | `/api/roadmaps/{id}` | Get roadmap (standalone, legacy) |
 | `GET` | `/api/health` | Health check |
 
 ## Key Patterns

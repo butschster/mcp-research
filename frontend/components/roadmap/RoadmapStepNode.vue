@@ -9,7 +9,14 @@
     </div>
     <p v-if="data.description" class="step-desc">{{ truncate(data.description, 100) }}</p>
     <div class="step-footer">
-      <span class="step-type-badge">{{ data.nodeType }}</span>
+      <span :class="['step-type-badge', `badge-${data.nodeType}`]">
+        <svg v-if="data.nodeType === 'step'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-5"/></svg>
+        <svg v-else-if="data.nodeType === 'milestone'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+        <svg v-else-if="data.nodeType === 'decision'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg>
+        <svg v-else-if="data.nodeType === 'info'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <svg v-else-if="data.nodeType === 'group'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+        {{ data.nodeType }}
+      </span>
     </div>
     <Handle type="target" :position="targetPosition" />
     <Handle type="source" :position="sourcePosition" />
@@ -57,12 +64,12 @@ function statusSlug(s: string): string {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-/* Type-based left accent */
-.step-type-milestone { border-left: 3px solid rgba(168, 130, 255, 0.6); }
-.step-type-decision  { border-left: 3px solid rgba(240, 184, 73, 0.6); }
-.step-type-info      { border-left: 3px solid rgba(108, 197, 224, 0.6); }
-.step-type-group     { border-left: 3px solid rgba(160, 160, 160, 0.4); }
-.step-type-step      { border-left: 3px solid rgba(107, 203, 119, 0.6); }
+/* Subtle background tint per type */
+.step-type-step      { background: rgba(107, 203, 119, 0.04); }
+.step-type-milestone { background: rgba(168, 130, 255, 0.06); }
+.step-type-decision  { background: rgba(240, 184, 73, 0.05); }
+.step-type-info      { background: rgba(108, 197, 224, 0.04); }
+.step-type-group     { background: rgba(160, 160, 160, 0.04); }
 
 .step-header {
   display: flex;
@@ -94,16 +101,41 @@ function statusSlug(s: string): string {
   align-items: center;
   gap: var(--space-2);
 }
+
+/* Type badge with icon and color */
 .step-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.5625rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  background: var(--color-surface-hover);
-  padding: 0.1rem 0.35rem;
+  padding: 0.15rem 0.4rem;
   border-radius: 3px;
   line-height: 1;
+  font-weight: 600;
 }
+.badge-step {
+  background: rgba(107, 203, 119, 0.12);
+  color: rgba(107, 203, 119, 1);
+}
+.badge-milestone {
+  background: rgba(168, 130, 255, 0.12);
+  color: rgba(168, 130, 255, 1);
+}
+.badge-decision {
+  background: rgba(240, 184, 73, 0.12);
+  color: rgba(240, 184, 73, 1);
+}
+.badge-info {
+  background: rgba(108, 197, 224, 0.12);
+  color: rgba(108, 197, 224, 1);
+}
+.badge-group {
+  background: rgba(160, 160, 160, 0.12);
+  color: rgba(160, 160, 160, 1);
+}
+
 .rm-code {
   font-size: 0.625rem;
   font-weight: 700;

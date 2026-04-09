@@ -12,11 +12,14 @@ type RoadmapUpdateNodeInput struct {
 	NodeID      string   `json:"node_id" jsonschema:"ID of the node to update"`
 	Title       *string  `json:"title" jsonschema:"New title"`
 	Description *string  `json:"description" jsonschema:"New description text"`
-	NodeType    *string  `json:"node_type" jsonschema:"New node type: step, milestone, decision, info, group"`
+	NodeType    *string  `json:"node_type" jsonschema:"New node type: step, milestone, decision, info, group, checklist, note, link, metric"`
 	Status      *string  `json:"status" jsonschema:"New status (must be from the roadmap's statuses list)"`
 	PositionX   *float64 `json:"position_x" jsonschema:"New X position"`
 	PositionY   *float64 `json:"position_y" jsonschema:"New Y position"`
 	ParentID    *string  `json:"parent_id" jsonschema:"New parent node ID (empty string to clear)"`
+	RefType     *string  `json:"ref_type" jsonschema:"Reference type: entry, task, session, research, question (empty string to clear)"`
+	RefID       *string  `json:"ref_id" jsonschema:"ID of the referenced entity (empty string to clear)"`
+	Metadata    *string  `json:"metadata" jsonschema:"JSON string with node-type-specific data"`
 }
 
 func RegisterRoadmapUpdateNode(srv *mcp.Server, svc *service.RoadmapService, log *slog.Logger) {
@@ -36,17 +39,25 @@ func RegisterRoadmapUpdateNode(srv *mcp.Server, svc *service.RoadmapService, log
 			PositionX:   input.PositionX,
 			PositionY:   input.PositionY,
 			ParentID:    input.ParentID,
+			RefType:     input.RefType,
+			RefID:       input.RefID,
+			Metadata:    input.Metadata,
 		})
 		if err != nil {
 			return errorResult(err.Error())
 		}
 
-		return successResult(map[string]any{
+		result := map[string]any{
 			"node_id":   node.ID,
 			"code":      node.Code,
 			"title":     node.Title,
 			"node_type": node.NodeType,
 			"status":    node.Status,
-		})
+		}
+		if node.RefType != "" {
+			result["ref_type"] = node.RefType
+			result["ref_id"] = node.RefID
+		}
+		return successResult(result)
 	})
 }

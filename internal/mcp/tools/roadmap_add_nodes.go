@@ -37,6 +37,9 @@ func RegisterRoadmapAddNodes(srv *mcp.Server, svc *service.RoadmapService, log *
 				PositionX:   n.PositionX,
 				PositionY:   n.PositionY,
 				ParentID:    n.ParentID,
+				RefType:     n.RefType,
+				RefID:       n.RefID,
+				Metadata:    n.Metadata,
 			})
 		}
 
