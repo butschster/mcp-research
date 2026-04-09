@@ -19,5 +19,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Create static stub for embed
+        run: mkdir -p internal/api/static && echo '<html></html>' > internal/api/static/index.html
+
       - name: Run tests
         run: go test ./cmd/... ./internal/... -v -count=1

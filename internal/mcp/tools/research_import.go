@@ -1,0 +1,44 @@
+package tools
+
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+
+	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/butschster/mcp-research/internal/service"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+type ResearchImportInput struct {
+	Data json.RawMessage `json:"data" jsonschema:"Complete export JSON (as returned by research_export)"`
+}
+
+func RegisterResearchImport(srv *mcp.Server, exportSvc *service.ExportService, log *slog.Logger) {
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "research_import",
+		Description: "Import a research from portable JSON (as produced by research_export). Creates a new research with all sections, entries, sessions, questions, tasks, and roadmaps. Cross-references are rebuilt automatically.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ResearchImportInput) (*mcp.CallToolResult, any, error) {
+		if len(input.Data) == 0 {
+			return validationErrorResult([]string{"data is required"})
+		}
+
+		var data domain.ExportData
+		if err := json.Unmarshal(input.Data, &data); err != nil {
+			return errorResult("invalid export data: " + err.Error())
+		}
+
+		research, err := exportSvc.Import(ctx, &data)
+		if err != nil {
+			log.Error("research_import failed", "error", err)
+			return errorResult(err.Error())
+		}
+
+		return successResult(map[string]any{
+			"status":      "imported",
+			"research_id": research.ID,
+			"code":        research.Code,
+			"name":        research.Name,
+		})
+	})
+}

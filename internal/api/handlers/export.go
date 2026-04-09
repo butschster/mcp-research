@@ -12,13 +12,14 @@ import (
 )
 
 type ExportHandler struct {
-	research *service.ResearchService
-	section  *service.SectionService
-	entry    *service.EntryService
-	entries  *storage.EntryRepository
-	session  *service.SessionService
-	task     *service.TaskService
-	log      *slog.Logger
+	research  *service.ResearchService
+	section   *service.SectionService
+	entry     *service.EntryService
+	entries   *storage.EntryRepository
+	session   *service.SessionService
+	task      *service.TaskService
+	exportSvc *service.ExportService
+	log       *slog.Logger
 }
 
 func NewExportHandler(
@@ -35,6 +36,10 @@ func NewExportHandler(
 		entry: entry, entries: entries,
 		session: session, task: task, log: log,
 	}
+}
+
+func (h *ExportHandler) SetExportService(svc *service.ExportService) {
+	h.exportSvc = svc
 }
 
 // Export returns all research data as JSON (for frontend rendering) and as markdown.
@@ -118,6 +123,26 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 		"tasks":    tasks,
 		"markdown": md,
 	})
+}
+
+// ExportPortable returns a complete research as portable JSON (for import on another server).
+func (h *ExportHandler) ExportPortable(w http.ResponseWriter, r *http.Request) {
+	if h.exportSvc == nil {
+		writeError(w, http.StatusInternalServerError, "export service not configured")
+		return
+	}
+
+	idOrCode := r.PathValue("id")
+	data, err := h.exportSvc.Export(r.Context(), idOrCode)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf(`attachment; filename="%s.json"`, sanitizeFilename(data.Research.Name)))
+	writeJSON(w, http.StatusOK, data)
 }
 
 type sessionWithQuestions struct {
