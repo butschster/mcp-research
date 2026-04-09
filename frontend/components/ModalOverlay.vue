@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-      <div :class="['modal-card', sizeClass]">
+      <div :class="['modal-card', sizeClass, { 'modal-flush': props.flush }]">
         <slot />
       </div>
     </div>
@@ -12,6 +12,7 @@
 const props = defineProps<{
   visible: boolean
   size?: 'sm' | 'md' | 'lg'
+  flush?: boolean // removes inner padding so slot content controls its own spacing
 }>()
 
 defineEmits<{ close: [] }>()
@@ -49,6 +50,7 @@ const sizeClass = computed(() => {
   overflow-y: auto;
 }
 .modal-sm { max-width: 360px; }
+.modal-flush { padding: 0; }
 
 /* Responsive */
 @media (max-width: 768px) {
