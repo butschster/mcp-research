@@ -1,7 +1,16 @@
 <template>
   <div>
     <div class="page-header">
-      <h1 class="page-title">Research Projects</h1>
+      <div class="page-header-row">
+        <h1 class="page-title">Research Projects</h1>
+        <div class="page-header-actions">
+          <button class="btn btn-sm" @click="triggerImport" :disabled="importing">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><polyline points="9 15 12 12 15 15"/></svg>
+            {{ importing ? 'Importing...' : 'Import JSON' }}
+          </button>
+          <input ref="fileInput" type="file" accept=".json" style="display:none" @change="handleImportFile" />
+        </div>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -55,6 +64,34 @@ const base = config.public.apiBase || ''
 
 const statusFilter = ref('active')
 const tagFilter = ref('')
+const importing = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+
+function triggerImport() {
+  fileInput.value?.click()
+}
+
+async function handleImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  importing.value = true
+  try {
+    const text = await file.text()
+    const data = JSON.parse(text)
+    const result = await authFetch<{ research_id: string; code: string; name: string }>(
+      `${base}/api/researches/import`,
+      { method: 'POST', body: data }
+    )
+    await navigateTo(`/research/${result.code}`)
+  } catch (e: any) {
+    alert('Import failed: ' + (e.message || e))
+  } finally {
+    importing.value = false
+    input.value = '' // reset file input
+  }
+}
 
 const apiUrl = computed(() =>
   statusFilter.value ? `/api/researches?status=${statusFilter.value}` : '/api/researches'
@@ -87,6 +124,17 @@ useRealtimeUpdates(async (event) => {
 </script>
 
 <style scoped>
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
 .skeleton-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
