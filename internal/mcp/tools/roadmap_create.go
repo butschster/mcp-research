@@ -12,11 +12,14 @@ type RoadmapCreateNode struct {
 	TempID      string  `json:"temp_id" jsonschema:"Temporary ID for referencing this node in edges array (e.g. 'n1', 'n2')"`
 	Title       string  `json:"title" jsonschema:"Node title"`
 	Description string  `json:"description" jsonschema:"Detailed text content for the node"`
-	NodeType    string  `json:"node_type" jsonschema:"Node type: step, milestone, decision, info, group. Default: step"`
+	NodeType    string  `json:"node_type" jsonschema:"Node type: step, milestone, decision, info, group, checklist, note, link, metric. Default: step"`
 	Status      string  `json:"status" jsonschema:"Initial status from the roadmap's statuses list"`
 	PositionX   float64 `json:"position_x" jsonschema:"X position for layout"`
 	PositionY   float64 `json:"position_y" jsonschema:"Y position for layout"`
 	ParentID    string  `json:"parent_id" jsonschema:"Parent node temp_id for hierarchical nesting"`
+	RefType     string  `json:"ref_type" jsonschema:"Reference type linking to a research entity: entry, task, session, research, question. Leave empty for standalone nodes"`
+	RefID       string  `json:"ref_id" jsonschema:"ID of the referenced entity (entry ID, task ID, etc.)"`
+	Metadata    string  `json:"metadata" jsonschema:"JSON string with node-type-specific data (e.g. checklist items, URL for link nodes, metric value)"`
 }
 
 type RoadmapCreateEdge struct {
@@ -62,6 +65,9 @@ func RegisterRoadmapCreate(srv *mcp.Server, svc *service.RoadmapService, log *sl
 				PositionX:   n.PositionX,
 				PositionY:   n.PositionY,
 				ParentID:    n.ParentID,
+				RefType:     n.RefType,
+				RefID:       n.RefID,
+				Metadata:    n.Metadata,
 			})
 		}
 

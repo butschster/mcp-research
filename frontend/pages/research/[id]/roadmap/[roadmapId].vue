@@ -82,6 +82,7 @@
         class="roadmap-flow"
         @node-click="onNodeClick"
         @node-drag-stop="onNodeDragStop"
+        @pane-click="onPaneClick"
       >
         <MiniMap
           :node-color="minimapNodeColor"
@@ -92,13 +93,13 @@
       </VueFlow>
     </div>
 
-    <!-- Node popover -->
+    <!-- Node detail modal -->
     <RoadmapNodePopover
-      v-if="selectedNode"
       :node="selectedNode"
       :statuses="roadmap?.statuses ?? []"
-      :position="popoverPosition"
       @update-status="onUpdateStatus"
+      @update-entity-status="onUpdateEntityStatus"
+      @navigate="onNavigate"
       @close="selectedNode = null"
     />
   </div>
@@ -115,11 +116,15 @@ import '@vue-flow/controls/dist/style.css'
 
 import RoadmapRootNode from '~/components/roadmap/RoadmapRootNode.vue'
 import RoadmapStepNode from '~/components/roadmap/RoadmapStepNode.vue'
+import RoadmapRefNode from '~/components/roadmap/RoadmapRefNode.vue'
 import RoadmapNodePopover from '~/components/roadmap/RoadmapNodePopover.vue'
 
 const route = useRoute()
 const researchId = route.params.id as string
 const roadmapId = route.params.roadmapId as string
+const runtimeConfig = useRuntimeConfig()
+const apiBase = runtimeConfig.public.apiBase || ''
+const { authFetch } = useAuth()
 
 // Resolve research slug for back link
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${researchId}`)
@@ -128,6 +133,7 @@ const researchSlug = computed(() => researchData.value?.data?.research?.code || 
 const nodeTypes = {
   'roadmap-root': markRaw(RoadmapRootNode),
   'roadmap-step': markRaw(RoadmapStepNode),
+  'roadmap-ref': markRaw(RoadmapRefNode),
 }
 
 const {
@@ -144,7 +150,7 @@ const {
   layoutDirection,
   setLayoutDirection,
   shouldSuppressRefresh,
-} = useRoadmap(roadmapId)
+} = useRoadmap(researchId, roadmapId)
 
 // Vue Flow instance
 const { fitView } = useVueFlow()
@@ -160,11 +166,13 @@ const selectedNode = ref<{
   description: string
   nodeType: string
   status: string
+  refType?: string
+  refId?: string
+  refData?: any
 } | null>(null)
-const popoverPosition = ref({ x: 0, y: 0 })
 
-function onNodeClick({ node, event }: { node: any; event: MouseEvent }) {
-  // Don't show popover for root node
+function onNodeClick({ node }: { node: any }) {
+  // Don't show modal for root node
   if (node.type === 'roadmap-root') return
 
   selectedNode.value = {
@@ -173,13 +181,81 @@ function onNodeClick({ node, event }: { node: any; event: MouseEvent }) {
     description: node.data.description || '',
     nodeType: node.data.nodeType || 'step',
     status: node.data.status || '',
+    refType: node.data.refType,
+    refId: node.data.refId,
+    refData: node.data.refData,
   }
-  popoverPosition.value = { x: event.clientX + 12, y: event.clientY - 20 }
 }
 
 async function onUpdateStatus(nodeId: string, status: string) {
   await updateNodeStatus(nodeId, status)
   selectedNode.value = null
+}
+
+async function onUpdateEntityStatus(refType: string, refId: string, status: string) {
+  const endpoints: Record<string, string> = {
+    task: `${apiBase}/api/tasks/${refId}`,
+    entry: `${apiBase}/api/entries/${refId}`,
+    session: `${apiBase}/api/sessions/${refId}`,
+    research: `${apiBase}/api/researches/${refId}`,
+    question: `${apiBase}/api/questions/${refId}`,
+  }
+
+  const url = endpoints[refType]
+  if (!url) return
+
+  try {
+    await authFetch(url, {
+      method: 'PUT',
+      body: { status },
+    })
+    // Soft refresh — update data without resetting viewport
+    await refresh(true)
+    // Update selectedNode with fresh ref_data from roadmap
+    if (selectedNode.value && roadmap.value) {
+      const fresh = roadmap.value.nodes.find(n => n.id === selectedNode.value!.id)
+      if (fresh) {
+        selectedNode.value = {
+          ...selectedNode.value,
+          refData: fresh.ref_data,
+        }
+      }
+    }
+  } catch (e: any) {
+    console.error('Failed to update entity status:', e)
+  }
+}
+
+function onNavigate(node: any) {
+  const refType = node.refType
+  const refId = node.refId
+  const refResearchId = node.refData?.research_id || researchId
+  if (!refType || !refId) return
+
+  selectedNode.value = null
+
+  let path = ''
+  switch (refType) {
+    case 'entry':
+      path = `/research/${refResearchId}/entry/${refId}`
+      break
+    case 'task':
+      path = `/research/${refResearchId}/tasks`
+      break
+    case 'session':
+      path = `/research/${refResearchId}/session/${refId}`
+      break
+    case 'research':
+      path = `/research/${refResearchId}`
+      break
+    case 'question':
+      path = `/research/${refResearchId}`
+      break
+  }
+
+  if (path) {
+    window.open(path, '_blank')
+  }
 }
 
 function onNodeDragStop({ node }: { node: any }) {
@@ -193,26 +269,23 @@ async function onAutoLayout() {
 
 function minimapNodeColor(node: any): string {
   if (node.type === 'roadmap-root') return '#6cc5e0'
+  if (node.type === 'roadmap-ref') return '#a882ff'
   return '#7f8ea3'
 }
 
-// Close popover on click outside
-function onDocumentClick() {
+// Close popover when clicking on the canvas (pane), not on nodes
+function onPaneClick() {
   selectedNode.value = null
 }
+
 onMounted(() => {
-  document.addEventListener('click', onDocumentClick)
   refresh()
-})
-onUnmounted(() => {
-  document.removeEventListener('click', onDocumentClick)
 })
 
 // Real-time updates (skip refresh if we just made a local change)
 useRealtimeUpdates(async (event) => {
   if (event.entity === 'roadmap' && !shouldSuppressRefresh()) {
-    await refresh()
-    nextTick(() => fitView({ padding: 0.15, duration: 300 }))
+    await refresh(true)
   }
 })
 </script>

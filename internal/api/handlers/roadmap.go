@@ -47,6 +47,23 @@ func (h *RoadmapHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": rm})
 }
 
+// GetByResearch returns a roadmap scoped to a research. Supports UUID or short code (e.g. RM1).
+func (h *RoadmapHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
+	researchID, err := h.research.ResolveID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	rm, err := h.roadmap.GetByIDOrCode(r.Context(), researchID, r.PathValue("roadmapId"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"data": rm})
+}
+
 func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		ResearchID  string   `json:"research_id"`
@@ -62,6 +79,9 @@ func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
 			PositionX   float64 `json:"position_x"`
 			PositionY   float64 `json:"position_y"`
 			ParentID    string  `json:"parent_id"`
+			RefType     string  `json:"ref_type"`
+			RefID       string  `json:"ref_id"`
+			Metadata    string  `json:"metadata"`
 		} `json:"nodes"`
 		Edges []struct {
 			Source   string `json:"source"`
@@ -84,6 +104,7 @@ func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
 			TempID: n.TempID, Title: n.Title, Description: n.Description,
 			NodeType: n.NodeType, Status: n.Status,
 			PositionX: n.PositionX, PositionY: n.PositionY, ParentID: n.ParentID,
+			RefType: n.RefType, RefID: n.RefID, Metadata: n.Metadata,
 		})
 	}
 
@@ -156,6 +177,9 @@ func (h *RoadmapHandler) UpdateNode(w http.ResponseWriter, r *http.Request) {
 		PositionX   *float64 `json:"position_x"`
 		PositionY   *float64 `json:"position_y"`
 		ParentID    *string  `json:"parent_id"`
+		RefType     *string  `json:"ref_type"`
+		RefID       *string  `json:"ref_id"`
+		Metadata    *string  `json:"metadata"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -166,6 +190,7 @@ func (h *RoadmapHandler) UpdateNode(w http.ResponseWriter, r *http.Request) {
 		NodeType: input.NodeType, Status: input.Status,
 		PositionX: input.PositionX, PositionY: input.PositionY,
 		ParentID: input.ParentID,
+		RefType: input.RefType, RefID: input.RefID, Metadata: input.Metadata,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

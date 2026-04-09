@@ -1,6 +1,22 @@
 import dagre from '@dagrejs/dagre'
 import { type Node, type Edge, Position } from '@vue-flow/core'
 
+interface RoadmapNodeRefData {
+  title?: string
+  status?: string
+  code?: string
+  description?: string
+  research_id?: string
+  section_name?: string
+  content?: string
+  priority?: string
+  result?: string
+  total_questions?: number
+  answered_questions?: number
+  section_count?: number
+  entry_count?: number
+}
+
 interface RoadmapNodeData {
   id: string
   code: string
@@ -11,6 +27,10 @@ interface RoadmapNodeData {
   position_x: number
   position_y: number
   parent_id: string
+  ref_type?: string
+  ref_id?: string
+  metadata?: string
+  ref_data?: RoadmapNodeRefData
 }
 
 interface RoadmapEdgeData {
@@ -36,6 +56,7 @@ interface RoadmapData {
 const NODE_SIZES: Record<string, { width: number; height: number }> = {
   'roadmap-root': { width: 400, height: 160 },
   'roadmap-step': { width: 320, height: 120 },
+  'roadmap-ref': { width: 340, height: 140 },
 }
 
 const EDGE_STYLES: Record<string, Record<string, any>> = {
@@ -45,7 +66,11 @@ const EDGE_STYLES: Record<string, Record<string, any>> = {
   optional: { stroke: 'rgba(140,150,170,0.35)', strokeWidth: 1.5, strokeDasharray: '4 4' },
 }
 
-export function useRoadmap(roadmapId: string) {
+export function useRoadmap(researchId: string, roadmapId: string) {
+  const config = useRuntimeConfig()
+  const base = config.public.apiBase || ''
+  const { authFetch } = useAuth()
+
   const roadmap = ref<RoadmapData | null>(null)
   const nodes = ref<Node[]>([])
   const edges = ref<Edge[]>([])
@@ -60,11 +85,7 @@ export function useRoadmap(roadmapId: string) {
   let suppressRefreshUntil = 0
 
   async function fetchRoadmap() {
-    const config = useRuntimeConfig()
-    const base = config.public.apiBase || ''
-    const { authFetch } = useAuth()
-
-    const res = await authFetch<{ data: RoadmapData }>(`${base}/api/roadmaps/${roadmapId}`)
+    const res = await authFetch<{ data: RoadmapData }>(`${base}/api/researches/${researchId}/roadmaps/${roadmapId}`)
     return res.data
   }
 
@@ -84,25 +105,37 @@ export function useRoadmap(roadmapId: string) {
 
     const rawNodes: Node[] = data.nodes.map(n => {
       const isRoot = n.id === rootId
-      const nodeType = isRoot ? 'roadmap-root' : 'roadmap-step'
+      const hasRef = !isRoot && n.ref_type && n.ref_id
 
-      const nodeData: Record<string, any> = isRoot
-        ? {
-            code: data.code,
-            title: data.title,
-            description: data.description,
-            status: data.status,
-            statuses: data.statuses,
-            nodeCount: data.nodes.length,
-            edgeCount: data.edges.length,
-          }
-        : {
-            code: n.code,
-            title: n.title,
-            description: n.description,
-            nodeType: n.node_type,
-            status: n.status,
-          }
+      let nodeType: string
+      if (isRoot) nodeType = 'roadmap-root'
+      else if (hasRef) nodeType = 'roadmap-ref'
+      else nodeType = 'roadmap-step'
+
+      let nodeData: Record<string, any>
+      if (isRoot) {
+        nodeData = {
+          code: data.code,
+          title: data.title,
+          description: data.description,
+          status: data.status,
+          statuses: data.statuses,
+          nodeCount: data.nodes.length,
+          edgeCount: data.edges.length,
+        }
+      } else {
+        nodeData = {
+          code: n.code,
+          title: n.title,
+          description: n.description,
+          nodeType: n.node_type,
+          status: n.status,
+          refType: n.ref_type,
+          refId: n.ref_id,
+          metadata: n.metadata,
+          refData: n.ref_data,
+        }
+      }
 
       return {
         id: n.id,
@@ -176,12 +209,43 @@ export function useRoadmap(roadmapId: string) {
     edges.value = result.edges
   }
 
-  async function refresh() {
-    loading.value = true
+  // Update node data in-place without replacing the array (preserves Vue Flow viewport)
+  function patchGraph() {
+    if (!roadmap.value) return
+    const result = buildGraph(roadmap.value)
+
+    // Patch existing nodes in-place
+    const newById = new Map(result.nodes.map(n => [n.id, n]))
+    for (const existing of nodes.value) {
+      const fresh = newById.get(existing.id)
+      if (fresh) {
+        existing.data = fresh.data
+        // Don't touch position — keep current drag state
+      }
+    }
+
+    // Add new nodes, remove deleted ones
+    const existingIds = new Set(nodes.value.map(n => n.id))
+    const freshIds = new Set(result.nodes.map(n => n.id))
+    for (const n of result.nodes) {
+      if (!existingIds.has(n.id)) nodes.value.push(n)
+    }
+    nodes.value = nodes.value.filter(n => freshIds.has(n.id))
+
+    // Edges can be fully replaced (they don't affect viewport)
+    edges.value = result.edges
+  }
+
+  async function refresh(soft = false) {
+    if (!soft) loading.value = true
     error.value = null
     try {
       roadmap.value = await fetchRoadmap()
-      rebuildGraph()
+      if (soft) {
+        patchGraph()
+      } else {
+        rebuildGraph()
+      }
     } catch (e: any) {
       error.value = e?.message ?? 'Failed to load roadmap'
     } finally {
@@ -190,10 +254,6 @@ export function useRoadmap(roadmapId: string) {
   }
 
   async function updateNodeStatus(nodeId: string, newStatus: string) {
-    const config = useRuntimeConfig()
-    const base = config.public.apiBase || ''
-    const { authFetch } = useAuth()
-
     try {
       suppressRefreshUntil = Date.now() + 2000
       await authFetch(`${base}/api/roadmap-nodes/${nodeId}`, {
@@ -204,7 +264,7 @@ export function useRoadmap(roadmapId: string) {
       if (roadmap.value) {
         const node = roadmap.value.nodes.find(n => n.id === nodeId)
         if (node) node.status = newStatus
-        rebuildGraph()
+        patchGraph()
       }
     } catch (e: any) {
       error.value = e?.message ?? 'Failed to update node status'
@@ -228,10 +288,6 @@ export function useRoadmap(roadmapId: string) {
   }
 
   async function flushPositions() {
-    const config = useRuntimeConfig()
-    const base = config.public.apiBase || ''
-    const { authFetch } = useAuth()
-
     const entries = Array.from(pendingPositions.entries())
     pendingPositions.clear()
 
@@ -263,10 +319,6 @@ export function useRoadmap(roadmapId: string) {
     const result = applyDagreLayout(rawNodes, rawEdges)
 
     // Save all new positions
-    const config = useRuntimeConfig()
-    const base = config.public.apiBase || ''
-    const { authFetch } = useAuth()
-
     await Promise.all(
       result.nodes.map(n =>
         authFetch(`${base}/api/roadmap-nodes/${n.id}`, {
@@ -285,15 +337,23 @@ export function useRoadmap(roadmapId: string) {
     rebuildGraph()
   }
 
+  const ENTITY_COMPLETED = new Set(['completed', 'done', 'archived', 'answered', 'final'])
+
   const progress = computed(() => {
     if (!roadmap.value) return { total: 0, completed: 0, percent: 0 }
     const statuses = roadmap.value.statuses
-    // The last status in the list is considered "completed"
     const completedStatus = statuses.length > 0 ? statuses[statuses.length - 1] : null
     const total = roadmap.value.nodes.length
-    const completed = completedStatus
-      ? roadmap.value.nodes.filter(n => n.status === completedStatus).length
-      : 0
+    let completed = 0
+    for (const n of roadmap.value.nodes) {
+      if (n.ref_type && n.ref_data?.status) {
+        // Ref node: use entity status
+        if (ENTITY_COMPLETED.has(n.ref_data.status)) completed++
+      } else if (completedStatus && n.status === completedStatus) {
+        // Plain node: use roadmap status
+        completed++
+      }
+    }
     return { total, completed, percent: total > 0 ? Math.round((completed / total) * 100) : 0 }
   })
 
