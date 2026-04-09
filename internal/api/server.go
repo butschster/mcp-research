@@ -42,6 +42,7 @@ func NewServer(
 	sessionSvc *service.SessionService,
 	taskSvc *service.TaskService,
 	roadmapSvc *service.RoadmapService,
+	exportSvc *service.ExportService,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
 	entryRepo *storage.EntryRepository,
@@ -134,7 +135,11 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/entries", wrapRead(rh.ListAllEntries))
 	mux.Handle("GET /api/researches/{id}/tags", wrapRead(rh.ListTags))
 	exportHandler := handlers.NewExportHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, log)
+	exportHandler.SetExportService(exportSvc)
 	mux.Handle("GET /api/researches/{id}/export", wrapRead(exportHandler.Export))
+	importHandler := handlers.NewImportHandler(exportSvc, log)
+	mux.Handle("GET /api/researches/{id}/export/portable", wrapRead(exportHandler.ExportPortable))
+	mux.Handle("POST /api/researches/import", wrap(importHandler.Import))
 	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))

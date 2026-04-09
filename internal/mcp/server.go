@@ -20,6 +20,7 @@ type Server struct {
 	session  *service.SessionService
 	task     *service.TaskService
 	roadmap  *service.RoadmapService
+	export   *service.ExportService
 	log      *slog.Logger
 }
 
@@ -30,6 +31,7 @@ func NewServer(
 	session *service.SessionService,
 	task *service.TaskService,
 	roadmap *service.RoadmapService,
+	export *service.ExportService,
 	log *slog.Logger,
 	version string,
 ) *Server {
@@ -47,6 +49,7 @@ func NewServer(
 		session:  session,
 		task:     task,
 		roadmap:  roadmap,
+		export:   export,
 		log:      log,
 	}
 
