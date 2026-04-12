@@ -10,10 +10,10 @@ import (
 )
 
 type TaskCreateInput struct {
-	ResearchID  string `json:"research_id" jsonschema:"ID of the research"`
-	Title       string `json:"title" jsonschema:"Task title"`
-	Description string `json:"description" jsonschema:"Detailed description of what needs to be done"`
-	Priority    string `json:"priority" jsonschema:"Priority: high, medium, low. Default: medium"`
+	ResearchID  string  `json:"research_id" jsonschema:"ID of the research"`
+	Title       string  `json:"title" jsonschema:"Task title"`
+	Description *string `json:"description" jsonschema:"Detailed description of what needs to be done"`
+	Priority    *string `json:"priority" jsonschema:"Priority: high, medium, low. Default: medium"`
 }
 
 func RegisterTaskCreate(srv *mcp.Server, svc *service.TaskService, log *slog.Logger) {
@@ -35,8 +35,8 @@ func RegisterTaskCreate(srv *mcp.Server, svc *service.TaskService, log *slog.Log
 		task, err := svc.Create(ctx, service.CreateTaskRequest{
 			ResearchID:  input.ResearchID,
 			Title:       input.Title,
-			Description: input.Description,
-			Priority:    domain.Priority(input.Priority),
+			Description: derefStr(input.Description),
+			Priority:    domain.Priority(derefStr(input.Priority)),
 		})
 		if err != nil {
 			return errorResult(err.Error())

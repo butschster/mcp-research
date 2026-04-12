@@ -9,30 +9,30 @@ import (
 )
 
 type RoadmapCreateNode struct {
-	TempID      string  `json:"temp_id" jsonschema:"Temporary ID for referencing this node in edges array (e.g. 'n1', 'n2')"`
-	Title       string  `json:"title" jsonschema:"Node title"`
-	Description string  `json:"description" jsonschema:"Detailed text content for the node"`
-	NodeType    string  `json:"node_type" jsonschema:"Node type: step, milestone, decision, info, group, checklist, note, link, metric. Default: step"`
-	Status      string  `json:"status" jsonschema:"Initial status from the roadmap's statuses list"`
-	PositionX   float64 `json:"position_x" jsonschema:"X position for layout"`
-	PositionY   float64 `json:"position_y" jsonschema:"Y position for layout"`
-	ParentID    string  `json:"parent_id" jsonschema:"Parent node temp_id for hierarchical nesting"`
-	RefType     string  `json:"ref_type" jsonschema:"Reference type linking to a research entity: entry, task, session, research, question. Leave empty for standalone nodes"`
-	RefID       string  `json:"ref_id" jsonschema:"ID of the referenced entity (entry ID, task ID, etc.)"`
-	Metadata    string  `json:"metadata" jsonschema:"JSON string with node-type-specific data (e.g. checklist items, URL for link nodes, metric value)"`
+	TempID      string   `json:"temp_id" jsonschema:"Temporary ID for referencing this node in edges array (e.g. 'n1', 'n2')"`
+	Title       string   `json:"title" jsonschema:"Node title"`
+	Description *string  `json:"description" jsonschema:"Detailed text content for the node"`
+	NodeType    *string  `json:"node_type" jsonschema:"Node type: step, milestone, decision, info, group, checklist, note, link, metric. Default: step"`
+	Status      *string  `json:"status" jsonschema:"Initial status from the roadmap's statuses list"`
+	PositionX   *float64 `json:"position_x" jsonschema:"X position for layout"`
+	PositionY   *float64 `json:"position_y" jsonschema:"Y position for layout"`
+	ParentID    *string  `json:"parent_id" jsonschema:"Parent node temp_id for hierarchical nesting"`
+	RefType     *string  `json:"ref_type" jsonschema:"Reference type linking to a research entity: entry, task, session, research, question. Leave empty for standalone nodes"`
+	RefID       *string  `json:"ref_id" jsonschema:"ID of the referenced entity (entry ID, task ID, etc.)"`
+	Metadata    *string  `json:"metadata" jsonschema:"JSON string with node-type-specific data (e.g. checklist items, URL for link nodes, metric value)"`
 }
 
 type RoadmapCreateEdge struct {
-	SourceNodeRef string `json:"source" jsonschema:"Source node temp_id or real node ID"`
-	TargetNodeRef string `json:"target" jsonschema:"Target node temp_id or real node ID"`
-	Label         string `json:"label" jsonschema:"Edge label (e.g. 'next', 'if yes', 'alternative')"`
-	EdgeType      string `json:"edge_type" jsonschema:"Edge type: default, success, warning, optional. Default: default"`
+	SourceNodeRef string  `json:"source" jsonschema:"Source node temp_id or real node ID"`
+	TargetNodeRef string  `json:"target" jsonschema:"Target node temp_id or real node ID"`
+	Label         *string `json:"label" jsonschema:"Edge label (e.g. 'next', 'if yes', 'alternative')"`
+	EdgeType      *string `json:"edge_type" jsonschema:"Edge type: default, success, warning, optional. Default: default"`
 }
 
 type RoadmapCreateInput struct {
 	ResearchID  string              `json:"research_id" jsonschema:"ID of the research"`
 	Title       string              `json:"title" jsonschema:"Roadmap title"`
-	Description string              `json:"description" jsonschema:"Roadmap description"`
+	Description *string             `json:"description" jsonschema:"Roadmap description"`
 	Statuses    []string            `json:"statuses" jsonschema:"Available node statuses in order (e.g. ['not_started', 'in_progress', 'completed'])"`
 	Nodes       []RoadmapCreateNode `json:"nodes" jsonschema:"Array of nodes to create"`
 	Edges       []RoadmapCreateEdge `json:"edges" jsonschema:"Array of edges connecting nodes by temp_id"`
@@ -56,35 +56,18 @@ func RegisterRoadmapCreate(srv *mcp.Server, svc *service.RoadmapService, log *sl
 
 		var nodes []service.CreateRoadmapNodeRequest
 		for _, n := range input.Nodes {
-			nodes = append(nodes, service.CreateRoadmapNodeRequest{
-				TempID:      n.TempID,
-				Title:       n.Title,
-				Description: n.Description,
-				NodeType:    n.NodeType,
-				Status:      n.Status,
-				PositionX:   n.PositionX,
-				PositionY:   n.PositionY,
-				ParentID:    n.ParentID,
-				RefType:     n.RefType,
-				RefID:       n.RefID,
-				Metadata:    n.Metadata,
-			})
+			nodes = append(nodes, nodeFromInput(n))
 		}
 
 		var edges []service.CreateRoadmapEdgeRequest
 		for _, e := range input.Edges {
-			edges = append(edges, service.CreateRoadmapEdgeRequest{
-				SourceNodeRef: e.SourceNodeRef,
-				TargetNodeRef: e.TargetNodeRef,
-				Label:         e.Label,
-				EdgeType:      e.EdgeType,
-			})
+			edges = append(edges, edgeFromInput(e))
 		}
 
 		rm, err := svc.Create(ctx, service.CreateRoadmapRequest{
 			ResearchID:  input.ResearchID,
 			Title:       input.Title,
-			Description: input.Description,
+			Description: derefStr(input.Description),
 			Statuses:    input.Statuses,
 			Nodes:       nodes,
 			Edges:       edges,

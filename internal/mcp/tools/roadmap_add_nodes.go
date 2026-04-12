@@ -28,29 +28,12 @@ func RegisterRoadmapAddNodes(srv *mcp.Server, svc *service.RoadmapService, log *
 
 		var nodes []service.CreateRoadmapNodeRequest
 		for _, n := range input.Nodes {
-			nodes = append(nodes, service.CreateRoadmapNodeRequest{
-				TempID:      n.TempID,
-				Title:       n.Title,
-				Description: n.Description,
-				NodeType:    n.NodeType,
-				Status:      n.Status,
-				PositionX:   n.PositionX,
-				PositionY:   n.PositionY,
-				ParentID:    n.ParentID,
-				RefType:     n.RefType,
-				RefID:       n.RefID,
-				Metadata:    n.Metadata,
-			})
+			nodes = append(nodes, nodeFromInput(n))
 		}
 
 		var edges []service.CreateRoadmapEdgeRequest
 		for _, e := range input.Edges {
-			edges = append(edges, service.CreateRoadmapEdgeRequest{
-				SourceNodeRef: e.SourceNodeRef,
-				TargetNodeRef: e.TargetNodeRef,
-				Label:         e.Label,
-				EdgeType:      e.EdgeType,
-			})
+			edges = append(edges, edgeFromInput(e))
 		}
 
 		rm, err := svc.AddNodes(ctx, input.RoadmapID, nodes, edges)

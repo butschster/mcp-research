@@ -14,9 +14,9 @@ type EntryCreateInput struct {
 	SectionID   string   `json:"section_id" jsonschema:"ID of the section"`
 	SessionID   *string  `json:"session_id" jsonschema:"Optional session ID to link this entry to a session"`
 	Content     string   `json:"content" jsonschema:"Markdown content of the entry"`
-	Title       string   `json:"title" jsonschema:"Optional title (auto-generated from content if empty)"`
-	Description string   `json:"description" jsonschema:"Optional description (auto-generated from content if empty)"`
-	Status      string   `json:"status" jsonschema:"Entry status: draft, active, completed, archived. Default: draft"`
+	Title       *string  `json:"title" jsonschema:"Optional title (auto-generated from content if empty)"`
+	Description *string  `json:"description" jsonschema:"Optional description (auto-generated from content if empty)"`
+	Status      *string  `json:"status" jsonschema:"Entry status: draft, active, completed, archived. Default: draft"`
 	Tags        []string `json:"tags" jsonschema:"Tags for categorization"`
 }
 
@@ -40,22 +40,17 @@ func RegisterEntryCreate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 		}
 
 		var status domain.EntryStatus
-		if input.Status != "" {
-			status = domain.EntryStatus(input.Status)
-		}
-
-		var sessionID string
-		if input.SessionID != nil {
-			sessionID = *input.SessionID
+		if s := derefStr(input.Status); s != "" {
+			status = domain.EntryStatus(s)
 		}
 
 		entry, err := svc.Create(ctx, service.CreateEntryRequest{
 			ResearchID:  input.ResearchID,
 			SectionID:   input.SectionID,
-			SessionID:   sessionID,
+			SessionID:   derefStr(input.SessionID),
 			Content:     input.Content,
-			Title:       input.Title,
-			Description: input.Description,
+			Title:       derefStr(input.Title),
+			Description: derefStr(input.Description),
 			Status:      status,
 			Tags:        input.Tags,
 		})
