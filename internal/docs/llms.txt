@@ -37,6 +37,7 @@ A research can have **multiple sessions** (e.g. initial exploration, deep-dive, 
 
 ## Docs
 
+- [MCP Client Guide](/llms/mcp-client-guide.md): Practical guide for AI assistants interacting via MCP tools. Covers all 31 tools, nullable/optional fields, content formatting (newlines, markdown, cross-references), entry types, roadmap node types, entity references, common pitfalls, and short codes. Start here if you are an MCP client.
 - [Domain Guide](/llms/domain-guide.md): Complete reference for every entity (Research, Section, Entry, Session, Question, Task, Roadmap, CrossRef). Describes fields, statuses, relationships, lifecycle, and when to use each entity. Includes tagging strategy, cross-reference syntax, and tips.
 - [Conducting Research](/llms/conducting-research.md): Step-by-step guide on how to initialize, conduct, and complete a research project. Interview workflow, entry creation with cross-references, task tracking, roadmap creation, and best practices.
 - [Tasks](/llms/tasks.md): Guide to using tasks for tracking work items, action items, and outcomes within a research. When to create tasks, statuses, priorities, tasks vs questions, and best practices.

@@ -2,6 +2,8 @@
 
 Step-by-step guide for AI assistants on how to conduct a research project.
 
+> **MCP or REST API?** This guide shows MCP tool names and REST endpoints side by side. Use whichever matches your integration. For MCP-specific details (nullable fields, content formatting, common pitfalls), see the [MCP Client Guide](/llms/mcp-client-guide.md). For REST API details, see the [OpenAPI spec](/api/openapi.yaml).
+
 ## Overview
 
 A research project follows this lifecycle:
