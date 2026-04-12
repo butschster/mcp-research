@@ -356,7 +356,7 @@ useRealtimeUpdates(async (event) => {
 }
 
 /* Dropdown */
-.dropdown { position: relative; }
+.dropdown { position: relative; z-index: 100; }
 .dropdown-menu {
   position: absolute;
   top: calc(100% + 4px);

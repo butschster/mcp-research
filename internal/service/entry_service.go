@@ -247,6 +247,33 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 	return entry, nil
 }
 
+func (s *EntryService) Delete(ctx context.Context, id string) error {
+	entry, err := s.entries.FindByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("find entry: %w", err)
+	}
+	if entry == nil {
+		return ErrNotFound
+	}
+	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
+		return ErrNotFound
+	}
+
+	// Clean up cross-references and external links
+	if s.crossrefs != nil {
+		_ = s.crossrefs.ReplaceForSource(ctx, "entry", id, nil)
+	}
+	if s.externalLinks != nil {
+		_ = s.externalLinks.ReplaceForSource(ctx, "entry", id, nil)
+	}
+
+	if err := s.entries.Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete entry: %w", err)
+	}
+	s.events.Notify(Event{Type: "entry.deleted", ResearchID: entry.ResearchID, EntityID: id, Entity: "entry"})
+	return nil
+}
+
 // RebuildCrossRefs rescans all entries in a research and rebuilds cross-references.
 func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) (int, error) {
 	entries, err := s.entries.FindByResearchWithContent(ctx, researchID)

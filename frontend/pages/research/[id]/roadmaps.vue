@@ -95,6 +95,30 @@ useRealtimeUpdates(async (event) => {
   justify-content: space-between;
   gap: var(--space-3);
 }
+.title-with-code {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.short-code {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.task-counter {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
 .roadmaps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));

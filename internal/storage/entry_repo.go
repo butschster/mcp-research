@@ -343,6 +343,11 @@ func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researc
 	return result, rows.Err()
 }
 
+func (r *EntryRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM entries WHERE id=?", id)
+	return err
+}
+
 func (r *EntryRepository) CountBySection(ctx context.Context, sectionID string) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM entries WHERE section_id=?", sectionID).Scan(&count)
