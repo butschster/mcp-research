@@ -38,16 +38,16 @@ func RegisterQuestionCreate(srv *mcp.Server, svc *service.SessionService, log *s
 
 		var requests []service.CreateQuestionRequest
 		for _, q := range input.Questions {
-			priority := domain.Priority(q.Priority)
+			priority := domain.Priority(derefStr(q.Priority))
 			if priority == "" {
 				priority = domain.PriorityMedium
 			}
 			requests = append(requests, service.CreateQuestionRequest{
 				Text:      q.Text,
-				Area:      q.Area,
-				Rationale: q.Rationale,
+				Area:      derefStr(q.Area),
+				Rationale: derefStr(q.Rationale),
 				Priority:  priority,
-				ParentID:  q.ParentID,
+				ParentID:  derefStr(q.ParentID),
 				Position:  q.Position,
 			})
 		}
