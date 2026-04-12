@@ -1,110 +1,35 @@
 <template>
   <div class="graph-page">
-    <!-- Sidebar -->
-    <aside :class="['graph-sidebar', { collapsed: sidebarCollapsed }]">
-      <button class="sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? 'Open panel' : 'Close panel'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path v-if="sidebarCollapsed" d="m9 18 6-6-6-6"/>
-          <path v-else d="m15 18-6-6 6-6"/>
-        </svg>
-      </button>
-
-      <template v-if="!sidebarCollapsed">
-        <div class="sidebar-header">
-          <NuxtLink :to="`/research/${researchSlug}`" class="sidebar-back">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            Back
-          </NuxtLink>
-          <span class="sidebar-title">Knowledge Graph</span>
-        </div>
-
-        <!-- Stats -->
-        <div class="sidebar-section">
-          <div class="sidebar-stats">
-            <span>{{ filteredNodeCount }} nodes</span>
-            <span>{{ filteredEdgeCount }} edges</span>
-          </div>
-        </div>
-
-        <!-- Nodes -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Nodes</div>
-          <label
-            v-for="nt in nodeTypeFilters"
-            :key="nt.key"
-            class="sidebar-check"
-          >
-            <input
-              type="checkbox"
-              :checked="visibleNodeTypes.has(nt.key)"
-              @change="toggleNodeType(nt.key)"
-            />
-            <span class="check-dot" :style="{ background: nt.color }"></span>
-            <span class="check-label">{{ nt.label }}</span>
-            <span class="check-count">{{ nodeCountByType[nt.key] || 0 }}</span>
-          </label>
-        </div>
-
-        <!-- Edges -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Edges</div>
-          <label
-            v-for="et in edgeTypeFilters"
-            :key="et.key"
-            class="sidebar-check"
-          >
-            <input
-              type="checkbox"
-              :checked="visibleEdgeTypes.has(et.key)"
-              @change="toggleEdgeType(et.key)"
-            />
-            <span class="check-label">{{ et.label }}</span>
-            <span class="check-count">{{ edgeCountByType[et.key] || 0 }}</span>
-          </label>
-        </div>
-
-        <!-- Filters -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Filters</div>
-          <label class="sidebar-check">
-            <input type="checkbox" v-model="hideOrphans" />
-            <span class="check-label">Hide orphan nodes</span>
-          </label>
-          <label class="sidebar-check">
-            <input type="checkbox" v-model="showArrows" />
-            <span class="check-label">Show edge direction</span>
-          </label>
-        </div>
-
-        <!-- Focus depth -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">
-            Focus depth
-            <span class="depth-value">{{ focusDepth }}</span>
-          </div>
-          <input
-            type="range"
-            min="1"
-            max="5"
-            v-model.number="focusDepth"
-            class="depth-slider"
-          />
-          <div class="depth-labels">
-            <span>1</span>
-            <span>2</span>
-            <span>3</span>
-            <span>4</span>
-            <span>5</span>
-          </div>
-          <div class="sidebar-hint">Right-click a node to focus</div>
-          <button
-            v-if="focusedNodeId"
-            class="btn-clear-focus"
-            @click="clearFocus"
-          >Clear focus</button>
-        </div>
+    <GraphSidebar
+      :collapsed="sidebarCollapsed"
+      :node-types="nodeTypeFilters"
+      :edge-types="edgeTypeFilters"
+      :visible-node-types="visibleNodeTypes"
+      :visible-edge-types="visibleEdgeTypes"
+      :node-count-by-type="nodeCountByType"
+      :edge-count-by-type="edgeCountByType"
+      :node-count="filteredNodeCount"
+      :edge-count="filteredEdgeCount"
+      :hide-orphans="hideOrphans"
+      :show-arrows="showArrows"
+      :focus-depth="focusDepth"
+      :has-focus="!!focusedNodeId"
+      @update:collapsed="sidebarCollapsed = $event"
+      @toggle-node-type="toggleNodeType"
+      @toggle-edge-type="toggleEdgeType"
+      @update:hide-orphans="hideOrphans = $event"
+      @update:show-arrows="showArrows = $event"
+      @update:focus-depth="focusDepth = $event"
+      @clear-focus="clearFocus"
+    >
+      <template #back>
+        <NuxtLink :to="`/research/${researchSlug}`" class="sidebar-back">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Back
+        </NuxtLink>
+        <span class="sidebar-title">Knowledge Graph</span>
       </template>
-    </aside>
+    </GraphSidebar>
 
     <!-- Main area -->
     <div class="graph-main">
@@ -572,9 +497,6 @@ function onMouseDown(e: MouseEvent) {
     dragNode.fy = dragNode.y
     simulation?.alphaTarget(0.3).restart()
   } else {
-    if (focusedNodeId.value) {
-      clearFocus()
-    }
     isPanning = true
     panStart = { x: e.clientX, y: e.clientY, tx: transform.x, ty: transform.y }
   }
@@ -753,48 +675,7 @@ useRealtimeUpdates((event: any) => {
   z-index: 100;
 }
 
-/* --- Sidebar --- */
-.graph-sidebar {
-  width: 240px;
-  flex-shrink: 0;
-  background: rgba(0,0,0,0.5);
-  border-right: 1px solid rgba(255,255,255,0.06);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  transition: width 0.2s;
-  position: relative;
-}
-
-.graph-sidebar.collapsed {
-  width: 36px;
-  overflow: hidden;
-}
-
-.sidebar-toggle {
-  position: absolute;
-  top: 10px;
-  right: 8px;
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.4);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  z-index: 2;
-}
-.sidebar-toggle:hover {
-  color: rgba(255,255,255,0.8);
-  background: rgba(255,255,255,0.06);
-}
-
-.sidebar-header {
-  padding: 12px 14px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
+/* Styles for back link in sidebar slot */
 .sidebar-back {
   display: flex;
   align-items: center;
@@ -809,153 +690,6 @@ useRealtimeUpdates((event: any) => {
   font-size: 14px;
   font-weight: 600;
   color: rgba(255,255,255,0.85);
-}
-
-.sidebar-section {
-  padding: 10px 14px;
-  border-top: 1px solid rgba(255,255,255,0.04);
-}
-
-.sidebar-section-title {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: rgba(255,255,255,0.35);
-  margin-bottom: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sidebar-stats {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: rgba(255,255,255,0.45);
-}
-
-.sidebar-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  cursor: pointer;
-  font-size: 12px;
-  color: rgba(255,255,255,0.7);
-}
-
-.sidebar-check input[type="checkbox"] {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid rgba(255,255,255,0.2);
-  border-radius: 3px;
-  background: transparent;
-  cursor: pointer;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.sidebar-check input[type="checkbox"]:checked {
-  background: rgba(255,255,255,0.15);
-  border-color: rgba(255,255,255,0.4);
-}
-
-.sidebar-check input[type="checkbox"]:checked::after {
-  content: '';
-  position: absolute;
-  top: 1px;
-  left: 4px;
-  width: 4px;
-  height: 7px;
-  border: solid rgba(255,255,255,0.9);
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-}
-
-.check-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.check-label {
-  flex: 1;
-}
-
-.check-count {
-  font-size: 11px;
-  color: rgba(255,255,255,0.25);
-  font-variant-numeric: tabular-nums;
-}
-
-.depth-slider {
-  width: 100%;
-  appearance: none;
-  height: 4px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 2px;
-  outline: none;
-  margin: 4px 0 2px;
-}
-
-.depth-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #a78bfa;
-  cursor: pointer;
-  border: 2px solid #1a1a2e;
-}
-
-.depth-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #a78bfa;
-  cursor: pointer;
-  border: 2px solid #1a1a2e;
-}
-
-.depth-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 9px;
-  color: rgba(255,255,255,0.2);
-  padding: 0 2px;
-}
-
-.depth-value {
-  color: #a78bfa;
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.sidebar-hint {
-  font-size: 10px;
-  color: rgba(255,255,255,0.2);
-  margin-top: 6px;
-  font-style: italic;
-}
-
-.btn-clear-focus {
-  display: block;
-  width: 100%;
-  margin-top: 8px;
-  padding: 5px;
-  background: rgba(167,139,250,0.1);
-  border: 1px solid rgba(167,139,250,0.25);
-  border-radius: 5px;
-  color: #a78bfa;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-clear-focus:hover {
-  background: rgba(167,139,250,0.2);
 }
 
 /* --- Main area --- */
