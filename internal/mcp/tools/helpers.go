@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,9 +24,35 @@ func successResult(data any) (*mcp.CallToolResult, any, error) {
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(text)},
+			&mcp.TextContent{Text: sanitizeUTF8(string(text))},
 		},
 	}, nil, nil
+}
+
+// sanitizeUTF8 removes U+FFFD replacement characters and any invalid UTF-8 sequences.
+func sanitizeUTF8(s string) string {
+	// Fast path: if no replacement chars and valid UTF-8, return as-is
+	if !strings.ContainsRune(s, utf8.RuneError) && utf8.ValidString(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size <= 1 {
+			// Skip invalid byte
+			i++
+			continue
+		}
+		if r == utf8.RuneError {
+			// Skip U+FFFD replacement character
+			i += size
+			continue
+		}
+		b.WriteRune(r)
+		i += size
+	}
+	return b.String()
 }
 
 func errorResult(msg string) (*mcp.CallToolResult, any, error) {

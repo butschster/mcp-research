@@ -52,9 +52,9 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 	research := &domain.Research{
 		ID:          uuid.New().String(),
 		UserID:      auth.UserIDFromContext(ctx),
-		Name:        req.Name,
-		Description: req.Description,
-		Goal:        req.Goal,
+		Name:        normalizeContent(req.Name),
+		Description: normalizeContent(req.Description),
+		Goal:        normalizeContent(req.Goal),
 		Status:      domain.ResearchActive,
 		Memory:      []string{},
 		Tags:        req.Tags,
@@ -72,9 +72,9 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 		section := &domain.Section{
 			ID:          uuid.New().String(),
 			ResearchID:  research.ID,
-			Name:        sec.Name,
-			DisplayName: sec.DisplayName,
-			Description: sec.Description,
+			Name:        normalizeContent(sec.Name),
+			DisplayName: normalizeContent(sec.DisplayName),
+			Description: normalizeContent(sec.Description),
 			Status:      domain.SectionDraft,
 			Position:    sec.Position,
 		}
@@ -139,19 +139,19 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 	}
 
 	if req.Name != nil {
-		research.Name = *req.Name
+		research.Name = normalizeContent(*req.Name)
 	}
 	if req.Description != nil {
-		research.Description = *req.Description
+		research.Description = normalizeContent(*req.Description)
 	}
 	if req.Goal != nil {
-		research.Goal = *req.Goal
+		research.Goal = normalizeContent(*req.Goal)
 	}
 	if req.Status != nil {
 		research.Status = *req.Status
 	}
 	if req.Instruction != nil {
-		research.Instruction = *req.Instruction
+		research.Instruction = normalizeContent(*req.Instruction)
 	}
 	if req.Tags != nil {
 		research.Tags = req.Tags
@@ -188,9 +188,9 @@ func (s *ResearchService) AddSection(ctx context.Context, researchID string, req
 	section := &domain.Section{
 		ID:          uuid.New().String(),
 		ResearchID:  researchID,
-		Name:        req.Name,
-		DisplayName: req.DisplayName,
-		Description: req.Description,
+		Name:        normalizeContent(req.Name),
+		DisplayName: normalizeContent(req.DisplayName),
+		Description: normalizeContent(req.Description),
 		Status:      domain.SectionDraft,
 		Position:    req.Position,
 	}

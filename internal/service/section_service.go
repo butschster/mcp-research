@@ -72,10 +72,10 @@ func (s *SectionService) Update(ctx context.Context, id string, req UpdateSectio
 	}
 
 	if req.DisplayName != nil {
-		section.DisplayName = *req.DisplayName
+		section.DisplayName = normalizeContent(*req.DisplayName)
 	}
 	if req.Description != nil {
-		section.Description = *req.Description
+		section.Description = normalizeContent(*req.Description)
 	}
 	if req.Status != nil {
 		section.Status = *req.Status
