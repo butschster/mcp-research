@@ -30,13 +30,14 @@ func RegisterSectionList(srv *mcp.Server, svc *service.SectionService, log *slog
 		for _, s := range sections {
 			count, _ := svc.CountEntries(ctx, s.ID)
 			items = append(items, map[string]any{
-				"id":            s.ID,
-				"name":          s.Name,
-				"display_name":  s.DisplayName,
-				"description":   s.Description,
-				"status":        s.Status,
-				"position":      s.Position,
-				"entries_count": count,
+				"id":                     s.ID,
+				"name":                   s.Name,
+				"display_name":           s.DisplayName,
+				"description":            s.Description,
+				"status":                 s.Status,
+				"position":               s.Position,
+				"allowed_entry_statuses": s.AllowedEntryStatuses,
+				"entries_count":          count,
 			})
 		}
 

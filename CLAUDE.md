@@ -158,6 +158,8 @@ deploy/
 **Entry** -> **CrossRef** (cross-references extracted from `[[...]]` patterns)
 **Entry** -?> **Session** (optional link: `session_id` tracks which session produced the entry)
 
+Each **Section** has `allowed_entry_statuses` (JSON array of strings) defining valid statuses for its entries. First status is the default for new entries. If not specified, defaults to `["draft", "active", "completed", "archived"]`. Custom statuses allow domain-specific workflows (e.g. `["found", "reading", "reviewed", "rejected"]`). Entry create/update validates the status against the section's list.
+
 A research can have **multiple sessions** (e.g. initial exploration, deep-dive, follow-up). Each session has its own questions. Questions and answers may contain `[[...]]` cross-references just like entries. The frontend renders these references as clickable links everywhere: question text, answers, task titles/results, session notes.
 
 ### User Scoping & Access Control

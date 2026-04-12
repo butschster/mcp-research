@@ -18,10 +18,11 @@ type ResearchCreateInput struct {
 }
 
 type SectionSpecInput struct {
-	Name        string `json:"name" jsonschema:"Section slug (lowercase alphanumeric with hyphens/underscores)"`
-	DisplayName string `json:"display_name" jsonschema:"Human-readable section name"`
-	Description string `json:"description" jsonschema:"Section description"`
-	Position    int    `json:"position" jsonschema:"Sort order (0-based)"`
+	Name                 string   `json:"name" jsonschema:"Section slug (lowercase alphanumeric with hyphens/underscores)"`
+	DisplayName          string   `json:"display_name" jsonschema:"Human-readable section name"`
+	Description          string   `json:"description" jsonschema:"Section description"`
+	Position             int      `json:"position" jsonschema:"Sort order (0-based)"`
+	AllowedEntryStatuses []string `json:"allowed_entry_statuses" jsonschema:"Allowed statuses for entries in this section. First status is the default. If omitted, defaults to [draft, active, completed, archived]"`
 }
 
 func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *slog.Logger) {
@@ -45,10 +46,11 @@ func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *
 		var sections []service.CreateSectionRequest
 		for _, s := range input.Sections {
 			sections = append(sections, service.CreateSectionRequest{
-				Name:        s.Name,
-				DisplayName: s.DisplayName,
-				Description: s.Description,
-				Position:    s.Position,
+				Name:                 s.Name,
+				DisplayName:          s.DisplayName,
+				Description:          s.Description,
+				Position:             s.Position,
+				AllowedEntryStatuses: s.AllowedEntryStatuses,
 			})
 		}
 

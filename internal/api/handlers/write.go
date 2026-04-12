@@ -39,10 +39,11 @@ func (h *WriteHandler) CreateResearch(w http.ResponseWriter, r *http.Request) {
 		Goal        string   `json:"goal"`
 		Tags        []string `json:"tags"`
 		Sections    []struct {
-			Name        string `json:"name"`
-			DisplayName string `json:"display_name"`
-			Description string `json:"description"`
-			Position    int    `json:"position"`
+			Name                 string   `json:"name"`
+			DisplayName          string   `json:"display_name"`
+			Description          string   `json:"description"`
+			Position             int      `json:"position"`
+			AllowedEntryStatuses []string `json:"allowed_entry_statuses"`
 		} `json:"sections"`
 	}
 	if !decodeJSON(w, r, &input) {
@@ -58,6 +59,7 @@ func (h *WriteHandler) CreateResearch(w http.ResponseWriter, r *http.Request) {
 		sections = append(sections, service.CreateSectionRequest{
 			Name: s.Name, DisplayName: s.DisplayName,
 			Description: s.Description, Position: s.Position,
+			AllowedEntryStatuses: s.AllowedEntryStatuses,
 		})
 	}
 
@@ -118,10 +120,11 @@ func (h *WriteHandler) UpdateResearch(w http.ResponseWriter, r *http.Request) {
 func (h *WriteHandler) AddSection(w http.ResponseWriter, r *http.Request) {
 	researchID := r.PathValue("id")
 	var input struct {
-		Name        string `json:"name"`
-		DisplayName string `json:"display_name"`
-		Description string `json:"description"`
-		Position    int    `json:"position"`
+		Name                 string   `json:"name"`
+		DisplayName          string   `json:"display_name"`
+		Description          string   `json:"description"`
+		Position             int      `json:"position"`
+		AllowedEntryStatuses []string `json:"allowed_entry_statuses"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -134,6 +137,7 @@ func (h *WriteHandler) AddSection(w http.ResponseWriter, r *http.Request) {
 	section, err := h.research.AddSection(r.Context(), researchID, service.CreateSectionRequest{
 		Name: input.Name, DisplayName: input.DisplayName,
 		Description: input.Description, Position: input.Position,
+		AllowedEntryStatuses: input.AllowedEntryStatuses,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -145,10 +149,11 @@ func (h *WriteHandler) AddSection(w http.ResponseWriter, r *http.Request) {
 func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 	sectionID := r.PathValue("sectionId")
 	var input struct {
-		DisplayName *string `json:"display_name"`
-		Description *string `json:"description"`
-		Status      *string `json:"status"`
-		Position    *int    `json:"position"`
+		DisplayName          *string  `json:"display_name"`
+		Description          *string  `json:"description"`
+		Status               *string  `json:"status"`
+		Position             *int     `json:"position"`
+		AllowedEntryStatuses []string `json:"allowed_entry_statuses"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -163,6 +168,7 @@ func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 	section, err := h.section.Update(r.Context(), sectionID, service.UpdateSectionRequest{
 		DisplayName: input.DisplayName, Description: input.Description,
 		Status: status, Position: input.Position,
+		AllowedEntryStatuses: input.AllowedEntryStatuses,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

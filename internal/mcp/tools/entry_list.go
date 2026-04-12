@@ -13,7 +13,7 @@ import (
 type EntryListInput struct {
 	ResearchID string `json:"research_id" jsonschema:"ID of the research"`
 	SectionID  string `json:"section_id" jsonschema:"ID of the section"`
-	Status     string `json:"status" jsonschema:"Filter by status: draft, active, completed, archived"`
+	Status     string `json:"status" jsonschema:"Filter by status (use section's allowed_entry_statuses for valid values)"`
 }
 
 func RegisterEntryList(srv *mcp.Server, svc *service.EntryService, log *slog.Logger) {

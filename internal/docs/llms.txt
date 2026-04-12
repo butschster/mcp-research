@@ -7,7 +7,8 @@
 ```
 Research (R1, R2...) — statuses: active, completed, archived
   |-- Section (S1, S2...) — logical topics within a research
-  |     |-- Entry (E1, E2...) — markdown documents with findings
+  |     |-- allowed_entry_statuses — defines valid statuses for entries (default: draft, active, completed, archived)
+  |     |-- Entry (E1, E2...) — markdown documents with findings (status must be in section's allowed list)
   |
   |-- Session (SS1, SS2...) — interactive Q&A interview (multiple per research)
   |     |-- Question (Q1, Q2...) — structured prompts with answers
@@ -22,6 +23,8 @@ Research (R1, R2...) — statuses: active, completed, archived
   Entry --[[E3]]--> Entry — cross-references form a knowledge graph
   Entry --[[RM1]]--> Roadmap — cross-references to roadmaps and nodes
 ```
+
+Each section defines `allowed_entry_statuses` — a list of valid statuses for its entries. The first status in the list is the default for new entries. When creating or updating an entry, the status must be from this list. If not specified when creating a section, defaults to `["draft", "active", "completed", "archived"]`. Custom statuses allow domain-specific workflows (e.g. `["found", "reading", "reviewed", "rejected"]` for a sources section).
 
 Cross-references work in entry content, question text, question answers, task results, and session notes. They are rendered as clickable links in the web UI and stored in the `crossrefs` table for graph queries.
 

@@ -109,7 +109,9 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 
 	status := req.Status
 	if status == "" {
-		status = domain.EntryDraft
+		status = section.DefaultEntryStatus()
+	} else if !section.IsEntryStatusAllowed(status) {
+		return nil, fmt.Errorf("status %q: %w (allowed: %v)", status, ErrInvalidEntryStatus, section.AllowedEntryStatuses)
 	}
 
 	tags := req.Tags
@@ -220,6 +222,14 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		entry.Description = *req.Description
 	}
 	if req.Status != nil {
+		// Validate against section's allowed statuses
+		section, sErr := s.sections.FindByID(ctx, entry.SectionID)
+		if sErr != nil {
+			return nil, fmt.Errorf("find section: %w", sErr)
+		}
+		if section != nil && !section.IsEntryStatusAllowed(*req.Status) {
+			return nil, fmt.Errorf("status %q: %w (allowed: %v)", *req.Status, ErrInvalidEntryStatus, section.AllowedEntryStatuses)
+		}
 		entry.Status = *req.Status
 	}
 	if req.Tags != nil {

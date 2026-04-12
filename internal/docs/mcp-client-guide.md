@@ -62,8 +62,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `section_list` | List sections for a research |
-| `section_update` | Update section name, description, status, position |
+| `section_list` | List sections for a research (includes allowed_entry_statuses per section) |
+| `section_update` | Update section name, description, status, position, or allowed_entry_statuses |
 
 ### Roadmaps
 
@@ -95,7 +95,7 @@ Many MCP tool parameters are optional. You can omit them entirely or pass `null`
 | Field | Default |
 |-------|---------|
 | `priority` | `medium` |
-| `status` (entry) | `draft` |
+| `status` (entry) | First status from section's `allowed_entry_statuses` (usually `draft`) |
 | `node_type` | `step` |
 | `edge_type` | `default` |
 | `title` (entry) | Auto-generated from first line of content |
@@ -193,12 +193,27 @@ Entries are the primary knowledge artifacts. They live in sections and represent
 
 ### Statuses
 
+Entry statuses are **defined per section** via the `allowed_entry_statuses` field. Each section specifies which statuses are valid for its entries. The first status in the list is the default for new entries.
+
+**Default statuses** (used when a section doesn't specify custom ones):
+
 | Status | Meaning | When to use |
 |--------|---------|-------------|
 | `draft` | Work in progress (default) | Initial creation, incomplete content |
 | `active` | Published and current | Entry is complete and represents current understanding |
 | `completed` | Finalized, no further changes expected | Section is being closed out |
 | `archived` | Historical, superseded by newer entries | Content is outdated but preserved for reference |
+
+**Custom statuses** — sections can define domain-specific statuses. Examples:
+- Sources section: `["found", "reading", "reviewed", "rejected"]`
+- Experiments: `["planned", "running", "analyzed", "discarded"]`
+- Recommendations: `["proposed", "approved", "implemented"]`
+
+**How to use:**
+1. Check `section_list` or `research_get` — each section includes `allowed_entry_statuses`
+2. When creating/updating an entry, use a status from that list
+3. If status is omitted on `entry_create`, the first status in the list is used as default
+4. Setting an invalid status returns an error listing the allowed values
 
 ### Content patterns
 

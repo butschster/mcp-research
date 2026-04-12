@@ -20,10 +20,11 @@ type CreateResearchRequest struct {
 }
 
 type CreateSectionRequest struct {
-	Name        string
-	DisplayName string
-	Description string
-	Position    int
+	Name                 string
+	DisplayName          string
+	Description          string
+	Position             int
+	AllowedEntryStatuses []string // optional; defaults filled automatically
 }
 
 type UpdateResearchRequest struct {
@@ -69,14 +70,19 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 
 	var sections []*domain.Section
 	for _, sec := range req.Sections {
+		statuses := sec.AllowedEntryStatuses
+		if len(statuses) == 0 {
+			statuses = append([]string{}, domain.DefaultEntryStatuses...)
+		}
 		section := &domain.Section{
-			ID:          uuid.New().String(),
-			ResearchID:  research.ID,
-			Name:        normalizeContent(sec.Name),
-			DisplayName: normalizeContent(sec.DisplayName),
-			Description: normalizeContent(sec.Description),
-			Status:      domain.SectionDraft,
-			Position:    sec.Position,
+			ID:                   uuid.New().String(),
+			ResearchID:           research.ID,
+			Name:                 normalizeContent(sec.Name),
+			DisplayName:          normalizeContent(sec.DisplayName),
+			Description:          normalizeContent(sec.Description),
+			Status:               domain.SectionDraft,
+			Position:             sec.Position,
+			AllowedEntryStatuses: statuses,
 		}
 		if err := s.sections.Create(ctx, section); err != nil {
 			return nil, nil, fmt.Errorf("create section %s: %w", sec.Name, err)
@@ -185,14 +191,20 @@ func (s *ResearchService) AddSection(ctx context.Context, researchID string, req
 		return nil, ErrDuplicateSectionName
 	}
 
+	statuses := req.AllowedEntryStatuses
+	if len(statuses) == 0 {
+		statuses = append([]string{}, domain.DefaultEntryStatuses...)
+	}
+
 	section := &domain.Section{
-		ID:          uuid.New().String(),
-		ResearchID:  researchID,
-		Name:        normalizeContent(req.Name),
-		DisplayName: normalizeContent(req.DisplayName),
-		Description: normalizeContent(req.Description),
-		Status:      domain.SectionDraft,
-		Position:    req.Position,
+		ID:                   uuid.New().String(),
+		ResearchID:           researchID,
+		Name:                 normalizeContent(req.Name),
+		DisplayName:          normalizeContent(req.DisplayName),
+		Description:          normalizeContent(req.Description),
+		Status:               domain.SectionDraft,
+		Position:             req.Position,
+		AllowedEntryStatuses: statuses,
 	}
 
 	if err := s.sections.Create(ctx, section); err != nil {

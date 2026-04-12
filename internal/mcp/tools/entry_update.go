@@ -14,7 +14,7 @@ type EntryUpdateInput struct {
 	Title       *string          `json:"title" jsonschema:"New title"`
 	Content     *string          `json:"content" jsonschema:"Replace entire content"`
 	Description *string          `json:"description" jsonschema:"New description"`
-	Status      *string          `json:"status" jsonschema:"New status: draft, active, completed, archived"`
+	Status      *string          `json:"status" jsonschema:"New status. Must be one of the section's allowed_entry_statuses."`
 	Tags        []string         `json:"tags" jsonschema:"Replace tags"`
 	TextReplace *TextReplaceSpec `json:"text_replace" jsonschema:"Replace first occurrence of 'from' with 'to' in content"`
 	SessionID   *string          `json:"session_id" jsonschema:"Link entry to a session (pass empty string to unlink)"`

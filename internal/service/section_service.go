@@ -10,10 +10,11 @@ import (
 )
 
 type UpdateSectionRequest struct {
-	DisplayName *string
-	Description *string
-	Status      *domain.SectionStatus
-	Position    *int
+	DisplayName          *string
+	Description          *string
+	Status               *domain.SectionStatus
+	Position             *int
+	AllowedEntryStatuses []string // nil = no change; non-nil replaces the list
 }
 
 type SectionService struct {
@@ -82,6 +83,9 @@ func (s *SectionService) Update(ctx context.Context, id string, req UpdateSectio
 	}
 	if req.Position != nil {
 		section.Position = *req.Position
+	}
+	if req.AllowedEntryStatuses != nil {
+		section.AllowedEntryStatuses = req.AllowedEntryStatuses
 	}
 
 	if err := s.sections.Update(ctx, section); err != nil {

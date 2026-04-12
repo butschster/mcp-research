@@ -35,13 +35,14 @@ func RegisterResearchGet(srv *mcp.Server, researchSvc *service.ResearchService, 
 		for _, s := range sections {
 			count, _ := sectionSvc.CountEntries(ctx, s.ID)
 			sectionData = append(sectionData, map[string]any{
-				"id":            s.ID,
-				"name":          s.Name,
-				"display_name":  s.DisplayName,
-				"description":   s.Description,
-				"status":        s.Status,
-				"position":      s.Position,
-				"entries_count": count,
+				"id":                     s.ID,
+				"name":                   s.Name,
+				"display_name":           s.DisplayName,
+				"description":            s.Description,
+				"status":                 s.Status,
+				"position":               s.Position,
+				"allowed_entry_statuses": s.AllowedEntryStatuses,
+				"entries_count":          count,
 			})
 		}
 

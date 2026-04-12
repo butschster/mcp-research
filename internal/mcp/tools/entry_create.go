@@ -16,7 +16,7 @@ type EntryCreateInput struct {
 	Content     string   `json:"content" jsonschema:"Markdown content of the entry"`
 	Title       *string  `json:"title" jsonschema:"Optional title (auto-generated from content if empty)"`
 	Description *string  `json:"description" jsonschema:"Optional description (auto-generated from content if empty)"`
-	Status      *string  `json:"status" jsonschema:"Entry status: draft, active, completed, archived. Default: draft"`
+	Status      *string  `json:"status" jsonschema:"Entry status. Must be one of the section's allowed_entry_statuses. Default: first status in the list."`
 	Tags        []string `json:"tags" jsonschema:"Tags for categorization"`
 }
 

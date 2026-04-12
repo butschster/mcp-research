@@ -183,8 +183,9 @@ func openAPISpec(_ bool) map[string]any {
 				field("display_name", "string", "Human-readable name"),
 				field("description", "string", "Section description"),
 				field("position", "integer", "Sort position"),
+				field("allowed_entry_statuses", "array", "Allowed statuses for entries in this section. First is default. If omitted: [draft, active, completed, archived]"),
 			)),
-			response201(obj(field("data", "object", "Created section object"))),
+			response201(obj(field("data", "object", "Created section object with allowed_entry_statuses"))),
 		))
 
 		addMethod(paths, "/api/sections/{sectionId}", "put", writeEndpoint(
@@ -196,8 +197,9 @@ func openAPISpec(_ bool) map[string]any {
 				field("description", "string", "New description"),
 				field("status", "string", "New status: draft, active, completed, archived"),
 				field("position", "integer", "New sort position"),
+				field("allowed_entry_statuses", "array", "Replace allowed entry statuses. First status becomes default."),
 			)),
-			response200(obj(field("data", "object", "Updated section object"))),
+			response200(obj(field("data", "object", "Updated section object with allowed_entry_statuses"))),
 		))
 
 		addMethod(paths, "/api/entries", "post", writeEndpoint(
@@ -211,7 +213,7 @@ func openAPISpec(_ bool) map[string]any {
 				field("content", "string", "Markdown content (required)"),
 				field("title", "string", "Title (auto-generated if empty)"),
 				field("description", "string", "Description (auto-generated if empty)"),
-				field("status", "string", "Status: draft, active, completed, archived"),
+				field("status", "string", "Entry status. Must be in section's allowed_entry_statuses. Default: first in list."),
 				field("tags", "array", "Array of tag strings"),
 			)),
 			response201(obj(field("data", "object", "Contains: entry_id, code, title, status"))),

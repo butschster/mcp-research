@@ -10,11 +10,12 @@ import (
 )
 
 type SectionUpdateInput struct {
-	SectionID   string  `json:"section_id" jsonschema:"ID of the section to update"`
-	DisplayName *string `json:"display_name" jsonschema:"New display name"`
-	Description *string `json:"description" jsonschema:"New description"`
-	Status      *string `json:"status" jsonschema:"New status: draft, active, completed, or archived. Note: completed requires at least one entry."`
-	Position    *int    `json:"position" jsonschema:"New sort position"`
+	SectionID            string   `json:"section_id" jsonschema:"ID of the section to update"`
+	DisplayName          *string  `json:"display_name" jsonschema:"New display name"`
+	Description          *string  `json:"description" jsonschema:"New description"`
+	Status               *string  `json:"status" jsonschema:"New status: draft, active, completed, or archived. Note: completed requires at least one entry."`
+	Position             *int     `json:"position" jsonschema:"New sort position"`
+	AllowedEntryStatuses []string `json:"allowed_entry_statuses" jsonschema:"Replace the list of allowed entry statuses for this section. First status becomes the default."`
 }
 
 func RegisterSectionUpdate(srv *mcp.Server, svc *service.SectionService, log *slog.Logger) {
@@ -33,20 +34,22 @@ func RegisterSectionUpdate(srv *mcp.Server, svc *service.SectionService, log *sl
 		}
 
 		section, err := svc.Update(ctx, input.SectionID, service.UpdateSectionRequest{
-			DisplayName: input.DisplayName,
-			Description: input.Description,
-			Status:      status,
-			Position:    input.Position,
+			DisplayName:          input.DisplayName,
+			Description:          input.Description,
+			Status:               status,
+			Position:             input.Position,
+			AllowedEntryStatuses: input.AllowedEntryStatuses,
 		})
 		if err != nil {
 			return errorResult(err.Error())
 		}
 
 		return successResult(map[string]any{
-			"section_id":   section.ID,
-			"display_name": section.DisplayName,
-			"status":       section.Status,
-			"updated":      true,
+			"section_id":             section.ID,
+			"display_name":           section.DisplayName,
+			"status":                 section.Status,
+			"allowed_entry_statuses": section.AllowedEntryStatuses,
+			"updated":                true,
 		})
 	})
 }

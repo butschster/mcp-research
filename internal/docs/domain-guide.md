@@ -29,7 +29,7 @@ Top-level container for an investigation project. Scoped to a user when authenti
 
 ### Section
 
-Logical division within a research. Organizes entries by topic.
+Logical division within a research. Organizes entries by topic. Each section defines which statuses its entries can have.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -38,12 +38,20 @@ Logical division within a research. Organizes entries by topic.
 | `description` | string | One sentence scope definition |
 | `position` | int | Sort order (0-based) — investigation sequence |
 | `status` | enum | `draft` / `active` / `completed` / `archived` |
+| `allowed_entry_statuses` | string[] | Valid statuses for entries in this section. First is default. |
 | `code` | string | Auto-assigned: `S1`, `S2`... (per research) |
 
 **Key rules:**
 - 3-7 sections per research. Non-overlapping scopes.
 - Order by investigation logic (context → current state → gaps → recommendations), not alphabetically.
 - Requires at least one entry before marking `completed`.
+- `allowed_entry_statuses` defaults to `["draft", "active", "completed", "archived"]` if not specified.
+- Use custom statuses for domain-specific workflows:
+  - Sources section: `["found", "reading", "reviewed", "rejected"]`
+  - Experiments section: `["planned", "running", "analyzed", "discarded"]`
+  - Recommendations section: `["proposed", "approved", "implemented"]`
+- The first status in the list is used as default when creating entries without specifying status.
+- Entry create/update validates that the status is in the section's allowed list.
 
 ---
 
@@ -59,7 +67,7 @@ Markdown document containing research findings. Lives in a section.
 | `section_id` | string | Parent section |
 | `session_id` | string | Optional: session that produced this entry |
 | `tags` | string[] | Categorization tags for filtering |
-| `status` | enum | `draft` / `active` / `completed` / `archived` |
+| `status` | string | Must be one of the parent section's `allowed_entry_statuses`. Default: first in list. |
 | `code` | string | Auto-assigned: `E1`, `E2`... (per research) |
 
 **Key rules:**
@@ -68,6 +76,7 @@ Markdown document containing research findings. Lives in a section.
 - Tags enable filtering on the research page. Use consistent taxonomy.
 - Title/description auto-generated from content if not provided.
 - Set `session_id` to link the entry to the session that produced it (helps track provenance).
+- Status must be from the section's `allowed_entry_statuses` list. Check `section_list` or `research_get` to see available statuses.
 
 **Cross-reference syntax in content:**
 - `[[E3]]` — entry E3 in same research
