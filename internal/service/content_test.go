@@ -1,6 +1,8 @@
 package service
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestNormalizeContent(t *testing.T) {
 	tests := []struct {
@@ -47,6 +49,21 @@ func TestNormalizeContent(t *testing.T) {
 			name:  "markdown with literal escapes",
 			input: `# Title\n\nParagraph with **bold**\n\n- item1\n- item2`,
 			want:  "# Title\n\nParagraph with **bold**\n\n- item1\n- item2",
+		},
+		{
+			name:  "strips U+FFFD replacement characters",
+			input: "MCP-се\uFFFD\uFFFDверы",
+			want:  "MCP-северы",
+		},
+		{
+			name:  "strips invalid UTF-8 bytes",
+			input: "hello\x80\x81world",
+			want:  "helloworld",
+		},
+		{
+			name:  "valid UTF-8 with Cyrillic unchanged",
+			input: "Инфраструктура и Docker",
+			want:  "Инфраструктура и Docker",
 		},
 	}
 
