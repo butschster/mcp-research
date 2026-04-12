@@ -172,6 +172,10 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/roadmaps/{roadmapId}", wrapRead(rmh.GetByResearch))
 	mux.Handle("GET /api/roadmaps/{id}", wrapRead(rmh.Get))
 
+	// --- Graph endpoint ---
+	gh := handlers.NewGraphHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, entryRepo, crossrefRepo, log)
+	mux.Handle("GET /api/researches/{id}/graph", wrapRead(gh.Get))
+
 	// --- Write endpoints ---
 	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
 	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
