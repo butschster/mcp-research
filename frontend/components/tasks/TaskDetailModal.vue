@@ -95,6 +95,7 @@
               <div v-if="editing !== 'description'">
                 <div
                   v-if="task.description"
+                  ref="descContentEl"
                   class="field-value field-value-pre markdown-content"
                   v-html="renderRefs(marked.parse(normalizeContent(task.description)) as string, researchSlug)"
                 ></div>
@@ -132,6 +133,7 @@
               <div v-if="editing !== 'result'">
                 <div
                   v-if="task.result"
+                  ref="resultContentEl"
                   class="field-value field-value-pre markdown-content"
                   v-html="renderRefs(marked.parse(normalizeContent(task.result)) as string, researchSlug)"
                 ></div>
@@ -162,6 +164,7 @@
 <script setup lang="ts">
 import { marked } from 'marked'
 import { renderRefs } from '~/composables/useCrossRefs'
+import { renderMermaidBlocks } from '~/composables/useMermaid'
 marked.setOptions({ gfm: true, breaks: true })
 
 const props = defineProps<{
@@ -181,9 +184,21 @@ const editTitleInput = ref<HTMLInputElement | null>(null)
 const editDescInput = ref<HTMLTextAreaElement | null>(null)
 const editResultInput = ref<HTMLTextAreaElement | null>(null)
 
+// Mermaid rendering for task description/result
+const descContentEl = ref<HTMLElement | null>(null)
+const resultContentEl = ref<HTMLElement | null>(null)
+function renderTaskMermaid() {
+  nextTick(() => {
+    if (descContentEl.value) renderMermaidBlocks(descContentEl.value)
+    if (resultContentEl.value) renderMermaidBlocks(resultContentEl.value)
+  })
+}
+
 watch(() => props.task, () => {
   editing.value = null
+  renderTaskMermaid()
 })
+onMounted(renderTaskMermaid)
 
 function startEditing(field: string) {
   editValues.title = props.task?.title ?? ''

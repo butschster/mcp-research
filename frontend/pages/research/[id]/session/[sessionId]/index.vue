@@ -22,7 +22,7 @@
     <!-- Notes -->
     <div v-if="session.notes" class="card notes-card">
       <h3 class="card-section-title">Session notes</h3>
-      <div class="notes-text markdown-content" v-html="renderRefs(marked.parse(normalizeContent(session.notes)) as string, researchSlug)"></div>
+      <div ref="notesEl" class="notes-text markdown-content" v-html="renderRefs(marked.parse(normalizeContent(session.notes)) as string, researchSlug)"></div>
     </div>
 
     <!-- Tabs -->
@@ -112,6 +112,7 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { renderMermaidBlocks } from '~/composables/useMermaid'
 marked.setOptions({ gfm: true, breaks: true })
 const route = useRoute()
 const id = route.params.id as string
@@ -123,6 +124,17 @@ const researchSlug = computed(() => researchData.value?.data?.research?.code || 
 const { data, pending } = await useApi<{ data: any }>(`/api/researches/${id}/sessions/${sessionId}`)
 
 const session  = computed(() => data.value?.data?.session ?? data.value?.data?.Session)
+
+// Mermaid rendering for session notes
+const notesEl = ref<HTMLElement | null>(null)
+watch(() => session.value?.notes, () => {
+  nextTick(() => {
+    if (notesEl.value) renderMermaidBlocks(notesEl.value)
+  })
+})
+onMounted(() => {
+  if (notesEl.value) renderMermaidBlocks(notesEl.value)
+})
 const questions = computed(() => data.value?.data?.questions ?? data.value?.data?.Questions ?? {})
 const progress  = computed(() => ({
   total:    data.value?.data?.progress?.total    ?? 0,

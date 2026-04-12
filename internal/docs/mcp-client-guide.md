@@ -148,6 +148,30 @@ Content is rendered using GitHub Flavored Markdown with `breaks: true` (single n
 - Tables (GFM pipe syntax)
 - Links and images
 - Blockquotes
+- Mermaid diagrams (fenced code blocks with `mermaid` language — see below)
+
+### Mermaid diagrams
+
+Use fenced code blocks with the `mermaid` language identifier to embed diagrams. They are rendered as interactive SVG in the web UI. All Mermaid diagram types are supported: flowchart, sequence, class, state, ER, Gantt, pie, mindmap, timeline, etc.
+
+Example in entry content:
+
+```
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+    C --> E[End]
+    D --> E
+\`\`\`
+```
+
+Tips:
+- Keep diagrams focused — large diagrams become hard to read
+- Combine diagrams with markdown text for context
+- Use descriptive node labels
+- Mermaid blocks work in entry content, question answers, session notes, and task descriptions/results
 
 ### Cross-references
 

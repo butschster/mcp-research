@@ -16,6 +16,7 @@
     "@vue-flow/core": "^1.48.2",
     "@vue-flow/minimap": "^1.5.4",
     "marked": "^17.0.5",
+    "mermaid": "^11.14.0",
     "nuxt": "^4.0.0"
   },
   "devDependencies": {

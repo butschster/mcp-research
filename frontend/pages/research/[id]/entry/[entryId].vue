@@ -51,7 +51,7 @@
 
     <!-- Content -->
     <div class="entry-content card">
-      <div v-if="viewMode === 'rendered'" class="markdown-content" v-html="renderedContent"></div>
+      <div v-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
       <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
     </div>
 
@@ -88,6 +88,7 @@
 <script setup lang="ts">
 import { marked } from 'marked'
 import { tagHue } from '~/composables/useTagHue'
+import { renderMermaidBlocks } from '~/composables/useMermaid'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -224,6 +225,18 @@ function inlineHighlight(line: string): string {
 
 // View toggle
 const viewMode = ref<'rendered' | 'source'>('rendered')
+
+// Mermaid rendering
+const contentEl = ref<HTMLElement | null>(null)
+watch([renderedContent, viewMode], () => {
+  if (viewMode.value !== 'rendered') return
+  nextTick(() => {
+    if (contentEl.value) renderMermaidBlocks(contentEl.value)
+  })
+}, { immediate: false })
+onMounted(() => {
+  if (contentEl.value) renderMermaidBlocks(contentEl.value)
+})
 
 // Copy markdown
 const copied = ref(false)
