@@ -3,6 +3,7 @@
 *.db-wal
 *.log
 frontend/node_modules
+frontend/package-lock.json
 frontend/.nuxt/*
 frontend/dist/*
 frontend/.output/*
