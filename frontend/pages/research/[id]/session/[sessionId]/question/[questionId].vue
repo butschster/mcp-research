@@ -34,7 +34,7 @@
     <!-- Answer -->
     <div v-if="question.answer" class="card answer-card">
       <h3 class="card-section-title">Answer</h3>
-      <div class="markdown-content" v-html="renderedAnswer"></div>
+      <div ref="answerEl" class="markdown-content" v-html="renderedAnswer"></div>
     </div>
 
     <EmptyState
@@ -81,6 +81,7 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { renderMermaidBlocks } from '~/composables/useMermaid'
 marked.setOptions({ gfm: true, breaks: true })
 
 const route = useRoute()
@@ -123,6 +124,17 @@ const renderedAnswer = computed(() => {
   if (!question.value?.answer) return ''
   const html = marked.parse(normalizeContent(question.value.answer)) as string
   return renderRefs(html, researchSlug.value)
+})
+
+// Mermaid rendering
+const answerEl = ref<HTMLElement | null>(null)
+watch(renderedAnswer, () => {
+  nextTick(() => {
+    if (answerEl.value) renderMermaidBlocks(answerEl.value)
+  })
+})
+onMounted(() => {
+  if (answerEl.value) renderMermaidBlocks(answerEl.value)
 })
 
 // Cross-references from this question's answer
