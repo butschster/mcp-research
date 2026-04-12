@@ -33,6 +33,9 @@
           <NuxtLink :to="`/research/${researchSlug}/mindmap`" class="btn btn-icon" title="Mind map">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
           </NuxtLink>
+          <NuxtLink :to="`/research/${researchSlug}/graph`" class="btn btn-icon" title="Knowledge graph">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5"/><path d="M15.5 8.5 8.5 15.5"/><path d="M6 9v6"/><path d="M18 9v6"/></svg>
+          </NuxtLink>
 
           <!-- More menu -->
           <div class="dropdown" ref="dropdownRef">
