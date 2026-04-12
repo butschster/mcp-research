@@ -91,9 +91,9 @@ func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (
 		q := &domain.Question{
 			ID:        uuid.New().String(),
 			SessionID: session.ID,
-			Text:      qr.Text,
+			Text:      normalizeContent(qr.Text),
 			Area:      qr.Area,
-			Rationale: qr.Rationale,
+			Rationale: normalizeContent(qr.Rationale),
 			Priority:  qr.Priority,
 			Status:    domain.QuestionPending,
 			ParentID:  qr.ParentID,
@@ -247,13 +247,14 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 		session.Status = *req.Status
 	}
 	if req.Notes != nil {
-		session.Notes = *req.Notes
+		session.Notes = normalizeContent(*req.Notes)
 	}
 	if req.AddNote != nil {
+		note := normalizeContent(*req.AddNote)
 		if session.Notes != "" {
 			session.Notes += "\n"
 		}
-		session.Notes += *req.AddNote
+		session.Notes += note
 	}
 
 	if err := s.sessions.Update(ctx, session); err != nil {
@@ -307,9 +308,9 @@ func (s *SessionService) AddQuestions(ctx context.Context, sessionID string, req
 		q := &domain.Question{
 			ID:        uuid.New().String(),
 			SessionID: sessionID,
-			Text:      qr.Text,
+			Text:      normalizeContent(qr.Text),
 			Area:      qr.Area,
-			Rationale: qr.Rationale,
+			Rationale: normalizeContent(qr.Rationale),
 			Priority:  qr.Priority,
 			Status:    domain.QuestionPending,
 			ParentID:  qr.ParentID,
@@ -342,7 +343,7 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 		question.Status = *status
 	}
 	if answer != nil {
-		question.Answer = *answer
+		question.Answer = normalizeContent(*answer)
 	}
 
 	// Validate: answered requires non-empty answer

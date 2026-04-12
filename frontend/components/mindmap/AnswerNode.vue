@@ -4,14 +4,17 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       <span class="a-label">Answer</span>
     </div>
-    <div class="a-text" v-html="renderRefs(truncate(data.answer, 120), data.researchSlug)"></div>
+    <div class="a-text" v-html="renderInline(data.answer, 120)"></div>
     <Handle type="target" :position="targetPosition" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
+import { marked } from 'marked'
 import { renderRefs } from '~/composables/useCrossRefs'
+
+marked.setOptions({ gfm: true, breaks: true })
 
 const props = defineProps<{
   data: {
@@ -26,6 +29,11 @@ const props = defineProps<{
 function truncate(text: string, len: number): string {
   if (!text) return ''
   return text.length > len ? text.slice(0, len) + '...' : text
+}
+
+function renderInline(text: string, len: number): string {
+  const truncated = truncate(normalizeContent(text), len)
+  return renderRefs(marked.parseInline(truncated) as string, props.data.researchSlug)
 }
 
 function navigate() {

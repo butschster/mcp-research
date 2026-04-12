@@ -28,7 +28,7 @@
     <!-- Rationale -->
     <div v-if="question.rationale" class="card rationale-card">
       <h3 class="card-section-title">Rationale</h3>
-      <div class="rationale-text markdown-content" v-html="renderRefs(marked.parseInline(question.rationale) as string, researchSlug)"></div>
+      <div class="rationale-text markdown-content" v-html="renderRefs(marked.parseInline(normalizeContent(question.rationale)) as string, researchSlug)"></div>
     </div>
 
     <!-- Answer -->
@@ -121,7 +121,7 @@ const nextQuestion = computed(() => questionIndex.value < allQuestions.value.len
 // Rendered answer
 const renderedAnswer = computed(() => {
   if (!question.value?.answer) return ''
-  const html = marked.parse(question.value.answer) as string
+  const html = marked.parse(normalizeContent(question.value.answer)) as string
   return renderRefs(html, researchSlug.value)
 })
 

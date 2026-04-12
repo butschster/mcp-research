@@ -22,7 +22,7 @@
     <!-- Notes -->
     <div v-if="session.notes" class="card notes-card">
       <h3 class="card-section-title">Session notes</h3>
-      <div class="notes-text markdown-content" v-html="renderRefs(marked.parse(session.notes) as string, researchSlug)"></div>
+      <div class="notes-text markdown-content" v-html="renderRefs(marked.parse(normalizeContent(session.notes)) as string, researchSlug)"></div>
     </div>
 
     <!-- Tabs -->

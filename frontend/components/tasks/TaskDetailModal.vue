@@ -96,7 +96,7 @@
                 <div
                   v-if="task.description"
                   class="field-value field-value-pre markdown-content"
-                  v-html="renderRefs(marked.parse(task.description) as string, researchSlug)"
+                  v-html="renderRefs(marked.parse(normalizeContent(task.description)) as string, researchSlug)"
                 ></div>
                 <div v-else class="field-value field-empty">Click the pencil to add a description</div>
               </div>
@@ -133,7 +133,7 @@
                 <div
                   v-if="task.result"
                   class="field-value field-value-pre markdown-content"
-                  v-html="renderRefs(marked.parse(task.result) as string, researchSlug)"
+                  v-html="renderRefs(marked.parse(normalizeContent(task.result)) as string, researchSlug)"
                 ></div>
                 <div v-else class="field-value field-empty">Click the pencil to add a result</div>
               </div>
