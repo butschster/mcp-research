@@ -183,6 +183,7 @@ func NewServer(
 	mux.Handle("PUT /api/sections/{sectionId}", wrap(wh.UpdateSection))
 	mux.Handle("POST /api/entries", wrap(wh.CreateEntry))
 	mux.Handle("PUT /api/entries/{id}", wrap(wh.UpdateEntry))
+	mux.Handle("DELETE /api/entries/{id}", wrap(wh.DeleteEntry))
 	mux.Handle("POST /api/tasks", wrap(wh.CreateTask))
 	mux.Handle("PUT /api/tasks/{id}", wrap(wh.UpdateTask))
 	mux.Handle("DELETE /api/tasks/{id}", wrap(wh.DeleteTask))

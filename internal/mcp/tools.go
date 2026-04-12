@@ -21,6 +21,7 @@ func (s *Server) registerTools() {
 	tools.RegisterEntryList(s.server, s.entry, s.log)
 	tools.RegisterEntryRead(s.server, s.entry, s.log)
 	tools.RegisterEntryUpdate(s.server, s.entry, s.log)
+	tools.RegisterEntryDelete(s.server, s.entry, s.log)
 
 	// Session tools
 	tools.RegisterSessionCreate(s.server, s.session, s.log)

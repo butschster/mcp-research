@@ -13,72 +13,160 @@
         { label: sectionName, to: `/research/${researchSlug}?section=${entry.section_id}` },
         { label: entry.title }
       ]" />
-      <div class="entry-header">
-        <div class="title-with-code">
-          <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-          <h1 class="page-title">{{ entry.title }}</h1>
+
+      <!-- View mode header -->
+      <template v-if="!editing">
+        <div class="entry-header">
+          <div class="title-with-code">
+            <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+            <h1 class="page-title">{{ entry.title }}</h1>
+          </div>
+          <div class="entry-actions no-print">
+            <!-- Status dropdown -->
+            <div class="status-dropdown-wrap" @click.stop>
+              <button ref="statusTriggerEl" class="status-dropdown-trigger" @click="toggleStatus">
+                <StatusBadge :status="entry.status" />
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <Teleport to="body">
+                <div v-if="statusOpen" class="status-dropdown-overlay" @click="statusOpen = false">
+                  <div class="status-dropdown" :style="statusDropdownStyle" @click.stop>
+                    <button
+                      v-for="s in statuses"
+                      :key="s"
+                      :class="['status-option', { active: entry.status === s }]"
+                      @click="changeStatus(s)"
+                    >
+                      <StatusBadge :status="s" />
+                    </button>
+                  </div>
+                </div>
+              </Teleport>
+            </div>
+            <button class="btn btn-sm" @click="startEditing">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+            <button class="btn btn-sm" @click="copyMarkdown">
+              <svg v-if="!copied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              {{ copied ? 'Copied' : 'Copy' }}
+            </button>
+            <button class="btn btn-sm btn-delete" @click="showDeleteConfirm = true">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="entry-actions no-print">
-          <StatusBadge :status="entry.status" />
-          <button class="btn btn-sm" @click="copyMarkdown">
-            <svg v-if="!copied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {{ copied ? 'Copied' : 'Copy' }}
-          </button>
+        <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
+        <div v-if="entry.tags?.length" class="entry-tags">
+          <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
         </div>
+        <NuxtLink v-if="linkedSession" :to="`/research/${researchSlug}/session/${linkedSession.code || linkedSession.id}`" class="entry-session-link">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          {{ linkedSession.title }}
+        </NuxtLink>
+      </template>
+
+      <!-- Edit mode header -->
+      <template v-else>
+        <div class="edit-header-bar">
+          <div class="edit-field">
+            <label class="edit-label">Title</label>
+            <input v-model="editForm.title" class="edit-input" placeholder="Entry title..." />
+          </div>
+          <div class="edit-field">
+            <label class="edit-label">Description</label>
+            <input v-model="editForm.description" class="edit-input" placeholder="Short description (optional)..." />
+          </div>
+          <div class="edit-field">
+            <label class="edit-label">Tags</label>
+            <input v-model="editForm.tagsRaw" class="edit-input" placeholder="comma, separated, tags" />
+          </div>
+          <div class="edit-actions-bar">
+            <button class="btn btn-sm btn-primary" :disabled="saving" @click="saveEntry">
+              {{ saving ? 'Saving...' : 'Save' }}
+            </button>
+            <button class="btn btn-sm" @click="cancelEditing">Cancel</button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- View mode content -->
+    <template v-if="!editing">
+      <!-- View toggle -->
+      <div class="view-toggle no-print">
+        <button :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Rendered
+        </button>
+        <button :class="['btn btn-sm', { active: viewMode === 'source' }]" @click="viewMode = 'source'">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Source
+        </button>
       </div>
-      <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
-      <div v-if="entry.tags?.length" class="entry-tags">
-        <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
+
+      <!-- Content -->
+      <div class="entry-content card">
+        <div v-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
+        <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
       </div>
-      <NuxtLink v-if="linkedSession" :to="`/research/${researchSlug}/session/${linkedSession.code || linkedSession.id}`" class="entry-session-link">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-        {{ linkedSession.title }}
-      </NuxtLink>
+
+      <!-- Cross-references -->
+      <EntryCrossReferencesBlock
+        :outgoing="outgoingRefs"
+        :incoming="incomingRefs"
+        :research-slug="researchSlug"
+      />
+
+      <!-- External links -->
+      <EntryExternalLinksBlock :links="externalLinks" />
+
+      <!-- Related by tags -->
+      <EntryRelatedEntriesBlock
+        :entries="relatedEntries"
+        :current-tags="entry.tags ?? []"
+        :research-slug="researchSlug"
+        :research-id="research?.id ?? ''"
+      />
+
+      <!-- Prev / Next navigation -->
+      <EntryNavigation
+        v-if="siblings.length > 1"
+        :prev="prevEntry"
+        :next="nextEntry"
+        :research-slug="researchSlug"
+      />
+    </template>
+
+    <!-- Edit mode content -->
+    <div v-else class="editor-wrap">
+      <ClientOnly>
+        <MdEditor
+          v-model="editForm.content"
+          language="en-US"
+          :theme="'dark'"
+          :preview="true"
+          preview-theme="github"
+          :toolbars="editorToolbars"
+          :show-code-row-number="true"
+          :auto-focus="true"
+          style="height: 70vh;"
+          @on-save="saveEntry"
+        />
+      </ClientOnly>
     </div>
 
-    <!-- View toggle -->
-    <div class="view-toggle no-print">
-      <button :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        Rendered
-      </button>
-      <button :class="['btn btn-sm', { active: viewMode === 'source' }]" @click="viewMode = 'source'">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        Source
-      </button>
-    </div>
-
-    <!-- Content -->
-    <div class="entry-content card">
-      <div v-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
-      <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
-    </div>
-
-    <!-- Cross-references -->
-    <EntryCrossReferencesBlock
-      :outgoing="outgoingRefs"
-      :incoming="incomingRefs"
-      :research-slug="researchSlug"
-    />
-
-    <!-- External links -->
-    <EntryExternalLinksBlock :links="externalLinks" />
-
-    <!-- Related by tags -->
-    <EntryRelatedEntriesBlock
-      :entries="relatedEntries"
-      :current-tags="entry.tags ?? []"
-      :research-slug="researchSlug"
-      :research-id="research?.id ?? ''"
-    />
-
-    <!-- Prev / Next navigation -->
-    <EntryEntryNavigation
-      v-if="siblings.length > 1"
-      :prev="prevEntry"
-      :next="nextEntry"
-      :research-slug="researchSlug"
+    <!-- Delete confirmation -->
+    <ConfirmModal
+      :visible="showDeleteConfirm"
+      title="Delete Entry"
+      :message="`Are you sure you want to delete &quot;${entry.title}&quot;? This action cannot be undone.`"
+      confirm-label="Delete"
+      variant="danger"
+      :loading="deleting"
+      @confirm="deleteEntry"
+      @cancel="showDeleteConfirm = false"
     />
   </div>
 
@@ -87,14 +175,29 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { MdEditor } from 'md-editor-v3'
+import type { ToolbarNames } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 import { tagHue } from '~/composables/useTagHue'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
 
 const route = useRoute()
+const router = useRouter()
 const id = route.params.id as string
 const entryId = route.params.entryId as string
 
 marked.setOptions({ gfm: true, breaks: true })
+
+const statuses = ['draft', 'active', 'completed', 'archived']
+
+const editorToolbars: ToolbarNames[] = [
+  'bold', 'underline', 'italic', 'strikeThrough', '-',
+  'title', 'sub', 'sup', 'quote', '-',
+  'unorderedList', 'orderedList', 'task', '-',
+  'codeRow', 'code', 'link', 'image', 'table', 'mermaid', '-',
+  'revoke', 'next', '=',
+  'preview', 'catalog',
+]
 
 // Research + sections for breadcrumb and sibling navigation
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
@@ -104,7 +207,7 @@ const researchSlug = computed(() => research.value?.code || id)
 const sections = computed(() => researchData.value?.data?.sections ?? [])
 
 // Entry data (pass research context for code-based lookup)
-const { data, pending } = await useApi<{ data: any }>(`/api/researches/${id}/entries/${entryId}`)
+const { data, pending, refresh } = await useApi<{ data: any }>(`/api/researches/${id}/entries/${entryId}`)
 const entry = computed(() => data.value?.data)
 
 const sectionName = computed(() => {
@@ -247,6 +350,115 @@ async function copyMarkdown() {
   setTimeout(() => { copied.value = false }, 2000)
 }
 
+// --- Edit mode ---
+const { authFetch } = useAuth()
+const rtBase = useRuntimeConfig().public.apiBase || ''
+const editing = ref(false)
+const saving = ref(false)
+const editForm = reactive({
+  title: '',
+  description: '',
+  content: '',
+  tagsRaw: '',
+})
+
+function startEditing() {
+  editForm.title = entry.value?.title ?? ''
+  editForm.description = entry.value?.description ?? ''
+  editForm.content = entry.value?.content ?? ''
+  editForm.tagsRaw = (entry.value?.tags ?? []).join(', ')
+  editing.value = true
+}
+
+function cancelEditing() {
+  editing.value = false
+}
+
+async function saveEntry() {
+  if (!entry.value || saving.value) return
+  saving.value = true
+  try {
+    const tags = editForm.tagsRaw
+      .split(',')
+      .map((t: string) => t.trim())
+      .filter(Boolean)
+
+    await authFetch(`${rtBase}/api/entries/${entry.value.id}`, {
+      method: 'PUT',
+      body: {
+        title: editForm.title,
+        description: editForm.description || null,
+        content: editForm.content,
+        tags,
+      },
+    })
+    editing.value = false
+    await refresh()
+  } catch (e: any) {
+    console.error('Failed to save entry:', e)
+    alert(e?.data?.error || e?.message || 'Failed to save')
+  } finally {
+    saving.value = false
+  }
+}
+
+// --- Status change ---
+const statusOpen = ref(false)
+const statusTriggerEl = ref<HTMLElement | null>(null)
+const statusDropdownStyle = ref<Record<string, string>>({})
+
+function toggleStatus() {
+  statusOpen.value = !statusOpen.value
+  if (statusOpen.value && statusTriggerEl.value) {
+    const rect = statusTriggerEl.value.getBoundingClientRect()
+    statusDropdownStyle.value = {
+      position: 'fixed',
+      top: `${rect.bottom + 4}px`,
+      left: `${rect.left}px`,
+    }
+  }
+}
+
+async function changeStatus(newStatus: string) {
+  statusOpen.value = false
+  if (!entry.value || entry.value.status === newStatus) return
+  const prev = entry.value.status
+  // Optimistic update
+  data.value.data = { ...entry.value, status: newStatus }
+  try {
+    await authFetch(`${rtBase}/api/entries/${entry.value.id}`, {
+      method: 'PUT',
+      body: { status: newStatus },
+    })
+  } catch (e: any) {
+    // Rollback on error
+    data.value.data = { ...entry.value, status: prev }
+    console.error('Failed to change status:', e)
+  }
+}
+
+
+// --- Delete ---
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
+
+async function deleteEntry() {
+  if (!entry.value) return
+  deleting.value = true
+  try {
+    await authFetch(`${rtBase}/api/entries/${entry.value.id}`, {
+      method: 'DELETE',
+    })
+    showDeleteConfirm.value = false
+    router.push(`/research/${researchSlug.value}?section=${entry.value.section_id}`)
+  } catch (e: any) {
+    console.error('Failed to delete entry:', e)
+    alert(e?.data?.error || e?.message || 'Failed to delete')
+  } finally {
+    deleting.value = false
+  }
+}
+
 // Cross-references
 const { data: refsData } = useApi<{ outgoing: any[]; incoming: any[] }>(
   computed(() => entry.value ? `/api/entries/${entry.value.id}/crossrefs` : `/api/entries/__none__/crossrefs`)
@@ -328,6 +540,110 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   margin-top: var(--space-3);
 }
 
+/* Delete button */
+.btn-delete {
+  color: var(--color-text-muted);
+  padding: 0.35rem 0.5rem;
+}
+.btn-delete:hover { color: #ef4444; }
+
+/* Status dropdown */
+.status-dropdown-wrap {
+  position: relative;
+}
+.status-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+.status-dropdown-trigger:hover { background: var(--color-surface-hover); }
+.status-dropdown-trigger svg { color: var(--color-text-muted); }
+
+/* Edit mode */
+.edit-header-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.edit-label {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.edit-input {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text);
+  font-size: var(--type-sm);
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+.edit-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.edit-actions-bar {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+/* Editor wrapper */
+.editor-wrap {
+  margin-top: var(--space-4);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+/* md-editor-v3 dark theme overrides */
+.editor-wrap :deep(.md-editor) {
+  --md-bk-color: var(--color-bg) !important;
+  --md-border-color: var(--color-border) !important;
+  --md-color: var(--color-text) !important;
+  --md-hover-color: var(--color-surface-hover) !important;
+  --md-bk-hover-color: var(--color-surface-hover) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.editor-wrap :deep(.md-editor-toolbar-wrapper) {
+  background: var(--color-surface) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+.editor-wrap :deep(.md-editor-content) {
+  background: var(--color-bg) !important;
+}
+.editor-wrap :deep(.md-editor-preview-wrapper) {
+  background: var(--color-bg) !important;
+  padding: var(--space-6) !important;
+}
+.editor-wrap :deep(.md-editor-input-wrapper) {
+  background: var(--color-bg) !important;
+}
+.editor-wrap :deep(.cm-editor) {
+  background: var(--color-bg) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+}
+.editor-wrap :deep(.cm-gutters) {
+  background: var(--color-surface) !important;
+  border-right: 1px solid var(--color-border) !important;
+}
+
 /* View toggle */
 .view-toggle {
   display: inline-flex;
@@ -406,4 +722,34 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   .entry-content { padding: 0; border: none; }
   .entry-tags { margin-bottom: var(--space-2); }
 }
+</style>
+
+<style>
+/* Teleported status dropdown — must be non-scoped */
+.status-dropdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+.status-dropdown {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  min-width: 140px;
+}
+.status-option {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background 0.15s;
+}
+.status-option:hover { background: var(--color-surface-hover); }
+.status-option.active { background: var(--color-surface-hover); }
 </style>

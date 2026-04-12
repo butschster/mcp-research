@@ -318,6 +318,15 @@ func (h *WriteHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
 
+func (h *WriteHandler) DeleteEntry(w http.ResponseWriter, r *http.Request) {
+	entryID := r.PathValue("id")
+	if err := h.entry.Delete(r.Context(), entryID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
+}
+
 // --- Sessions ---
 
 func (h *WriteHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
