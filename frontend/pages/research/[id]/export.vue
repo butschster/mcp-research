@@ -148,7 +148,7 @@ const totalEntries = computed(() =>
 
 function renderMarkdown(content: string): string {
   if (!content) return ''
-  const html = marked.parse(content) as string
+  const html = marked.parse(normalizeContent(content)) as string
   return renderRefs(html, researchSlug.value)
 }
 

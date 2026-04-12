@@ -7,7 +7,7 @@
       </div>
       <StatusBadge :status="data.status" />
     </div>
-    <p v-if="data.answer && data.status === 'answered'" class="q-answer">{{ truncate(data.answer, 60) }}</p>
+    <p v-if="data.answer && data.status === 'answered'" class="q-answer" v-html="renderInline(data.answer, 60)"></p>
     <span class="q-session">{{ data.sessionTitle }}</span>
     <Handle type="target" :position="targetPosition" />
     <Handle type="source" :position="sourcePosition" />
@@ -16,7 +16,10 @@
 
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
+import { marked } from 'marked'
 import { renderRefs } from '~/composables/useCrossRefs'
+
+marked.setOptions({ gfm: true, breaks: true })
 
 const props = defineProps<{
   data: {
@@ -36,6 +39,11 @@ const props = defineProps<{
 function truncate(text: string, len: number): string {
   if (!text) return ''
   return text.length > len ? text.slice(0, len) + '...' : text
+}
+
+function renderInline(text: string, len: number): string {
+  const truncated = truncate(normalizeContent(text), len)
+  return renderRefs(marked.parseInline(truncated) as string, props.data.researchSlug)
 }
 
 function navigate() {

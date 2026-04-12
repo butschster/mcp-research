@@ -52,7 +52,7 @@ func (s *TaskService) Create(ctx context.Context, req CreateTaskRequest) (*domai
 		ID:          uuid.New().String(),
 		ResearchID:  req.ResearchID,
 		Title:       req.Title,
-		Description: req.Description,
+		Description: normalizeContent(req.Description),
 		Status:      domain.TaskPending,
 		Priority:    priority,
 	}
@@ -102,13 +102,13 @@ func (s *TaskService) Update(ctx context.Context, id string, req UpdateTaskReque
 		task.Title = *req.Title
 	}
 	if req.Description != nil {
-		task.Description = *req.Description
+		task.Description = normalizeContent(*req.Description)
 	}
 	if req.Priority != nil {
 		task.Priority = *req.Priority
 	}
 	if req.Result != nil {
-		task.Result = *req.Result
+		task.Result = normalizeContent(*req.Result)
 	}
 	if req.Status != nil {
 		task.Status = *req.Status

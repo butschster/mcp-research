@@ -3,6 +3,8 @@
  */
 export function renderRefs(text: string, researchSlug: string): string {
   if (!text) return ''
+  // Normalize literal \n and \t from MCP clients before rendering
+  text = text.replace(/\\n/g, '\n').replace(/\\t/g, '\t')
   return text.replace(/\[\[([^\]]+)\]\]/g, (_, ref: string) => {
     const parts = ref.split(':')
     let href: string

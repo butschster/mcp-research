@@ -129,7 +129,7 @@ function questionLink(q: Question): string {
 
 function truncateAnswer(text: string, max: number): string {
   // Strip markdown formatting for preview
-  const plain = text
+  const plain = normalizeContent(text)
     .replace(/#{1,6}\s+/g, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/`([^`]+)`/g, '$1')

@@ -91,6 +91,8 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		return nil, fmt.Errorf("section %s does not belong to research %s", req.SectionID, req.ResearchID)
 	}
 
+	req.Content = normalizeContent(req.Content)
+
 	if req.Content == "" {
 		return nil, fmt.Errorf("content is required")
 	}
@@ -212,7 +214,7 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		entry.Title = *req.Title
 	}
 	if req.Content != nil {
-		entry.Content = *req.Content
+		entry.Content = normalizeContent(*req.Content)
 	}
 	if req.Description != nil {
 		entry.Description = *req.Description

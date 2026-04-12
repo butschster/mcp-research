@@ -121,7 +121,7 @@ const linkedSession = computed(() => {
 // Rendered markdown
 const renderedContent = computed(() => {
   if (!entry.value?.content) return ''
-  const html = marked.parse(entry.value.content) as string
+  const html = marked.parse(normalizeContent(entry.value.content)) as string
   return renderRefs(html, researchSlug.value)
 })
 
