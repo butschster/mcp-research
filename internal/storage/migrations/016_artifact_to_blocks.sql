@@ -16,5 +16,5 @@ UPDATE entries
 SET entry_type = 'blocks',
     content = '{"version":1,"blocks":[{"type":"html","data":{"html":'
               || json_quote(content)
-              || ',"width":"wide"}}]}'
+              || '}}]}'
 WHERE entry_type = 'artifact';

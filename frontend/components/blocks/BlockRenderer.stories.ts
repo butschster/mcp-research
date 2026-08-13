@@ -12,11 +12,11 @@ const meta: Meta<typeof BlockRenderer> = {
     docs: {
       description: {
         component:
-          'Renders an `entry_type: blocks` document. Text fields carry a restricted ' +
-          'markdown subset and `[[E3]]` references, escaped before any markup is ' +
-          'introduced. `width: "wide"` breaks a block out of the reading column. The ' +
-          '`html` block delegates to ArtifactFrame, which isolates the document in a ' +
-          'sandboxed iframe sized to its own height.',
+          'Renders an `entry_type: blocks` document. Every block sits in the reading ' +
+          'column; text fields carry a restricted markdown subset and `[[E3]]` ' +
+          'references, escaped before any markup is introduced. The `html` block ' +
+          'delegates to ArtifactFrame, which isolates the document in a sandboxed ' +
+          'iframe sized to its own height.',
       },
     },
   },
@@ -41,7 +41,6 @@ const article = [
     type: 'table',
     data: {
       header: true,
-      width: 'wide',
       rows: [
         ['Model', 'tok/s', 'VRAM'],
         ['Llama 3.1 8B', '96', '6.2 GB'],
@@ -91,17 +90,6 @@ export const AllCalloutVariants: Story = {
   },
 }
 
-export const WideVersusTextWidth: Story = {
-  args: {
-    researchSlug: 'R1',
-    blocks: [
-      { type: 'paragraph', data: { text: 'The paragraph stays in the reading column.' } },
-      { type: 'table', data: { header: true, width: 'text', rows: [['text width', 'b'], ['1', '2']] } },
-      { type: 'table', data: { header: true, width: 'wide', rows: [['wide', 'b'], ['1', '2']] } },
-    ],
-  },
-}
-
 const chartHtml = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Throughput</title>
 <style>
@@ -127,7 +115,7 @@ export const WithHtmlBlock: Story = {
     researchSlug: 'R1',
     blocks: [
       { type: 'paragraph', data: { text: 'Prose above the visual — impossible when the whole entry was one HTML page.' } },
-      { type: 'html', data: { html: chartHtml, title: 'Throughput by model', caption: 'Rendered inside a sandboxed frame.', width: 'wide' } },
+      { type: 'html', data: { html: chartHtml, title: 'Throughput by model', caption: 'Rendered inside a sandboxed frame.' } },
       { type: 'paragraph', data: { text: 'And prose below it.' } },
     ],
   },

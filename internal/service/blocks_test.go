@@ -183,16 +183,14 @@ func TestNormalizeBlockDocument_Blocks(t *testing.T) {
 		}
 	})
 
-	t.Run("width is text unless wide is asked for", func(t *testing.T) {
-		doc := normDoc(t, `{"blocks":[
-			{"type":"table","data":{"rows":[["a"]],"width":"wide"}},
-			{"type":"table","data":{"rows":[["a"]],"width":"enormous"}},
-			{"type":"table","data":{"rows":[["a"]]}}
-		]}`)
-		want := []string{"wide", "text", "text"}
-		for i, b := range doc.Blocks {
-			if got := str(b.Data, "width"); got != want[i] {
-				t.Errorf("block %d width = %q, want %q", i, got, want[i])
+	t.Run("an unknown field is not carried into storage", func(t *testing.T) {
+		// Blocks have no width tier: every block sits in the reading column, and a
+		// leftover width from an older payload must not be persisted.
+		doc := normDoc(t, `{"blocks":[{"type":"table","data":{"rows":[["a"]],"width":"wide","bogus":1}}]}`)
+		d := doc.Blocks[0].Data
+		for _, key := range []string{"width", "bogus"} {
+			if _, ok := d[key]; ok {
+				t.Errorf("data carries %q: %v", key, d)
 			}
 		}
 	})
@@ -237,9 +235,6 @@ func TestArtifactToBlockDocument(t *testing.T) {
 	d := doc.Blocks[0].Data
 	if str(d, "html") != html {
 		t.Error("html body was altered")
-	}
-	if str(d, "width") != domain.WidthWide {
-		t.Errorf("width = %q, want wide — a whole-page artifact is not a text-column thing", str(d, "width"))
 	}
 
 	// And it must survive the round trip through storage.

@@ -18,7 +18,7 @@
       </ul>
 
       <!-- table -->
-      <div v-else-if="b.type === 'table'" :class="['b-table-wrap', widthClass(b)]">
+      <div v-else-if="b.type === 'table'" class="b-table-wrap">
         <table class="b-table">
           <thead v-if="b.data.header && (b.data.rows || []).length">
             <tr>
@@ -52,13 +52,13 @@
       <hr v-else-if="b.type === 'divider'" class="b-divider" />
 
       <!-- image -->
-      <figure v-else-if="b.type === 'image'" :class="['b-figure', widthClass(b)]">
+      <figure v-else-if="b.type === 'image'" class="b-figure">
         <img :src="b.data.url" :alt="b.data.alt || ''" loading="lazy" />
         <figcaption v-if="b.data.caption" v-html="inline(b.data.caption)"></figcaption>
       </figure>
 
       <!-- html: a self-contained document, isolated in a sandboxed frame -->
-      <figure v-else-if="b.type === 'html'" :class="['b-figure', widthClass(b)]">
+      <figure v-else-if="b.type === 'html'" class="b-figure">
         <figcaption v-if="b.data.title" class="b-html-title">{{ b.data.title }}</figcaption>
         <EntryArtifactFrame
           :html="b.data.html"
@@ -95,9 +95,6 @@ function inline(text: string): string {
   return renderInline(text, props.researchSlug)
 }
 
-function widthClass(b: Block): string {
-  return b.data?.width === 'wide' ? 'is-wide' : 'is-text'
-}
 
 // With a header row the first row is the header; without one every row is body.
 function bodyRows(b: Block): any[] {
@@ -194,17 +191,9 @@ function bodyRows(b: Block): any[] {
   color: var(--color-text-muted);
 }
 
-/* `wide` breaks out of the reading column. The negative margin is bounded so a
-   narrow viewport degrades to the column width instead of overflowing. */
-.is-wide { width: 100%; }
-@media (min-width: 900px) {
-  .is-wide { width: calc(100% + 2 * var(--space-8)); margin-left: calc(-1 * var(--space-8)); }
-}
-
 @media print {
   .b-code, .b-table th { background: none; }
   .b-table th, .b-table td, .b-callout, .b-divider { border-color: #ddd; }
   .b-figure figcaption, .b-quote, .b-html-title { color: #555; }
-  .is-wide { width: 100%; margin-left: 0; }
 }
 </style>

@@ -14,7 +14,7 @@ const artifactDoc = `<!doctype html>
 const blockDoc = `{"version":1,"blocks":[
 	{"type":"heading","data":{"level":2,"text":"Findings"}},
 	{"type":"paragraph","data":{"text":"Body with [[E2]]."}},
-	{"type":"html","data":{"html":"<html><body>chart</body></html>","title":"Live chart","width":"wide"}}
+	{"type":"html","data":{"html":"<html><body>chart</body></html>","title":"Live chart"}}
 ]}`
 
 func markdownFor(entries ...*domain.Entry) string {

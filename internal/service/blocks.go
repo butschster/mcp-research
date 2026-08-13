@@ -103,8 +103,7 @@ func MarshalBlockDocument(doc *domain.BlockDocument) (string, error) {
 // title is derived from the block, not from the raw HTML.
 func ArtifactToBlockDocument(html string) *domain.BlockDocument {
 	data := map[string]any{
-		"html":  clampStr(sanitizeUTF8(html), domain.MaxInlineHTML),
-		"width": domain.WidthWide,
+		"html": clampStr(sanitizeUTF8(html), domain.MaxInlineHTML),
 	}
 	if t := clampStr(normalizeTitle(htmlTitle(html)), domain.MaxHeadingText); t != "" {
 		data["title"] = t
@@ -197,7 +196,6 @@ func normTable(d map[string]any) (map[string]any, bool) {
 	return map[string]any{
 		"header": boolOr(d, "header", true),
 		"rows":   rows,
-		"width":  width(d),
 	}, true
 }
 
@@ -254,7 +252,7 @@ func normImage(d map[string]any) (map[string]any, bool) {
 	if !ok {
 		return nil, false
 	}
-	out := map[string]any{"url": url, "width": width(d)}
+	out := map[string]any{"url": url}
 	if alt := clampStr(normalizeTitle(str(d, "alt")), domain.MaxCaptionText); alt != "" {
 		out["alt"] = alt
 	}
@@ -272,7 +270,7 @@ func normHTML(d map[string]any) (map[string]any, bool) {
 	if strings.TrimSpace(html) == "" {
 		return nil, false
 	}
-	out := map[string]any{"html": html, "width": width(d)}
+	out := map[string]any{"html": html}
 	if title := clampStr(normalizeTitle(str(d, "title")), domain.MaxHeadingText); title != "" {
 		out["title"] = title
 	}
@@ -304,13 +302,6 @@ func boolOr(d map[string]any, key string, def bool) bool {
 		return b
 	}
 	return def
-}
-
-func width(d map[string]any) string {
-	if str(d, "width") == domain.WidthWide {
-		return domain.WidthWide
-	}
-	return domain.WidthText
 }
 
 func clampStr(s string, max int) string {

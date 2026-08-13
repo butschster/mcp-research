@@ -53,16 +53,17 @@ not — a backslash there is data.
 | `paragraph` | `{ text }` — required; empty ⇒ dropped |
 | `heading` | `{ level: 2\|3\|4, text }` — `text` required; an out-of-range or missing level becomes 2. Level 1 is the entry title, which the page renders |
 | `list` | `{ style: "unordered"\|"ordered", items: string[] }` — blank and non-string items are dropped, max 200; no items ⇒ block dropped. Unknown style becomes `unordered` |
-| `table` | `{ header: bool (default true), rows: string[][], width: "text"\|"wide" }` — non-array rows dropped, max 200 rows × 20 columns; no rows ⇒ dropped |
+| `table` | `{ header: bool (default true), rows: string[][] }` — non-array rows dropped, max 200 rows × 20 columns; no rows ⇒ dropped |
 | `quote` | `{ text, cite? }` — `text` required |
 | `code` | `{ code, language? }` — `code` required, stored verbatim. `language` is lowercased and reduced to `a-z0-9+#-_.` |
 | `callout` | `{ variant: "info"\|"warning"\|"success"\|"danger", text, title? }` — `text` required; an unknown variant becomes `info` |
 | `divider` | `{}` — always kept |
-| `image` | `{ url, alt?, caption?, width: "text"\|"wide" }` — `url` must be `http(s)://` or a domain-relative `/path`; anything else (including `javascript:`, `data:` and protocol-relative `//host`) ⇒ dropped |
-| `html` | `{ html, title?, caption?, width: "text"\|"wide" }` — a complete self-contained HTML document rendered in a sandboxed iframe sized to its own height. `html` required |
+| `image` | `{ url, alt?, caption? }` — `url` must be `http(s)://` or a domain-relative `/path`; anything else (including `javascript:`, `data:` and protocol-relative `//host`) ⇒ dropped |
+| `html` | `{ html, title?, caption? }` — a complete self-contained HTML document rendered in a sandboxed iframe sized to its own height. `html` required |
 
-`width: "wide"` breaks the block out of the reading column to the full content
-width. Use it for wide tables and large visuals; leave prose at `text`.
+Every block sits in the reading column. There is no width tier: a `width` field in
+a payload is simply not stored, and a wide table scrolls inside its own container
+rather than breaking the column.
 
 ## The html block
 
@@ -92,7 +93,7 @@ already the title, or an `html` block's `caption`.
 ## The artifact alias
 
 `entry_type: artifact` still works: pass a bare HTML document as `content` and it
-is stored as a blocks document with one wide `html` block. The document's
+is stored as a blocks document with one `html` block. The document's
 `<title>` and `<meta name="description">` are lifted onto the block, so it names
 itself as before. Nothing stores the type `artifact` any more — reading such an
 entry back returns `entry_type: blocks`.

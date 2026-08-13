@@ -52,13 +52,6 @@ const (
 	BlockHTML BlockType = "html"
 )
 
-// Width tiers. `text` stays inside the reading column; `wide` breaks out to the
-// full content width. Applies to blocks that can be visually wider than prose.
-const (
-	WidthText = "text"
-	WidthWide = "wide"
-)
-
 // Callout variants.
 const (
 	CalloutInfo    = "info"
