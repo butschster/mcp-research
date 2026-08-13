@@ -13,7 +13,7 @@ type EntryCreateInput struct {
 	ResearchID  string   `json:"research_id" jsonschema:"ID of the research"`
 	SectionID   string   `json:"section_id" jsonschema:"ID of the section"`
 	SessionID   *string  `json:"session_id" jsonschema:"Optional session ID to link this entry to a session"`
-	EntryType   *string  `json:"entry_type" jsonschema:"Optional content kind: markdown (default) or artifact. An artifact holds a self-contained HTML document rendered in a sandboxed iframe — use it for charts, diagrams and interactive layouts"`
+	EntryType   *string  `json:"entry_type" jsonschema:"Optional content kind. markdown (default): content is markdown. blocks: content is a block document {version:1,blocks:[{type,data}]} — an article of typed blocks (paragraph, heading, list, table, quote, code, callout, divider, image, html), which is how you mix prose with alerts and custom visuals. artifact: sugar for a blocks document holding one html block; pass the HTML document as content. See /llms/blocks.md for the block catalog"`
 	Content     string   `json:"content" jsonschema:"Markdown content of the entry"`
 	Title       *string  `json:"title" jsonschema:"Optional title (auto-generated from content if empty)"`
 	Description *string  `json:"description" jsonschema:"Optional description (auto-generated from content if empty)"`
