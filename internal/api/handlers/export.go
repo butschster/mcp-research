@@ -106,13 +106,13 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	// JSON response with structured data + markdown
 	type sectionExport struct {
 		*domain.Section
-		Entries []*domain.Entry `json:"entries"`
+		Entries []entryExport `json:"entries"`
 	}
 	var sectionData []sectionExport
 	for _, s := range sections {
 		sectionData = append(sectionData, sectionExport{
 			Section: s,
-			Entries: entriesBySection[s.ID],
+			Entries: exportEntries(entriesBySection[s.ID]),
 		})
 	}
 
@@ -187,7 +187,7 @@ func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
 		"research":      research,
 		"session":       sess.Session,
 		"questions":     questions,
-		"entries":       sessionEntries,
+		"entries":       exportEntries(sessionEntries),
 		"section_names": sectionNames,
 		"markdown":      md,
 	})
@@ -286,7 +286,9 @@ func buildMarkdown(
 				b.WriteString("**Tags:** " + strings.Join(e.Tags, ", ") + "  \n")
 			}
 			b.WriteString(fmt.Sprintf("**Status:** %s\n\n", e.Status))
-			writeEntryContent(&b, e)
+			if body := entryMarkdown(e); body != "" {
+				b.WriteString(body + "\n\n")
+			}
 		}
 	}
 
@@ -412,50 +414,59 @@ func buildSessionMarkdown(
 				b.WriteString("**Tags:** " + strings.Join(e.Tags, ", ") + "  \n")
 			}
 			b.WriteString(fmt.Sprintf("**Status:** %s\n\n", e.Status))
-			writeEntryContent(&b, e)
+			if body := entryMarkdown(e); body != "" {
+				b.WriteString(body + "\n\n")
+			}
 		}
 	}
 
 	return b.String()
 }
 
-// writeEntryContent appends an entry's body to the markdown document. An artifact
-// holds a whole HTML document, so it goes into a fenced block: pasted inline it
-// would leak its <style> and <script> into whatever renders the export.
-func writeEntryContent(b *strings.Builder, e *domain.Entry) {
-	if e.Content == "" {
-		return
+// entryMarkdown renders an entry's body for a markdown export.
+//
+// A blocks entry stores JSON, so writing Content straight out would put a
+// serialized document into the file where prose belongs. An html block is named
+// rather than inlined: a wall of markup in an export is not readable, and it is
+// not markdown either. Legacy `artifact` rows — those written before migration
+// 016 ran — are treated the same way.
+func entryMarkdown(e *domain.Entry) string {
+	if e == nil || e.Content == "" {
+		return ""
 	}
-	if e.Type != domain.EntryArtifact {
-		b.WriteString(e.Content + "\n\n")
-		return
+	switch e.Type {
+	case domain.EntryBlocks:
+		doc, err := service.NormalizeBlockDocument(e.Content)
+		if err != nil {
+			// Unreadable document: say so rather than emitting JSON or nothing.
+			return "*This entry holds a block document that could not be read.*"
+		}
+		return strings.TrimRight(service.BlockDocumentToMarkdown(doc), "\n")
+	case domain.EntryArtifact:
+		return "*HTML artifact — view it in the web UI.*"
+	default:
+		return e.Content
 	}
-	fence := fenceFor(e.Content)
-	b.WriteString("*HTML artifact — render the document below to view it.*\n\n")
-	b.WriteString(fence + "html\n")
-	b.WriteString(strings.TrimRight(e.Content, "\n") + "\n")
-	b.WriteString(fence + "\n\n")
 }
 
-// fenceFor returns a backtick fence longer than any run of backticks in content,
-// so a document that contains its own fences cannot break out of the block.
-func fenceFor(content string) string {
-	longest := 0
-	run := 0
-	for _, r := range content {
-		if r == '`' {
-			run++
-			if run > longest {
-				longest = run
-			}
-			continue
+// entryExport carries the entry plus, for block documents, a markdown rendering
+// so the export pages have something to display without duplicating the
+// serializer in TypeScript.
+type entryExport struct {
+	*domain.Entry
+	ContentMarkdown string `json:"content_markdown,omitempty"`
+}
+
+func exportEntries(entries []*domain.Entry) []entryExport {
+	out := make([]entryExport, 0, len(entries))
+	for _, e := range entries {
+		ee := entryExport{Entry: e}
+		if e.Type == domain.EntryBlocks || e.Type == domain.EntryArtifact {
+			ee.ContentMarkdown = entryMarkdown(e)
 		}
-		run = 0
+		out = append(out, ee)
 	}
-	if longest < 3 {
-		return "```"
-	}
-	return strings.Repeat("`", longest+1)
+	return out
 }
 
 func sanitizeFilename(name string) string {

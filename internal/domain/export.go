@@ -41,7 +41,7 @@ type ExportSection struct {
 
 type ExportEntry struct {
 	Title string `json:"title"`
-	// Type is empty in exports written before artifacts existed; import reads
+	// Type is empty in exports written before entry types existed; import reads
 	// that as markdown, which is what those entries were.
 	Type        EntryType   `json:"entry_type,omitempty"`
 	Content     string      `json:"content"`
