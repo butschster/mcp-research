@@ -2,11 +2,7 @@ name: Docker
 
 on:
   push:
-    branches: [master]
     tags: ['v*']
-  pull_request:
-    branches: [master]
-  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -26,10 +22,7 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Pull requests only build the image to prove the Dockerfile still works;
-      # they get no registry credentials and nothing is pushed.
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -44,9 +37,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=raw,value=edge,enable={{is_default_branch}}
-            type=sha,format=short
+            type=raw,value=latest
 
       # The build context excludes .git, so the binary's version stamp has to be
       # handed to the Dockerfile as build args.
@@ -61,7 +52,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
