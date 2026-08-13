@@ -3,6 +3,10 @@
     <div class="entry-card-header">
       <div class="entry-title-row">
         <ShortCode v-if="entry.code" :code="entry.code" />
+        <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          artifact
+        </span>
         <h3 class="card-title">{{ entry.title }}</h3>
       </div>
       <StatusBadge :status="entry.status" />
@@ -23,6 +27,7 @@ defineProps<{
     status: string
     description?: string
     tags?: string[]
+    entry_type?: string
   }
   researchSlug: string
 }>()
@@ -32,4 +37,11 @@ defineProps<{
 .entry-card { display: block; text-decoration: none; color: inherit; }
 .entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
 .entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.entry-artifact-badge {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.1rem 0.4rem; border-radius: var(--radius-sm);
+  background: var(--color-primary-muted); color: var(--color-primary);
+  font-size: var(--type-xs); font-weight: 600; letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
 </style>

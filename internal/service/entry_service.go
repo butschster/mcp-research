@@ -28,6 +28,7 @@ type CreateEntryRequest struct {
 	ResearchID  string
 	SectionID   string
 	SessionID   string
+	Type        domain.EntryType
 	Content     string
 	Title       string
 	Description string
@@ -36,6 +37,7 @@ type CreateEntryRequest struct {
 }
 
 type UpdateEntryRequest struct {
+	Type        *domain.EntryType
 	Title       *string
 	Content     *string
 	Description *string
@@ -97,16 +99,39 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		return nil, fmt.Errorf("content is required")
 	}
 
+	entryType := req.Type
+	if entryType == "" {
+		entryType = domain.EntryMarkdown
+	}
+	if !entryType.Valid() {
+		return nil, fmt.Errorf("invalid entry_type %q: want %q or %q",
+			entryType, domain.EntryMarkdown, domain.EntryArtifact)
+	}
+
 	// Normalize the same way Update does, so the same input stored through
 	// entry_create and entry_update ends up identical.
 	title := normalizeTitle(req.Title)
-	if title == "" {
-		title = autoTitle(req.Content)
-	}
-
 	description := normalizeContent(req.Description)
-	if description == "" {
-		description = autoDescription(req.Content)
+
+	if entryType == domain.EntryArtifact {
+		// Deriving a title from HTML the markdown way yields tag soup, so read the
+		// document's own <title>/<meta description> and otherwise insist on one.
+		if title == "" {
+			title = normalizeTitle(htmlTitle(req.Content))
+		}
+		if title == "" {
+			return nil, fmt.Errorf("title is required for artifact entries (or give the HTML a <title>)")
+		}
+		if description == "" {
+			description = normalizeContent(htmlMetaDescription(req.Content))
+		}
+	} else {
+		if title == "" {
+			title = autoTitle(req.Content)
+		}
+		if description == "" {
+			description = autoDescription(req.Content)
+		}
 	}
 
 	status := req.Status
@@ -132,6 +157,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		ResearchID:  req.ResearchID,
 		SectionID:   req.SectionID,
 		SessionID:   sessionID,
+		Type:        entryType,
 		Title:       title,
 		Content:     req.Content,
 		Description: description,
@@ -212,6 +238,13 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		return nil, ErrNotFound
 	}
 
+	if req.Type != nil {
+		if !req.Type.Valid() {
+			return nil, fmt.Errorf("invalid entry_type %q: want %q or %q",
+				*req.Type, domain.EntryMarkdown, domain.EntryArtifact)
+		}
+		entry.Type = *req.Type
+	}
 	if req.Title != nil {
 		entry.Title = normalizeTitle(*req.Title)
 	}
@@ -529,4 +562,32 @@ func autoDescription(content string) string {
 		desc = desc[:200]
 	}
 	return desc
+}
+
+var (
+	htmlTitleRe = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+	htmlDescRe  = regexp.MustCompile(`(?is)<meta[^>]+name\s*=\s*["']description["'][^>]*>`)
+	htmlContent = regexp.MustCompile(`(?is)content\s*=\s*["']([^"']*)["']`)
+)
+
+// htmlTitle returns the text of the document's <title>, if it has one.
+func htmlTitle(html string) string {
+	m := htmlTitleRe.FindStringSubmatch(html)
+	if len(m) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(m[1])
+}
+
+// htmlMetaDescription returns the content of <meta name="description">, if present.
+func htmlMetaDescription(html string) string {
+	tag := htmlDescRe.FindString(html)
+	if tag == "" {
+		return ""
+	}
+	m := htmlContent.FindStringSubmatch(tag)
+	if len(m) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(m[1])
 }

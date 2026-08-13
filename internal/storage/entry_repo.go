@@ -41,9 +41,9 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO entries (id, code, research_id, section_id, session_id, title, content, description, status, tags, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		entry.ID, entry.Code, entry.ResearchID, entry.SectionID, sessionID,
+		`INSERT INTO entries (id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		entry.ID, entry.Code, entry.ResearchID, entry.SectionID, sessionID, entry.Type,
 		entry.Title, entry.Content, entry.Description,
 		entry.Status, marshalJSON(entry.Tags),
 		now, now,
@@ -58,7 +58,7 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 
 func (r *EntryRepository) FindByCode(ctx context.Context, researchID, code string) (*domain.Entry, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, title, content, description, status, tags, created_at, updated_at
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at
 		 FROM entries WHERE research_id=? AND code=?`, researchID, code)
 	return r.scanEntry(row, true)
 }
@@ -71,9 +71,9 @@ func (r *EntryRepository) Update(ctx context.Context, entry *domain.Entry) error
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE entries SET title=?, content=?, description=?, status=?, tags=?, code=?, session_id=?, updated_at=?
+		`UPDATE entries SET entry_type=?, title=?, content=?, description=?, status=?, tags=?, code=?, session_id=?, updated_at=?
 		 WHERE id=?`,
-		entry.Title, entry.Content, entry.Description,
+		entry.Type, entry.Title, entry.Content, entry.Description,
 		entry.Status, marshalJSON(entry.Tags), entry.Code, sessionID,
 		now, entry.ID,
 	)
@@ -86,7 +86,7 @@ func (r *EntryRepository) Update(ctx context.Context, entry *domain.Entry) error
 
 func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entry, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, title, content, description, status, tags, created_at, updated_at
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at
 		 FROM entries WHERE id=?`, id)
 	return r.scanEntry(row, true)
 }
@@ -102,7 +102,7 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 	}
 	pattern := "%" + query + "%"
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, title, description, status, tags, created_at, updated_at,
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, created_at, updated_at,
 		        CASE
 		          WHEN title LIKE ? THEN 3
 		          WHEN description LIKE ? THEN 2
@@ -130,7 +130,7 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 		var createdAt, updatedAt string
 		var relevance int
 		if err := rows.Scan(
-			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID,
+			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Description, &e.Status,
 			&tags, &createdAt, &updatedAt, &relevance,
 		); err != nil {
@@ -147,7 +147,7 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 
 // FindBySection returns entries without content for token efficiency.
 func (r *EntryRepository) FindBySection(ctx context.Context, researchID, sectionID string, filter EntryFilter) ([]*domain.Entry, error) {
-	query := `SELECT id, code, research_id, section_id, session_id, title, description, status, tags, created_at, updated_at
+	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, created_at, updated_at
 		 FROM entries WHERE research_id=? AND section_id=?`
 	args := []any{researchID, sectionID}
 
@@ -185,7 +185,7 @@ func (r *EntryRepository) FindBySection(ctx context.Context, researchID, section
 
 // FindByResearch returns entries without content for token efficiency.
 func (r *EntryRepository) FindByResearch(ctx context.Context, researchID string, filter EntryFilter) ([]*domain.Entry, error) {
-	query := `SELECT id, code, research_id, section_id, session_id, title, description, status, tags, created_at, updated_at
+	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, created_at, updated_at
 		 FROM entries WHERE research_id=?`
 	args := []any{researchID}
 
@@ -271,7 +271,7 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 	args = append(args, entryID)
 
 	query := fmt.Sprintf(
-		`SELECT e.id, e.code, e.research_id, e.section_id, e.session_id, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at,
+		`SELECT e.id, e.code, e.research_id, e.section_id, e.session_id, e.entry_type, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at,
 		        COUNT(*) as shared
 		 FROM entries e, json_each(e.tags) jt
 		 WHERE jt.value IN (%s) AND e.id != ?
@@ -292,7 +292,7 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 		var createdAt, updatedAt string
 		var shared int
 		if err := rows.Scan(
-			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID,
+			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Description, &e.Status,
 			&tags, &createdAt, &updatedAt, &shared,
 		); err != nil {
@@ -310,7 +310,7 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 // FindByResearchWithContent returns all entries with content for cross-reference scanning.
 func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researchID string) ([]*domain.Entry, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, title, content, description, status, tags, created_at, updated_at
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at
 		 FROM entries WHERE research_id=? ORDER BY created_at`,
 		researchID,
 	)
@@ -326,7 +326,7 @@ func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researc
 		var sessionID sql.NullString
 		var createdAt, updatedAt string
 		err := rows.Scan(
-			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID,
+			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Content, &e.Description,
 			&e.Status, &tags,
 			&createdAt, &updatedAt,
@@ -363,14 +363,14 @@ func (r *EntryRepository) scanEntry(row *sql.Row, withContent bool) (*domain.Ent
 	var err error
 	if withContent {
 		err = row.Scan(
-			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID,
+			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Content, &e.Description,
 			&e.Status, &tags,
 			&createdAt, &updatedAt,
 		)
 	} else {
 		err = row.Scan(
-			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID,
+			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Description,
 			&e.Status, &tags,
 			&createdAt, &updatedAt,
@@ -397,7 +397,7 @@ func (r *EntryRepository) scanEntryRowNoContent(rows *sql.Rows) (*domain.Entry, 
 	var createdAt, updatedAt string
 
 	err := rows.Scan(
-		&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID,
+		&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 		&e.Title, &e.Description,
 		&e.Status, &tags,
 		&createdAt, &updatedAt,

@@ -25,6 +25,8 @@ Research (R1, R2...) — statuses: active, completed, archived
 
 Cross-references work in entry content, question text, question answers, task results, and session notes. They are rendered as clickable links in the web UI and stored in the `crossrefs` table for graph queries.
 
+Entries come in two kinds, chosen with `entry_type`: `markdown` (default) and `artifact` — a complete self-contained HTML document rendered in a sandboxed iframe at full height, for charts, interactive tables and custom layouts. See the MCP Client Guide for how to write one.
+
 Content supports Mermaid diagrams via fenced code blocks with `mermaid` language. All Mermaid diagram types are supported (flowchart, sequence, class, state, ER, Gantt, pie, mindmap, timeline, etc.). Diagrams are rendered as interactive SVG in the web UI. See [MCP Client Guide](/llms/mcp-client-guide.md) for examples.
 
 | Syntax | Target | Example |

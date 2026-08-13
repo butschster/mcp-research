@@ -82,3 +82,15 @@ export const AllStatuses: Story = {
     },
   }),
 }
+
+export const ArtifactEntry: Story = {
+  args: {
+    entry: {
+      ...mockEntry,
+      entry_type: 'artifact',
+      title: 'Local LLM benchmark: speed and memory',
+      description: 'Throughput and VRAM for four local models on one card.',
+    },
+    researchSlug: 'R1',
+  },
+}
