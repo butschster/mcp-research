@@ -18,7 +18,8 @@ make run                    # uses research.db
 make run-sse                # SSE on :8081, REST+WebSocket on :8088
 
 # Run tests (storage, service, tools layers)
-make test                   # or: go test ./...
+make test                   # go test ./cmd/... ./internal/...
+                            # NOT `go test ./...` — it picks up node_modules
 
 # Run specific test suites
 go test ./internal/storage/ -v -run Code       # short code tests
@@ -35,57 +36,6 @@ make frontend-embed
 
 **Config path:** `./mcp-research --config /path/to/config.yaml`
 
-## Testing Local HTTP API
-
-When the service is running locally (e.g. `make run-sse` on port 8088), use curl to test the REST API.
-
-### Step 1: Get auth token
-
-If `auth_enabled` is true with a `default_user`, fetch the auto-login token:
-
-```bash
-# Get auto-login JWT from the auth info endpoint
-curl -s http://localhost:8088/api/auth/info | python3 -m json.tool
-# Response includes "auto_login_token": "eyJ..."
-
-# Save it for subsequent requests
-TOKEN=$(curl -s http://localhost:8088/api/auth/info | python3 -c "import sys,json; print(json.load(sys.stdin).get('auto_login_token',''))")
-```
-
-If auth is disabled, skip the `Authorization` header in all requests.
-
-### Step 2: Use the token in requests
-
-```bash
-# Read endpoints
-curl -s http://localhost:8088/api/researches -H "Authorization: Bearer $TOKEN"
-curl -s http://localhost:8088/api/roadmaps/{id} -H "Authorization: Bearer $TOKEN"
-
-# Write endpoints (also need the token when auth is enabled)
-curl -s -X POST http://localhost:8088/api/researches \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Test", "description": "...", "goal": "..."}'
-```
-
-### Step 3: Typical test flow
-
-1. **Create research** — `POST /api/researches` (returns `research_id` in `data.research.id` or `data.research_id`)
-2. **Get research** — `GET /api/researches/{id}` (returns sections array with their IDs)
-3. **Create entities** — entries (`POST /api/entries`), tasks (`POST /api/tasks`), sessions (`POST /api/sessions`)
-4. **Create roadmap with refs** — `POST /api/roadmaps` with `ref_type`/`ref_id` on nodes
-5. **GET roadmap** — `GET /api/roadmaps/{id}` verifies `ref_data` is populated (lazy sync)
-6. **Update source entity** — e.g. `PUT /api/tasks/{id}` to change status
-7. **GET roadmap again** — `ref_data` should reflect the updated status
-
-### Response format notes
-
-- Research create returns: `data.research_id` (not `data.id`)
-- Entry create returns: `data.entry_id` (not `data.id`)
-- Session create returns: `data.id` (nested under `data`)
-- Task create returns: `data.id`
-- Roadmap GET returns full `ref_data` for nodes with `ref_type`/`ref_id` (resolved at read time)
-
 ## Architecture
 
 Single Go binary serving multiple protocols from one process:
@@ -101,7 +51,7 @@ Legacy MCP Client
     | SSE (:8081)
     |
 Go Process
-    |-- MCP Server (21 tools, 2 prompts)
+    |-- MCP Server (32 tools, 2 prompts)
     |-- REST API (:8088) -- read-only + write (bearer auth)
     |-- WebSocket (:8088/ws) -- real-time event push
     |-- OAuth2 endpoints (/auth/*)
@@ -133,7 +83,7 @@ internal/
   storage/                         -- SQLite repos + embedded migrations (001-010)
   service/                         -- business logic, validation, event emission, access control
   mcp/                             -- MCP server wrapper, tool + prompt registration
-    tools/                         -- 21 tool files (one per tool)
+    tools/                         -- 32 tool files (one per tool)
     prompts_data/                  -- embedded markdown prompt templates
   api/                             -- REST handlers, WebSocket hub, OAuth, static embedding
     ws/                            -- WebSocket hub + client + event notifier bridge
@@ -215,17 +165,6 @@ When `auth_enabled` is true, multi-user auth is active:
 - First registered user automatically claims any pre-existing orphaned researches
 - `default_user`: auto-creates user if not found, auto-logs in Web UI (for local dev)
 
-### Auth Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/auth/register` | Register new user |
-| `POST` | `/api/auth/login` | Login, get JWT |
-| `GET` | `/api/auth/me` | Current user info |
-| `POST` | `/api/auth/api-keys` | Create API key |
-| `GET` | `/api/auth/api-keys` | List API keys |
-| `DELETE` | `/api/auth/api-keys/{id}` | Revoke API key |
-
 ### OAuth2 Endpoints
 
 | Method | Path | Description |
@@ -253,40 +192,25 @@ When `api_token` is configured, write endpoints are enabled with bearer token au
 All write endpoints require `Authorization: Bearer <token>` header.
 Read-only endpoints remain unauthenticated (unless `auth_enabled`).
 
-### Write Endpoints
+**Full route list** lives in `internal/api/server.go` (the source of truth) and in
+the spec served at `GET /api/openapi.yaml`. It is deliberately not duplicated here:
+the table went stale faster than it was updated. The spec also lags behind
+`server.go` — when changing routes, check the code, not the spec.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/researches` | Create research + sections |
-| `PUT` | `/api/researches/{id}` | Update research |
-| `POST` | `/api/researches/{id}/sections` | Add section |
-| `PUT` | `/api/sections/{sectionId}` | Update section |
-| `POST` | `/api/entries` | Create entry |
-| `PUT` | `/api/entries/{id}` | Update entry (supports text_replace) |
-| `POST` | `/api/tasks` | Create task |
-| `PUT` | `/api/tasks/{id}` | Update task |
-| `DELETE` | `/api/tasks/{id}` | Delete task |
-| `POST` | `/api/sessions` | Create session + questions |
-| `POST` | `/api/researches/{id}/crossrefs/rebuild` | Rebuild cross-references |
+Route registration — getting this wrong leaks data across users:
 
-### Read-only Endpoints (no auth)
+- `mux.Handle("POST /api/...", wrap(h))` — write endpoints
+- `mux.Handle("GET /api/...", wrapRead(h))` — read endpoints. `wrapRead` still
+  applies `requireAuth` when `auth_enabled`, which is what puts the user into the
+  context; without it `ResearchService.List` leaves `filter.UserID` nil and
+  returns every user's researches.
+- bare `mux.HandleFunc(...)` — only for genuinely public routes: `/api/health`,
+  `/api/openapi.yaml`, `/api/auth/info`, login/register, the OAuth endpoints
+  and `/ws`.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/researches` | List all researches |
-| `GET` | `/api/researches/{id}` | Get research + sections + active session |
-| `GET` | `/api/researches/{id}/sections/{sectionId}/entries` | List entries in section |
-| `GET` | `/api/entries/{id}` | Get entry with content |
-| `GET` | `/api/researches/{id}/entries/by-code/{code}` | Resolve entry by short code |
-| `GET` | `/api/resolve/research/{code}` | Resolve research by short code |
-| `GET` | `/api/researches/{id}/crossrefs` | List cross-references |
-| `GET` | `/api/researches/{id}/tasks` | List tasks |
-| `GET` | `/api/researches/{id}/sessions` | List sessions |
-| `GET` | `/api/researches/{id}/sessions/{sessionId}` | Get session + questions + progress (research-scoped) |
-| `GET` | `/api/researches/{id}/roadmaps` | List roadmaps for research |
-| `GET` | `/api/researches/{id}/roadmaps/{roadmapId}` | Get roadmap with nodes/edges (research-scoped, with ref_data) |
-| `GET` | `/api/roadmaps/{id}` | Get roadmap (standalone, legacy) |
-| `GET` | `/api/health` | Health check |
+Both `wrap` and `wrapRead` are local closures in `NewServer` built on
+`auth.RequireAuth`. There is no `auth()` helper.
+
 
 ## Key Patterns
 
@@ -296,8 +220,9 @@ mcp.AddTool(srv, &mcp.Tool{Name: "tool_name", Description: "..."},
     func(ctx, req, input InputStruct) (*mcp.CallToolResult, any, error) { ... })
 ```
 - `jsonschema` struct tags are plain descriptions (not `required,description=`)
-- Tools always return `(result, nil, nil)` -- never return Go errors (that's a protocol error)
 - Use `successResult()` / `errorResult()` / `validationErrorResult()` helpers from `tools/helpers.go`
+- Optional fields must be pointers, and tools must never return a Go error —
+  both enforced by `.claude/hooks/lint-go.py` after every edit
 
 **SQLite:** Pure Go driver (`modernc.org/sqlite`), no CGo. `MaxOpenConns(1)`, WAL mode for file DBs, `foreign_keys=ON`.
 
@@ -317,9 +242,11 @@ mcp.AddTool(srv, &mcp.Tool{Name: "tool_name", Description: "..."},
 ## Adding a New REST Endpoint
 
 1. Add handler method in `internal/api/handlers/`
-2. Register route in `internal/api/server.go` using Go 1.22 pattern: `mux.HandleFunc("GET /api/path/{id}", handler)`
-3. For write endpoints: wrap with `auth()` middleware and use `mux.Handle()` instead of `mux.HandleFunc()`
-4. WebSocket endpoint uses `/ws` without method prefix (required for upgrade)
+2. Register in `internal/api/server.go` with the Go 1.22 pattern and the matching
+   wrapper: `mux.Handle("GET /api/path/{id}", wrapRead(handler))` for reads,
+   `wrap(handler)` for writes. See the route-registration rules under Write API —
+   a bare `mux.HandleFunc` on a scoped route leaks data across users.
+3. WebSocket endpoint uses `/ws` without method prefix (required for upgrade)
 
 ## Frontend
 
