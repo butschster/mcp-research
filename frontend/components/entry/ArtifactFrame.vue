@@ -30,13 +30,14 @@ const props = withDefaults(
     /** Height used until the document reports its own, and when it never does. */
     fallbackHeight?: number
     /**
-     * Optional upper bound. Zero means none: the frame takes the document's full
-     * height so the artifact never gets an inner scrollbar. Set it only when a
-     * page deliberately wants to cap a very tall artifact.
+     * Upper bound in pixels. Generous by default so any real document still gets its
+     * full height and no inner scrollbar; it exists only so an artifact cannot post
+     * an absurd height and blow up the page — it knows the channel, so it can post
+     * whatever it likes. Zero disables the bound entirely.
      */
     maxHeight?: number
   }>(),
-  { title: '', bridgeData: null, fallbackHeight: 520, maxHeight: 0 }
+  { title: '', bridgeData: null, fallbackHeight: 520, maxHeight: 60000 }
 )
 
 const frameRef = ref<HTMLIFrameElement | null>(null)
@@ -130,15 +131,38 @@ const documentHtml = computed(() => {
   return html + shim.value
 })
 
+// A document sized in viewport units (`min-height: 100vh`) grows every time we grow
+// the frame, because the frame *is* its viewport: grow → 100vh grows → it reports
+// more → grow again. Counting consecutive increases stops that without capping a
+// legitimately tall artifact.
+const GROWTH_LIMIT = 20
+let increases = 0
+let frozen = false
+
 function onMessage(e: MessageEvent) {
+  // The artifact knows its channel — we injected it — so the token alone does not
+  // prove the sender. Only the frame we created may drive our height.
+  if (e.source !== frameRef.value?.contentWindow) return
+
   const data = e.data
   if (!data || data.channel !== channel) return
-  if (data.type === 'height' && typeof data.height === 'number') {
-    let h = Math.max(Math.ceil(data.height), 80)
-    if (props.maxHeight > 0) h = Math.min(h, props.maxHeight)
-    frameHeight.value = h
-    measured.value = true
+  if (data.type !== 'height' || typeof data.height !== 'number') return
+  if (!Number.isFinite(data.height)) return
+
+  let h = Math.max(Math.ceil(data.height), 80)
+  if (props.maxHeight > 0) h = Math.min(h, props.maxHeight)
+
+  if (h > frameHeight.value) {
+    increases += 1
+    if (increases > GROWTH_LIMIT) frozen = true
+  } else {
+    increases = 0
   }
+  // Once frozen, still allow shrinking — that ends the loop rather than feeding it.
+  if (frozen && h > frameHeight.value) return
+
+  frameHeight.value = h
+  measured.value = true
 }
 
 function onLoad() {

@@ -108,3 +108,21 @@ export const ClampedByMaxHeight: Story = {
 export const EmptyDocument: Story = {
   args: { html: '', title: 'Empty artifact', fallbackHeight: 200 },
 }
+
+// The frame is the document's viewport, so a document sized in vh reports more every
+// time the host grows it. The host stops applying increases after 20 in a row, so
+// this settles instead of growing without end.
+const viewportSized = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Sized in vh</title>
+<style>
+  html,body { margin:0; }
+  body { min-height:100vh; padding:20px; font-family:system-ui,sans-serif;
+         background:#0c1220; color:#e2e8f0; }
+</style></head>
+<body><h1 style="font-size:16px;margin:0">min-height: 100vh</h1>
+<p style="color:#7f8ea3;font-size:13px">Grows the frame on every report until the host freezes it.</p>
+</body></html>`
+
+export const ViewportSizedDoesNotRunAway: Story = {
+  args: { html: viewportSized, title: 'Sized in vh' },
+}
