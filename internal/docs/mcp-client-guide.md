@@ -207,7 +207,28 @@ Put references you want in the knowledge graph into entry content: the graph vie
 
 ## Entry Types and Statuses
 
-Entries are the primary knowledge artifacts. They live in sections and represent synthesized research findings.
+Entries live in sections and represent synthesized research findings.
+
+### Types
+
+`entry_type` picks how `content` is interpreted. It is optional on `entry_create` and defaults to `markdown`.
+
+| Type | `content` holds | Rendered as |
+|------|-----------------|-------------|
+| `markdown` (default) | Markdown, with `[[E3]]` cross-references and ```mermaid blocks | Markdown in the page |
+| `artifact` | A complete, self-contained HTML document | A sandboxed iframe sized to the document |
+
+Use `artifact` when the point is a rendered thing rather than prose: a chart, an interactive table, a styled comparison, a diagram you want to lay out yourself. Everything else stays `markdown` — an artifact is not searched as text and does not contribute cross-references to the knowledge graph.
+
+Writing an artifact:
+
+- Send one whole document: `<!doctype html>`, `<head>`, `<style>`, `<script>`, `<body>`. Inline everything — external requests are not available to the frame.
+- Give it a `<title>`: when `title` is omitted, it is taken from there. Without either, `entry_create` fails with `title is required for artifact entries`. `<meta name="description">` fills `description` the same way.
+- Scripts run. The frame is sandboxed with `allow-scripts` and without `allow-same-origin`, so an artifact cannot read cookies, storage or the host page — and cannot fetch from the API.
+- The frame reports its own height, so the artifact is shown at full height with no inner scrollbar. Do not set `height: 100%` on `body` expecting a viewport; lay out for a document that grows.
+- Read-only host context arrives after load as `window.researchData` and a `research-data` event: the research (id, code, name, goal), the entry (id, code, title, tags) and the section list. Render from it rather than hardcoding names.
+
+`[[E3]]` inside artifact HTML is stored as literal text: cross-references are extracted from markdown content only.
 
 ### Statuses
 

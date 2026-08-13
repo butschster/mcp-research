@@ -49,12 +49,17 @@ Logical division within a research. Organizes entries by topic.
 
 ### Entry
 
-Markdown document containing research findings. Lives in a section.
+A document containing research findings. Lives in a section. Holds either markdown
+or, when `entry_type` is `artifact`, a self-contained HTML document rendered in a
+sandboxed iframe at its full height — used for charts, interactive tables and
+hand-laid-out visuals. An artifact's HTML is not searched as text and contributes
+no cross-references.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Entry title (auto-generated from content if omitted) |
-| `content` | string | Full markdown content |
+| `entry_type` | enum | `markdown` (default) / `artifact` |
+| `title` | string | Entry title (auto-generated from content if omitted; for artifacts taken from `<title>`, and required if absent) |
+| `content` | string | Markdown, or a full HTML document for artifacts |
 | `description` | string | Short summary (auto-generated if omitted) |
 | `section_id` | string | Parent section |
 | `session_id` | string | Optional: session that produced this entry |
