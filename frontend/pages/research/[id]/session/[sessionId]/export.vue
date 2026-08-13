@@ -85,12 +85,7 @@
             <span>{{ humanStatus(entry.status) }}</span>
             <span v-for="tag in entry.tags || []" :key="tag" class="doc-tag doc-tag-sm">{{ tag }}</span>
           </div>
-          <EntryArtifactFrame
-            v-if="entry.entry_type === 'artifact'"
-            :html="entry.content || ''"
-            :title="entry.title"
-          />
-          <div v-else class="markdown-content" v-html="renderMarkdown(entry.content)"></div>
+          <div class="markdown-content" v-html="renderMarkdown(entryBody(entry))"></div>
         </article>
       </section>
     </article>
@@ -124,6 +119,12 @@ const questions = computed<any[]>(() => exportData.value?.questions ?? [])
 const entries = computed<any[]>(() => exportData.value?.entries ?? [])
 const sectionNames = computed<Record<string, string>>(() => exportData.value?.section_names ?? {})
 const answeredCount = computed(() => questions.value.filter((q) => q.status === 'answered').length)
+
+// A blocks entry stores JSON; the server ships a markdown rendering beside it so
+// the printable document does not have to know the block format.
+function entryBody(entry: any): string {
+  return entry?.content_markdown || entry?.content || ''
+}
 
 function renderMarkdown(content: string): string {
   if (!content) return ''

@@ -17,13 +17,24 @@ type EntryType string
 const (
 	// EntryMarkdown is the default: Content is markdown.
 	EntryMarkdown EntryType = "markdown"
-	// EntryArtifact means Content is a self-contained HTML document, rendered in a
-	// sandboxed iframe rather than as markdown.
+	// EntryBlocks means Content is a block document — see block.go. Structured,
+	// safe to render, indexable and exportable to markdown.
+	EntryBlocks EntryType = "blocks"
+	// EntryArtifact is accepted on input as sugar for a blocks document holding a
+	// single `html` block, and is normalized to EntryBlocks on the way in. It is
+	// no longer a stored type. Kept so clients that learned it keep working.
 	EntryArtifact EntryType = "artifact"
 )
 
+// Valid reports whether the type may be supplied by a caller.
 func (t EntryType) Valid() bool {
-	return t == EntryMarkdown || t == EntryArtifact
+	return t == EntryMarkdown || t == EntryBlocks || t == EntryArtifact
+}
+
+// Stored reports whether the type may be persisted. EntryArtifact is an input
+// alias only — storing it would leave two rendering paths for one thing.
+func (t EntryType) Stored() bool {
+	return t == EntryMarkdown || t == EntryBlocks
 }
 
 type Entry struct {

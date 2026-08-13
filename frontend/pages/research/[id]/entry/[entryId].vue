@@ -108,11 +108,11 @@
 
       <!-- Content -->
       <div class="entry-content card">
-        <EntryArtifactFrame
-          v-if="viewMode === 'rendered' && isArtifact"
-          :html="entry.content || ''"
-          :title="entry.title"
-          :bridge-data="artifactBridgeData"
+        <BlocksBlockRenderer
+          v-if="viewMode === 'rendered' && isBlocks"
+          :blocks="blocks"
+          :research-slug="researchSlug"
+          :bridge-data="blockBridgeData"
         />
         <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
         <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
@@ -228,11 +228,21 @@ const linkedSession = computed(() => {
   return (sessionsData.value?.data ?? []).find((s: any) => s.id === entry.value.session_id) ?? null
 })
 
-// Artifacts hold a full HTML document instead of markdown and render in a
-// sandboxed iframe. The bridge hands them read-only research context.
-const isArtifact = computed(() => entry.value?.entry_type === 'artifact')
-const artifactBridgeData = computed(() => {
-  if (!isArtifact.value) return null
+// A blocks entry stores a JSON document of typed blocks. Parsing failures fall
+// back to the markdown path rather than showing nothing: better to display the
+// raw document than an empty card.
+const isBlocks = computed(() => entry.value?.entry_type === 'blocks' && blocks.value.length > 0)
+const blocks = computed<any[]>(() => {
+  if (entry.value?.entry_type !== 'blocks' || !entry.value?.content) return []
+  try {
+    const doc = JSON.parse(entry.value.content)
+    return Array.isArray(doc) ? doc : (doc.blocks ?? [])
+  } catch {
+    return []
+  }
+})
+const blockBridgeData = computed(() => {
+  if (!isBlocks.value) return null
   return {
     research: {
       id: research.value?.id,

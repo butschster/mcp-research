@@ -134,14 +134,33 @@ Import re-creates entities from scratch: new UUIDs, new short codes, cross-refer
 
 Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see the caller's own researches. `POST /api/researches/import` is a write endpoint and always requires the bearer token when `api_token` or `auth_enabled` is configured.
 
-## Artifact Entries in Export
+## Block Documents in Export
 
-An entry with `entry_type: artifact` holds a whole HTML document instead of markdown, and each export treats it accordingly:
+An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
+[Block Documents](blocks.md)), so every export has to render it rather than write
+`content` out:
 
-- **Markdown export** (`?format=md`, and the `markdown` field of the JSON responses) writes the document inside a fenced ```` ```html ```` block, preceded by the line `*HTML artifact — render the document below to view it.*`. Pasted inline it would leak its own `<style>` and `<script>` into whatever renders the export. The fence grows past any run of backticks inside the document, so an artifact containing fences cannot break out of the block.
-- **JSON responses** (`GET .../export` and `GET .../sessions/{sessionId}/export` without `format=md`) carry `entry_type` next to `content` on every entry. Branch on it before rendering: an artifact's `content` is a raw HTML document, not markdown.
-- **Export pages (Web UI)** render artifacts in the same sandboxed iframe the entry page uses, not as markdown.
-- **Portable export** carries `entry_type` on each entry, so artifacts import as artifacts. Exports written before artifacts existed have no `entry_type`; those entries import as `markdown`, which is what they were.
+- **Markdown export** (`?format=md`, and the `markdown` field of the JSON
+  responses) serializes the blocks: headings, lists, tables, quotes and code
+  become their markdown equivalents, and a `callout` becomes a labelled
+  blockquote.
+- **An `html` block is named, not emitted.** The export gets
+  `*<title> — interactive HTML, view in the web UI.*` and its caption. A whole
+  HTML document in a markdown file is not readable, is not markdown, and inlined
+  it would leak its `<style>` and `<script>` into whatever renders the file. The
+  same applies to legacy `artifact` rows written before the type was folded into
+  the `html` block.
+- **JSON responses** (`GET .../export` and `GET .../sessions/{sessionId}/export`
+  without `format=md`) carry `entry_type` next to `content`, and for a blocks
+  entry also `content_markdown` — the same rendering the `.md` file uses. Read
+  that field and you need no knowledge of the block format.
+- **A document that cannot be parsed** yields
+  `*This entry holds a block document that could not be read.*` rather than the
+  raw JSON or a silent gap.
+- **Portable export** carries `entry_type` on each entry, so a blocks entry
+  imports as a blocks entry, and the import validates the document before writing
+  anything. Exports written before entry types existed have no `entry_type`; those
+  entries import as `markdown`, which is what they were.
 
 ## Cross-References in Export
 

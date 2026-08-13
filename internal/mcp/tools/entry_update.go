@@ -11,7 +11,7 @@ import (
 
 type EntryUpdateInput struct {
 	EntryID     string           `json:"entry_id" jsonschema:"ID of the entry to update"`
-	EntryType   *string          `json:"entry_type" jsonschema:"Optional new content kind: markdown or artifact"`
+	EntryType   *string          `json:"entry_type" jsonschema:"Optional new content kind: markdown, blocks, or artifact (sugar for one html block). Switching to blocks requires content in block form in the same call; switching from blocks to markdown converts what is stored"`
 	Title       *string          `json:"title" jsonschema:"New title"`
 	Content     *string          `json:"content" jsonschema:"Replace entire content"`
 	Description *string          `json:"description" jsonschema:"New description"`

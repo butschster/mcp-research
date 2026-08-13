@@ -33,7 +33,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `entry_create` | Create an entry in a section — markdown by default, or an HTML artifact via `entry_type` |
+| `entry_create` | Create an entry in a section — markdown by default, or a block document via `entry_type` |
 | `entry_read` | Read full entry content |
 | `entry_list` | List entries in a section (metadata only, no content) |
 | `entry_update` | Update title, content, description, status, tags, session link, or do text replacement |
@@ -216,20 +216,25 @@ Entries live in sections and represent synthesized research findings.
 | Type | `content` holds | Rendered as |
 |------|-----------------|-------------|
 | `markdown` (default) | Markdown, with `[[E3]]` cross-references and ```mermaid blocks | Markdown in the page |
-| `artifact` | A complete, self-contained HTML document | A sandboxed iframe sized to the document |
+| `blocks` | A block document `{version:1,blocks:[{type,data}]}` | Each block by its own renderer |
+| `artifact` | A complete, self-contained HTML document | Sugar: stored as a `blocks` document holding one `html` block |
 
-Use `artifact` when the point is a rendered thing rather than prose: a chart, an interactive table, a styled comparison, a diagram you want to lay out yourself. Everything else stays `markdown` — an artifact is not searched as text and does not contribute cross-references to the knowledge graph.
+Use `blocks` when the entry is a composed document — prose plus an alert, a table, a chart, a hand-built visual — rather than one stream of text. Ten block types are available: `paragraph`, `heading`, `list`, `table`, `quote`, `code`, `callout`, `divider`, `image`, `html`. Text fields carry the inline markdown subset and `[[E3]]` references, and they are indexed; `code` and `html` bodies are not. **Read [Block Documents](/llms/blocks.md) for the field-by-field catalog before writing one** — an unknown type or a mistyped field is dropped silently, so a guessed field name means a missing block.
 
-Writing an artifact:
+`artifact` still works and needs no document: pass the HTML as `content` and it is wrapped in one `html` block, taking its title from `<title>`. Reading the entry back returns `entry_type: blocks` — nothing stores `artifact` any more.
+
+Everything else stays `markdown`.
+
+Writing HTML — as an `html` block inside a document, or via the `artifact` alias:
 
 - Send one whole document: `<!doctype html>`, `<head>`, `<style>`, `<script>`, `<body>`. Inline everything — external requests are not available to the frame.
-- Give it a `<title>`: when `title` is omitted, it is taken from there. Without either, `entry_create` fails with `title is required for artifact entries`. `<meta name="description">` fills `description` the same way.
-- Scripts run. The frame is sandboxed with `allow-scripts` and without `allow-same-origin`, so an artifact cannot read cookies, storage or the host page — and cannot fetch from the API.
-- The frame reports its own height, so the artifact is shown at full height with no inner scrollbar. Do not set `height: 100%` on `body` expecting a viewport; lay out for a document that grows.
+- Give it a `<title>`. Using the alias, the entry title comes from there when `title` is omitted, and `<meta name="description">` fills `description` the same way. Inside a document, prefer the block's own `title` field.
+- Scripts run. The frame is sandboxed with `allow-scripts` and without `allow-same-origin`, so the document cannot read cookies, storage or the host page — and cannot fetch from the API.
+- The frame reports its own height, so it is shown in full with no inner scrollbar. Do not set `height: 100%` on `body` expecting a viewport; lay out for a document that grows.
 - Read-only host context arrives after load as `window.researchData` and a `research-data` event: the research (id, code, name, goal), the entry (id, code, title, tags) and the section list. Render from it rather than hardcoding names.
-- In a markdown export the document is emitted inside a fenced ```` ```html ```` block instead of being inlined; `research_export` / `research_import` carry `entry_type`, so an artifact survives a round trip as an artifact. See [Export](/llms/export.md).
+- **Exports do not contain the HTML.** A markdown export names the block and points at the web UI; a wall of markup in a `.md` file is neither readable nor markdown. `research_export` / `research_import` carry `entry_type`, so the document survives a round trip. See [Export](/llms/export.md).
 
-`[[E3]]` inside artifact HTML is stored as literal text: cross-references are extracted from markdown content only.
+`[[E3]]` inside HTML is stored as literal text: cross-references are extracted from markdown content and from block text fields, never from an HTML body.
 
 ### Statuses
 

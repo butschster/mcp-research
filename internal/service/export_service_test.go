@@ -1379,8 +1379,10 @@ func TestExportImportRoundTrip_PreservesEntryType(t *testing.T) {
 	if len(exported) != 2 {
 		t.Fatalf("exported entries = %d, want 2", len(exported))
 	}
-	if exported[0].Type != domain.EntryArtifact {
-		t.Errorf("exported type = %q, want %q", exported[0].Type, domain.EntryArtifact)
+	// artifact is an input alias now: it is stored, exported and imported as a
+	// blocks document holding one html block.
+	if exported[0].Type != domain.EntryBlocks {
+		t.Errorf("exported type = %q, want %q", exported[0].Type, domain.EntryBlocks)
 	}
 	if exported[1].Type != domain.EntryMarkdown {
 		t.Errorf("exported type = %q, want %q", exported[1].Type, domain.EntryMarkdown)
@@ -1405,11 +1407,20 @@ func TestExportImportRoundTrip_PreservesEntryType(t *testing.T) {
 	if len(reEntries) != 2 {
 		t.Fatalf("re-exported entries = %d, want 2", len(reEntries))
 	}
-	if reEntries[0].Type != domain.EntryArtifact {
-		t.Errorf("artifact imported as %q, want %q", reEntries[0].Type, domain.EntryArtifact)
+	if reEntries[0].Type != domain.EntryBlocks {
+		t.Errorf("artifact imported as %q, want %q", reEntries[0].Type, domain.EntryBlocks)
 	}
-	if reEntries[0].Content != artifactHTML {
-		t.Errorf("artifact content not preserved:\ngot:  %q\nwant: %q", reEntries[0].Content, artifactHTML)
+	// The HTML itself must survive byte for byte inside the html block — that is
+	// what "not mangled" means once the wrapper is the storage shape.
+	doc, err := NormalizeBlockDocument(reEntries[0].Content)
+	if err != nil {
+		t.Fatalf("re-imported content is not a block document: %v", err)
+	}
+	if len(doc.Blocks) != 1 || doc.Blocks[0].Type != domain.BlockHTML {
+		t.Fatalf("blocks = %v, want a single html block", doc.Blocks)
+	}
+	if got := str(doc.Blocks[0].Data, "html"); got != artifactHTML {
+		t.Errorf("artifact HTML not preserved:\ngot:  %q\nwant: %q", got, artifactHTML)
 	}
 	if reEntries[1].Type != domain.EntryMarkdown {
 		t.Errorf("markdown imported as %q, want %q", reEntries[1].Type, domain.EntryMarkdown)
@@ -1754,5 +1765,108 @@ func TestImport_DuplicateImportCreatesSeparateResearch(t *testing.T) {
 	}
 	if r1.Code == r2.Code {
 		t.Error("duplicate imports should have different codes")
+	}
+}
+
+// A blocks entry must survive the portable round trip with its type: before
+// entry_type was carried in the export file, importing one stored its JSON as
+// markdown and the entry rendered as a wall of braces.
+func TestExportImportRoundTrip_PreservesBlockDocument(t *testing.T) {
+	ctx := context.Background()
+	exportSvc, researchSvc, _, entrySvc, _, _, _ := setupExportService(t)
+
+	research, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
+		Name:     "Blocks Round Trip",
+		Sections: []CreateSectionRequest{{Name: "main", Position: 0}},
+	})
+
+	doc := `{"version":1,"blocks":[
+		{"type":"heading","data":{"level":2,"text":"Findings"}},
+		{"type":"paragraph","data":{"text":"Refers to [[E1]]."}},
+		{"type":"html","data":{"html":"<html><body>chart</body></html>","title":"Chart"}}
+	]}`
+	created, err := entrySvc.Create(ctx, CreateEntryRequest{
+		ResearchID: research.ID,
+		SectionID:  sections[0].ID,
+		Type:       domain.EntryBlocks,
+		Content:    doc,
+		Status:     domain.EntryActive,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if created.Type != domain.EntryBlocks {
+		t.Fatalf("created type = %q, want blocks", created.Type)
+	}
+
+	data, _ := exportSvc.Export(ctx, research.ID)
+	if got := data.Research.Sections[0].Entries[0].Type; got != domain.EntryBlocks {
+		t.Fatalf("exported entry_type = %q, want blocks — the type is not in the file", got)
+	}
+
+	jsonBytes, _ := json.Marshal(data)
+	var imported domain.ExportData
+	json.Unmarshal(jsonBytes, &imported)
+
+	newResearch, err := exportSvc.Import(ctx, &imported)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	reExported, _ := exportSvc.Export(ctx, newResearch.ID)
+	re := reExported.Research.Sections[0].Entries[0]
+	if re.Type != domain.EntryBlocks {
+		t.Errorf("re-exported type = %q, want blocks", re.Type)
+	}
+
+	back, err := NormalizeBlockDocument(re.Content)
+	if err != nil {
+		t.Fatalf("re-exported content is not a block document: %v", err)
+	}
+	if len(back.Blocks) != 3 {
+		t.Fatalf("got %d blocks after the round trip, want 3", len(back.Blocks))
+	}
+	if str(back.Blocks[0].Data, "text") != "Findings" {
+		t.Error("heading text was lost")
+	}
+	if !strings.Contains(str(back.Blocks[1].Data, "text"), "[[E1]]") {
+		t.Error("the cross-reference inside block text was lost")
+	}
+	if str(back.Blocks[2].Data, "html") != "<html><body>chart</body></html>" {
+		t.Error("the html block body was altered")
+	}
+
+	// And the entry title came from the document, not from the JSON.
+	if created.Title != "Findings" {
+		t.Errorf("title = %q, want it taken from the first heading", created.Title)
+	}
+}
+
+// A markdown file written before block documents existed has no entry_type; it
+// must still import as markdown rather than being rejected.
+func TestImport_LegacyFileWithoutEntryType(t *testing.T) {
+	ctx := context.Background()
+	exportSvc, researchSvc, _, entrySvc, _, _, _ := setupExportService(t)
+
+	research, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
+		Name:     "Legacy",
+		Sections: []CreateSectionRequest{{Name: "main", Position: 0}},
+	})
+	entrySvc.Create(ctx, CreateEntryRequest{
+		ResearchID: research.ID, SectionID: sections[0].ID,
+		Content: "# Plain\n\nbody", Status: domain.EntryActive,
+	})
+
+	data, _ := exportSvc.Export(ctx, research.ID)
+	// Strip the field the way an older file would not have it.
+	data.Research.Sections[0].Entries[0].Type = ""
+
+	newResearch, err := exportSvc.Import(ctx, data)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	re, _ := exportSvc.Export(ctx, newResearch.ID)
+	if got := re.Research.Sections[0].Entries[0].Type; got != domain.EntryMarkdown {
+		t.Errorf("type = %q, want markdown for a file with no entry_type", got)
 	}
 }

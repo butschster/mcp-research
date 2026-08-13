@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
@@ -352,20 +353,38 @@ func validateImportEntries(r domain.ExportResearch) error {
 	for _, sec := range r.Sections {
 		for _, e := range sec.Entries {
 			if e.Type != "" && !e.Type.Valid() {
-				return fmt.Errorf("entry %q: invalid entry_type %q: want %q or %q",
-					e.Title, e.Type, domain.EntryMarkdown, domain.EntryArtifact)
+				return fmt.Errorf("entry %q: invalid entry_type %q: want %q, %q or %q",
+					e.Title, e.Type, domain.EntryMarkdown, domain.EntryBlocks, domain.EntryArtifact)
 			}
-			content := normalizeContent(e.Content)
-			if content == "" {
+			if strings.TrimSpace(e.Content) == "" {
 				return fmt.Errorf("entry %q in section %q has no content", e.Title, sec.Name)
 			}
-			if e.Type != domain.EntryArtifact {
-				continue
-			}
-			// An artifact cannot get a title from its content the markdown way, so
-			// Create insists on one — either the field or the document's <title>.
-			if normalizeTitle(e.Title) == "" && normalizeTitle(htmlTitle(content)) == "" {
-				return fmt.Errorf("artifact entry in section %q has no title and its HTML has no <title>", sec.Name)
+
+			switch e.Type {
+			case domain.EntryBlocks:
+				// normalizeContent is deliberately NOT applied here: it expands a
+				// literal \n, which inside the document's JSON strings would make it
+				// unparseable and turn a valid entry into an import failure.
+				doc, err := NormalizeBlockDocument(e.Content)
+				if err != nil {
+					return fmt.Errorf("entry %q in section %q: %w", e.Title, sec.Name, err)
+				}
+				if normalizeTitle(e.Title) == "" && BlockDocumentTitle(doc) == "" {
+					return fmt.Errorf("blocks entry in section %q has no title and its document has no heading to take one from", sec.Name)
+				}
+
+			case domain.EntryArtifact:
+				// An artifact cannot get a title from its content the markdown way, so
+				// Create insists on one — either the field or the document's <title>.
+				content := normalizeContent(e.Content)
+				if normalizeTitle(e.Title) == "" && normalizeTitle(htmlTitle(content)) == "" {
+					return fmt.Errorf("artifact entry in section %q has no title and its HTML has no <title>", sec.Name)
+				}
+
+			default:
+				if normalizeContent(e.Content) == "" {
+					return fmt.Errorf("entry %q in section %q has no content", e.Title, sec.Name)
+				}
 			}
 		}
 	}

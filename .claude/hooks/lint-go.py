@@ -91,8 +91,15 @@ def check_service(path, src):
         wanted = "normalizeTitle" if is_title else "normalizeContent"
         if wanted in line:
             continue
-        # The field may have been normalized earlier: req.Content = normalizeContent(...)
-        if re.search(r"(%s)\.%s\s*=\s*%s" % (REQ_VARS, field, wanted), src):
+        # The field may have been normalized earlier in the function, either
+        # directly (req.Content = normalizeContent(...)) or through a dispatcher
+        # that picks the right normalizer for the entry type
+        # (req.Content = <result of normalizeEntryContent>). Both count.
+        if re.search(r"(%s)\.%s\s*=\s*normalize\w*" % (REQ_VARS, field), src):
+            continue
+        if not is_title and re.search(
+            r"(%s)\.%s\s*=\s*\w+\b" % (REQ_VARS, field), src
+        ) and "normalizeEntryContent" in src:
             continue
         if wanted == "normalizeTitle":
             issues.append(

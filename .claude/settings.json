@@ -11,6 +11,10 @@
           {
             "type": "command",
             "command": "command -v python3 >/dev/null 2>&1 && python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-frontend.py\" || exit 0"
+          },
+          {
+            "type": "command",
+            "command": "command -v python3 >/dev/null 2>&1 && python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-blocks.py\" || exit 0"
           }
         ]
       }
