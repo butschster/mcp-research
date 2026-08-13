@@ -61,7 +61,7 @@ not — a backslash there is data.
 | `list` | `{ style: "unordered"\|"ordered", items: string[] }` — blank and non-string items are dropped, max 200; no items ⇒ block dropped. Unknown style becomes `unordered` |
 | `table` | `{ header: bool (default true), rows: string[][] }` — non-array rows dropped, max 200 rows × 20 columns; no rows ⇒ dropped |
 | `quote` | `{ text, cite? }` — `text` required |
-| `code` | `{ code, language? }` — `code` required, stored verbatim. `language` is lowercased and reduced to `a-z0-9+#-_.` |
+| `code` | `{ code, language? }` — `code` required, stored verbatim. `language` is lowercased and reduced to `a-z0-9+#-_.`. With `language: "mermaid"` the block gains an "Open in mermaid.live" link — the source is kept as code, not drawn in place |
 | `callout` | `{ variant: "info"\|"warning"\|"success"\|"danger", text, title? }` — `text` required; an unknown variant becomes `info` |
 | `divider` | `{}` — always kept |
 | `image` | `{ url, alt?, caption? }` — `url` must be `http(s)://` or a domain-relative `/path`; anything else (including `javascript:`, `data:` and protocol-relative `//host`) ⇒ dropped |

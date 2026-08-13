@@ -121,6 +121,25 @@ export const WithHtmlBlock: Story = {
   },
 }
 
+// A mermaid source is unreadable as text, so the code block offers the live
+// editor instead. The link carries the whole diagram in its URL fragment.
+export const MermaidCodeBlock: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'paragraph', data: { text: 'A diagram in a block document stays source; the footer link draws it.' } },
+      {
+        type: 'code',
+        data: {
+          language: 'mermaid',
+          code: 'flowchart TD\n    A[entry_create] --> B{entry_type}\n    B -->|markdown| C[normalizeContent]\n    B -->|blocks| D[NormalizeBlockDocument]\n    B -->|artifact| E[ArtifactToBlockDocument]',
+        },
+      },
+      { type: 'code', data: { language: 'bash', code: 'make build-all   # no link here — not a diagram' } },
+    ],
+  },
+}
+
 // Text that tries to inject markup must render as text.
 export const HostileText: Story = {
   args: {

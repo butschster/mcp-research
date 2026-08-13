@@ -586,6 +586,30 @@ body::after {
 }
 .markdown-content .mermaid-diagram svg { max-width: 100%; height: auto; }
 .markdown-content pre.mermaid-error { border-left: 3px solid var(--color-warning, #d4a017); }
+
+/* An SVG in the page cannot be panned, zoomed or exported; the live editor does
+   all three, and the source rides in the URL fragment so nothing is uploaded.
+   Quiet until the diagram is hovered — it is a tool, not part of the content. */
+.markdown-content .mermaid-live-link {
+  display: inline-block;
+  margin-top: var(--space-2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.markdown-content .mermaid-live-link::after { content: ' ↗'; }
+.markdown-content .mermaid-diagram:hover .mermaid-live-link { opacity: 1; }
+.markdown-content .mermaid-live-link:hover {
+  opacity: 1;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+@media print {
+  .markdown-content .mermaid-live-link { display: none; }
+}
 .crossref-link {
   color: var(--color-primary);
   background: var(--color-primary-muted);

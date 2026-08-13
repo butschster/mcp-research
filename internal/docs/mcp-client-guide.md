@@ -180,6 +180,10 @@ Tips:
 - Combine diagrams with markdown text for context
 - Use descriptive node labels
 - Mermaid blocks work in entry content, question answers, session notes, and task descriptions/results
+- Every rendered diagram carries an "Open in mermaid.live" link; a diagram that fails to
+  parse keeps its source and links to the editor, which reports the syntax error
+- In a `blocks` document the same link appears under a `code` block whose `language` is
+  `mermaid` (block documents keep the source as code rather than drawing it)
 
 ### Cross-references
 
