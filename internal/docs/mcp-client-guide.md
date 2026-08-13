@@ -33,7 +33,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `entry_create` | Create a markdown entry in a section |
+| `entry_create` | Create an entry in a section — markdown by default, or an HTML artifact via `entry_type` |
 | `entry_read` | Read full entry content |
 | `entry_list` | List entries in a section (metadata only, no content) |
 | `entry_update` | Update title, content, description, status, tags, session link, or do text replacement |
@@ -227,6 +227,7 @@ Writing an artifact:
 - Scripts run. The frame is sandboxed with `allow-scripts` and without `allow-same-origin`, so an artifact cannot read cookies, storage or the host page — and cannot fetch from the API.
 - The frame reports its own height, so the artifact is shown at full height with no inner scrollbar. Do not set `height: 100%` on `body` expecting a viewport; lay out for a document that grows.
 - Read-only host context arrives after load as `window.researchData` and a `research-data` event: the research (id, code, name, goal), the entry (id, code, title, tags) and the section list. Render from it rather than hardcoding names.
+- In a markdown export the document is emitted inside a fenced ```` ```html ```` block instead of being inlined; `research_export` / `research_import` carry `entry_type`, so an artifact survives a round trip as an artifact. See [Export](/llms/export.md).
 
 `[[E3]]` inside artifact HTML is stored as literal text: cross-references are extracted from markdown content only.
 

@@ -40,7 +40,7 @@ Returns all research data as structured JSON:
       "name": "...",
       "display_name": "...",
       "entries": [
-        { "title": "...", "content": "full markdown...", "tags": [...] }
+        { "title": "...", "entry_type": "markdown", "content": "full markdown...", "tags": [...] }
       ]
     }
   ],
@@ -92,7 +92,7 @@ Returns JSON:
     { "text": "...", "area": "...", "rationale": "...", "priority": "high", "status": "answered", "answer": "..." }
   ],
   "entries": [
-    { "title": "...", "code": "E4", "section_id": "...", "content": "full markdown...", "tags": [...] }
+    { "title": "...", "code": "E4", "section_id": "...", "entry_type": "markdown", "content": "full markdown...", "tags": [...] }
   ],
   "section_names": { "<section-id>": "Display name of the section" },
   "markdown": "# Session as markdown string..."
@@ -139,6 +139,7 @@ Export endpoints are read endpoints: unauthenticated by default, but they requir
 An entry with `entry_type: artifact` holds a whole HTML document instead of markdown, and each export treats it accordingly:
 
 - **Markdown export** (`?format=md`, and the `markdown` field of the JSON responses) writes the document inside a fenced ```` ```html ```` block, preceded by the line `*HTML artifact — render the document below to view it.*`. Pasted inline it would leak its own `<style>` and `<script>` into whatever renders the export. The fence grows past any run of backticks inside the document, so an artifact containing fences cannot break out of the block.
+- **JSON responses** (`GET .../export` and `GET .../sessions/{sessionId}/export` without `format=md`) carry `entry_type` next to `content` on every entry. Branch on it before rendering: an artifact's `content` is a raw HTML document, not markdown.
 - **Export pages (Web UI)** render artifacts in the same sandboxed iframe the entry page uses, not as markdown.
 - **Portable export** carries `entry_type` on each entry, so artifacts import as artifacts. Exports written before artifacts existed have no `entry_type`; those entries import as `markdown`, which is what they were.
 
