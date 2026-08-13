@@ -126,8 +126,8 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 	rm := &domain.Roadmap{
 		ID:          uuid.New().String(),
 		ResearchID:  req.ResearchID,
-		Title:       req.Title,
-		Description: req.Description,
+		Title:       normalizeTitle(req.Title),
+		Description: normalizeContent(req.Description),
 		Statuses:    statuses,
 		Status:      domain.RoadmapActive,
 	}
@@ -147,8 +147,8 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 		node := &domain.RoadmapNode{
 			ID:          uuid.New().String(),
 			RoadmapID:   rm.ID,
-			Title:       nr.Title,
-			Description: nr.Description,
+			Title:       normalizeTitle(nr.Title),
+			Description: normalizeContent(nr.Description),
 			NodeType:    nodeType,
 			Status:      nr.Status,
 			PositionX:   nr.PositionX,
@@ -187,7 +187,7 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 			RoadmapID:    rm.ID,
 			SourceNodeID: sourceID,
 			TargetNodeID: targetID,
-			Label:        er.Label,
+			Label:        normalizeTitle(er.Label),
 			EdgeType:     edgeType,
 		}
 		if err := s.edges.Create(ctx, edge); err != nil {
@@ -454,10 +454,10 @@ func (s *RoadmapService) Update(ctx context.Context, id string, req UpdateRoadma
 	}
 
 	if req.Title != nil {
-		rm.Title = *req.Title
+		rm.Title = normalizeTitle(*req.Title)
 	}
 	if req.Description != nil {
-		rm.Description = *req.Description
+		rm.Description = normalizeContent(*req.Description)
 	}
 	if req.Statuses != nil {
 		rm.Statuses = req.Statuses
@@ -517,8 +517,8 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 		node := &domain.RoadmapNode{
 			ID:          uuid.New().String(),
 			RoadmapID:   rm.ID,
-			Title:       nr.Title,
-			Description: nr.Description,
+			Title:       normalizeTitle(nr.Title),
+			Description: normalizeContent(nr.Description),
 			NodeType:    nodeType,
 			Status:      nr.Status,
 			PositionX:   nr.PositionX,
@@ -554,7 +554,7 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 			RoadmapID:    rm.ID,
 			SourceNodeID: sourceID,
 			TargetNodeID: targetID,
-			Label:        er.Label,
+			Label:        normalizeTitle(er.Label),
 			EdgeType:     edgeType,
 		}
 		if err := s.edges.Create(ctx, edge); err != nil {
@@ -591,10 +591,10 @@ func (s *RoadmapService) UpdateNode(ctx context.Context, nodeID string, req Upda
 	}
 
 	if req.Title != nil {
-		node.Title = *req.Title
+		node.Title = normalizeTitle(*req.Title)
 	}
 	if req.Description != nil {
-		node.Description = *req.Description
+		node.Description = normalizeContent(*req.Description)
 	}
 	if req.NodeType != nil {
 		node.NodeType = *req.NodeType

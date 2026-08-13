@@ -10,11 +10,11 @@ import (
 )
 
 type ResearchCreateInput struct {
-	Name        string              `json:"name" jsonschema:"Research name"`
-	Description string              `json:"description" jsonschema:"Brief description of the research"`
-	Goal        string              `json:"goal" jsonschema:"What the research aims to achieve"`
-	Tags        []string            `json:"tags" jsonschema:"Tags for categorization"`
-	Sections    []SectionSpecInput  `json:"sections" jsonschema:"Initial sections to create"`
+	Name        string             `json:"name" jsonschema:"Research name"`
+	Description string             `json:"description" jsonschema:"Brief description of the research"`
+	Goal        string             `json:"goal" jsonschema:"What the research aims to achieve"`
+	Tags        []string           `json:"tags" jsonschema:"Tags for categorization"`
+	Sections    []SectionSpecInput `json:"sections" jsonschema:"Initial sections to create"`
 }
 
 type SectionSpecInput struct {

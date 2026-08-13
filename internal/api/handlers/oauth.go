@@ -180,11 +180,11 @@ func (h *OAuthHandler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("oauth DCR register", "method", r.Method, "remote", r.RemoteAddr)
 
 	var input struct {
-		ClientName   string   `json:"client_name"`
-		RedirectURIs []string `json:"redirect_uris"`
-		GrantTypes   []string `json:"grant_types"`
-		ResponseTypes []string `json:"response_types"`
-		TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+		ClientName              string   `json:"client_name"`
+		RedirectURIs            []string `json:"redirect_uris"`
+		GrantTypes              []string `json:"grant_types"`
+		ResponseTypes           []string `json:"response_types"`
+		TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -207,12 +207,12 @@ func (h *OAuthHandler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"client_id":                client.ID,
-		"client_secret":            secret,
-		"client_name":              client.Name,
-		"redirect_uris":            client.RedirectURIs,
-		"grant_types":              []string{"authorization_code"},
-		"response_types":           []string{"code"},
+		"client_id":                  client.ID,
+		"client_secret":              secret,
+		"client_name":                client.Name,
+		"redirect_uris":              client.RedirectURIs,
+		"grant_types":                []string{"authorization_code"},
+		"response_types":             []string{"code"},
 		"token_endpoint_auth_method": "client_secret_post",
 	})
 }
@@ -221,15 +221,15 @@ func (h *OAuthHandler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 func OAuthMetadataHandler(baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"issuer":                 baseURL,
-			"authorization_endpoint": baseURL + "/auth/authorize",
-			"token_endpoint":         baseURL + "/auth/token",
-			"registration_endpoint":  baseURL + "/auth/register",
-			"response_types_supported": []string{"code"},
-			"grant_types_supported":    []string{"authorization_code"},
+			"issuer":                                baseURL,
+			"authorization_endpoint":                baseURL + "/auth/authorize",
+			"token_endpoint":                        baseURL + "/auth/token",
+			"registration_endpoint":                 baseURL + "/auth/register",
+			"response_types_supported":              []string{"code"},
+			"grant_types_supported":                 []string{"authorization_code"},
 			"token_endpoint_auth_methods_supported": []string{"client_secret_post", "client_secret_basic"},
-			"code_challenge_methods_supported": []string{"S256"},
-			"scopes_supported": []string{"read", "write"},
+			"code_challenge_methods_supported":      []string{"S256"},
+			"scopes_supported":                      []string{"read", "write"},
 		})
 	}
 }
@@ -241,7 +241,7 @@ func OAuthProtectedResourceHandler(baseURL string) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"resource":              baseURL + "/mcp",
 			"authorization_servers": []string{baseURL},
-			"scopes_supported":     []string{"read", "write"},
+			"scopes_supported":      []string{"read", "write"},
 		})
 	}
 }
@@ -308,4 +308,3 @@ var authorizeTmpl = template.Must(template.New("authorize").Parse(`<!DOCTYPE htm
 </div>
 </body>
 </html>`))
-

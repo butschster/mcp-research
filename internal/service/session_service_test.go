@@ -352,7 +352,7 @@ func TestSessionService_UpdateQuestion(t *testing.T) {
 		r := createTestResearch(t, db)
 		session, questions, _ := svc.Create(ctx, CreateSessionRequest{
 			ResearchID: r.ID, Title: "UQ", Focus: "f",
-			Questions:  []CreateQuestionRequest{{Text: "Q?", Area: "A"}},
+			Questions: []CreateQuestionRequest{{Text: "Q?", Area: "A"}},
 		})
 		_ = session
 		notifier.reset()
@@ -377,7 +377,7 @@ func TestSessionService_UpdateQuestion(t *testing.T) {
 		r := createTestResearch(t, db)
 		_, questions, _ := svc.Create(ctx, CreateSessionRequest{
 			ResearchID: r.ID, Title: "UQ2", Focus: "f",
-			Questions:  []CreateQuestionRequest{{Text: "Q?", Area: "A"}},
+			Questions: []CreateQuestionRequest{{Text: "Q?", Area: "A"}},
 		})
 
 		_, err := svc.UpdateQuestion(ctx, questions[0].ID,

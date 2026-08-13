@@ -10,9 +10,9 @@ import (
 )
 
 type SessionCreateInput struct {
-	ResearchID string                   `json:"research_id" jsonschema:"ID of the research"`
-	Title      string                   `json:"title" jsonschema:"Session title"`
-	Focus      *string                  `json:"focus" jsonschema:"Focus area for this session"`
+	ResearchID string                    `json:"research_id" jsonschema:"ID of the research"`
+	Title      string                    `json:"title" jsonschema:"Session title"`
+	Focus      *string                   `json:"focus" jsonschema:"Focus area for this session"`
 	Questions  []QuestionCreateSpecInput `json:"questions" jsonschema:"Initial questions to create with the session"`
 }
 
@@ -68,9 +68,9 @@ func RegisterSessionCreate(srv *mcp.Server, svc *service.SessionService, log *sl
 		}
 
 		return successResult(map[string]any{
-			"session_id":      session.ID,
-			"title":           session.Title,
-			"status":          session.Status,
+			"session_id":        session.ID,
+			"title":             session.Title,
+			"status":            session.Status,
 			"questions_created": len(createdQuestions),
 		})
 	})

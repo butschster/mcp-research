@@ -30,7 +30,7 @@ type ServerConfig struct {
 	AuthEnabled    bool
 	BaseURL        string // Public base URL for OAuth metadata (e.g. https://mcp.example.com)
 	OAuthSvc       *service.OAuthService
-	AutoLoginToken string // JWT for default user auto-login (empty = disabled)
+	AutoLoginToken string       // JWT for default user auto-login (empty = disabled)
 	MCPHandler     http.Handler // Streamable HTTP MCP handler (mounted at /mcp)
 }
 

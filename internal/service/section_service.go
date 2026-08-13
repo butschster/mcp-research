@@ -72,7 +72,7 @@ func (s *SectionService) Update(ctx context.Context, id string, req UpdateSectio
 	}
 
 	if req.DisplayName != nil {
-		section.DisplayName = normalizeContent(*req.DisplayName)
+		section.DisplayName = normalizeTitle(*req.DisplayName)
 	}
 	if req.Description != nil {
 		section.Description = normalizeContent(*req.Description)

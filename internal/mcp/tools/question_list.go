@@ -11,10 +11,10 @@ import (
 )
 
 type QuestionListInput struct {
-	SessionID string `json:"session_id" jsonschema:"ID of the session"`
-	Status    string `json:"status" jsonschema:"Filter by status: pending, in_progress, answered, deferred, skipped"`
-	Area      string `json:"area" jsonschema:"Filter by topic area"`
-	Priority  string `json:"priority" jsonschema:"Filter by priority: high, medium, low"`
+	SessionID string  `json:"session_id" jsonschema:"ID of the session"`
+	Status    *string `json:"status" jsonschema:"Filter by status: pending, in_progress, answered, deferred, skipped"`
+	Area      *string `json:"area" jsonschema:"Filter by topic area"`
+	Priority  *string `json:"priority" jsonschema:"Filter by priority: high, medium, low"`
 }
 
 func RegisterQuestionList(srv *mcp.Server, svc *service.SessionService, log *slog.Logger) {
@@ -27,15 +27,15 @@ func RegisterQuestionList(srv *mcp.Server, svc *service.SessionService, log *slo
 		}
 
 		filter := storage.QuestionFilter{}
-		if input.Status != "" {
-			s := domain.QuestionStatus(input.Status)
+		if v := derefStr(input.Status); v != "" {
+			s := domain.QuestionStatus(v)
 			filter.Status = &s
 		}
-		if input.Area != "" {
-			filter.Area = &input.Area
+		if v := derefStr(input.Area); v != "" {
+			filter.Area = &v
 		}
-		if input.Priority != "" {
-			p := domain.Priority(input.Priority)
+		if v := derefStr(input.Priority); v != "" {
+			p := domain.Priority(v)
 			filter.Priority = &p
 		}
 

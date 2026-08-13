@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	ErrEmailTaken          = errors.New("email already registered")
-	ErrInvalidCredentials  = errors.New("invalid email or password")
-	ErrRegistrationClosed  = errors.New("registration is not allowed")
-	ErrPasswordTooShort    = errors.New("password must be at least 6 characters")
-	ErrInvalidEmail        = errors.New("invalid email address")
+	ErrEmailTaken         = errors.New("email already registered")
+	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrRegistrationClosed = errors.New("registration is not allowed")
+	ErrPasswordTooShort   = errors.New("password must be at least 6 characters")
+	ErrInvalidEmail       = errors.New("invalid email address")
 )
 
 type AuthService struct {

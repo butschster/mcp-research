@@ -33,8 +33,8 @@ type UpdateResearchRequest struct {
 	Status      *domain.ResearchStatus
 	Instruction *string
 	Tags        []string
-	Memory      []string  // replace entire memory
-	AddMemory   *string   // append single entry
+	Memory      []string // replace entire memory
+	AddMemory   *string  // append single entry
 }
 
 type ResearchService struct {
@@ -52,7 +52,7 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 	research := &domain.Research{
 		ID:          uuid.New().String(),
 		UserID:      auth.UserIDFromContext(ctx),
-		Name:        normalizeContent(req.Name),
+		Name:        normalizeTitle(req.Name),
 		Description: normalizeContent(req.Description),
 		Goal:        normalizeContent(req.Goal),
 		Status:      domain.ResearchActive,
@@ -72,8 +72,8 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 		section := &domain.Section{
 			ID:          uuid.New().String(),
 			ResearchID:  research.ID,
-			Name:        normalizeContent(sec.Name),
-			DisplayName: normalizeContent(sec.DisplayName),
+			Name:        normalizeTitle(sec.Name),
+			DisplayName: normalizeTitle(sec.DisplayName),
 			Description: normalizeContent(sec.Description),
 			Status:      domain.SectionDraft,
 			Position:    sec.Position,
@@ -139,7 +139,7 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 	}
 
 	if req.Name != nil {
-		research.Name = normalizeContent(*req.Name)
+		research.Name = normalizeTitle(*req.Name)
 	}
 	if req.Description != nil {
 		research.Description = normalizeContent(*req.Description)
@@ -188,8 +188,8 @@ func (s *ResearchService) AddSection(ctx context.Context, researchID string, req
 	section := &domain.Section{
 		ID:          uuid.New().String(),
 		ResearchID:  researchID,
-		Name:        normalizeContent(req.Name),
-		DisplayName: normalizeContent(req.DisplayName),
+		Name:        normalizeTitle(req.Name),
+		DisplayName: normalizeTitle(req.DisplayName),
 		Description: normalizeContent(req.Description),
 		Status:      domain.SectionDraft,
 		Position:    req.Position,

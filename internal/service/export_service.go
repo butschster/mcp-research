@@ -271,14 +271,14 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData) (*d
 			}
 
 			if _, err := s.entry.Create(ctx, CreateEntryRequest{
-				ResearchID: research.ID,
-				SectionID:  sectionID,
-				SessionID:  sessionID,
-				Title:      e.Title,
-				Content:    e.Content,
+				ResearchID:  research.ID,
+				SectionID:   sectionID,
+				SessionID:   sessionID,
+				Title:       e.Title,
+				Content:     e.Content,
 				Description: e.Description,
-				Status:     e.Status,
-				Tags:       e.Tags,
+				Status:      e.Status,
+				Tags:        e.Tags,
 			}); err != nil {
 				return nil, fmt.Errorf("create entry %q: %w", e.Title, err)
 			}
@@ -517,4 +517,3 @@ func buildRoadmapRequests(rm domain.ExportRoadmap) ([]CreateRoadmapNodeRequest, 
 
 	return nodeReqs, edgeReqs
 }
-

@@ -5,8 +5,8 @@ import "time"
 // ExportData is the portable representation of a complete research.
 // It contains all data needed to recreate a research on another server.
 type ExportData struct {
-	Version    int       `json:"version"`
-	ExportedAt time.Time `json:"exported_at"`
+	Version    int            `json:"version"`
+	ExportedAt time.Time      `json:"exported_at"`
 	Research   ExportResearch `json:"research"`
 }
 
