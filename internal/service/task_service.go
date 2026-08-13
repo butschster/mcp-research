@@ -51,7 +51,7 @@ func (s *TaskService) Create(ctx context.Context, req CreateTaskRequest) (*domai
 	task := &domain.Task{
 		ID:          uuid.New().String(),
 		ResearchID:  req.ResearchID,
-		Title:       req.Title,
+		Title:       normalizeTitle(req.Title),
 		Description: normalizeContent(req.Description),
 		Status:      domain.TaskPending,
 		Priority:    priority,
@@ -99,7 +99,7 @@ func (s *TaskService) Update(ctx context.Context, id string, req UpdateTaskReque
 	}
 
 	if req.Title != nil {
-		task.Title = *req.Title
+		task.Title = normalizeTitle(*req.Title)
 	}
 	if req.Description != nil {
 		task.Description = normalizeContent(*req.Description)

@@ -25,14 +25,14 @@ type CrossRefParser interface {
 }
 
 type CreateEntryRequest struct {
-	ResearchID string
-	SectionID  string
-	SessionID  string
-	Content    string
-	Title      string
+	ResearchID  string
+	SectionID   string
+	SessionID   string
+	Content     string
+	Title       string
 	Description string
-	Status     domain.EntryStatus
-	Tags       []string
+	Status      domain.EntryStatus
+	Tags        []string
 }
 
 type UpdateEntryRequest struct {
@@ -97,12 +97,14 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		return nil, fmt.Errorf("content is required")
 	}
 
-	title := req.Title
+	// Normalize the same way Update does, so the same input stored through
+	// entry_create and entry_update ends up identical.
+	title := normalizeTitle(req.Title)
 	if title == "" {
 		title = autoTitle(req.Content)
 	}
 
-	description := req.Description
+	description := normalizeContent(req.Description)
 	if description == "" {
 		description = autoDescription(req.Content)
 	}
@@ -211,13 +213,13 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 	}
 
 	if req.Title != nil {
-		entry.Title = *req.Title
+		entry.Title = normalizeTitle(*req.Title)
 	}
 	if req.Content != nil {
 		entry.Content = normalizeContent(*req.Content)
 	}
 	if req.Description != nil {
-		entry.Description = *req.Description
+		entry.Description = normalizeContent(*req.Description)
 	}
 	if req.Status != nil {
 		entry.Status = *req.Status
@@ -456,11 +458,12 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 }
 
 // parseRef splits references:
-//   "R2:E5"  → kind="entry",   first="R2",  second="E5"
-//   "E5"     → kind="entry",   first="",    second="E5"
-//   "R2"     → kind="research",first="R2",  second=""
-//   "RM1"    → kind="roadmap", first="RM1", second=""
-//   "RM1:N3" → kind="node",    first="RM1", second="N3"
+//
+//	"R2:E5"  → kind="entry",   first="R2",  second="E5"
+//	"E5"     → kind="entry",   first="",    second="E5"
+//	"R2"     → kind="research",first="R2",  second=""
+//	"RM1"    → kind="roadmap", first="RM1", second=""
+//	"RM1:N3" → kind="node",    first="RM1", second="N3"
 func parseRef(ref string) (kind, first, second string) {
 	if idx := strings.IndexByte(ref, ':'); idx >= 0 {
 		left, right := ref[:idx], ref[idx+1:]

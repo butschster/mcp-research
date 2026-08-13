@@ -76,3 +76,61 @@ func TestNormalizeContent(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeTitle(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "backslash escapes are data, not escapes",
+			input: `Path C:\notes\deep`,
+			want:  `Path C:\notes\deep`,
+		},
+		{
+			name:  "leading backslash-t is preserved",
+			input: `Fix \table alignment`,
+			want:  `Fix \table alignment`,
+		},
+		{
+			name:  "real newline collapses to a space",
+			input: "Two\nlines",
+			want:  "Two lines",
+		},
+		{
+			name:  "CRLF collapses to a single space",
+			input: "Two\r\nlines",
+			want:  "Two lines",
+		},
+		{
+			name:  "real tab collapses to a space",
+			input: "Tab\there",
+			want:  "Tab here",
+		},
+		{
+			name:  "surrounding whitespace trimmed",
+			input: "  padded  ",
+			want:  "padded",
+		},
+		{
+			name:  "invalid UTF-8 stripped",
+			input: "title\x80\x81",
+			want:  "title",
+		},
+		{
+			name:  "U+FFFD stripped",
+			input: "се\uFFFDверы",
+			want:  "северы",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeTitle(tt.input)
+			if got != tt.want {
+				t.Errorf("normalizeTitle(%q)\n  got:  %q\n  want: %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}

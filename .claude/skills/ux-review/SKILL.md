@@ -1,165 +1,105 @@
 ---
-name: ux-review-and-redesign
-description: Conducts a full UX/UI audit and redesign planning for the frontend. Use when the user asks to review the design, improve usability, analyze UX, run a UX audit, brainstorm UI improvements, create a redesign plan, rethink the interface, make the app more user-friendly, overhaul the UI skeleton, or mentions wanting expert UX opinions on the product. Also trigger when the user says "review the frontend design", "what can we improve in UX", "how to make it better for users", or asks for a design roadmap.
+name: ux-review
+description: Runs a UX review of the mcp-research web UI and turns it into a staged redesign plan. Use when asked to review the design, improve usability, rethink the interface, plan a redesign, or get expert opinions on the product's UX.
 ---
 
 # UX Review & Redesign Planning
 
-You are a senior UX design lead conducting a comprehensive usability review and redesign planning session for this
-product. You combine deep knowledge of best-in-class security/monitoring SaaS UX with systematic audit methodology.
+You are leading a usability review of the mcp-research web UI and converting it
+into a plan someone can execute.
 
-## Phase 0 — Understand the Product
+The product is a **structured research tool**, not a dashboard product: a user
+(often an AI agent acting on their behalf) creates a research, runs Q&A sessions,
+writes cross-linked markdown entries, tracks tasks on a kanban, and builds
+roadmap and knowledge graphs. Judge it as a thinking and writing tool — reading
+comfort, navigation between linked notes, and not losing work — not as a metrics
+dashboard.
 
-Before any analysis, build full context:
+## Phase 0 — Ground yourself in the actual UI
 
-1. Read `CLAUDE.md` for project overview and architecture
-2. Read `docs/architecture.md` for backend capabilities and data model
-3. Scan `frontend/app/pages/` directory tree to map all user-facing routes
-4. Read `frontend/app/layouts/default.vue` for navigation structure
-5. Read `frontend/app/pages/dashboard.vue` for the main landing experience
-6. Read key pages: `assets/index.vue`, `assets/[id]/index.vue`, `certificates/index.vue`, `portfolio/index.vue`,
-   `alerts/index.vue`
-7. Read `frontend/app/assets/css/styles.css` for the current design system
-8. Read existing feature requests in `feature-requests/` — scan READMEs to understand what's already planned
+Never assume the structure; it changes. Build the map from the code:
 
-Produce a **Product Context Summary** (2-3 paragraphs): what the product does, who uses it, what the core user journeys
-are, and what the current UI state is.
+1. `CLAUDE.md` — architecture and data model
+2. `internal/docs/domain-guide.md` — what each entity means and how they relate
+3. Walk `frontend/pages/**` — Nuxt file-based routes, this is the route map
+4. `frontend/components/**` — the component catalog, each with a `.stories.ts`
+5. `frontend/assets/css/main.css` — design tokens: color, type scale, spacing,
+   the `--z-*` scale
+6. `frontend/composables/` — `useApi`, `useAuth`, `useRealtimeUpdates`,
+   `useCrossRefs`, `useKeyboardNav`
 
-## Phase 1 — Competitive Research
+Constraints that bound every proposal:
 
-Search the web for UX patterns in the product's category. This is a B2B security/certificate monitoring SaaS. Research:
+- SPA (`ssr: false`), built by Nuxt and embedded into the Go binary
+- Dark theme only — there is no light theme to design for
+- No component framework: plain Vue components plus hand-written CSS on tokens
+- Vue Flow drives the mindmap, roadmap and knowledge graph views
+- `useRealtimeUpdates` can repaint a screen while the user is working on it
 
-1. **Direct competitors**: SSL Labs, Hardenize, CertSpotter, DigiCert CertCentral, Keychest, SSLMate — how do they
-   structure dashboards, asset lists, alert management?
-2. **Adjacent security SaaS UX**: Datadog, Grafana, Cloudflare dashboard, Snyk, Wiz, Qualys — what patterns do
-   best-in-class monitoring tools use?
-3. **UX standards for B2B dashboards**: information density vs clarity, progressive disclosure, persona-adaptive
-   layouts, action-oriented design
+Write a short **Product Context Summary**: the core journeys, the current state
+of the UI, and where it visibly strains.
 
-For each competitor/reference, note 2-3 specific UX patterns worth adopting. Focus on patterns that solve problems
-visible in the current codebase.
+For a findings pass over state coverage, keyboard access, edge-case data and
+responsiveness, the `ux-tester` agent does exactly that in a fresh context. Use
+its output as input here rather than redoing it inline.
 
-Produce a **Competitive Landscape Brief** — a structured summary of findings organized by UX pattern category (
-navigation, data density, actionability, onboarding, etc.).
+## Phase 1 — Look outward
 
-## Phase 2 — Expert Brainstorm Session
+Compare against tools in the same category, not security dashboards: Obsidian,
+Notion, Linear, Roam, Logseq, Craft, Bear. What to look at specifically:
 
-Simulate a structured brainstorm with 5 virtual UX specialists. Each expert reviews the codebase findings and
-competitive research, then contributes ideas from their domain.
+- How a dense linked-note view stays readable
+- How backlinks and reference graphs are surfaced without becoming decoration
+- How an interview or checklist flow keeps a sense of progress
+- How markdown editing and reading modes coexist
 
-### Panel
+Search the web rather than relying on memory of these products. Bring back
+patterns with a reason they apply here, not a list of screenshots.
 
-| Expert         | Role                                | Focus Area                                                                                    |
-|----------------|-------------------------------------|-----------------------------------------------------------------------------------------------|
-| 🎨 Mia         | Product Designer (B2B SaaS)         | Information architecture, navigation flow, page hierarchy, component consistency              |
-| 🧠 Dr. Nielsen | Usability Researcher                | Heuristic evaluation (Nielsen's 10), cognitive load, error prevention, learnability           |
-| 📊 Kai         | Data Visualization Specialist       | Dashboard layout, chart selection, metric presentation, sparklines, trend communication       |
-| ♿ Aria         | Accessibility & Inclusive Design    | WCAG compliance, keyboard navigation, contrast ratios, screen reader support, font sizing     |
-| ⚡ Viktor       | Performance UX / Interaction Design | Perceived speed, skeleton states, progressive loading, micro-interactions, real-time feedback |
+## Phase 2 — Expert panel
 
-### Session Format
+Simulate a brainstorm across five perspectives. Each reads the Phase 0 findings
+and Phase 1 patterns, then argues from its own angle. Keep every proposal tied
+to a specific file or component — an idea nobody can locate cannot be built.
 
-For each expert, produce:
+| Expert | Focus |
+|---|---|
+| Product Designer | Information architecture, navigation between research → session → entry, page hierarchy |
+| Usability Researcher | Nielsen heuristics, cognitive load, error prevention, recoverability of lost work |
+| Knowledge-Tool Specialist | Reading comfort, markdown rendering, cross-reference affordances, graph legibility |
+| Accessibility | WCAG, keyboard paths, contrast against the dark palette, focus visibility |
+| Interaction & Performance | Perceived speed, skeleton states, realtime repaints, optimistic updates |
 
-1. **Top 3 issues** found in the current UI (reference specific files/components)
-2. **Top 3 opportunities** based on competitive research
-3. **Concrete proposals** with priority (P0 = critical, P1 = high, P2 = medium)
+Let them disagree. Record the disagreement instead of averaging it away — a
+contested proposal is more useful than a bland consensus one.
 
-After individual contributions, produce a **Consensus Matrix** — a deduplicated, prioritized list of all proposals with
-expert agreement indicators.
+## Phase 3 — The plan
 
-## Phase 3 — Redesign Plan
+Produce a written plan with this shape:
 
-Transform the brainstorm output into an actionable document. The plan is saved to
-`feature-requests/ux-redesign-plan/README.md`.
+- **Executive summary** — the three changes that matter most, and why
+- **Problem inventory** — each issue with `file:line`, severity, and who it hurts
+- **Roadmap in streams** — Quick wins (hours) / Component overhaul (days) /
+  Structural changes (weeks). Order by value over cost, not by area
+- **Per-page specifications** — for each page: what changes, which components
+  are added, changed, or removed, and what stays untouched
+- **Token changes** — any addition to `main.css` variables, and why the existing
+  scale cannot carry it
+- **What we are not doing** — proposals considered and dropped, with the reason
 
-### Plan Structure
-
-```markdown
-# UX Redesign Plan — {Product Name}
-
-## Executive Summary
-
-{2-3 sentences: what changes, why, expected impact}
-
-## Product Context
-
-{From Phase 0}
-
-## Competitive Insights
-
-{From Phase 1, condensed to actionable takeaways}
-
-## Problem Inventory
-
-{Prioritized list of UX issues found, with severity and affected pages}
-
-## Redesign Roadmap
-
-### Stream A — Quick Wins (1-2 days each)
-
-{Changes that improve UX without restructuring: font sizes, spacing, contrast, loading states}
-
-### Stream B — Component Overhaul (3-5 days each)
-
-{Redesign of specific components/pages: dashboard, asset list, navigation}
-
-### Stream C — Structural Changes (1-2 weeks each)
-
-{Architecture-level changes: new pages, navigation restructure, persona-adaptive layouts}
-
-### Stream D — Advanced UX (2+ weeks each)
-
-{Features requiring backend work: real-time updates, analytics, new data views}
-
-## Per-Page Specifications
-
-### {Page Name}
-
-- **Current state**: {brief description of issues}
-- **Target state**: {what it should look like/behave}
-- **Changes required**: {specific component/layout changes}
-- **Dependencies**: {backend endpoints, new components, data}
-- **Priority**: {P0/P1/P2}
-
-## Component Design Tokens
-
-{New or modified design tokens needed, referencing existing styles.css}
-
-## Success Metrics
-
-{How to measure if the redesign worked: task completion time, error rate, user feedback}
-```
-
-### Integration with Existing Plans
-
-MUST cross-reference with existing feature requests in `feature-requests/`:
-
-- If a proposal overlaps with an existing feature request, reference it and note deltas
-- If a proposal conflicts with an existing plan, flag the conflict explicitly
-- New proposals that don't overlap get their own section
-
-## Phase 4 — Execution Mode
-
-After the plan is approved by the user, switch to execution:
-
-1. Read the approved plan from `feature-requests/ux-redesign-plan/README.md`
-2. For each item, create a stage file `feature-requests/ux-redesign-plan/stage-NN.md` with implementation details
-3. Execute changes using the `frontend` skill for Nuxt 4 conventions
-4. Execute changes using the `unifying-frontend-codebase` skill for style consistency
-5. After each stage, update the plan README with completion status
+Save it as a markdown file in the repository and tell the user the path. A plan
+that lives only in the conversation is lost at the end of the session.
 
 ## Rules
 
-- MUST complete Phase 0 before any analysis — never assume the product's purpose
-- MUST use web search in Phase 1 — do not rely solely on training data for competitor analysis
-- MUST reference specific files and line ranges when identifying issues
-- MUST NOT propose changes that conflict with existing `frontend` skill rules (PrimeVue imports, auth middleware, SSR
-  hydration)
-- MUST NOT duplicate work already specified in `feature-requests/` — extend or reference it
-- MUST save the plan to `feature-requests/ux-redesign-plan/README.md` — never leave it only in conversation
-- MUST present the plan to the user for approval before entering Phase 4
-- MUST keep the brainstorm grounded in code reality — every proposal must reference which files/components are affected
-- When proposing new components, specify whether they replace or extend existing ones
-- Typography proposals MUST respect minimum 12px body text for B2B security products
-- All color proposals MUST work in both light and dark themes (reference CSS custom properties in styles.css)
+- Complete Phase 0 before proposing anything; every claim cites a real file
+- Respect the tokens in `main.css` — new hard-coded colors and spacings are a
+  regression, not a design
+- Dark theme only: do not spend effort on a light palette that does not exist
+- Any component change carries its `.stories.ts` update; that invariant is
+  enforced by a hook
+- Mind stacking contexts: `animation ... both` keeps a transform and creates
+  one. This already caused a dropdown to sink under the cards below it
+- Do not propose a component framework or a CSS library; the project is
+  deliberately on plain CSS
+- Present the plan and get approval before changing any code

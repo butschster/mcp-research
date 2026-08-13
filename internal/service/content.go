@@ -16,6 +16,18 @@ func normalizeContent(s string) string {
 	return s
 }
 
+// normalizeTitle sanitizes a single-line field (title, name, label). It strips
+// invalid UTF-8 and collapses any real newline or tab into a space, but it does
+// NOT expand literal backslash escapes: in a one-line field a backslash is data,
+// not an escape. Running normalizeContent here would turn a title like
+// `Path C:\notes\deep` into two lines and break the markdown heading it becomes
+// on export.
+func normalizeTitle(s string) string {
+	s = sanitizeUTF8(s)
+	s = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ", "\t", " ").Replace(s)
+	return strings.TrimSpace(s)
+}
+
 // sanitizeUTF8 removes invalid UTF-8 bytes and U+FFFD replacement characters.
 func sanitizeUTF8(s string) string {
 	if !strings.ContainsRune(s, utf8.RuneError) && utf8.ValidString(s) {

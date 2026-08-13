@@ -11,17 +11,17 @@ const (
 )
 
 type Roadmap struct {
-	ID          string        `json:"id"`
-	Code        string        `json:"code"`
-	ResearchID  string        `json:"research_id"`
-	Title       string        `json:"title"`
-	Description string        `json:"description,omitempty"`
-	Statuses    []string      `json:"statuses"`
-	Status      RoadmapStatus `json:"status"`
+	ID          string         `json:"id"`
+	Code        string         `json:"code"`
+	ResearchID  string         `json:"research_id"`
+	Title       string         `json:"title"`
+	Description string         `json:"description,omitempty"`
+	Statuses    []string       `json:"statuses"`
+	Status      RoadmapStatus  `json:"status"`
 	Nodes       []*RoadmapNode `json:"nodes,omitempty"`
 	Edges       []*RoadmapEdge `json:"edges,omitempty"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // RoadmapNodeRefType defines what entity a node references.
@@ -58,24 +58,24 @@ type RoadmapNodeRefData struct {
 }
 
 type RoadmapNode struct {
-	ID          string    `json:"id"`
-	Code        string    `json:"code"`
-	RoadmapID   string    `json:"roadmap_id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description,omitempty"`
-	NodeType    string    `json:"node_type"`
-	Status      string    `json:"status,omitempty"`
-	PositionX   float64   `json:"position_x"`
-	PositionY   float64   `json:"position_y"`
-	ParentID    string    `json:"parent_id,omitempty"`
+	ID          string  `json:"id"`
+	Code        string  `json:"code"`
+	RoadmapID   string  `json:"roadmap_id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description,omitempty"`
+	NodeType    string  `json:"node_type"`
+	Status      string  `json:"status,omitempty"`
+	PositionX   float64 `json:"position_x"`
+	PositionY   float64 `json:"position_y"`
+	ParentID    string  `json:"parent_id,omitempty"`
 	// Reference fields: link node to a research entity
 	RefType  string `json:"ref_type,omitempty"`
 	RefID    string `json:"ref_id,omitempty"`
 	Metadata string `json:"metadata,omitempty"` // JSON blob for node-type-specific data (checklist items, URL, etc.)
 	// Resolved reference data (populated at read time, not stored)
-	RefData *RoadmapNodeRefData `json:"ref_data,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	RefData   *RoadmapNodeRefData `json:"ref_data,omitempty"`
+	CreatedAt time.Time           `json:"created_at"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
 
 type RoadmapEdge struct {

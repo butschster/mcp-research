@@ -11,9 +11,9 @@ import (
 )
 
 type EntryListInput struct {
-	ResearchID string `json:"research_id" jsonschema:"ID of the research"`
-	SectionID  string `json:"section_id" jsonschema:"ID of the section"`
-	Status     string `json:"status" jsonschema:"Filter by status: draft, active, completed, archived"`
+	ResearchID string  `json:"research_id" jsonschema:"ID of the research"`
+	SectionID  string  `json:"section_id" jsonschema:"ID of the section"`
+	Status     *string `json:"status" jsonschema:"Filter by status: draft, active, completed, archived"`
 }
 
 func RegisterEntryList(srv *mcp.Server, svc *service.EntryService, log *slog.Logger) {
@@ -26,8 +26,8 @@ func RegisterEntryList(srv *mcp.Server, svc *service.EntryService, log *slog.Log
 		}
 
 		filter := storage.EntryFilter{}
-		if input.Status != "" {
-			s := domain.EntryStatus(input.Status)
+		if v := derefStr(input.Status); v != "" {
+			s := domain.EntryStatus(v)
 			filter.Status = &s
 		}
 

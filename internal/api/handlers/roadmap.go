@@ -190,7 +190,7 @@ func (h *RoadmapHandler) UpdateNode(w http.ResponseWriter, r *http.Request) {
 		NodeType: input.NodeType, Status: input.Status,
 		PositionX: input.PositionX, PositionY: input.PositionY,
 		ParentID: input.ParentID,
-		RefType: input.RefType, RefID: input.RefID, Metadata: input.Metadata,
+		RefType:  input.RefType, RefID: input.RefID, Metadata: input.Metadata,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

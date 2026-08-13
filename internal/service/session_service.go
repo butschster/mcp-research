@@ -31,12 +31,12 @@ type UpdateSessionRequest struct {
 	Title   *string
 	Focus   *string
 	Status  *domain.SessionStatus
-	Notes   *string  // replace notes
-	AddNote *string  // append to notes
+	Notes   *string // replace notes
+	AddNote *string // append to notes
 }
 
 type SessionWithQuestions struct {
-	Session  *domain.Session
+	Session   *domain.Session
 	Questions []*domain.Question
 	Progress  QuestionProgress
 }
@@ -77,8 +77,8 @@ func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (
 	session := &domain.Session{
 		ID:         uuid.New().String(),
 		ResearchID: req.ResearchID,
-		Title:      req.Title,
-		Focus:      req.Focus,
+		Title:      normalizeTitle(req.Title),
+		Focus:      normalizeContent(req.Focus),
 		Status:     domain.SessionActive,
 	}
 
@@ -238,10 +238,10 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 	}
 
 	if req.Title != nil {
-		session.Title = *req.Title
+		session.Title = normalizeTitle(*req.Title)
 	}
 	if req.Focus != nil {
-		session.Focus = *req.Focus
+		session.Focus = normalizeContent(*req.Focus)
 	}
 	if req.Status != nil {
 		session.Status = *req.Status

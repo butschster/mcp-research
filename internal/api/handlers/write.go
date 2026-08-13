@@ -212,16 +212,16 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 	entryID := r.PathValue("id")
 	var input struct {
-		Title       *string `json:"title"`
-		Content     *string `json:"content"`
-		Description *string `json:"description"`
-		Status      *string `json:"status"`
+		Title       *string  `json:"title"`
+		Content     *string  `json:"content"`
+		Description *string  `json:"description"`
+		Status      *string  `json:"status"`
 		Tags        []string `json:"tags"`
 		TextReplace *struct {
 			From string `json:"from"`
 			To   string `json:"to"`
 		} `json:"text_replace"`
-		SessionID   *string `json:"session_id"`
+		SessionID *string `json:"session_id"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return

@@ -11,9 +11,9 @@ import (
 )
 
 type TaskListInput struct {
-	ResearchID string `json:"research_id" jsonschema:"ID of the research"`
-	Status     string `json:"status" jsonschema:"Filter by status: pending, in_progress, blocked, completed, failed, deferred"`
-	Priority   string `json:"priority" jsonschema:"Filter by priority: high, medium, low"`
+	ResearchID string  `json:"research_id" jsonschema:"ID of the research"`
+	Status     *string `json:"status" jsonschema:"Filter by status: pending, in_progress, blocked, completed, failed, deferred"`
+	Priority   *string `json:"priority" jsonschema:"Filter by priority: high, medium, low"`
 }
 
 func RegisterTaskList(srv *mcp.Server, svc *service.TaskService, log *slog.Logger) {
@@ -26,12 +26,12 @@ func RegisterTaskList(srv *mcp.Server, svc *service.TaskService, log *slog.Logge
 		}
 
 		filter := storage.TaskFilter{}
-		if input.Status != "" {
-			s := domain.TaskStatus(input.Status)
+		if v := derefStr(input.Status); v != "" {
+			s := domain.TaskStatus(v)
 			filter.Status = &s
 		}
-		if input.Priority != "" {
-			p := domain.Priority(input.Priority)
+		if v := derefStr(input.Priority); v != "" {
+			p := domain.Priority(v)
 			filter.Priority = &p
 		}
 

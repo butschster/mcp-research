@@ -11,7 +11,7 @@ import (
 )
 
 type QuestionCreateInput struct {
-	SessionID string                   `json:"session_id" jsonschema:"ID of the session"`
+	SessionID string                    `json:"session_id" jsonschema:"ID of the session"`
 	Questions []QuestionCreateSpecInput `json:"questions" jsonschema:"Questions to create"`
 }
 

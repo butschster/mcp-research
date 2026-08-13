@@ -55,7 +55,6 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 	return nil
 }
 
-
 func (r *ResearchRepository) Update(ctx context.Context, research *domain.Research) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	_, err := r.db.ExecContext(ctx,

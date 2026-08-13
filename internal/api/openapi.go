@@ -376,7 +376,7 @@ type param struct {
 	Required    bool
 }
 
-func path(name, desc string) param { return param{name, "path", desc, true} }
+func path(name, desc string) param                 { return param{name, "path", desc, true} }
 func query(name, desc string, required bool) param { return param{name, "query", desc, required} }
 
 func endpoint(summary, desc string, params []param, resp map[string]any) map[string]any {

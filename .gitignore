@@ -11,3 +11,5 @@ frontend/storybook-static
 internal/api/static/*
 !internal/api/static/.gitkeep
 bin/*
+# Claude Code
+.claude/settings.local.json

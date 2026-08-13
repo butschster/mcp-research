@@ -110,10 +110,10 @@ func (h *AuthHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"key":       plain,
-		"id":        key.ID,
-		"name":      key.Name,
-		"prefix":    key.KeyPrefix,
+		"key":        plain,
+		"id":         key.ID,
+		"name":       key.Name,
+		"prefix":     key.KeyPrefix,
 		"created_at": key.CreatedAt,
 	})
 }

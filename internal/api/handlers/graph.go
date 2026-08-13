@@ -10,14 +10,14 @@ import (
 
 // GraphHandler builds a knowledge graph from all entities and their connections.
 type GraphHandler struct {
-	research *service.ResearchService
-	section  *service.SectionService
-	entry    *service.EntryService
-	session  *service.SessionService
-	task     *service.TaskService
-	entries  *storage.EntryRepository
+	research  *service.ResearchService
+	section   *service.SectionService
+	entry     *service.EntryService
+	session   *service.SessionService
+	task      *service.TaskService
+	entries   *storage.EntryRepository
 	crossrefs *storage.CrossRefRepository
-	log      *slog.Logger
+	log       *slog.Logger
 }
 
 func NewGraphHandler(
@@ -102,7 +102,7 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	entryTags := map[string][]string{} // entry_id -> tags
+	entryTags := map[string][]string{}  // entry_id -> tags
 	tagEntries := map[string][]string{} // tag -> []entry_id
 	for _, e := range allEntries {
 		group := sectionNames[e.SectionID]

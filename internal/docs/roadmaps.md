@@ -36,17 +36,19 @@ Use sections and entries instead when:
 
 ## Node Types
 
-| Type | Purpose | Visual |
-|------|---------|--------|
-| `step` | Regular action item or learning step (default) | Green left accent |
-| `milestone` | Key achievement or checkpoint | Purple left accent |
-| `decision` | Fork in the path where a choice is needed | Amber left accent |
-| `info` | Reference material, prerequisite, or note | Blue left accent |
-| `group` | Container for related steps (visual grouping) | Gray left accent |
-| `checklist` | List of sub-items with checkboxes | Use metadata for items |
-| `note` | Free-form sticky note | For annotations |
-| `link` | External URL reference | Use metadata for URL |
-| `metric` | KPI or numeric indicator | Use metadata for value |
+| Type | Purpose | Rendering |
+|------|---------|-----------|
+| `step` | Regular action item or learning step (default) | Green tint + icon badge |
+| `milestone` | Key achievement or checkpoint | Purple tint + icon badge |
+| `decision` | Fork in the path where a choice is needed | Amber tint + icon badge |
+| `info` | Reference material, prerequisite, or note | Blue tint + icon badge |
+| `group` | Container for related steps (visual grouping) | Gray tint + icon badge |
+| `checklist` | List of sub-items — put the items in `metadata` | Plain node (no dedicated styling yet) |
+| `note` | Free-form annotation | Plain node |
+| `link` | External URL reference — put the URL in `metadata` | Plain node |
+| `metric` | KPI or numeric indicator — put the value in `metadata` | Plain node |
+
+`node_type` is a free-form string in storage; these nine are the values the tools document and the UI knows about. `metadata` is a JSON string, stored verbatim and returned as-is.
 
 ## Entity References (ref_type + ref_id)
 
@@ -63,6 +65,8 @@ Nodes can link to existing research entities. When a node has `ref_type` and `re
 Referenced data is resolved at read time (lazy sync) — always shows the current state of the entity.
 
 ### Creating Reference Nodes
+
+The examples in this guide show only the fields that carry information. Real calls must include every property of the tool and of each node/edge object — send `null` for the ones you are not setting. See [MCP Client Guide](/llms/mcp-client-guide.md) → Nullable and Optional Fields.
 
 ```
 roadmap_create({

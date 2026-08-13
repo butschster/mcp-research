@@ -85,12 +85,12 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 		TargetRef        string `json:"target_ref"`
 		Resolved         bool   `json:"resolved"`
 		// Enriched fields
-		EntryTitle    string `json:"entry_title,omitempty"`
-		EntryCode     string `json:"entry_code,omitempty"`
-		ResearchName  string `json:"research_name,omitempty"`
-		ResearchCode  string `json:"research_code,omitempty"`
-		RoadmapTitle  string `json:"roadmap_title,omitempty"`
-		RoadmapCode   string `json:"roadmap_code,omitempty"`
+		EntryTitle   string `json:"entry_title,omitempty"`
+		EntryCode    string `json:"entry_code,omitempty"`
+		ResearchName string `json:"research_name,omitempty"`
+		ResearchCode string `json:"research_code,omitempty"`
+		RoadmapTitle string `json:"roadmap_title,omitempty"`
+		RoadmapCode  string `json:"roadmap_code,omitempty"`
 	}
 
 	enrichOutgoing := make([]enrichedRef, 0, len(outgoing))

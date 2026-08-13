@@ -11,7 +11,7 @@ import (
 )
 
 type ResearchListInput struct {
-	Status string `json:"status" jsonschema:"Filter by status: active, completed, or archived. Leave empty for all."`
+	Status *string `json:"status" jsonschema:"Filter by status: active, completed, or archived. Leave empty for all."`
 }
 
 func RegisterResearchList(srv *mcp.Server, svc *service.ResearchService, log *slog.Logger) {
@@ -20,8 +20,8 @@ func RegisterResearchList(srv *mcp.Server, svc *service.ResearchService, log *sl
 		Description: "Lists all research projects with optional status filter. Returns id, name, goal, status, and tags for each research.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ResearchListInput) (*mcp.CallToolResult, any, error) {
 		filter := storage.ResearchFilter{}
-		if input.Status != "" {
-			status := domain.ResearchStatus(input.Status)
+		if s := derefStr(input.Status); s != "" {
+			status := domain.ResearchStatus(s)
 			filter.Status = &status
 		}
 
