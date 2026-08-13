@@ -11,6 +11,7 @@ import (
 
 type EntryUpdateInput struct {
 	EntryID     string           `json:"entry_id" jsonschema:"ID of the entry to update"`
+	EntryType   *string          `json:"entry_type" jsonschema:"Optional new content kind: markdown or artifact"`
 	Title       *string          `json:"title" jsonschema:"New title"`
 	Content     *string          `json:"content" jsonschema:"Replace entire content"`
 	Description *string          `json:"description" jsonschema:"New description"`
@@ -48,7 +49,14 @@ func RegisterEntryUpdate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 			}
 		}
 
+		var entryType *domain.EntryType
+		if input.EntryType != nil {
+			t := domain.EntryType(*input.EntryType)
+			entryType = &t
+		}
+
 		entry, err := svc.Update(ctx, input.EntryID, service.UpdateEntryRequest{
+			Type:        entryType,
 			Title:       input.Title,
 			Content:     input.Content,
 			Description: input.Description,

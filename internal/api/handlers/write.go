@@ -178,6 +178,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 		ResearchID  string   `json:"research_id"`
 		SectionID   string   `json:"section_id"`
 		SessionID   string   `json:"session_id"`
+		EntryType   string   `json:"entry_type"`
 		Content     string   `json:"content"`
 		Title       string   `json:"title"`
 		Description string   `json:"description"`
@@ -194,6 +195,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 
 	entry, err := h.entry.Create(r.Context(), service.CreateEntryRequest{
 		ResearchID: input.ResearchID, SectionID: input.SectionID, SessionID: input.SessionID,
+		Type:    domain.EntryType(input.EntryType),
 		Content: input.Content, Title: input.Title, Description: input.Description,
 		Status: domain.EntryStatus(input.Status), Tags: input.Tags,
 	})
@@ -204,7 +206,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"data": map[string]any{
 			"entry_id": entry.ID, "code": entry.Code,
-			"title": entry.Title, "status": entry.Status,
+			"title": entry.Title, "status": entry.Status, "entry_type": entry.Type,
 		},
 	})
 }
@@ -212,6 +214,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 	entryID := r.PathValue("id")
 	var input struct {
+		EntryType   *string  `json:"entry_type"`
 		Title       *string  `json:"title"`
 		Content     *string  `json:"content"`
 		Description *string  `json:"description"`
@@ -232,12 +235,19 @@ func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 		s := domain.EntryStatus(*input.Status)
 		status = &s
 	}
+
+	var entryType *domain.EntryType
+	if input.EntryType != nil {
+		t := domain.EntryType(*input.EntryType)
+		entryType = &t
+	}
 	var textReplace *service.TextReplace
 	if input.TextReplace != nil {
 		textReplace = &service.TextReplace{From: input.TextReplace.From, To: input.TextReplace.To}
 	}
 
 	entry, err := h.entry.Update(r.Context(), entryID, service.UpdateEntryRequest{
+		Type:  entryType,
 		Title: input.Title, Content: input.Content, Description: input.Description,
 		Status: status, Tags: input.Tags, TextReplace: textReplace, SessionID: input.SessionID,
 	})
