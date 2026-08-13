@@ -137,6 +137,7 @@ func NewServer(
 	exportHandler := handlers.NewExportHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, log)
 	exportHandler.SetExportService(exportSvc)
 	mux.Handle("GET /api/researches/{id}/export", wrapRead(exportHandler.Export))
+	mux.Handle("GET /api/researches/{id}/sessions/{sessionId}/export", wrapRead(exportHandler.ExportSession))
 	importHandler := handlers.NewImportHandler(exportSvc, log)
 	mux.Handle("GET /api/researches/{id}/export/portable", wrapRead(exportHandler.ExportPortable))
 	mux.Handle("POST /api/researches/import", wrap(importHandler.Import))

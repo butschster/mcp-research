@@ -14,7 +14,17 @@
       ]" />
       <div class="session-header">
         <h1 class="page-title">{{ session.title }}</h1>
-        <StatusBadge :status="session.status" />
+        <div class="session-header-actions">
+          <StatusBadge :status="session.status" />
+          <NuxtLink
+            :to="`/research/${researchSlug}/session/${sessionSlug}/export`"
+            class="btn btn-sm session-export-btn"
+            title="Export this session as Markdown or PDF"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </NuxtLink>
+        </div>
       </div>
       <p v-if="session.focus" class="card-meta mt-2" v-html="'Focus: ' + renderRefs(session.focus, researchSlug)"></p>
     </div>
@@ -124,6 +134,7 @@ const researchSlug = computed(() => researchData.value?.data?.research?.code || 
 const { data, pending } = await useApi<{ data: any }>(`/api/researches/${id}/sessions/${sessionId}`)
 
 const session  = computed(() => data.value?.data?.session ?? data.value?.data?.Session)
+const sessionSlug = computed(() => session.value?.code || sessionId)
 
 // Mermaid rendering for session notes
 const notesEl = ref<HTMLElement | null>(null)
@@ -196,6 +207,9 @@ useRealtimeUpdates(async (event) => {
 
 <style scoped>
 .session-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
+.session-header .page-title { min-width: 0; overflow-wrap: anywhere; }
+.session-header-actions { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+.session-export-btn { text-decoration: none; }
 .card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); letter-spacing: -0.01em; }
 .notes-card { margin-bottom: var(--space-6); }
 .notes-text { white-space: pre-wrap; color: var(--color-text-muted); font-size: var(--type-sm); line-height: 1.6; }

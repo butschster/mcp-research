@@ -125,6 +125,74 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ExportSession returns a single session (questions, notes, linked entries) as JSON
+// and as markdown. Mirrors Export, but scoped to one session.
+func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
+	research, err := h.research.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	sess, err := h.session.GetByIDOrCode(r.Context(), research.ID, r.PathValue("sessionId"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	questions, err := h.session.ListQuestions(r.Context(), sess.Session.ID, storage.QuestionFilter{})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Entries produced during this session, grouped by their section.
+	allEntries, err := h.entries.FindByResearchWithContent(r.Context(), research.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var sessionEntries []*domain.Entry
+	for _, e := range allEntries {
+		if e.SessionID == sess.Session.ID {
+			sessionEntries = append(sessionEntries, e)
+		}
+	}
+
+	sections, err := h.section.List(r.Context(), research.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	sectionNames := make(map[string]string, len(sections))
+	for _, s := range sections {
+		name := s.DisplayName
+		if name == "" {
+			name = s.Name
+		}
+		sectionNames[s.ID] = name
+	}
+
+	md := buildSessionMarkdown(research, sess.Session, questions, sessionEntries, sectionNames)
+
+	if r.URL.Query().Get("format") == "md" {
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		w.Header().Set("Content-Disposition",
+			fmt.Sprintf(`attachment; filename="%s.md"`, sanitizeFilename(sess.Session.Title)))
+		w.Write([]byte(md))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"research":      research,
+		"session":       sess.Session,
+		"questions":     questions,
+		"entries":       sessionEntries,
+		"section_names": sectionNames,
+		"markdown":      md,
+	})
+}
+
 // ExportPortable returns a complete research as portable JSON (for import on another server).
 func (h *ExportHandler) ExportPortable(w http.ResponseWriter, r *http.Request) {
 	if h.exportSvc == nil {
@@ -277,6 +345,79 @@ func buildMarkdown(
 			}
 		}
 		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func buildSessionMarkdown(
+	research *domain.Research,
+	sess *domain.Session,
+	questions []*domain.Question,
+	entries []*domain.Entry,
+	sectionNames map[string]string,
+) string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("# %s\n\n", sess.Title))
+	b.WriteString(fmt.Sprintf("*Session of research: %s*\n\n", research.Name))
+	if sess.Code != "" {
+		b.WriteString(fmt.Sprintf("**Code:** %s  \n", sess.Code))
+	}
+	b.WriteString(fmt.Sprintf("**Status:** %s\n\n", sess.Status))
+	if sess.Focus != "" {
+		b.WriteString(fmt.Sprintf("> %s\n\n", sess.Focus))
+	}
+	if sess.Notes != "" {
+		b.WriteString("## Notes\n\n" + sess.Notes + "\n\n")
+	}
+
+	b.WriteString("---\n\n")
+
+	answered := 0
+	for _, q := range questions {
+		if q.Status == domain.QuestionAnswered {
+			answered++
+		}
+	}
+	b.WriteString(fmt.Sprintf("## Questions (%d answered of %d)\n\n", answered, len(questions)))
+
+	if len(questions) == 0 {
+		b.WriteString("*No questions in this session.*\n\n")
+	}
+	for _, q := range questions {
+		b.WriteString(fmt.Sprintf("### Q: %s\n\n", q.Text))
+		if q.Area != "" {
+			b.WriteString(fmt.Sprintf("**Area:** %s | ", q.Area))
+		}
+		b.WriteString(fmt.Sprintf("**Priority:** %s | **Status:** %s\n\n", q.Priority, q.Status))
+		if q.Rationale != "" {
+			b.WriteString(fmt.Sprintf("*%s*\n\n", q.Rationale))
+		}
+		if q.Answer != "" {
+			b.WriteString(q.Answer + "\n\n")
+		}
+	}
+
+	if len(entries) > 0 {
+		b.WriteString("---\n\n## Entries produced in this session\n\n")
+		for _, e := range entries {
+			b.WriteString(fmt.Sprintf("### %s", e.Title))
+			if e.Code != "" {
+				b.WriteString(fmt.Sprintf(" [%s]", e.Code))
+			}
+			b.WriteString("\n\n")
+			if name := sectionNames[e.SectionID]; name != "" {
+				b.WriteString(fmt.Sprintf("**Section:** %s  \n", name))
+			}
+			if len(e.Tags) > 0 {
+				b.WriteString("**Tags:** " + strings.Join(e.Tags, ", ") + "  \n")
+			}
+			b.WriteString(fmt.Sprintf("**Status:** %s\n\n", e.Status))
+			if e.Content != "" {
+				b.WriteString(e.Content + "\n\n")
+			}
+		}
 	}
 
 	return b.String()
