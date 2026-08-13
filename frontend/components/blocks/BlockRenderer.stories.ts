@@ -121,13 +121,13 @@ export const WithHtmlBlock: Story = {
   },
 }
 
-// A mermaid source is unreadable as text, so the code block offers the live
-// editor instead. The link carries the whole diagram in its URL fragment.
+// A code block whose language is mermaid is drawn, not printed: pan, zoom,
+// fullscreen, and a link that reopens it in the live editor.
 export const MermaidCodeBlock: Story = {
   args: {
     researchSlug: 'R1',
     blocks: [
-      { type: 'paragraph', data: { text: 'A diagram in a block document stays source; the footer link draws it.' } },
+      { type: 'paragraph', data: { text: 'A diagram sits in the reading column like any other block.' } },
       {
         type: 'code',
         data: {
@@ -135,7 +135,18 @@ export const MermaidCodeBlock: Story = {
           code: 'flowchart TD\n    A[entry_create] --> B{entry_type}\n    B -->|markdown| C[normalizeContent]\n    B -->|blocks| D[NormalizeBlockDocument]\n    B -->|artifact| E[ArtifactToBlockDocument]',
         },
       },
-      { type: 'code', data: { language: 'bash', code: 'make build-all   # no link here — not a diagram' } },
+      { type: 'code', data: { language: 'bash', code: 'make build-all   # ordinary code, printed as-is' } },
+    ],
+  },
+}
+
+// A source mermaid cannot parse keeps the source and offers the editor, which
+// reports the syntax error.
+export const BrokenMermaid: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'code', data: { language: 'mermaid', code: 'flowchart TD\n    A --> ((broken' } },
     ],
   },
 }

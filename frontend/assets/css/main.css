@@ -574,41 +574,130 @@ body::after {
 .markdown-content a { color: var(--color-primary); text-decoration: none; }
 .markdown-content a:hover { text-decoration: underline; }
 
-/* Mermaid diagrams */
-.markdown-content .mermaid-diagram {
+/* Mermaid diagrams — the viewer is assembled in composables/useMermaidViewer.ts,
+   so these rules are global: nodes built by hand carry no scoped-style attribute
+   and a `.markdown-content` prefix would leave the block renderer unstyled. */
+.mermaid-diagram {
+  position: relative;
   margin: var(--space-5) 0;
-  padding: var(--space-4);
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  overflow-x: auto;
-  text-align: center;
+  overflow: hidden;
 }
-.markdown-content .mermaid-diagram svg { max-width: 100%; height: auto; }
-.markdown-content pre.mermaid-error { border-left: 3px solid var(--color-warning, #d4a017); }
+/* The canvas is a window onto the diagram, not a box around it: the height is
+   the diagram's own, capped, and whatever does not fit is reached by panning. */
+.mermaid-canvas {
+  position: relative;
+  height: var(--mermaid-h, 420px);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.mermaid-canvas.is-panning { cursor: grabbing; }
+.mermaid-canvas:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.mermaid-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.mermaid-stage svg { display: block; }
 
-/* An SVG in the page cannot be panned, zoomed or exported; the live editor does
-   all three, and the source rides in the URL fragment so nothing is uploaded.
-   Quiet until the diagram is hovered — it is a tool, not part of the content. */
-.markdown-content .mermaid-live-link {
-  display: inline-block;
-  margin-top: var(--space-2);
+.mermaid-toolbar {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(4px);
+  /* Present but recessive until the reader engages with the diagram. */
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+.mermaid-diagram:hover .mermaid-toolbar,
+.mermaid-toolbar:focus-within { opacity: 1; }
+
+.mermaid-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.mermaid-btn:hover { color: var(--color-text); background: rgba(255, 255, 255, 0.08); }
+.mermaid-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.mermaid-zoom-label {
+  min-width: 46px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--type-xs);
+}
+
+/* Fullscreen and the no-API fallback differ only in how they fill the screen. */
+.mermaid-diagram:fullscreen {
+  --mermaid-h: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--color-bg);
+}
+.mermaid-diagram.is-overlay {
+  --mermaid-h: 100%;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--color-bg);
+}
+
+/* The link that leaves for the live editor: a toolbar item beside the zoom
+   controls, and a standalone line under a diagram that failed to parse. */
+.mermaid-live-link {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   text-decoration: none;
-  opacity: 0.6;
-  transition: opacity 0.15s ease, color 0.15s ease;
+  border-radius: 4px;
 }
-.markdown-content .mermaid-live-link::after { content: ' ↗'; }
-.markdown-content .mermaid-diagram:hover .mermaid-live-link { opacity: 1; }
-.markdown-content .mermaid-live-link:hover {
-  opacity: 1;
-  color: var(--color-primary);
-  text-decoration: underline;
-}
+.mermaid-live-link::after { content: ' \2197'; }
+.mermaid-live-link:hover { color: var(--color-primary); background: rgba(255, 255, 255, 0.08); }
+
+.mermaid-broken { margin: var(--space-5) 0; }
+.mermaid-broken .mermaid-live-link { padding-left: 0; opacity: 0.8; }
+.mermaid-error,
+.markdown-content pre.mermaid-error { border-left: 3px solid var(--color-warning, #d4a017); }
+
 @media print {
-  .markdown-content .mermaid-live-link { display: none; }
+  .mermaid-toolbar { display: none; }
+  .mermaid-live-link { display: none; }
+  /* Nothing is pannable on paper: the stage drops its transform and the frame
+     grows to the diagram. The transform and the svg's pixel size are inline
+     styles set by the viewer, which is what the !important here is beating. */
+  .mermaid-canvas { height: auto; overflow: visible; }
+  .mermaid-stage { position: static; transform: none !important; }
+  .mermaid-stage svg {
+    width: auto !important;
+    height: auto !important;
+    max-width: 100% !important;
+  }
 }
 .crossref-link {
   color: var(--color-primary);

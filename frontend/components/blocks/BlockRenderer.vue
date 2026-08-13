@@ -1,5 +1,5 @@
 <template>
-  <div class="block-doc">
+  <div ref="root" class="block-doc">
     <template v-for="(b, i) in blocks" :key="i">
       <!-- paragraph -->
       <p v-if="b.type === 'paragraph'" class="b-paragraph" v-html="inline(b.data.text)"></p>
@@ -40,16 +40,13 @@
       </blockquote>
 
       <!-- code -->
+      <!-- A mermaid source is a diagram, not code: the viewer is mounted into
+           this container from script, so Vue never patches what is inside it. -->
+      <div v-else-if="isMermaid(b)" class="b-mermaid" :data-mermaid="i"></div>
+
       <div v-else-if="b.type === 'code'" class="b-code-wrap">
         <span v-if="b.data.language" class="b-code-lang">{{ b.data.language }}</span>
         <pre class="b-code"><code>{{ b.data.code }}</code></pre>
-        <a
-          v-if="liveLinks[i]"
-          class="b-code-live"
-          :href="liveLinks[i]"
-          target="_blank"
-          rel="noopener noreferrer"
-        >Open in mermaid.live</a>
       </div>
 
       <!-- callout -->
@@ -83,7 +80,9 @@
 
 <script setup lang="ts">
 import { renderInline } from '~/composables/useInlineMarkdown'
-import { mermaidLiveUrl } from '~/composables/useMermaidLive'
+import { createMermaidFallback, createMermaidViewer } from '~/composables/useMermaidViewer'
+
+const root = ref<HTMLElement | null>(null)
 
 interface Block {
   type: string
@@ -107,21 +106,29 @@ function inline(text: string): string {
 }
 
 
-// A mermaid source in a code block is unreadable as text, and drawing it here
-// would mean replacing DOM Vue owns. The live editor draws it instead, keyed by
-// block index — the URL is built asynchronously, so it cannot be a computed.
-const liveLinks = ref<Record<number, string>>({})
+function isMermaid(b: Block): boolean {
+  return b.type === 'code' && b.data?.language === 'mermaid' && !!b.data?.code
+}
 
-watchEffect(async () => {
-  const next: Record<number, string> = {}
-  await Promise.all(
-    props.blocks.map(async (b, i) => {
-      if (b.type !== 'code' || b.data?.language !== 'mermaid' || !b.data?.code) return
-      next[i] = await mermaidLiveUrl(b.data.code)
-    })
-  )
-  liveLinks.value = next
-})
+// What each container currently holds, so a re-render only redraws diagrams
+// whose source actually changed. Keyed by the element, not by index: the
+// element goes away with the block, and so does its entry.
+const drawn = new WeakMap<HTMLElement, string>()
+
+async function drawDiagrams() {
+  await nextTick()
+  const host = root.value
+  if (!host) return
+  for (const el of host.querySelectorAll<HTMLElement>('.b-mermaid')) {
+    const source = props.blocks[Number(el.dataset.mermaid)]?.data?.code || ''
+    if (!source || drawn.get(el) === source) continue
+    drawn.set(el, source)
+    el.replaceChildren((await createMermaidViewer(source)) ?? (await createMermaidFallback(source)))
+  }
+}
+
+onMounted(drawDiagrams)
+watch(() => props.blocks, drawDiagrams, { deep: true })
 
 // With a header row the first row is the header; without one every row is body.
 function bodyRows(b: Block): any[] {
@@ -246,22 +253,11 @@ function bodyRows(b: Block): any[] {
   border: none;
 }
 
-/* Sits inside the code frame as a footer strip rather than floating beside it,
-   so a wide diagram source scrolling under it keeps the link in place. */
-.b-code-live {
-  display: block;
-  padding: 0.35rem var(--space-4);
-  border-top: 1px solid var(--color-border);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  text-decoration: none;
-}
-.b-code-live::after { content: ' ↗'; }
-.b-code-live:hover {
-  color: var(--color-primary);
-  background: rgba(255, 255, 255, 0.03);
-}
+/* The viewer is built outside the component and carries no scoped attribute,
+   hence :deep. Its own vertical margin is dropped so document rhythm stays with
+   `.block-doc > * + *`, the way every other block spaces itself. */
+.b-mermaid :deep(.mermaid-diagram),
+.b-mermaid :deep(.mermaid-broken) { margin: 0; }
 
 /* A callout is tinted, not just bordered: at a glance the colour should carry the
    severity without reading the title. */
@@ -371,7 +367,6 @@ function bodyRows(b: Block): any[] {
   .b-table th { color: #555; }
   .b-html-title { color: #333; border: 1px solid #ddd; }
   .b-callout-title { color: #333 !important; }
-  /* A link to an editor is useless on paper. */
-  .b-code-live { display: none; }
+  .b-mermaid :deep(.mermaid-diagram) { background: none; border-color: #ddd; }
 }
 </style>

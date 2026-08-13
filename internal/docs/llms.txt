@@ -27,7 +27,7 @@ Cross-references work in entry content, question text, question answers, task re
 
 Entries come in two kinds, chosen with `entry_type`: `markdown` (default) and `blocks` — an article of typed blocks (paragraph, heading, list, table, quote, code, callout, divider, image, html) that mixes prose with alerts and custom visuals. The `html` block holds a self-contained HTML document rendered in a sandboxed iframe at full height, for charts and interactive layouts; `entry_type: artifact` is sugar for a document holding one of them. See [Block Documents](/llms/blocks.md).
 
-Content supports Mermaid diagrams via fenced code blocks with `mermaid` language. All Mermaid diagram types are supported (flowchart, sequence, class, state, ER, Gantt, pie, mindmap, timeline, etc.). Diagrams are rendered as interactive SVG in the web UI, each with an "Open in mermaid.live" link (in a `blocks` document a `code` block with `language: "mermaid"` gets the same link instead of being drawn). See [MCP Client Guide](/llms/mcp-client-guide.md) for examples.
+Content supports Mermaid diagrams via fenced code blocks with `mermaid` language. All Mermaid diagram types are supported (flowchart, sequence, class, state, ER, Gantt, pie, mindmap, timeline, etc.). Diagrams are rendered as interactive SVG in the web UI — pan, zoom, fullscreen, and a link that reopens the diagram in mermaid.live. In a `blocks` document a `code` block with `language: "mermaid"` is drawn the same way. See [MCP Client Guide](/llms/mcp-client-guide.md) for examples.
 
 | Syntax | Target | Example |
 |--------|--------|---------|
