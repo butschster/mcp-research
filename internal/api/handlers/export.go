@@ -286,9 +286,7 @@ func buildMarkdown(
 				b.WriteString("**Tags:** " + strings.Join(e.Tags, ", ") + "  \n")
 			}
 			b.WriteString(fmt.Sprintf("**Status:** %s\n\n", e.Status))
-			if e.Content != "" {
-				b.WriteString(e.Content + "\n\n")
-			}
+			writeEntryContent(&b, e)
 		}
 	}
 
@@ -414,13 +412,50 @@ func buildSessionMarkdown(
 				b.WriteString("**Tags:** " + strings.Join(e.Tags, ", ") + "  \n")
 			}
 			b.WriteString(fmt.Sprintf("**Status:** %s\n\n", e.Status))
-			if e.Content != "" {
-				b.WriteString(e.Content + "\n\n")
-			}
+			writeEntryContent(&b, e)
 		}
 	}
 
 	return b.String()
+}
+
+// writeEntryContent appends an entry's body to the markdown document. An artifact
+// holds a whole HTML document, so it goes into a fenced block: pasted inline it
+// would leak its <style> and <script> into whatever renders the export.
+func writeEntryContent(b *strings.Builder, e *domain.Entry) {
+	if e.Content == "" {
+		return
+	}
+	if e.Type != domain.EntryArtifact {
+		b.WriteString(e.Content + "\n\n")
+		return
+	}
+	fence := fenceFor(e.Content)
+	b.WriteString("*HTML artifact — render the document below to view it.*\n\n")
+	b.WriteString(fence + "html\n")
+	b.WriteString(strings.TrimRight(e.Content, "\n") + "\n")
+	b.WriteString(fence + "\n\n")
+}
+
+// fenceFor returns a backtick fence longer than any run of backticks in content,
+// so a document that contains its own fences cannot break out of the block.
+func fenceFor(content string) string {
+	longest := 0
+	run := 0
+	for _, r := range content {
+		if r == '`' {
+			run++
+			if run > longest {
+				longest = run
+			}
+			continue
+		}
+		run = 0
+	}
+	if longest < 3 {
+		return "```"
+	}
+	return strings.Repeat("`", longest+1)
 }
 
 func sanitizeFilename(name string) string {

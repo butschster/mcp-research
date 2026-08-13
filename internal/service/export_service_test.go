@@ -1344,6 +1344,112 @@ func TestExportImportRoundTrip_PreservesEntryContent(t *testing.T) {
 	}
 }
 
+func TestExportImportRoundTrip_PreservesEntryType(t *testing.T) {
+	ctx := context.Background()
+	exportSvc, researchSvc, _, entrySvc, _, _, _ := setupExportService(t)
+
+	research, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
+		Name:     "Artifact Test",
+		Sections: []CreateSectionRequest{{Name: "main", Position: 0}},
+	})
+
+	if _, err := entrySvc.Create(ctx, CreateEntryRequest{
+		ResearchID: research.ID,
+		SectionID:  sections[0].ID,
+		Type:       domain.EntryArtifact,
+		Content:    artifactHTML,
+	}); err != nil {
+		t.Fatalf("create artifact: %v", err)
+	}
+	if _, err := entrySvc.Create(ctx, CreateEntryRequest{
+		ResearchID: research.ID,
+		SectionID:  sections[0].ID,
+		Title:      "Plain note",
+		Content:    "# Plain\n\nbody",
+	}); err != nil {
+		t.Fatalf("create markdown: %v", err)
+	}
+
+	data, err := exportSvc.Export(ctx, research.ID)
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	exported := data.Research.Sections[0].Entries
+	if len(exported) != 2 {
+		t.Fatalf("exported entries = %d, want 2", len(exported))
+	}
+	if exported[0].Type != domain.EntryArtifact {
+		t.Errorf("exported type = %q, want %q", exported[0].Type, domain.EntryArtifact)
+	}
+	if exported[1].Type != domain.EntryMarkdown {
+		t.Errorf("exported type = %q, want %q", exported[1].Type, domain.EntryMarkdown)
+	}
+
+	jsonBytes, _ := json.Marshal(data)
+	var imported domain.ExportData
+	if err := json.Unmarshal(jsonBytes, &imported); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	newResearch, err := exportSvc.Import(ctx, &imported)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	reExported, err := exportSvc.Export(ctx, newResearch.ID)
+	if err != nil {
+		t.Fatalf("re-export: %v", err)
+	}
+	reEntries := reExported.Research.Sections[0].Entries
+	if len(reEntries) != 2 {
+		t.Fatalf("re-exported entries = %d, want 2", len(reEntries))
+	}
+	if reEntries[0].Type != domain.EntryArtifact {
+		t.Errorf("artifact imported as %q, want %q", reEntries[0].Type, domain.EntryArtifact)
+	}
+	if reEntries[0].Content != artifactHTML {
+		t.Errorf("artifact content not preserved:\ngot:  %q\nwant: %q", reEntries[0].Content, artifactHTML)
+	}
+	if reEntries[1].Type != domain.EntryMarkdown {
+		t.Errorf("markdown imported as %q, want %q", reEntries[1].Type, domain.EntryMarkdown)
+	}
+}
+
+// An export written before artifacts existed carries no entry_type; those entries
+// were markdown and must import as markdown rather than fail validation.
+func TestImport_EntryWithoutTypeIsMarkdown(t *testing.T) {
+	ctx := context.Background()
+	exportSvc, _, _, entrySvc, _, _, _ := setupExportService(t)
+
+	research, err := exportSvc.Import(ctx, &domain.ExportData{
+		Version: 1,
+		Research: domain.ExportResearch{
+			Name:   "Legacy Export",
+			Status: domain.ResearchActive,
+			Sections: []domain.ExportSection{{
+				Name: "main", Position: 0, Status: domain.SectionDraft,
+				Entries: []domain.ExportEntry{
+					{Title: "Old", Content: "body", Status: domain.EntryDraft},
+				},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	entries, err := entrySvc.ListByResearch(ctx, research.ID, storage.EntryFilter{})
+	if err != nil {
+		t.Fatalf("list entries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if entries[0].Type != domain.EntryMarkdown {
+		t.Errorf("Type = %q, want %q", entries[0].Type, domain.EntryMarkdown)
+	}
+}
+
 func TestExportImportRoundTrip_MultipleRoadmaps(t *testing.T) {
 	ctx := context.Background()
 	exportSvc, researchSvc, _, _, _, _, roadmapSvc := setupExportService(t)

@@ -85,7 +85,12 @@
           <div v-if="entry.tags?.length" class="entry-meta">
             <span v-for="tag in entry.tags" :key="tag" class="doc-tag doc-tag-sm">{{ tag }}</span>
           </div>
-          <div class="markdown-content" v-html="renderMarkdown(entry.content)"></div>
+          <EntryArtifactFrame
+            v-if="entry.entry_type === 'artifact'"
+            :html="entry.content || ''"
+            :title="entry.title"
+          />
+          <div v-else class="markdown-content" v-html="renderMarkdown(entry.content)"></div>
         </article>
       </section>
 
