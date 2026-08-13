@@ -67,7 +67,9 @@ Markdown document containing research findings. Lives in a section.
 - Use `[[E3]]` syntax in content to cross-reference other entries.
 - Tags enable filtering on the research page. Use consistent taxonomy.
 - Title/description auto-generated from content if not provided.
-- Set `session_id` to link the entry to the session that produced it (helps track provenance).
+- `session_id` tracks provenance. When you leave it empty, the server links the entry to the research's active session automatically; the session export (`/research/{code}/session/{sessionCode}/export`) lists entries by this link.
+- Deleting an entry (`entry_delete`) also deletes its cross-references and extracted external links.
+- URLs found in entry content are extracted into an external-links index, readable at `GET /api/entries/{id}/links` and `GET /api/researches/{id}/links`.
 
 **Cross-reference syntax in content:**
 - `[[E3]]` — entry E3 in same research
@@ -198,11 +200,15 @@ A node in a roadmap graph. Represents a step, milestone, decision point, or info
 |-------|------|-------------|
 | `title` | string | Node title |
 | `description` | string | Detailed text content (expandable in UI) |
-| `node_type` | string | `step` / `milestone` / `decision` / `info` / `group` |
+| `node_type` | string | One of the nine types below (default `step`) |
 | `status` | string | Current status (from parent roadmap's `statuses` list, or empty) |
 | `position_x` | float | X position for layout |
 | `position_y` | float | Y position for layout |
 | `parent_id` | string | Optional: parent node for hierarchical nesting |
+| `ref_type` | string | Optional: `entry` / `task` / `session` / `research` / `question` |
+| `ref_id` | string | Optional: ID of the referenced entity |
+| `ref_data` | object | Read-only: referenced entity resolved at read time, never stored |
+| `metadata` | string | Optional: JSON blob for node-type-specific data (checklist items, URL, metric value) |
 | `code` | string | Auto-assigned: `N1`, `N2`... (per roadmap) |
 
 **Node types:**
@@ -211,6 +217,10 @@ A node in a roadmap graph. Represents a step, milestone, decision point, or info
 - `decision` — Fork in the path where a choice is needed
 - `info` — Reference material or prerequisite note
 - `group` — Container for related steps (visual grouping)
+- `checklist` — Sub-items with checkboxes (`metadata` holds the items)
+- `note` — Free-form sticky-note annotation
+- `link` — External URL reference (`metadata` holds the URL)
+- `metric` — KPI or numeric indicator (`metadata` holds the value)
 
 **Key rules:**
 - Use `temp_id` during creation to reference nodes in edges before they have real IDs.
@@ -225,8 +235,8 @@ A directed connection between two roadmap nodes.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `source_node_id` | string | Source node UUID |
-| `target_node_id` | string | Target node UUID |
+| `source_node_id` | string | Source node UUID (the create tools take it as `source`, accepting a `temp_id`) |
+| `target_node_id` | string | Target node UUID (the create tools take it as `target`, accepting a `temp_id`) |
 | `label` | string | Edge label (e.g. "next", "if yes", "alternative") |
 | `edge_type` | string | `default` / `success` / `warning` / `optional` |
 
@@ -254,11 +264,19 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | `[[RM1]]` | Roadmap RM1 in same research |
 | `[[RM1:N3]]` | Node N3 in roadmap RM1 |
 
-**Where they work:** Entry content, question text/answers/rationale, task titles/results, session notes. All rendered as clickable links in the web UI.
+**Where they render:** Anywhere the web UI shows markdown — entry content, question text/rationale/answers, task titles/descriptions/results, session notes.
 
-**Resolution:** References are resolved when the target exists. Unresolved references are tracked and can be resolved later via rebuild. Roadmap references (`[[RM1]]`, `[[RM1:N3]]`) are resolved against the roadmaps and roadmap_nodes tables.
+**Where they are indexed** (stored in the `crossrefs` table, and therefore visible to the graph views and the crossref API):
 
-**Visualization:** Shown on entry detail pages (outgoing/incoming), in the mindmap (dashed edges), and preserved in export.
+| Source | Indexed text | When |
+|--------|--------------|------|
+| Entry | `content` | create, update, rebuild |
+| Question | `answer` | `question_update` |
+| Task | `description` + `result` | `task_update` (not on create) |
+
+**Resolution:** References are resolved when the target exists. Unresolved references are tracked and can be resolved later via `POST /api/researches/{id}/crossrefs/rebuild`, which re-scans entry content. Roadmap references (`[[RM1]]`, `[[RM1:N3]]`) are resolved against the roadmaps and roadmap_nodes tables.
+
+**Visualization:** Shown on entry detail pages (outgoing/incoming), in the mindmap and the knowledge graph view (dashed / crossref edges), and preserved in export.
 
 ---
 

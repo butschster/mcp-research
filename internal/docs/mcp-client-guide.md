@@ -13,7 +13,7 @@ The Research server exposes two interfaces. Use the one that matches your integr
 
 Both interfaces operate on the same data and produce the same results. MCP tools are thin wrappers around the same service layer that the REST API uses.
 
-**MCP prompts** (`research/initialize`, `research/conduct`) are interactive workflows that call MCP tools internally. They are the recommended starting point for new research projects, but every action they perform can also be done with individual tool calls.
+**MCP prompts** (`research/initialize`, `research/conduct`) return workflow instructions that tell you which tools to call in which order. `research/initialize` takes an optional `topic` argument; `research/conduct` requires `research_id`. They are the recommended starting point for new research projects, but every action they describe can also be done with individual tool calls.
 
 ## Available MCP Tools
 
@@ -26,8 +26,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `research_list` | List all researches with optional status filter |
 | `research_update` | Update name, goal, status, instruction, memory, tags |
 | `research_add_section` | Add a new section to an existing research |
-| `research_export` | Export full research as JSON or markdown |
-| `research_import` | Import a research from exported JSON |
+| `research_export` | Export a full research (sections, entries, sessions, questions, tasks, roadmaps) as portable JSON |
+| `research_import` | Re-create a research from a portable export payload |
 
 ### Entries
 
@@ -36,7 +36,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `entry_create` | Create a markdown entry in a section |
 | `entry_read` | Read full entry content |
 | `entry_list` | List entries in a section (metadata only, no content) |
-| `entry_update` | Update title, content, status, tags, or do text replacement |
+| `entry_update` | Update title, content, description, status, tags, session link, or do text replacement |
+| `entry_delete` | Delete an entry (also removes its cross-references and external links) |
 
 ### Sessions & Questions
 
@@ -63,7 +64,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | Tool | Purpose |
 |------|---------|
 | `section_list` | List sections for a research |
-| `section_update` | Update section name, description, status, position |
+| `section_update` | Update section display name, description, status, position (the slug `name` is immutable) |
 
 ### Roadmaps
 
@@ -80,44 +81,51 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 ## Nullable and Optional Fields
 
-Many MCP tool parameters are optional. You can omit them entirely or pass `null` — both are equivalent and result in the default value being used.
+Read this before composing any tool call. Input schemas are generated from Go structs, and the generated schema lists **every** property of a tool (and of every nested object) in `required`, with `additionalProperties: false`. Optionality is expressed by nullability, not by absence:
 
-### Fields that accept null
+| Parameter kind in the schema | How to skip it | Effect of `null` |
+|------------------------------|----------------|------------------|
+| `"type": ["null", "string"]` / `["null","number"]` (pointer in Go) | send `null` | default value is used |
+| `"type": ["null", "array"]` (any list: `tags`, `statuses`, `questions`, `nodes`, `edges`, `node_ids`) | send `null` or `[]` | treated as empty |
+| `"type": "string"` / `"integer"` (plain scalar) | send `""` or `0` — **not** `null` | rejected: `null` is not a valid string/integer |
 
-**`session_create`**: `focus`, and on each question: `area`, `rationale`, `priority`, `parent_id`
-**`entry_create`**: `title`, `description`, `status`, `session_id`
-**`task_create`**: `description`, `priority`
-**`question_create`**: same question fields as in `session_create`
-**`roadmap_create` / `roadmap_add_nodes`**: on nodes — `description`, `node_type`, `status`, `position_x`, `position_y`, `parent_id`, `ref_type`, `ref_id`, `metadata`; on edges — `label`, `edge_type`
+Consequences:
 
-### Default values when null or omitted
+- **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
+- **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
+- **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
+- Unknown property names are rejected outright (`additionalProperties: false`).
+
+### Default values when a nullable field is null
 
 | Field | Default |
 |-------|---------|
-| `priority` | `medium` |
+| `priority` (question, task) | `medium` |
 | `status` (entry) | `draft` |
 | `node_type` | `step` |
 | `edge_type` | `default` |
-| `title` (entry) | Auto-generated from first line of content |
+| `title` (entry) | Auto-generated from first non-empty line of content |
 | `description` (entry) | Auto-generated from lines 2-5 of content |
 | `position_x`, `position_y` | `0` (frontend auto-layouts) |
+| `session_id` (entry) | The research's currently active session, if there is one |
 
-### Example: creating a session with minimal fields
+### Example: creating a session with the fewest meaningful values
 
-Only `research_id`, `title`, and question `text` are required:
+`research_id`, `title`, and each question's `text` are the only fields carrying information; everything else is still present, as `null` or `0`:
 
 ```json
 {
   "research_id": "uuid-here",
   "title": "Initial exploration",
+  "focus": null,
   "questions": [
-    { "text": "What are the main components?" },
-    { "text": "How do they interact?" }
+    { "text": "What are the main components?", "area": null, "rationale": null, "priority": null, "parent_id": null, "position": 0 },
+    { "text": "How do they interact?", "area": null, "rationale": null, "priority": null, "parent_id": null, "position": 1 }
   ]
 }
 ```
 
-Fields like `focus`, `area`, `rationale`, `priority`, `parent_id` can all be omitted or set to `null`.
+`research_id` here must be the UUID — `session_create` does not resolve `R1`-style codes (see Short Codes).
 
 ## Content Formatting
 
@@ -185,7 +193,17 @@ Use `[[...]]` syntax in content to create links between documents:
 | `[[RM1]]` | Roadmap RM1 in same research |
 | `[[RM1:N3]]` | Node N3 in roadmap RM1 |
 
-Cross-references work in: entry content, question text, question answers, question rationale, task results, task descriptions, and session notes. They are stored in the `crossrefs` table and rendered as clickable links in the web UI.
+`[[...]]` is rendered as a clickable link anywhere the web UI displays markdown: entry content, question text, rationale and answers, task titles, descriptions and results, session notes.
+
+Only three sources are additionally **indexed** into the `crossrefs` table, and therefore feed the graph views and `GET /api/researches/{id}/crossrefs`:
+
+| Source | Indexed text |
+|--------|--------------|
+| Entry | `content` (on create, update, and crossref rebuild) |
+| Question | `answer` (on `question_update`) |
+| Task | `description` + `result` (on `task_update`) |
+
+Put references you want in the knowledge graph into entry content: the graph view draws an edge only for a resolved reference whose target is an entry, so `[[R2]]` and `[[RM1]]` are stored and clickable but never become graph edges. A reference to a target that does not exist yet is stored unresolved and can be fixed later with `POST /api/researches/{id}/crossrefs/rebuild`, which re-scans entry content only.
 
 ## Entry Types and Statuses
 
@@ -212,11 +230,13 @@ Entries should be self-contained markdown documents. Common patterns:
 
 ### Auto-generated fields
 
-When `title` is omitted or null, the server extracts it from the first non-empty line of content (stripping markdown heading markers, max 100 chars).
+When `title` is null or empty, the server extracts it from the first non-empty line of content (stripping markdown heading markers, max 100 chars; `Untitled` if the content is blank).
 
-When `description` is omitted or null, the server generates it from lines 2-5 of content (stripping markdown, max 200 chars).
+When `description` is null, the server generates it from lines 2-5 of content (stripping markdown, max 200 chars).
 
-This means you can create entries with just `research_id`, `section_id`, and `content` — everything else is inferred.
+When `session_id` is null, the server links the entry to the research's currently active session if one exists. Pass an explicit session ID to override that, and use `entry_update` with `session_id: ""` to unlink.
+
+This means only `research_id`, `section_id`, and `content` need real values — everything else can be `null` and is inferred.
 
 ## Roadmap Node Types
 
@@ -248,14 +268,14 @@ Nodes can reference existing research entities via `ref_type` and `ref_id`. Refe
 
 ## Common Pitfalls
 
-### 1. Forgetting required fields
+### 1. Sending empty values for fields that need content
 
-Every create tool has a small set of required fields. The server returns a validation error listing all missing fields — read the error message, it tells you exactly what to fix.
+Beyond schema validation, each create tool checks a few fields for non-empty values and returns `isError: true` with a list of everything missing — read the message, it names each field.
 
-**Minimum required fields by tool:**
+**Fields that must carry a real value:**
 
-| Tool | Required |
-|------|----------|
+| Tool | Must be non-empty |
+|------|-------------------|
 | `research_create` | `name` |
 | `entry_create` | `research_id`, `section_id`, `content` |
 | `session_create` | `research_id`, `title` |
@@ -265,7 +285,7 @@ Every create tool has a small set of required fields. The server returns a valid
 
 ### 2. Confusing tool errors with protocol errors
 
-MCP tools in this server **never return Go errors** (protocol-level errors). All failures are returned as `CallToolResult` with `isError: true` and a descriptive text message. If you get a protocol error (like `-32602: invalid params`), it means the JSON schema validation failed before the tool code ran — check your parameter types.
+MCP tools in this server **never return Go errors** (protocol-level errors). All failures are returned as `CallToolResult` with `isError: true` and a descriptive text message. If you get a protocol error (like `-32602: invalid params`), the input schema rejected your arguments before the tool code ran. The two usual causes: a property was left out (all properties are required — see Nullable and Optional Fields), or `null` was sent into a plain string/integer parameter.
 
 ### 3. Forgetting temp_id in roadmap creation
 
@@ -291,6 +311,10 @@ When changing a task status to `completed` or `failed`, always set the `result` 
 
 When answering a question, set both `answer` and `status: "answered"` in the same `question_update` call. Setting status to `answered` without an answer will fail validation.
 
+### 6. Combining replace and append parameters
+
+`research_update` rejects `memory` together with `add_memory`, and `session_update` rejects `notes` together with `add_note`. Pick one per call: the plain field replaces the whole value, the `add_*` field appends a single item. Set the other to `null`.
+
 ## Short Codes
 
 Every entity gets an auto-assigned short code on creation. These codes can be used in URLs and cross-references instead of UUIDs:
@@ -298,11 +322,26 @@ Every entity gets an auto-assigned short code on creation. These codes can be us
 | Entity | Pattern | Scope | URL example |
 |--------|---------|-------|-------------|
 | Research | `R1`, `R2` | Global | `/research/R1` |
+| Section | `S1`, `S2` | Per research | — |
 | Entry | `E1`, `E2` | Per research | `/research/R1/entry/E2` |
 | Session | `SS1`, `SS2` | Per research | `/research/R1/session/SS1` |
-| Question | `Q1`, `Q2` | Per session | — |
+| Question | `Q1`, `Q2` | Per session | `/research/R1/session/SS1/question/Q1` |
 | Task | `T1`, `T2` | Per research | — |
 | Roadmap | `RM1`, `RM2` | Per research | `/research/R1/roadmap/RM1` |
 | Node | `N1`, `N2` | Per roadmap | — |
 
-Codes are returned by all create and get endpoints.
+Which tools hand codes back:
+
+- `research_create`, `research_import`, `research_get` — research code
+- `entry_create`, `entry_list` — entry codes
+- `roadmap_create`, `roadmap_list`, `roadmap_get`, `roadmap_update_node` — roadmap and node codes
+- `session_get` — session code (inside the `session` object)
+- Section, question, and task codes are **not** returned by any tool right now: `research_get`, `question_list`, `session_get` questions, `task_list` and `task_create` return UUIDs only. Use those UUIDs in subsequent tool calls, and the REST API (`GET /api/researches/{id}`, `/tasks`, `/sessions/{sessionId}`) if you need the codes themselves.
+
+Where codes are accepted as tool input:
+
+| Accepts UUID **or** code | Accepts UUID only |
+|--------------------------|-------------------|
+| `research_get`, `research_update`, `research_export` (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
+
+So keep the UUIDs returned by create calls. Short codes are for humans, URLs, and `[[...]]` cross-references — REST routes resolve them in `{id}` / `{sessionId}` / `{entryId}` / `{roadmapId}` path segments, MCP tools mostly do not.

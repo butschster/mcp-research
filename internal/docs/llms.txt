@@ -39,10 +39,10 @@ A research can have **multiple sessions** (e.g. initial exploration, deep-dive, 
 
 ## Docs
 
-- [MCP Client Guide](/llms/mcp-client-guide.md): Practical guide for AI assistants interacting via MCP tools. Covers all 31 tools, nullable/optional fields, content formatting (newlines, markdown, cross-references), entry types, roadmap node types, entity references, common pitfalls, and short codes. Start here if you are an MCP client.
+- [MCP Client Guide](/llms/mcp-client-guide.md): Practical guide for AI assistants interacting via MCP tools. Covers all 32 tools, the input-schema contract (every property required, which ones accept `null`), content formatting (newlines, markdown, cross-references), entry types, roadmap node types, entity references, common pitfalls, and where short codes are accepted. Start here if you are an MCP client.
 - [Domain Guide](/llms/domain-guide.md): Complete reference for every entity (Research, Section, Entry, Session, Question, Task, Roadmap, CrossRef). Describes fields, statuses, relationships, lifecycle, and when to use each entity. Includes tagging strategy, cross-reference syntax, and tips.
 - [Conducting Research](/llms/conducting-research.md): Step-by-step guide on how to initialize, conduct, and complete a research project. Interview workflow, entry creation with cross-references, task tracking, roadmap creation, and best practices.
 - [Tasks](/llms/tasks.md): Guide to using tasks for tracking work items, action items, and outcomes within a research. When to create tasks, statuses, priorities, tasks vs questions, and best practices.
 - [Roadmaps](/llms/roadmaps.md): Guide to building visual directed graphs — learning paths, strategy maps, decision trees. When to create roadmaps, node/edge types, custom statuses by domain, how to build a graph step by step, and best practices.
-- [Export](/llms/export.md): How to export research data as markdown documents or PDF. API endpoint reference and web UI export page.
-- [REST API — OpenAPI Specification](/api/openapi.yaml): OpenAPI 3.1 spec for all REST endpoints with request/response schemas.
+- [Export](/llms/export.md): How to export a whole research or a single session as markdown or PDF, plus the portable JSON export/import format. Endpoint reference and web UI export pages.
+- [REST API — OpenAPI Specification](/api/openapi.yaml): OpenAPI 3.1 spec with request/response schemas. It covers the core read and write endpoints but lags the router — export, import, graph and link endpoints are missing from it, so treat the guides above (and `internal/api/server.go`) as authoritative for route existence.

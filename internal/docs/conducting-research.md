@@ -51,6 +51,7 @@ As information accumulates:
 4. Title and description are auto-generated from content if not provided
 5. Use `[[E1]]` syntax to cross-reference other entries
 6. Each entry gets an auto-assigned short code (E1, E2, ...)
+7. Entries created while a session is active are linked to it automatically, which is what the session export lists as "entries produced in this session"
 
 ### Track Progress
 
@@ -97,6 +98,7 @@ When the research has a natural progression, sequence, or decision tree, create 
 1. Mark all sections as completed with `section_update`
 2. Mark the research as completed with `research_update`
 3. The web UI shows the full research with all entries, questions, and tasks
+4. Hand the user a document if they want one: the research and per-session export pages produce markdown or PDF — see [Export](/llms/export.md)
 
 ## Short Codes
 
@@ -113,7 +115,7 @@ Every record gets an auto-assigned short code on creation:
 | Roadmap | `RM` | per research | `RM1`, `RM2` |
 | Node | `N` | per roadmap | `N1`, `N2` |
 
-Short codes are returned by all create endpoints and included in list/get responses. They can be used in URLs instead of UUIDs: `/research/R1/entry/E2`.
+REST responses carry the `code` field on every entity. MCP tools are less complete: `research_create`, `research_get`, `entry_create`, `entry_list`, `session_get` and the `roadmap_*` tools return codes, while section, question and task codes are only reachable through the REST API. Codes can be used in URLs instead of UUIDs (`/research/R1/entry/E2`), but as tool arguments only `research_get`, `research_update`, `research_export`, `session_get` and `roadmap_get` resolve them — see the [MCP Client Guide](/llms/mcp-client-guide.md).
 
 ## Cross-References
 

@@ -1,37 +1,34 @@
 # Export
 
-How to export research data as documents.
+How to export research data as documents. Two scopes exist: a whole research, and a single session. Both come in a JSON form (structured data + pre-rendered markdown) and a raw `.md` download.
 
-## Export Page (Web UI)
+## Export Pages (Web UI)
 
-Navigate to `/research/{code}/export` (or click the Export button on the research page).
+| Scope | Page | Reached from |
+|-------|------|--------------|
+| Research | `/research/{code}/export` | Export button on the research page |
+| Session | `/research/{code}/session/{sessionCode}/export` | Export button on the session page |
 
-The export page renders the full research as a single printable document:
-- Research header (title, goal, description, tags)
-- Table of contents with anchor links
-- All sections with full entry content (rendered markdown)
-- All sessions with questions and answers
-- All tasks with statuses and results
+Both pages render a single printable document and expose the same two actions:
 
-### Download as Markdown
+- **Download .md** — saves the markdown built by the server.
+- **Print / PDF** — opens the browser print dialog (Ctrl+P / Cmd+P). Choose "Save as PDF". Navigation, footer, and interactive elements are hidden in print.
 
-Click **"Download .md"** to download the complete research as a markdown file. The file includes all sections, entries, sessions, questions, and tasks in a structured format.
+The research page renders: research header (title, goal, description, tags), table of contents with anchor links, all sections with full entry content, all sessions with questions and answers, all tasks with statuses and results.
 
-### Print to PDF
-
-Click **"Print / PDF"** (or use Ctrl+P / Cmd+P) to open the browser print dialog. Select "Save as PDF" as the destination. The page is optimized for print — navigation, footer, and interactive elements are hidden automatically.
+The session page renders: parent research name, session title, focus, code, status, notes, all questions with answers, and the entries produced during that session.
 
 ### Print Individual Entries
 
 Open any entry page and use Ctrl+P / Cmd+P. The entry page has print-optimized CSS that hides navigation, action buttons, cross-references, and related entries, showing only the breadcrumb path and document content.
 
-## Export API
-
-### Full Export (JSON)
+## Research Export API
 
 ```
 GET /api/researches/{id}/export
 ```
+
+`{id}` accepts a UUID or a research short code (`/api/researches/R1/export`).
 
 Returns all research data as structured JSON:
 
@@ -68,7 +65,7 @@ Returns all research data as structured JSON:
 GET /api/researches/{id}/export?format=md
 ```
 
-Returns the research as a downloadable `.md` file with `Content-Disposition: attachment` header.
+Returns `text/markdown` with `Content-Disposition: attachment`, filename derived from the research name (spaces become `_`, `/ \ : " '` are stripped or replaced).
 
 The markdown document structure:
 1. Title and metadata (goal, description, tags)
@@ -77,6 +74,66 @@ The markdown document structure:
 4. Sessions with all questions and answers
 5. Tasks with statuses and results
 
-### Cross-References in Export
+## Session Export API
 
-Cross-references (`[[E3]]`, `[[R2:E5]]`) are preserved as-is in markdown export. In the web export page, they are rendered as clickable links.
+```
+GET /api/researches/{id}/sessions/{sessionId}/export
+```
+
+Exports one session instead of the whole research. Both path segments accept a UUID or a short code, so `/api/researches/R1/sessions/SS1/export` works.
+
+Returns JSON:
+
+```json
+{
+  "research": { "name": "...", "code": "R1", ... },
+  "session": { "title": "...", "code": "SS1", "focus": "...", "status": "active", "notes": "..." },
+  "questions": [
+    { "text": "...", "area": "...", "rationale": "...", "priority": "high", "status": "answered", "answer": "..." }
+  ],
+  "entries": [
+    { "title": "...", "code": "E4", "section_id": "...", "content": "full markdown...", "tags": [...] }
+  ],
+  "section_names": { "<section-id>": "Display name of the section" },
+  "markdown": "# Session as markdown string..."
+}
+```
+
+- `questions` — every question of the session, unfiltered, ordered by `position`.
+- `entries` — only entries whose `session_id` equals this session, with full content. `entry_create` links the entry to the research's active session automatically when `session_id` is not given, so entries created during an interview show up here without extra work.
+- `section_names` — map of section ID to display name (falls back to the slug `name`), so the client can label each entry without a second request.
+
+### Download Markdown File
+
+```
+GET /api/researches/{id}/sessions/{sessionId}/export?format=md
+```
+
+Returns `text/markdown` with `Content-Disposition: attachment`, filename derived from the session title.
+
+The markdown document structure:
+1. Session title, parent research name, code, status
+2. Focus as a blockquote, then `## Notes` if the session has notes
+3. `## Questions (N answered of M)` — one `### Q:` block per question with area, priority, status, rationale, and answer
+4. `## Entries produced in this session` — each entry with its code, section, tags, status, and full content (omitted when the session produced no entries)
+
+## Portable Export / Import
+
+The markdown/JSON exports above are for reading. To move a research to another server, use the portable format instead — it carries sections, entries, sessions, questions, tasks, and roadmaps in a versioned envelope (`version`, `exported_at`, `research`):
+
+```
+GET  /api/researches/{id}/export/portable   -> portable JSON (downloaded as <name>.json)
+POST /api/researches/import                 -> body is that JSON, returns the new research_id and code
+```
+
+The `research_export` MCP tool returns the same portable payload for a research ID or short code.
+
+Import re-creates entities from scratch: new UUIDs, new short codes, cross-references re-parsed from the imported content.
+
+## Auth
+
+Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see the caller's own researches. `POST /api/researches/import` is a write endpoint and always requires the bearer token when `api_token` or `auth_enabled` is configured.
+
+## Cross-References in Export
+
+Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[RM1]]`) are preserved as-is in markdown export. In the web export pages, they are rendered as clickable links.
