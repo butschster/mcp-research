@@ -42,8 +42,9 @@ func TestEntryService_CreateArtifact(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create: %v", err)
 		}
-		if entry.Type != domain.EntryArtifact {
-			t.Errorf("Type = %q, want %q", entry.Type, domain.EntryArtifact)
+		// artifact is an input alias: it is stored as a blocks document.
+		if entry.Type != domain.EntryBlocks {
+			t.Errorf("Type = %q, want %q", entry.Type, domain.EntryBlocks)
 		}
 		if entry.Title != "Throughput by model" {
 			t.Errorf("Title = %q, want it from <title>", entry.Title)
@@ -123,11 +124,18 @@ func TestEntryService_CreateArtifact(t *testing.T) {
 		if err != nil {
 			t.Fatalf("get: %v", err)
 		}
-		if got.Type != domain.EntryArtifact {
-			t.Errorf("Type after read = %q, want %q", got.Type, domain.EntryArtifact)
+		if got.Type != domain.EntryBlocks {
+			t.Errorf("Type after read = %q, want %q", got.Type, domain.EntryBlocks)
 		}
-		if got.Content != artifactHTML {
-			t.Errorf("Content changed in storage:\n got: %q\nwant: %q", got.Content, artifactHTML)
+		doc, err := NormalizeBlockDocument(got.Content)
+		if err != nil {
+			t.Fatalf("stored content is not a block document: %v", err)
+		}
+		if len(doc.Blocks) != 1 || doc.Blocks[0].Type != domain.BlockHTML {
+			t.Fatalf("stored blocks = %v, want a single html block", doc.Blocks)
+		}
+		if str(doc.Blocks[0].Data, "html") != artifactHTML {
+			t.Error("the HTML body was altered on the way through storage")
 		}
 	})
 
@@ -146,8 +154,8 @@ func TestEntryService_CreateArtifact(t *testing.T) {
 		if len(list) != 1 {
 			t.Fatalf("got %d entries, want 1", len(list))
 		}
-		if list[0].Type != domain.EntryArtifact {
-			t.Errorf("Type in list = %q, want %q", list[0].Type, domain.EntryArtifact)
+		if list[0].Type != domain.EntryBlocks {
+			t.Errorf("Type in list = %q, want %q", list[0].Type, domain.EntryBlocks)
 		}
 	})
 }
@@ -174,10 +182,14 @@ func TestEntryService_UpdateArtifactType(t *testing.T) {
 		if err != nil {
 			t.Fatalf("update: %v", err)
 		}
-		if updated.Type != domain.EntryArtifact {
-			t.Errorf("Type = %q, want %q", updated.Type, domain.EntryArtifact)
+		if updated.Type != domain.EntryBlocks {
+			t.Errorf("Type = %q, want %q", updated.Type, domain.EntryBlocks)
 		}
-		if updated.Content != artifactHTML {
+		doc, err := NormalizeBlockDocument(updated.Content)
+		if err != nil {
+			t.Fatalf("stored content is not a block document: %v", err)
+		}
+		if str(doc.Blocks[0].Data, "html") != artifactHTML {
 			t.Error("content was not replaced")
 		}
 	})
@@ -210,8 +222,8 @@ func TestEntryService_UpdateArtifactType(t *testing.T) {
 		if err != nil {
 			t.Fatalf("update: %v", err)
 		}
-		if updated.Type != domain.EntryArtifact {
-			t.Errorf("Type = %q, want it unchanged as %q", updated.Type, domain.EntryArtifact)
+		if updated.Type != domain.EntryBlocks {
+			t.Errorf("Type = %q, want it unchanged as %q", updated.Type, domain.EntryBlocks)
 		}
 	})
 }

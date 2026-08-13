@@ -93,9 +93,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		return nil, fmt.Errorf("section %s does not belong to research %s", req.SectionID, req.ResearchID)
 	}
 
-	req.Content = normalizeContent(req.Content)
-
-	if req.Content == "" {
+	if strings.TrimSpace(req.Content) == "" {
 		return nil, fmt.Errorf("content is required")
 	}
 
@@ -104,26 +102,37 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		entryType = domain.EntryMarkdown
 	}
 	if !entryType.Valid() {
-		return nil, fmt.Errorf("invalid entry_type %q: want %q or %q",
-			entryType, domain.EntryMarkdown, domain.EntryArtifact)
+		return nil, fmt.Errorf("invalid entry_type %q: want %q or %q (%q is accepted as a single html block)",
+			entryType, domain.EntryMarkdown, domain.EntryBlocks, domain.EntryArtifact)
 	}
+
+	// Content normalization depends on the type and must happen after it is known:
+	// normalizeContent expands a literal \n, which inside a block document's JSON
+	// strings would produce a real newline and make the JSON unparseable.
+	content, entryType, err := s.normalizeEntryContent(req.Content, entryType)
+	if err != nil {
+		return nil, err
+	}
+	req.Content = content
 
 	// Normalize the same way Update does, so the same input stored through
 	// entry_create and entry_update ends up identical.
 	title := normalizeTitle(req.Title)
 	description := normalizeContent(req.Description)
 
-	if entryType == domain.EntryArtifact {
-		// Deriving a title from HTML the markdown way yields tag soup, so read the
-		// document's own <title>/<meta description> and otherwise insist on one.
-		if title == "" {
-			title = normalizeTitle(htmlTitle(req.Content))
+	if entryType == domain.EntryBlocks {
+		doc, derr := NormalizeBlockDocument(req.Content)
+		if derr != nil {
+			return nil, derr
 		}
 		if title == "" {
-			return nil, fmt.Errorf("title is required for artifact entries (or give the HTML a <title>)")
+			title = BlockDocumentTitle(doc)
+		}
+		if title == "" {
+			return nil, fmt.Errorf("title is required: the document has no heading to take one from")
 		}
 		if description == "" {
-			description = normalizeContent(htmlMetaDescription(req.Content))
+			description = BlockDocumentDescription(doc, title)
 		}
 	} else {
 		if title == "" {
@@ -238,18 +247,37 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		return nil, ErrNotFound
 	}
 
+	// The target type decides how new content is normalized, so settle it before
+	// touching content — and remember whether the type itself was asked to change,
+	// because switching type without new content has to convert what is stored.
+	targetType := entry.Type
 	if req.Type != nil {
 		if !req.Type.Valid() {
-			return nil, fmt.Errorf("invalid entry_type %q: want %q or %q",
-				*req.Type, domain.EntryMarkdown, domain.EntryArtifact)
+			return nil, fmt.Errorf("invalid entry_type %q: want %q or %q (%q is accepted as a single html block)",
+				*req.Type, domain.EntryMarkdown, domain.EntryBlocks, domain.EntryArtifact)
 		}
-		entry.Type = *req.Type
+		targetType = *req.Type
 	}
+
 	if req.Title != nil {
 		entry.Title = normalizeTitle(*req.Title)
 	}
 	if req.Content != nil {
-		entry.Content = normalizeContent(*req.Content)
+		content, stored, err := s.normalizeEntryContent(*req.Content, targetType)
+		if err != nil {
+			return nil, err
+		}
+		entry.Content = content
+		entry.Type = stored
+	} else if req.Type != nil {
+		// Type changed with no new body: convert what is already stored, otherwise
+		// the entry would claim a shape its content does not have.
+		content, stored, err := s.convertStoredContent(entry, targetType)
+		if err != nil {
+			return nil, err
+		}
+		entry.Content = content
+		entry.Type = stored
 	}
 	if req.Description != nil {
 		entry.Description = normalizeContent(*req.Description)
@@ -327,12 +355,29 @@ func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) 
 
 // updateCrossRefs parses [[...]] references from entry content and stores them.
 func (s *EntryService) updateCrossRefs(ctx context.Context, entry *domain.Entry) {
-	s.parseCrossRefs(ctx, "entry", entry.ID, entry.ResearchID, entry.Content)
+	s.parseCrossRefs(ctx, "entry", entry.ID, entry.ResearchID, EntryIndexText(entry))
 }
 
 // updateExternalLinks extracts URLs from entry content and stores them.
 func (s *EntryService) updateExternalLinks(ctx context.Context, entry *domain.Entry) {
-	s.parseExternalLinks(ctx, "entry", entry.ID, entry.ResearchID, entry.Content)
+	s.parseExternalLinks(ctx, "entry", entry.ID, entry.ResearchID, EntryIndexText(entry))
+}
+
+// EntryIndexText is the entry's prose, whatever its type. For a blocks entry the
+// stored content is JSON, so scanning it directly would index keys and quoted
+// fragments — and every [[E3]] inside block text would be missed.
+func EntryIndexText(entry *domain.Entry) string {
+	if entry == nil {
+		return ""
+	}
+	if entry.Type != domain.EntryBlocks {
+		return entry.Content
+	}
+	doc, err := NormalizeBlockDocument(entry.Content)
+	if err != nil {
+		return ""
+	}
+	return BlockPlainText(doc)
 }
 
 // ParseExternalLinks extracts URLs from text and stores them.
@@ -590,4 +635,63 @@ func htmlMetaDescription(html string) string {
 		return ""
 	}
 	return strings.TrimSpace(m[1])
+}
+
+// convertStoredContent handles a type change that arrives without a new body.
+// Blocks → markdown is a real conversion; the other direction is refused rather
+// than guessed, because wrapping a markdown document in one paragraph block would
+// silently throw away its structure.
+func (s *EntryService) convertStoredContent(entry *domain.Entry, target domain.EntryType) (string, domain.EntryType, error) {
+	from := entry.Type
+	if from == "" {
+		from = domain.EntryMarkdown
+	}
+
+	switch {
+	case target == domain.EntryMarkdown && from == domain.EntryBlocks:
+		doc, err := NormalizeBlockDocument(entry.Content)
+		if err != nil {
+			return "", "", fmt.Errorf("cannot convert to markdown: %w", err)
+		}
+		return BlockDocumentToMarkdown(doc), domain.EntryMarkdown, nil
+
+	case (target == domain.EntryBlocks || target == domain.EntryArtifact) && from == domain.EntryMarkdown:
+		return "", "", fmt.Errorf(
+			"changing entry_type to %q needs the content in block form: pass content as {\"version\":1,\"blocks\":[...]} in the same call",
+			domain.EntryBlocks)
+
+	default:
+		// Same type, or artifact→blocks which is already the stored shape.
+		return entry.Content, entry.Type, nil
+	}
+}
+
+// normalizeEntryContent applies the normalization the type calls for and resolves
+// the `artifact` input alias. It returns the content to store and the type to
+// store it under — never EntryArtifact, which is an input shape only.
+func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (string, domain.EntryType, error) {
+	switch t {
+	case domain.EntryArtifact:
+		// Sugar: a bare HTML document becomes a blocks document with one html
+		// block, so there is one stored shape and one renderer.
+		out, err := MarshalBlockDocument(ArtifactToBlockDocument(raw))
+		if err != nil {
+			return "", "", err
+		}
+		return out, domain.EntryBlocks, nil
+
+	case domain.EntryBlocks:
+		doc, err := NormalizeBlockDocument(raw)
+		if err != nil {
+			return "", "", err
+		}
+		out, err := MarshalBlockDocument(doc)
+		if err != nil {
+			return "", "", err
+		}
+		return out, domain.EntryBlocks, nil
+
+	default:
+		return normalizeContent(raw), domain.EntryMarkdown, nil
+	}
 }
