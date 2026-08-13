@@ -39,13 +39,12 @@ function ensureInit() {
 let counter = 0
 
 /** Bounds for zooming by hand. Fitting has its own, lower floor: a huge diagram
- *  must still be shown whole, however small that makes it. */
+ *  must still be shown whole, however small that makes it — and a diagram fitted
+ *  below MIN_SCALE lowers the floor to its own scale, or "zoom out" would zoom
+ *  in. The frame's own height lives in CSS, since fullscreen has to override it. */
 const MIN_SCALE = 0.2
 const MAX_SCALE = 8
 const FIT_MIN_SCALE = 0.05
-/** Inline, a diagram is a figure in an article — it gets a viewport of its own
- *  height, capped, and scales to fit. Fullscreen is where a big graph is read. */
-const INLINE_MAX_HEIGHT = '70vh'
 /** Inline a small diagram stays its own size; fullscreen may enlarge it. */
 const INLINE_MAX_FIT = 1
 const FULLSCREEN_MAX_FIT = 3
@@ -137,9 +136,10 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
     svgEl.style.height = `${height}px`
     svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet')
   }
-  // A short diagram gets exactly its own height; a tall one gets most of the
-  // window and is scaled down to fit, which beats a slice of a wall of boxes.
-  view.style.setProperty('--mermaid-h', `min(${Math.round(height)}px, ${INLINE_MAX_HEIGHT})`)
+  // Only the diagram's own height is inline; the cap and the fullscreen
+  // override are CSS. An inline `height` would beat both — inline declarations
+  // outrank every author rule — and fullscreen would keep the inline frame.
+  view.style.setProperty('--mermaid-natural-h', `${Math.round(height)}px`)
 
   let scale = 1
   let x = 0
@@ -147,6 +147,9 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
   // Once the reader has moved the diagram, a container resize must not yank it
   // back to the default framing.
   let touched = false
+  // The scale the diagram is framed at; the manual zoom floor never sits above
+  // it, or a fitted-below-20% diagram could not be zoomed back out.
+  let fitScale = 1
 
   const label = document.createElement('button')
   label.type = 'button'
@@ -160,6 +163,9 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
   }
 
   const isFullscreen = () => fullscreenElement() === view
+  /** Real fullscreen and the overlay fallback fill the screen alike, and every
+   *  behaviour that depends on "there is nothing else on screen" asks this. */
+  const isEnlarged = () => isFullscreen() || view.classList.contains('is-overlay')
 
   const fit = () => {
     // Breathing room, so a diagram that exactly fills its frame does not sit
@@ -167,8 +173,9 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
     const cw = canvas.clientWidth - 2 * FIT_PADDING
     const ch = canvas.clientHeight - 2 * FIT_PADDING
     if (cw <= 0 || ch <= 0) return
-    const max = isFullscreen() ? FULLSCREEN_MAX_FIT : INLINE_MAX_FIT
+    const max = isEnlarged() ? FULLSCREEN_MAX_FIT : INLINE_MAX_FIT
     scale = clamp(Math.min(cw / width, ch / height), FIT_MIN_SCALE, max)
+    fitScale = scale
     x = (canvas.clientWidth - width * scale) / 2
     y = (canvas.clientHeight - height * scale) / 2
     apply()
@@ -185,7 +192,10 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
     const rect = canvas.getBoundingClientRect()
     const px = clientX - rect.left
     const py = clientY - rect.top
-    const next = clamp(scale * factor, MIN_SCALE, MAX_SCALE)
+    // Half the fitted scale, when that is smaller than the usual floor: a
+    // diagram framed at 16% must still have somewhere to go when zoomed out,
+    // or the button is dead the moment the reader arrives.
+    const next = clamp(scale * factor, Math.min(MIN_SCALE, fitScale / 2), MAX_SCALE)
     if (next === scale) return
     x = px - ((px - x) / scale) * next
     y = py - ((py - y) / scale) * next
@@ -202,9 +212,28 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
   label.addEventListener('click', reset)
 
   /** Fills the screen without the API — an iframe that was not granted
-   *  fullscreen still owes the reader a way to enlarge a diagram. */
+   *  fullscreen still owes the reader a way to enlarge a diagram.
+   *
+   *  The node moves to the body for the duration: `position: fixed` is contained
+   *  by any transformed ancestor, and the entry card lifts on hover, so an
+   *  overlay left in place would fill the card instead of the screen. */
+  let placeholder: Comment | null = null
+
   const toggleOverlay = () => {
-    view.classList.toggle('is-overlay')
+    if (placeholder) {
+      view.classList.remove('is-overlay')
+      // The placeholder marks the exact spot to return to — and if the page
+      // rewrote that region while the overlay was up, it is gone and so is the
+      // spot, so the viewer goes with it rather than reappearing out of place.
+      if (placeholder.parentNode) placeholder.replaceWith(view)
+      else view.remove()
+      placeholder = null
+    } else if (view.parentNode) {
+      placeholder = document.createComment('mermaid overlay')
+      view.replaceWith(placeholder)
+      document.body.appendChild(view)
+      view.classList.add('is-overlay')
+    }
     sync()
   }
 
@@ -225,7 +254,7 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
   })
 
   function sync() {
-    const full = isFullscreen() || view.classList.contains('is-overlay')
+    const full = isEnlarged()
     view.classList.toggle('is-fullscreen', full)
     fsButton.innerHTML = full ? ICON.collapse : ICON.expand
     fsButton.title = full ? 'Exit fullscreen' : 'Fullscreen'
@@ -255,15 +284,28 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
     (e) => {
       // Inline, a bare wheel belongs to the page — hijacking it traps the reader
       // scrolling past a diagram. Fullscreen there is nothing else to scroll.
-      if (!isFullscreen() && !view.classList.contains('is-overlay') && !e.ctrlKey && !e.metaKey) return
+      if (!isEnlarged() && !e.ctrlKey && !e.metaKey) return
       e.preventDefault()
-      zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.002))
+      // deltaY is in pixels, lines or pages depending on the device: Firefox
+      // reports ±3 lines per notch where Chrome reports ±100 pixels, which
+      // without this made a notch move the scale by half a percent.
+      // 33px per line puts a Firefox notch (3 lines) on the same footing as a
+      // Chrome one (100px).
+      const step = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 33
+        : e.deltaMode === WheelEvent.DOM_DELTA_PAGE ? e.deltaY * 400
+        : e.deltaY
+      zoomAt(e.clientX, e.clientY, Math.exp(-clamp(step, -300, 300) * 0.002))
     },
     { passive: false }
   )
 
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return
+    // Inline, a finger belongs to the page: a 70vh-tall diagram would otherwise
+    // swallow the swipe a reader uses to scroll past it. Enlarged, the diagram
+    // is all there is, so it takes the touch (and CSS drops touch-action then).
+    if (e.pointerType === 'touch' && !isEnlarged()) return
+
     const startX = e.clientX - x
     const startY = e.clientY - y
     canvas.setPointerCapture(e.pointerId)
@@ -276,11 +318,18 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
       apply()
     }
     const up = (ev: PointerEvent) => {
-      canvas.releasePointerCapture(ev.pointerId)
-      canvas.classList.remove('is-panning')
+      // Unregister first: releasePointerCapture throws NotFoundError once the
+      // pointer is gone, which is exactly the pointercancel case, and that used
+      // to leave a live pointermove behind that dragged on plain hover.
       canvas.removeEventListener('pointermove', move)
       canvas.removeEventListener('pointerup', up)
       canvas.removeEventListener('pointercancel', up)
+      canvas.classList.remove('is-panning')
+      try {
+        canvas.releasePointerCapture(ev.pointerId)
+      } catch {
+        /* the pointer was already released */
+      }
     }
     canvas.addEventListener('pointermove', move)
     canvas.addEventListener('pointerup', up)
@@ -289,8 +338,10 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
 
   canvas.addEventListener('dblclick', reset)
 
-  // Everything the mouse can do, the keyboard can do — the canvas is focusable.
-  canvas.addEventListener('keydown', (e) => {
+  // Everything the mouse can do, the keyboard can do. Bound to the whole viewer,
+  // not the canvas: after clicking Fullscreen the focus is on that button, and
+  // Escape has to reach this from there.
+  view.addEventListener('keydown', (e) => {
     const step = e.shiftKey ? 100 : 40
     const moves: Record<string, () => void> = {
       '+': () => zoomCentre(1.25),
@@ -314,9 +365,14 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
 
   // The node is detached at this point, so the first fit has to wait for a size.
   if (typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(() => {
+    // A discarded viewer keeps its observer alive through the document's
+    // observation list, and with it the whole detached SVG. Removal collapses
+    // the box to zero, which is an observation — so it disconnects itself.
+    const ro = new ResizeObserver(() => {
+      if (!canvas.isConnected) return ro.disconnect()
       if (!touched) fit()
-    }).observe(canvas)
+    })
+    ro.observe(canvas)
   } else {
     requestAnimationFrame(fit)
   }

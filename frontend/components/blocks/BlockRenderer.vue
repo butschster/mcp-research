@@ -115,15 +115,24 @@ function isMermaid(b: Block): boolean {
 // element goes away with the block, and so does its entry.
 const drawn = new WeakMap<HTMLElement, string>()
 
+// Rendering a diagram takes long enough for a second update to arrive mid-flight
+// (a save, then the WebSocket echo of it). Only the newest run may paint, and it
+// records what it drew *after* drawing — otherwise a slow first run could land
+// on top of a fast second one and the guard would call it current.
+let drawRun = 0
+
 async function drawDiagrams() {
+  const run = ++drawRun
   await nextTick()
   const host = root.value
   if (!host) return
   for (const el of host.querySelectorAll<HTMLElement>('.b-mermaid')) {
     const source = props.blocks[Number(el.dataset.mermaid)]?.data?.code || ''
     if (!source || drawn.get(el) === source) continue
+    const node = (await createMermaidViewer(source)) ?? (await createMermaidFallback(source))
+    if (run !== drawRun) return
     drawn.set(el, source)
-    el.replaceChildren((await createMermaidViewer(source)) ?? (await createMermaidFallback(source)))
+    el.replaceChildren(node)
   }
 }
 

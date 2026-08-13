@@ -12,9 +12,11 @@ export async function renderMermaidBlocks(container: HTMLElement) {
   for (const code of blocks) {
     const pre = code.parentElement!
     // Callers run this on mount *and* on a content watcher, which can fire twice
-    // over the same DOM. A failed block stays in place, so without this it would
-    // collect a second debug link.
-    if (pre.classList.contains('mermaid-error')) continue
+    // over the same DOM — and rendering is async, so two runs can be inside this
+    // loop at once. A failed block stays in place, so the claim has to be staked
+    // before the await, or it collects a second debug link per concurrent run.
+    if (pre.classList.contains('mermaid-error') || pre.dataset.mermaidBusy) continue
+    pre.dataset.mermaidBusy = '1'
 
     const source = code.textContent || ''
     const view = await createMermaidViewer(source)

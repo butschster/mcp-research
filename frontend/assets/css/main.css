@@ -589,10 +589,15 @@ body::after {
    the diagram's own, capped, and whatever does not fit is reached by panning. */
 .mermaid-canvas {
   position: relative;
-  height: var(--mermaid-h, 420px);
+  /* The diagram's own height, capped at most of the window — the viewer sets
+     only the natural height, inline, so this cap and the fullscreen override
+     below still win (an inline `height` would outrank both). */
+  height: min(var(--mermaid-natural-h, 420px), 70vh);
   overflow: hidden;
   cursor: grab;
-  touch-action: none;
+  /* Vertical swipes stay with the page: inline, the reader scrolls past a tall
+     diagram rather than panning it. Enlarged, the diagram takes the touch. */
+  touch-action: pan-y;
 }
 .mermaid-canvas.is-panning { cursor: grabbing; }
 .mermaid-canvas:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
@@ -645,16 +650,19 @@ body::after {
   font-size: var(--type-xs);
 }
 
-/* Fullscreen and the no-API fallback differ only in how they fill the screen. */
+/* Fullscreen and the no-API fallback differ only in how they fill the screen.
+   Both are also the only places the diagram owns the whole gesture surface. */
 .mermaid-diagram:fullscreen {
-  --mermaid-h: 100%;
   margin: 0;
   border: none;
   border-radius: 0;
   background: var(--color-bg);
 }
+.mermaid-diagram:fullscreen .mermaid-canvas {
+  height: 100%;
+  touch-action: none;
+}
 .mermaid-diagram.is-overlay {
-  --mermaid-h: 100%;
   position: fixed;
   inset: 0;
   z-index: var(--z-overlay);
@@ -662,6 +670,10 @@ body::after {
   border: none;
   border-radius: 0;
   background: var(--color-bg);
+}
+.mermaid-diagram.is-overlay .mermaid-canvas {
+  height: 100%;
+  touch-action: none;
 }
 
 /* The link that leaves for the live editor: a toolbar item beside the zoom
