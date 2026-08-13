@@ -13,3 +13,4 @@ internal/api/static/*
 bin/*
 # Claude Code
 .claude/settings.local.json
+.claude/worktrees/
