@@ -171,10 +171,10 @@ function printPage() {
 }
 .toolbar-actions { display: flex; gap: var(--space-2); }
 
-.export-document {
-  max-width: 52rem;
-  margin: 0 auto;
-}
+/* No max-width here: the document fills the page .container, the same way the
+   research export page does. Constraining it made the content column narrower
+   than the rest of the app and jump on load, because the skeleton above uses
+   the full container width. */
 
 .doc-header {
   padding-bottom: var(--space-4);
