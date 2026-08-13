@@ -255,3 +255,94 @@ func mustJSON(s string) string {
 	}
 	return string(b)
 }
+
+func TestBlockIDs(t *testing.T) {
+	t.Run("every kept block gets an id", func(t *testing.T) {
+		doc := normDoc(t, `{"blocks":[
+			{"type":"heading","data":{"text":"H"}},
+			{"type":"paragraph","data":{"text":"P"}},
+			{"type":"divider","data":{}}
+		]}`)
+		seen := map[string]bool{}
+		for i, b := range doc.Blocks {
+			if b.ID == "" {
+				t.Errorf("block %d (%s) has no id", i, b.Type)
+			}
+			if seen[b.ID] {
+				t.Errorf("block %d reuses id %q", i, b.ID)
+			}
+			seen[b.ID] = true
+		}
+	})
+
+	t.Run("a caller's id is preserved so attached state survives a rewrite", func(t *testing.T) {
+		doc := normDoc(t, `{"blocks":[{"id":"keepme01","type":"paragraph","data":{"text":"P"}}]}`)
+		if got := doc.Blocks[0].ID; got != "keepme01" {
+			t.Errorf("id = %q, want it kept as keepme01", got)
+		}
+	})
+
+	t.Run("ids survive the round trip through storage", func(t *testing.T) {
+		first := normDoc(t, `{"blocks":[
+			{"type":"heading","data":{"text":"H"}},
+			{"type":"paragraph","data":{"text":"P"}}
+		]}`)
+		raw, err := MarshalBlockDocument(first)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		second := normDoc(t, raw)
+		for i := range first.Blocks {
+			if first.Blocks[i].ID != second.Blocks[i].ID {
+				t.Errorf("block %d id changed: %q -> %q", i, first.Blocks[i].ID, second.Blocks[i].ID)
+			}
+		}
+	})
+
+	t.Run("an unsafe or malformed id is replaced, not trusted", func(t *testing.T) {
+		for _, bad := range []string{"a", "with space", "../etc", "UPPER!", strings.Repeat("x", 40)} {
+			raw := `{"blocks":[{"id":` + mustJSON(bad) + `,"type":"divider","data":{}}]}`
+			doc := normDoc(t, raw)
+			got := doc.Blocks[0].ID
+			if got == bad {
+				t.Errorf("id %q was kept, want it replaced", bad)
+			}
+			if !blockIDPattern.MatchString(got) {
+				t.Errorf("generated id %q does not match the pattern", got)
+			}
+		}
+	})
+
+	t.Run("an uppercase id is normalized rather than replaced", func(t *testing.T) {
+		doc := normDoc(t, `{"blocks":[{"id":"KEEPME01","type":"divider","data":{}}]}`)
+		if got := doc.Blocks[0].ID; got != "keepme01" {
+			t.Errorf("id = %q, want it lowercased to keepme01", got)
+		}
+	})
+
+	t.Run("a duplicate id is reassigned so state cannot bind to two blocks", func(t *testing.T) {
+		doc := normDoc(t, `{"blocks":[
+			{"id":"dupe0001","type":"paragraph","data":{"text":"first"}},
+			{"id":"dupe0001","type":"paragraph","data":{"text":"second"}}
+		]}`)
+		if doc.Blocks[0].ID == doc.Blocks[1].ID {
+			t.Errorf("both blocks kept id %q", doc.Blocks[0].ID)
+		}
+		if doc.Blocks[0].ID != "dupe0001" {
+			t.Errorf("the first claim should win, got %q", doc.Blocks[0].ID)
+		}
+	})
+
+	t.Run("a dropped block does not consume its id", func(t *testing.T) {
+		doc := normDoc(t, `{"blocks":[
+			{"id":"taken001","type":"nope","data":{}},
+			{"id":"taken001","type":"divider","data":{}}
+		]}`)
+		if len(doc.Blocks) != 1 {
+			t.Fatalf("got %d blocks, want 1", len(doc.Blocks))
+		}
+		if doc.Blocks[0].ID != "taken001" {
+			t.Errorf("id = %q, want taken001 — the dropped block should not have claimed it", doc.Blocks[0].ID)
+		}
+	})
+}

@@ -3,9 +3,11 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/google/uuid"
 )
 
 // Block document normalization.
@@ -64,6 +66,7 @@ func NormalizeBlockDocument(raw string) (*domain.BlockDocument, error) {
 	doc.Version = domain.BlockDocumentVersion
 
 	kept := make([]domain.Block, 0, len(doc.Blocks))
+	seenIDs := make(map[string]bool, len(doc.Blocks))
 	for _, b := range doc.Blocks {
 		if len(kept) >= domain.MaxBlocks {
 			break
@@ -76,7 +79,11 @@ func NormalizeBlockDocument(raw string) (*domain.BlockDocument, error) {
 		if !ok {
 			continue
 		}
-		kept = append(kept, domain.Block{Type: b.Type, Data: data})
+		kept = append(kept, domain.Block{
+			ID:   blockID(b.ID, seenIDs),
+			Type: b.Type,
+			Data: data,
+		})
 	}
 	doc.Blocks = kept
 
@@ -115,6 +122,28 @@ func ArtifactToBlockDocument(html string) *domain.BlockDocument {
 		Version: domain.BlockDocumentVersion,
 		Blocks:  []domain.Block{{Type: domain.BlockHTML, Data: data}},
 	}
+}
+
+var blockIDPattern = regexp.MustCompile(`^[a-z0-9]{4,16}$`)
+
+// blockID keeps a caller's id when it is safe and unique within the document, and
+// mints one otherwise. Keeping it is what lets state attached to a block survive
+// the agent rewriting the document; minting is what makes every block addressable
+// even when the author did not think about ids at all.
+func blockID(given string, seen map[string]bool) string {
+	id := strings.ToLower(strings.TrimSpace(given))
+	if !blockIDPattern.MatchString(id) || seen[id] {
+		id = newBlockID()
+		for seen[id] {
+			id = newBlockID()
+		}
+	}
+	seen[id] = true
+	return id
+}
+
+func newBlockID() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")[:domain.BlockIDLength]
 }
 
 // --- per-block normalizers -------------------------------------------------

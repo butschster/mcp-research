@@ -23,6 +23,12 @@ write, and nothing about it changed.
 ```
 
 - Every block is `{ "type": string, "data": object }`. Array order is render order.
+- Each stored block also carries an `id` — eight lowercase alphanumerics. The
+  server fills it in when you omit it and **keeps yours when you send one**, which
+  is what lets anything attached to a block (state, a comment, a deep link) survive
+  you rewriting the document. Read the document, edit it, send it back with the ids
+  intact; drop them and every block is treated as new. An unsafe or duplicate id is
+  replaced rather than trusted.
 - A bare `[ ... ]` array is accepted too; the envelope is added for you.
 - The document is **normalized server-side**: an unknown `type` and malformed
   `data` are **dropped, never an error**, so a bad payload degrades to fewer
@@ -73,6 +79,12 @@ document cannot read cookies, storage or the host page, and cannot call the API.
 
 - Send one whole document — `<!doctype html>`, `<head>`, `<style>`, `<script>`,
   `<body>`. Inline everything; the frame cannot fetch external resources.
+- **Close the script tag as `</script>`, never `<\/script>`.** The escaped form is
+  only needed when HTML sits inside a JavaScript string literal. Here it is plain
+  content in a JSON field, so the backslash makes the tag invalid: the browser
+  never closes the script, swallows the rest of the document, and the frame renders
+  blank with no error anywhere. This is the most common reason an otherwise correct
+  artifact comes out empty.
 - The frame reports its own height, so it is shown in full with no inner
   scrollbar. Do not write `body { height: 100% }` expecting a viewport — lay out
   for a document that grows. A document sized in `vh` grows on every report and

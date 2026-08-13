@@ -70,8 +70,20 @@ const (
 // entry title, which is rendered by the page rather than the document.
 var HeadingLevels = map[int]bool{2: true, 3: true, 4: true}
 
+// BlockIDLength is the length of a generated block id: short enough not to bloat
+// a document an agent reads, long enough that a collision inside one document is
+// not a practical concern.
+const BlockIDLength = 8
+
 // Block is one unit of a block document.
 type Block struct {
+	// ID is stable across updates: anything that has to point AT a block rather
+	// than at its content — a checkbox's state, a comment, a deep link — needs an
+	// identity that survives inserting a paragraph above it, which a position in
+	// the array does not. The server fills it in when absent and preserves it when
+	// present, so an agent that round-trips a document keeps whatever is attached
+	// to its blocks.
+	ID   string         `json:"id,omitempty"`
 	Type BlockType      `json:"type"`
 	Data map[string]any `json:"data"`
 }
