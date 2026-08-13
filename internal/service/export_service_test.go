@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/butschster/mcp-research/internal/domain"
@@ -1447,6 +1448,73 @@ func TestImport_EntryWithoutTypeIsMarkdown(t *testing.T) {
 	}
 	if entries[0].Type != domain.EntryMarkdown {
 		t.Errorf("Type = %q, want %q", entries[0].Type, domain.EntryMarkdown)
+	}
+}
+
+// Import is not transactional, so an entry Create would refuse must be caught
+// before anything is written — otherwise the failed import leaves a half-built
+// research behind.
+func TestImport_RejectsBadEntriesBeforeWriting(t *testing.T) {
+	cases := []struct {
+		name  string
+		entry domain.ExportEntry
+		want  string
+	}{
+		{
+			name:  "unknown entry_type",
+			entry: domain.ExportEntry{Title: "Odd", Type: "html", Content: "body"},
+			want:  "invalid entry_type",
+		},
+		{
+			name:  "artifact without a title anywhere",
+			entry: domain.ExportEntry{Type: domain.EntryArtifact, Content: "<html><body>chart</body></html>"},
+			want:  "no title",
+		},
+		{
+			name:  "entry without content",
+			entry: domain.ExportEntry{Title: "Empty"},
+			want:  "no content",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			exportSvc, researchSvc, _, _, _, _, _ := setupExportService(t)
+
+			data := &domain.ExportData{
+				Version: 1,
+				Research: domain.ExportResearch{
+					Name:   "Broken Import",
+					Status: domain.ResearchActive,
+					Sections: []domain.ExportSection{{
+						Name: "main", Position: 0, Status: domain.SectionDraft,
+						Entries: []domain.ExportEntry{
+							{Title: "Fine", Content: "body", Status: domain.EntryDraft},
+							tc.entry,
+						},
+					}},
+				},
+			}
+
+			_, err := exportSvc.Import(ctx, data)
+			if err == nil {
+				t.Fatal("import succeeded, want a validation error")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error = %q, want it to mention %q", err, tc.want)
+			}
+
+			// The rejected import must not have created the research, its sections
+			// or the entries that came before the bad one.
+			list, err := researchSvc.List(ctx, storage.ResearchFilter{})
+			if err != nil {
+				t.Fatalf("list researches: %v", err)
+			}
+			if len(list) != 0 {
+				t.Errorf("researches = %d, want 0 — the failed import left debris", len(list))
+			}
+		})
 	}
 }
 

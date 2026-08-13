@@ -167,6 +167,10 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData) (*d
 
 	r := data.Research
 
+	if err := validateImportEntries(r); err != nil {
+		return nil, err
+	}
+
 	// 1. Create research with sections
 	sectionReqs := make([]CreateSectionRequest, len(r.Sections))
 	for i, sec := range r.Sections {
@@ -336,6 +340,36 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData) (*d
 
 	// Re-read research to get final state
 	return s.research.Get(ctx, research.ID)
+}
+
+// validateImportEntries rejects entries EntryService.Create would refuse, before
+// Import writes anything. Import is not transactional: it creates the research,
+// its sections, then sessions and questions before the first entry, so an entry
+// that fails validation halfway through leaves a research with a code, some of
+// its entries and none of its tasks or roadmaps — debris nothing in the UI marks
+// as partial. The checks mirror Create's own, which is the point.
+func validateImportEntries(r domain.ExportResearch) error {
+	for _, sec := range r.Sections {
+		for _, e := range sec.Entries {
+			if e.Type != "" && !e.Type.Valid() {
+				return fmt.Errorf("entry %q: invalid entry_type %q: want %q or %q",
+					e.Title, e.Type, domain.EntryMarkdown, domain.EntryArtifact)
+			}
+			content := normalizeContent(e.Content)
+			if content == "" {
+				return fmt.Errorf("entry %q in section %q has no content", e.Title, sec.Name)
+			}
+			if e.Type != domain.EntryArtifact {
+				continue
+			}
+			// An artifact cannot get a title from its content the markdown way, so
+			// Create insists on one — either the field or the document's <title>.
+			if normalizeTitle(e.Title) == "" && normalizeTitle(htmlTitle(content)) == "" {
+				return fmt.Errorf("artifact entry in section %q has no title and its HTML has no <title>", sec.Name)
+			}
+		}
+	}
+	return nil
 }
 
 // buildExportSession converts a session + questions into export format.
