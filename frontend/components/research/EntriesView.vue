@@ -35,6 +35,7 @@
               <div class="entry-card-header">
                 <div class="entry-title-row">
                   <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+                  <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
                   <h3 class="card-title">{{ entry.title }}</h3>
                 </div>
                 <StatusBadge :status="entry.status" />
@@ -91,6 +92,7 @@
           <div class="entry-card-header">
             <div class="entry-title-row">
               <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+              <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
               <h3 class="card-title">{{ entry.title }}</h3>
             </div>
             <StatusBadge :status="entry.status" />
@@ -211,4 +213,14 @@ const groupedEntries = computed(() => {
   line-height: 1;
 }
 .skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
+.entry-artifact-badge {
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  font-size: var(--type-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
 </style>

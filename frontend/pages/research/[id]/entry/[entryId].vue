@@ -108,7 +108,13 @@
 
       <!-- Content -->
       <div class="entry-content card">
-        <div v-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
+        <EntryArtifactFrame
+          v-if="viewMode === 'rendered' && isArtifact"
+          :html="entry.content || ''"
+          :title="entry.title"
+          :bridge-data="artifactBridgeData"
+        />
+        <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
         <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
       </div>
 
@@ -220,6 +226,31 @@ const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${
 const linkedSession = computed(() => {
   if (!entry.value?.session_id) return null
   return (sessionsData.value?.data ?? []).find((s: any) => s.id === entry.value.session_id) ?? null
+})
+
+// Artifacts hold a full HTML document instead of markdown and render in a
+// sandboxed iframe. The bridge hands them read-only research context.
+const isArtifact = computed(() => entry.value?.entry_type === 'artifact')
+const artifactBridgeData = computed(() => {
+  if (!isArtifact.value) return null
+  return {
+    research: {
+      id: research.value?.id,
+      code: research.value?.code,
+      name: research.value?.name,
+      goal: research.value?.goal,
+    },
+    entry: {
+      id: entry.value?.id,
+      code: entry.value?.code,
+      title: entry.value?.title,
+      tags: entry.value?.tags ?? [],
+    },
+    sections: sections.value.map((s: any) => ({
+      id: s.id,
+      name: s.display_name || s.name,
+    })),
+  }
 })
 
 // Rendered markdown
