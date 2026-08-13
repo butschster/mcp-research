@@ -108,6 +108,7 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 		for _, e := range entriesBySection[sec.ID] {
 			ee := domain.ExportEntry{
 				Title:       e.Title,
+				Type:        e.Type,
 				Content:     e.Content,
 				Description: e.Description,
 				Status:      e.Status,
@@ -274,6 +275,7 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData) (*d
 				ResearchID:  research.ID,
 				SectionID:   sectionID,
 				SessionID:   sessionID,
+				Type:        e.Type,
 				Title:       e.Title,
 				Content:     e.Content,
 				Description: e.Description,

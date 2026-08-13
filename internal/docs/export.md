@@ -134,6 +134,14 @@ Import re-creates entities from scratch: new UUIDs, new short codes, cross-refer
 
 Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see the caller's own researches. `POST /api/researches/import` is a write endpoint and always requires the bearer token when `api_token` or `auth_enabled` is configured.
 
+## Artifact Entries in Export
+
+An entry with `entry_type: artifact` holds a whole HTML document instead of markdown, and each export treats it accordingly:
+
+- **Markdown export** (`?format=md`, and the `markdown` field of the JSON responses) writes the document inside a fenced ```` ```html ```` block, preceded by the line `*HTML artifact — render the document below to view it.*`. Pasted inline it would leak its own `<style>` and `<script>` into whatever renders the export. The fence grows past any run of backticks inside the document, so an artifact containing fences cannot break out of the block.
+- **Export pages (Web UI)** render artifacts in the same sandboxed iframe the entry page uses, not as markdown.
+- **Portable export** carries `entry_type` on each entry, so artifacts import as artifacts. Exports written before artifacts existed have no `entry_type`; those entries import as `markdown`, which is what they were.
+
 ## Cross-References in Export
 
 Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[RM1]]`) are preserved as-is in markdown export. In the web export pages, they are rendered as clickable links.
