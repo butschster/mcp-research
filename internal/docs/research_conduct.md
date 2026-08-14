@@ -17,7 +17,7 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 
 | Purpose                                                | Tool                                 |
 |--------------------------------------------------------|--------------------------------------|
-| Find all research projects                             | `research_list`                      |
+| Find every research you can reach, and which are read-only | `research_list`                  |
 | Load full research context (sections + active session) | `research_get`                       |
 | List entries in a section (no content)                 | `entry_list`                         |
 | Read full content of a specific entry                  | `entry_read`                         |
@@ -41,10 +41,14 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 
 ### Step 2: Select the Research
 
-- Use `research_list` to retrieve all available research projects
+- Use `research_list` to retrieve every research project you can reach — your own and any owned by a team you belong to
 - Match the user request against each research name and goal
 - **Select immediately** when one research clearly fits (domain, goals, and terminology align)
 - **Ask one clarifying question** when multiple options are viable or the intent is ambiguous
+- **Check access before committing.** An item carrying `access: "read-only"` belongs to a team where you may read but
+  not write: no session, entry, answer, note or memory can be recorded against it. Prefer a writable match; if the
+  read-only one is genuinely the right research, say so and offer to summarize it instead of starting a session. An item
+  carrying `team` is shared — other people work in it, so read before you write
 
 Clarifying question patterns:
 

@@ -67,8 +67,8 @@ func (s *EntryService) PatchBlocks(ctx context.Context, entryID string, req Patc
 	}
 	// Ownership before anything that could describe the target: "no such block"
 	// must be unreachable for someone who may not open the entry at all.
-	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, entry.ResearchID); err != nil {
+		return nil, err
 	}
 	if entry.Type != domain.EntryBlocks {
 		return nil, fmt.Errorf("entry %s is a %s entry: block operations need entry_type=blocks", entry.Code, entry.Type)

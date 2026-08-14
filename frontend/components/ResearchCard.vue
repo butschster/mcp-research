@@ -7,6 +7,7 @@
       </div>
       <div class="card-header-actions">
         <button
+          v-if="canArchive"
           class="btn-icon"
           :title="research.status === 'archived' ? 'Restore from archive' : 'Archive'"
           @click.prevent.stop="toggleArchive"
@@ -21,7 +22,12 @@
     <p v-if="research.goal" class="card-meta goal-text">{{ research.goal }}</p>
 
     <div class="card-footer">
-      <div v-if="research.tags?.length" class="tags-row">
+      <div v-if="showChips || research.tags?.length" class="tags-row">
+        <!-- The chip goes ahead of the tags rather than beside the title: the
+             title row already carries a code and a status badge, and a long
+             Cyrillic team name there pushes the badge off the card. -->
+        <TeamChip v-if="showTeam" :name="research.team_name!" />
+        <TeamViewerNotice v-if="isViewer" :team-name="research.team_name" />
         <span
           v-for="tag in research.tags"
           :key="tag"
@@ -37,6 +43,9 @@
 </template>
 
 <script setup lang="ts">
+import { tagHue } from '~/composables/useTagHue'
+import { relativeTime } from '~/composables/useRelativeTime'
+
 const props = defineProps<{
   research: {
     id: string
@@ -46,8 +55,21 @@ const props = defineProps<{
     status: string
     tags: string[]
     updated_at?: string
+    team_name?: string
+    team_is_personal?: boolean
+    role?: 'viewer' | 'editor' | 'owner'
   }
 }>()
+
+// Your own team's name on every card is noise, not information; only a shared
+// team earns a chip.
+const showTeam = computed(() => !!props.research.team_name && !props.research.team_is_personal)
+// Role is shown only where it takes something away. An editor and an owner get
+// no label — the working state needs none, and labelling it turns every card
+// into a permissions report.
+const isViewer = computed(() => props.research.role === 'viewer')
+const canArchive = computed(() => props.research.role !== 'viewer')
+const showChips = computed(() => showTeam.value || isViewer.value)
 
 const emit = defineEmits<{ tagClick: [tag: string]; statusChanged: [] }>()
 
@@ -62,21 +84,6 @@ async function toggleArchive() {
     body: { status: newStatus },
   })
   emit('statusChanged')
-}
-
-function tagHue(tag: string): number {
-  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
-}
-
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
 }
 </script>
 

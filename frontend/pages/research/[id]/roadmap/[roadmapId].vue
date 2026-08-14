@@ -19,6 +19,8 @@
           </div>
         </div>
 
+        <TeamViewerNotice v-if="isViewer" :team-name="researchData?.data?.research?.team_name" />
+
         <span class="toolbar-sep"></span>
 
         <!-- Layout toggle -->
@@ -39,8 +41,9 @@
 
         <span class="toolbar-sep"></span>
 
-        <!-- Auto layout -->
-        <button class="btn btn-sm" @click="onAutoLayout" title="Auto layout">
+        <!-- Auto layout: it persists positions for everyone, so it is a write.
+             LR/TB and Fit view stay — those are local to this browser. -->
+        <button v-if="canWrite" class="btn btn-sm" @click="onAutoLayout" title="Auto layout">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           Auto layout
         </button>
@@ -74,7 +77,7 @@
         :min-zoom="0.15"
         :max-zoom="2"
         :fit-view-on-init="true"
-        :nodes-draggable="true"
+        :nodes-draggable="canWrite"
         :nodes-connectable="false"
         :edges-updatable="false"
         :pan-on-drag="true"
@@ -129,6 +132,13 @@ const { authFetch } = useAuth()
 // Resolve research slug for back link
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${researchId}`)
 const researchSlug = computed(() => researchData.value?.data?.research?.code || researchId)
+
+// Every research-scoped page publishes the caller's role from the payload it
+// already fetches, so the controls beneath it — down to a checkbox inside
+// rendered content — know whether they may write.
+const { canWrite, canAdmin, isViewer, setFromResearch } = useResearchRole()
+watch(researchData, (d) => setFromResearch(d?.data?.research), { immediate: true })
+
 
 const nodeTypes = {
   'roadmap-root': markRaw(RoadmapRootNode),

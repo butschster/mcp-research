@@ -1,65 +1,23 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
-import { defineComponent, h } from 'vue'
+import ResearchCard from './ResearchCard.vue'
 import { mockResearch, mockResearchCompleted, mockResearchArchived } from '../__mocks__/research'
 
-// Stub ResearchCard to avoid useAuth/useRuntimeConfig dependency
-const ResearchCardStub = defineComponent({
-  name: 'ResearchCardStub',
-  props: {
-    research: { type: Object, required: true },
-  },
-  emits: ['tagClick', 'statusChanged'],
-  setup(props, { emit }) {
-    function tagHue(tag: string): number {
-      return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
-    }
-    function relativeTime(iso: string): string {
-      const diff = Date.now() - new Date(iso).getTime()
-      const mins = Math.floor(diff / 60_000)
-      if (mins < 1) return 'just now'
-      if (mins < 60) return `${mins}m ago`
-      const hrs = Math.floor(mins / 60)
-      if (hrs < 24) return `${hrs}h ago`
-      const days = Math.floor(hrs / 24)
-      return `${days}d ago`
-    }
-    return { tagHue, relativeTime, emit }
-  },
-  template: `
-    <a :href="'/research/' + (research.code || research.id)" class="card research-card" style="display:flex;flex-direction:column;text-decoration:none;color:inherit;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);">
-        <div style="display:flex;align-items:center;gap:var(--space-2);min-width:0;">
-          <span v-if="research.code" class="short-code" style="font-size:var(--type-xs);font-weight:600;color:var(--color-primary);background:var(--color-primary-muted);padding:0.15rem 0.4rem;border-radius:4px;font-family:'JetBrains Mono',monospace;flex-shrink:0;line-height:1;">{{ research.code }}</span>
-          <h3 class="card-title">{{ research.name }}</h3>
-        </div>
-        <span :class="['badge', 'badge-' + research.status]">{{ research.status }}</span>
-      </div>
-      <p v-if="research.goal" class="card-meta" style="margin-top:var(--space-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;">{{ research.goal }}</p>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:var(--space-3);gap:var(--space-2);">
-        <div v-if="research.tags?.length" style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
-          <span
-            v-for="tag in research.tags"
-            :key="tag"
-            :class="['tag', 'tag-hue-' + tagHue(tag)]"
-            style="cursor:pointer;"
-            @click.prevent.stop="emit('tagClick', tag)"
-          >{{ tag }}</span>
-        </div>
-        <span v-if="research.updated_at" class="card-meta" style="white-space:nowrap;flex-shrink:0;">
-          {{ relativeTime(research.updated_at) }}
-        </span>
-      </div>
-    </a>
-  `,
-})
-
-const meta: Meta<typeof ResearchCardStub> = {
+/**
+ * The card the research list is made of.
+ *
+ * This used to render a hand-written stub of the markup, which drifted: the
+ * catalogue went on showing a card the product had stopped rendering. It draws
+ * the real component now — `useAuth` and `useRuntimeConfig` come from the
+ * Storybook stubs, and `relativeTime` / `tagHue` from the real composables, so
+ * what is on screen is what ships.
+ */
+const meta: Meta<typeof ResearchCard> = {
   title: 'Cards/ResearchCard',
-  component: ResearchCardStub,
+  component: ResearchCard,
   tags: ['autodocs'],
 }
 export default meta
-type Story = StoryObj<typeof ResearchCardStub>
+type Story = StoryObj<typeof ResearchCard>
 
 export const Active: Story = {
   args: { research: mockResearch },
@@ -74,9 +32,7 @@ export const Archived: Story = {
 }
 
 export const WithoutTags: Story = {
-  args: {
-    research: { ...mockResearch, tags: [] },
-  },
+  args: { research: { ...mockResearch, tags: [] } },
 }
 
 export const ManyTags: Story = {
@@ -98,21 +54,69 @@ export const LongGoal: Story = {
   },
 }
 
+/**
+ * A research in a shared team carries its name. Your own personal team does
+ * not — labelling every card with your own name is noise.
+ */
+export const InASharedTeam: Story = {
+  args: {
+    research: {
+      ...mockResearch,
+      name: 'Интеграция с 1С',
+      goal: 'Свести обмен номенклатурой в одну очередь',
+      tags: ['интеграции', '1С'],
+      team_name: 'Отдел интеграций',
+      team_is_personal: false,
+      role: 'editor',
+    },
+  },
+}
+
+export const InYourPersonalTeam: Story = {
+  args: {
+    research: { ...mockResearch, team_name: 'Pavel Buchnev', team_is_personal: true, role: 'owner' },
+  },
+}
+
+/**
+ * A viewer gets the read-only marker and loses the archive control — the one
+ * place in the list where a role is shown, because it is the one place it
+ * takes something away.
+ */
+export const AsAViewer: Story = {
+  args: {
+    research: {
+      ...mockResearch,
+      name: 'Интеграция с 1С',
+      team_name: 'Отдел интеграций',
+      team_is_personal: false,
+      role: 'viewer',
+    },
+  },
+}
+
+/** A long team name has to wrap in the footer rather than push the timestamp off. */
+export const LongTeamName: Story = {
+  args: {
+    research: {
+      ...mockResearch,
+      team_name: 'Отдел интеграций и сопровождения корпоративных систем',
+      team_is_personal: false,
+      role: 'viewer',
+    },
+  },
+}
+
 export const AllStatuses: Story = {
   render: () => ({
-    components: { ResearchCardStub },
+    components: { ResearchCard },
+    setup() {
+      return { researches: [mockResearch, mockResearchCompleted, mockResearchArchived] }
+    },
     template: `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
-        <ResearchCardStub
-          v-for="r in researches"
-          :key="r.id"
-          :research="r"
-        />
+        <ResearchCard v-for="r in researches" :key="r.id" :research="r" />
       </div>
     `,
-    setup() {
-      const researches = [mockResearch, mockResearchCompleted, mockResearchArchived]
-      return { researches }
-    },
   }),
 }

@@ -4,9 +4,9 @@
       v-for="col in columns"
       :key="col.status"
       :class="['kanban-column', `kanban-col-${col.status}`]"
-      @dragover.prevent="onDragOver($event, col.status)"
+      @dragover="onDragOverGuarded($event, col.status)"
       @dragleave="onDragLeave($event)"
-      @drop="onDrop($event, col.status)"
+      @drop="canWrite && onDrop($event, col.status)"
     >
       <div class="kanban-column-header">
         <div class="kanban-column-title-row">
@@ -47,7 +47,20 @@ const emit = defineEmits<{
   taskDrop: [task: any, targetStatus: string]
 }>()
 
+// The column stops accepting a drop for the same reason the card stops
+// lifting: the move is a write.
+const { canWrite } = useResearchRole()
+
 const draggedTask = ref<any>(null)
+
+// `.prevent` runs whatever the guard says, and preventDefault on dragover is
+// precisely what marks a column as a drop target — so a viewer's columns went
+// on inviting a drop they would refuse.
+function onDragOverGuarded(event: DragEvent, status: string) {
+  if (!canWrite.value) return
+  event.preventDefault()
+  onDragOver(event, status)
+}
 
 function columnTasks(status: string): any[] {
   if (status === 'pending') {

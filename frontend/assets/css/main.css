@@ -177,6 +177,7 @@ body::after {
 }
 
 .page-title {
+  overflow-wrap: anywhere;
   font-size: var(--type-2xl);
   font-weight: 700;
   line-height: var(--line-tight);
@@ -479,6 +480,130 @@ body::after {
 }
 .copy-btn:hover { color: var(--color-text); border-color: rgba(108, 197, 224, 0.25); background: var(--color-surface-hover); }
 .copy-btn.copied { color: var(--color-success); border-color: rgba(52, 211, 153, 0.2); }
+
+/* --- Page header layout -------------------------------------------------- */
+
+/* These lived in pages/index.vue's scoped style, so every other page that used
+   them — /teams, /teams/{id}, /settings — got the class name and none of the
+   layout: buttons dropped below their title and skeleton lists rendered as one
+   slab. */
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- Form and dialog vocabulary ------------------------------------------ */
+
+/* Every modal in the app had invented its own label, its own input and its own
+   button row — nine `.modal-title`s in two disagreeing designs, three names for
+   one text field. These are the shared ones. `.auth-input` on the sign-in pages
+   stays separate on purpose: that surface is deliberately its own. */
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.modal-help {
+  font-size: var(--type-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-4);
+}
+.field-label,
+.form-label {
+  display: block;
+  font-size: var(--type-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+.text-input,
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--type-sm);
+  font-family: inherit;
+  line-height: 1.5;
+}
+.text-input:focus,
+.form-input:focus,
+.form-textarea:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+.inline-error {
+  font-size: var(--type-xs);
+  color: var(--color-error);
+  margin: var(--space-3) 0 0;
+}
+/* The row of buttons that closes a dialog. `.modal-footer` is the same row for
+   a flush modal, where it carries the edge the padding would have drawn. */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+/* A button that is only a word. */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--type-xs);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+.link-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
+
+/* --- Avatar -------------------------------------------------------------- */
+
+/* The initial standing in for a person. It lived in app.vue's stylesheet until
+   the member list needed one too — a shared rule has no business depending on a
+   page component being mounted. Size is overridable per consumer. */
+.user-avatar {
+  width: var(--avatar-size, 22px);
+  height: var(--avatar-size, 22px);
+  border-radius: 50%;
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--avatar-size, 22px) * 0.45);
+  font-weight: 600;
+  flex-shrink: 0;
+}
 
 /* --- Warning Banner ----------------------------------------------------- */
 

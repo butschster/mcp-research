@@ -12,6 +12,21 @@ A research project follows this lifecycle:
 2. **Conduct** — Interview the user, create entries, track progress
 3. **Complete** — Mark sections and research as completed
 
+### Check first that you may write
+
+A research belongs to a team, not to whoever created it, and your role there can
+be read-only. Before continuing someone else's research — a session, an entry, a
+task, a status change — confirm you may write to it:
+
+- `research_list` marks a shared research with `team` and a read-only one with
+  `access: "read-only"`. No `access` key means you may write.
+- `research_get` returns `role` on the research: `viewer`, `editor` or `owner`.
+
+A `viewer` gets `your role in this team does not allow this` on the first write.
+Discovering that after an interview wastes the user's answers, so check before
+you ask. A research you created yourself is always writable. See
+[Access](/llms/mcp-client-guide.md#access-you-can-see-more-than-you-can-write).
+
 ## Step 1: Initialize
 
 Use the `research/initialize` MCP prompt or create via API:

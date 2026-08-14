@@ -28,7 +28,7 @@ func (h *ExternalLinkHandler) ListByResearch(w http.ResponseWriter, r *http.Requ
 
 	links, err := h.links.FindByResearch(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (h *ExternalLinkHandler) ListByEntry(w http.ResponseWriter, r *http.Request
 
 	links, err := h.links.FindBySource(r.Context(), "entry", entryID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

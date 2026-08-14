@@ -44,6 +44,8 @@ func NewServer(
 	roadmapSvc *service.RoadmapService,
 	exportSvc *service.ExportService,
 	obsidianSvc *service.ObsidianService,
+	teamSvc *service.TeamService,
+	access *service.Access,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
 	entryRepo *storage.EntryRepository,
@@ -60,6 +62,7 @@ func NewServer(
 	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
+	tmh := handlers.NewTeamHandler(teamSvc, researchSvc, log)
 
 	// Build auth middleware functions
 	var requireAuth func(http.Handler) http.Handler
@@ -107,15 +110,26 @@ func NewServer(
 
 	// wrapRead applies optional auth to read endpoints (user scoping when auth enabled)
 	wrapRead := func(h http.HandlerFunc) http.Handler {
-		if optionalAuth != nil {
+		if requireAuth != nil {
 			return requireAuth(http.HandlerFunc(h))
+		}
+		return h
+	}
+
+	// wrapOptional attaches a session when the request carries one and lets it
+	// through when it does not. Only the invitation preview uses it: someone
+	// following a link has no account yet and still has to be told what they
+	// are being invited to — but if they are signed in, the answer says more.
+	wrapOptional := func(h http.HandlerFunc) http.Handler {
+		if optionalAuth != nil {
+			return optionalAuth(http.HandlerFunc(h))
 		}
 		return h
 	}
 
 	// --- Auth endpoints (only when auth enabled) ---
 	if cfg.AuthEnabled && authSvc != nil {
-		ah := handlers.NewAuthHandler(authSvc, cfg.AutoLoginToken, log)
+		ah := handlers.NewAuthHandler(authSvc, teamSvc, cfg.AutoLoginToken, log)
 		mux.HandleFunc("POST /api/auth/register", ah.Register)
 		mux.HandleFunc("POST /api/auth/login", ah.Login)
 		mux.Handle("GET /api/auth/me", requireAuth(http.HandlerFunc(ah.Me)))
@@ -167,7 +181,7 @@ func NewServer(
 	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))
-	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, access, log)
 	crReadHandler.SetRoadmapService(roadmapSvc)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
@@ -203,12 +217,12 @@ func NewServer(
 	mux.Handle("GET /api/roadmaps/{id}", wrapRead(rmh.Get))
 
 	// --- Graph endpoint ---
-	gh := handlers.NewGraphHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, entryRepo, crossrefRepo, log)
+	gh := handlers.NewGraphHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, entryRepo, crossrefRepo, access, log)
 	mux.Handle("GET /api/researches/{id}/graph", wrapRead(gh.Get))
 
 	// --- Write endpoints ---
 	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
-	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, access, log)
 	crh.SetRoadmapService(roadmapSvc)
 
 	mux.Handle("POST /api/researches", wrap(wh.CreateResearch))
@@ -232,6 +246,27 @@ func NewServer(
 	mux.Handle("PUT /api/roadmap-nodes/{nodeId}", wrap(rmh.UpdateNode))
 	mux.Handle("POST /api/researches/{id}/crossrefs/rebuild", wrap(crh.Rebuild))
 
+	// --- Teams ---
+	//
+	// Every route here is scoped by membership inside TeamService, so wrapRead
+	// and wrap do the same job they do elsewhere: put the caller in the
+	// context. The one exception is the invite preview, which is reachable
+	// without a session on purpose.
+	mux.Handle("GET /api/teams", wrapRead(tmh.List))
+	mux.Handle("GET /api/teams/{id}", wrapRead(tmh.Get))
+	mux.Handle("POST /api/teams", wrap(tmh.Create))
+	mux.Handle("PUT /api/teams/{id}", wrap(tmh.Update))
+	mux.Handle("DELETE /api/teams/{id}", wrap(tmh.Delete))
+	mux.Handle("GET /api/teams/{id}/members", wrapRead(tmh.Members))
+	mux.Handle("PUT /api/teams/{id}/members/{userId}", wrap(tmh.UpdateMember))
+	mux.Handle("DELETE /api/teams/{id}/members/{userId}", wrap(tmh.RemoveMember))
+	mux.Handle("GET /api/teams/{id}/invites", wrapRead(tmh.Invites))
+	mux.Handle("POST /api/teams/{id}/invites", wrap(tmh.CreateInvite))
+	mux.Handle("DELETE /api/invites/{id}", wrap(tmh.RevokeInvite))
+	mux.Handle("GET /api/invites/{token}", wrapOptional(tmh.PreviewInvite))
+	mux.Handle("POST /api/invites/{token}/accept", wrap(tmh.AcceptInvite))
+	mux.Handle("POST /api/researches/{id}/transfer", wrap(tmh.TransferResearch))
+
 	// Backfill short codes for all records missing them
 	mux.Handle("POST /api/admin/backfill-codes", wrap(func(w http.ResponseWriter, r *http.Request) {
 		count, err := storage.BackfillCodes(r.Context(), db)
@@ -251,7 +286,13 @@ func NewServer(
 	}
 
 	// WebSocket
-	mux.HandleFunc("/ws", ws.HandleWebSocket(hub))
+	// The hub decides delivery per event, so this only has to establish who is
+	// on the other end. With auth off it takes anyone, as it always has.
+	var wsValidator ws.TokenValidator
+	if authSvc != nil {
+		wsValidator = authSvc
+	}
+	mux.HandleFunc("/ws", ws.HandleWebSocket(hub, wsValidator))
 
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {

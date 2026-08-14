@@ -273,18 +273,20 @@ The markdown/JSON exports above are for reading. To move a research to another s
 
 ```
 GET  /api/researches/{id}/export/portable   -> portable JSON (downloaded as <name>.json)
-POST /api/researches/import                 -> body is that JSON, returns the new research_id and code
+POST /api/researches/import[?team={id}]     -> body is that JSON, returns the new research_id and code
 ```
 
 The `research_export` MCP tool returns the same portable payload for a research ID or short code — that is what `format` defaults to.
 
 Import re-creates entities from scratch: new UUIDs, new short codes, cross-references re-parsed from the imported content.
 
+**Where the import lands.** The new research goes into the caller's personal team unless another one is named: `?team={id}` on the REST route, `team_id` on the `research_import` tool. Naming a team you are not in is `not found`; naming one where you are only a `viewer` is refused with `your role in this team does not allow this`. Ownership does not travel with the payload — the export carries no team and no user.
+
 **No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server. The vault's `_history/` tables (`revisions=true`) are a readable record, not a transferable one — nothing imports them back.
 
 ## Auth
 
-Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see the caller's own researches. `POST /api/researches/import` is a write endpoint and always requires the bearer token when `api_token` or `auth_enabled` is configured.
+Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, or the Obsidian vault, exactly as an `editor` can. `POST /api/researches/import` is a write endpoint: it always requires the bearer token when `api_token` or `auth_enabled` is configured, and it needs editor or owner rights in whichever team it imports into.
 
 ## Block Documents in Export
 

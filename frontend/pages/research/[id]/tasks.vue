@@ -21,7 +21,8 @@
           <span class="task-counter">{{ tasks.length }}</span>
         </div>
         <div class="tasks-actions">
-          <button class="btn btn-sm btn-primary" @click="showCreateModal = true">
+          <TeamViewerNotice v-if="isViewer" :team-name="research?.team_name" />
+          <button v-if="canWrite" class="btn btn-sm btn-primary" @click="showCreateModal = true">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New task
           </button>
@@ -75,6 +76,13 @@ const id = route.params.id as string
 // Research data
 const { data: researchData, pending } = await useApi<{ data: any }>(`/api/researches/${id}`)
 const research = computed(() => researchData.value?.data?.research)
+
+// Every research-scoped page publishes the caller's role from the payload it
+// already fetches, so the controls beneath it — down to a checkbox inside
+// rendered content — know whether they may write.
+const { canWrite, canAdmin, isViewer, setFromResearch } = useResearchRole()
+watch(researchData, (d) => setFromResearch(d?.data?.research), { immediate: true })
+
 const researchSlug = computed(() => research.value?.code || id)
 
 // Tasks

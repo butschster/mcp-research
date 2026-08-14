@@ -115,8 +115,11 @@ GET  /api/sessions/{id}/changes                everything a session created or c
 `{id}` on the entry routes is the entry **UUID** — unlike `GET /api/entries/{id}`,
 they do not resolve an `E`-code. The session route takes a UUID or an `SS` code.
 The four `GET`s are read endpoints: unauthenticated by default, bearer token
-required when `auth_enabled` is set. The restore is a write and needs the token
-whenever `api_token` or `auth_enabled` is configured.
+required when `auth_enabled` is set, and readable by any member of the owning
+team — a `viewer` may read history and diffs. The restore is a write: it needs
+the token whenever `api_token` or `auth_enabled` is configured, and an `editor`
+or `owner` role. A `viewer` restoring gets `403` /
+`your role in this team does not allow this`.
 
 ## Restoring
 

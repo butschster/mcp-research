@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
@@ -58,6 +57,7 @@ type EntryService struct {
 	entries       *storage.EntryRepository
 	sections      *storage.SectionRepository
 	researches    *storage.ResearchRepository
+	access        *Access
 	sessions      *storage.SessionRepository
 	blocks        *storage.BlockRepository
 	revisions     *storage.EntryRevisionRepository
@@ -73,8 +73,8 @@ type EntryService struct {
 	revisionLimit int
 }
 
-func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, sessions *storage.SessionRepository, blocks *storage.BlockRepository, revisions *storage.EntryRevisionRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
-	return &EntryService{entries: entries, sections: sections, researches: researches, sessions: sessions, blocks: blocks, revisions: revisions, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
+func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, access *Access, sessions *storage.SessionRepository, blocks *storage.BlockRepository, revisions *storage.EntryRevisionRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
+	return &EntryService{entries: entries, sections: sections, researches: researches, access: access, sessions: sessions, blocks: blocks, revisions: revisions, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
 }
 
 // SetRevisionLimit caps how much history an entry keeps. Revision 1 always
@@ -90,7 +90,7 @@ func (s *EntryService) SetRoadmapRepos(roadmaps *storage.RoadmapRepository, node
 
 func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*domain.Entry, error) {
 	// Validate research exists and current user has access
-	if err := validateResearchAccess(ctx, s.researches, req.ResearchID); err != nil {
+	if err := s.access.Write(ctx, req.ResearchID); err != nil {
 		return nil, fmt.Errorf("research %s: %w", req.ResearchID, err)
 	}
 
@@ -283,7 +283,7 @@ func (s *EntryService) Get(ctx context.Context, id string) (*domain.Entry, error
 	if entry == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
+	if err := s.access.Read(ctx, entry.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 	return entry, nil
@@ -291,7 +291,7 @@ func (s *EntryService) Get(ctx context.Context, id string) (*domain.Entry, error
 
 // GetByIDOrCode resolves an entry by UUID or short code within a research.
 func (s *EntryService) GetByIDOrCode(ctx context.Context, researchID, idOrCode string) (*domain.Entry, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, ErrNotFound
 	}
 	// Try UUID first
@@ -318,14 +318,14 @@ func (s *EntryService) GetByIDOrCode(ctx context.Context, researchID, idOrCode s
 }
 
 func (s *EntryService) List(ctx context.Context, researchID, sectionID string, filter storage.EntryFilter) ([]*domain.Entry, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
 	return s.entries.FindBySection(ctx, researchID, sectionID, filter)
 }
 
 func (s *EntryService) ListByResearch(ctx context.Context, researchID string, filter storage.EntryFilter) ([]*domain.Entry, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
 	return s.entries.FindByResearch(ctx, researchID, filter)
@@ -346,8 +346,8 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 	if entry == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, entry.ResearchID); err != nil {
+		return nil, err
 	}
 	// Remembered before anything below can rewrite it: an entry that stops being
 	// a block document has to take its rows with it.
@@ -467,8 +467,8 @@ func (s *EntryService) Delete(ctx context.Context, id string) error {
 	if entry == nil {
 		return ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
-		return ErrNotFound
+	if err := s.access.Write(ctx, entry.ResearchID); err != nil {
+		return err
 	}
 
 	// Clean up cross-references and external links
@@ -487,7 +487,13 @@ func (s *EntryService) Delete(ctx context.Context, id string) error {
 }
 
 // RebuildCrossRefs rescans all entries in a research and rebuilds cross-references.
+//
+// It rewrites stored rows, so it is a write however much it reads: a viewer
+// pointing this at a research would edit its index.
 func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) (int, error) {
+	if err := s.access.Write(ctx, researchID); err != nil {
+		return 0, err
+	}
 	entries, err := s.entries.FindByResearchWithContent(ctx, researchID)
 	if err != nil {
 		return 0, fmt.Errorf("fetch entries: %w", err)
@@ -617,8 +623,12 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 		kind, first, second := parseRef(raw)
 
 		switch kind {
+		// Every branch below resolves whatever the code names, without asking
+		// what the author may see. Codes are global, so these lookups reach
+		// anyone's work — and the reader, not the author, is who decides
+		// whether a resolved reference is shown: see Access.VisibleCrossRefs.
 		case "roadmap":
-			// [[RM1]] — link to a roadmap in the same research
+			// [[RM1]] — link to a roadmap.
 			if s.roadmaps != nil {
 				rm, err := s.roadmaps.FindByCode(ctx, first)
 				if err == nil && rm != nil {
@@ -628,7 +638,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 				}
 			}
 		case "node":
-			// [[RM1:N3]] — link to a specific node in a roadmap
+			// [[RM1:N3]] — link to a specific node in a roadmap.
 			if s.roadmaps != nil && s.roadmapNodes != nil {
 				rm, err := s.roadmaps.FindByCode(ctx, first)
 				if err == nil && rm != nil {
@@ -644,7 +654,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 		case "research":
 			// [[R2]] — link to a research
 			targetResearch, err := s.researches.FindByCode(ctx, first)
-			if err == nil && targetResearch != nil && s.mayReference(ctx, targetResearch) {
+			if err == nil && targetResearch != nil {
 				cr.TargetResearchID = targetResearch.ID
 				cr.Resolved = true
 			}
@@ -653,7 +663,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 			if first != "" {
 				// Cross-research: [[R2:E5]]
 				targetResearch, err := s.researches.FindByCode(ctx, first)
-				if err == nil && targetResearch != nil && s.mayReference(ctx, targetResearch) {
+				if err == nil && targetResearch != nil {
 					cr.TargetResearchID = targetResearch.ID
 					if second != "" {
 						targetEntry, err := s.entries.FindByCode(ctx, targetResearch.ID, second)
@@ -845,15 +855,3 @@ func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (st
 	}
 }
 
-// mayReference decides whether a cross-reference may resolve to a research the
-// author does not own.
-//
-// A short code is global, so [[R2:E5]] used to resolve into anyone's research and
-// store its entry's uuid in the caller's own crossrefs table — which turned
-// writing [[R1:E1]], [[R1:E2]], … in your own entry into a way to harvest another
-// user's entry ids. A reference across a USER boundary simply stays unresolved:
-// the [[…]] still renders as text, it just does not become a link.
-func (s *EntryService) mayReference(ctx context.Context, target *domain.Research) bool {
-	uid := auth.UserIDFromContext(ctx)
-	return uid == "" || target.UserID == "" || target.UserID == uid
-}

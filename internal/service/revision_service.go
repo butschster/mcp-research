@@ -393,7 +393,7 @@ type SessionEntryChange struct {
 // entries the session edited without creating, it says how much changed, and it
 // can show it.
 func (s *EntryService) SessionChanges(ctx context.Context, researchID, sessionID string) ([]*SessionEntryChange, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
 	if s.revisions == nil {

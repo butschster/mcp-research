@@ -9,6 +9,7 @@ import (
 	"github.com/butschster/mcp-research/internal/config"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/google/uuid"
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
@@ -43,12 +44,45 @@ func (m *mockNotifier) hasEvent(eventType string) bool {
 
 func ptr[T any](v T) *T { return &v }
 
+// testAccess builds the guard every service is handed. Tests construct
+// services by hand, so this is the one place the wiring lives for them.
+func testAccess(db *sql.DB) *Access {
+	return NewAccess(storage.NewTeamRepository(db))
+}
+
+// createTestUser makes a user with the personal team registration would have
+// given them. Without the team the account cannot create a research at all, so
+// a test that skips it is testing a state the product never produces.
+func createTestUser(t *testing.T, db *sql.DB, email, name string) *domain.User {
+	t.Helper()
+	ctx := context.Background()
+
+	user := &domain.User{ID: uuid.New().String(), Email: email, PasswordHash: "x", Name: name}
+	if err := storage.NewUserRepository(db).Create(ctx, user); err != nil {
+		t.Fatalf("create user %s: %v", email, err)
+	}
+	team := &domain.Team{ID: uuid.New().String(), Name: name, Personal: true, CreatedBy: user.ID}
+	if err := storage.NewTeamRepository(db).CreateWithOwner(ctx, team, user.ID); err != nil {
+		t.Fatalf("create personal team for %s: %v", email, err)
+	}
+	return user
+}
+
+// addToTeam puts a user in an existing team with a role, which is how a test
+// builds the shared-team cases the ownership model never had.
+func addToTeam(t *testing.T, db *sql.DB, teamID, userID string, role domain.TeamRole) {
+	t.Helper()
+	if err := storage.NewTeamRepository(db).AddMember(context.Background(), teamID, userID, role, ""); err != nil {
+		t.Fatalf("add member: %v", err)
+	}
+}
+
 // createTestResearch is a helper that creates a research record for FK constraints.
 func createTestResearch(t *testing.T, db *sql.DB) *domain.Research {
 	t.Helper()
 	ctx := context.Background()
 	repo := storage.NewResearchRepository(db)
-	svc := NewResearchService(repo, storage.NewSectionRepository(db), &mockNotifier{}, slog.Default())
+	svc := NewResearchService(repo, storage.NewSectionRepository(db), storage.NewTeamRepository(db), testAccess(db), &mockNotifier{}, slog.Default())
 	r, _, err := svc.Create(ctx, CreateResearchRequest{
 		Name:        "Test Research",
 		Description: "A test research project",
@@ -65,7 +99,7 @@ func createTestResearchWithSection(t *testing.T, db *sql.DB) (*domain.Research, 
 	t.Helper()
 	ctx := context.Background()
 	repo := storage.NewResearchRepository(db)
-	svc := NewResearchService(repo, storage.NewSectionRepository(db), &mockNotifier{}, slog.Default())
+	svc := NewResearchService(repo, storage.NewSectionRepository(db), storage.NewTeamRepository(db), testAccess(db), &mockNotifier{}, slog.Default())
 	r, sections, err := svc.Create(ctx, CreateResearchRequest{
 		Name:        "Test Research",
 		Description: "A test research project",

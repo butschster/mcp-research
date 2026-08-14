@@ -19,7 +19,7 @@
             <div class="field" @dblclick="startEditing('title')">
               <div class="field-header">
                 <label class="field-label">Title</label>
-                <button v-if="editing !== 'title'" class="field-edit-btn" @click="startEditing('title')" title="Edit">
+                <button v-if="canWrite && editing !== 'title'" class="field-edit-btn" @click="startEditing('title')" title="Edit">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
               </div>
@@ -57,7 +57,7 @@
               <div class="field-header">
                 <label class="field-label">Priority</label>
               </div>
-              <div class="priority-selector">
+              <div v-if="canWrite" class="priority-selector">
                 <button
                   v-for="p in ['low', 'medium', 'high']"
                   :key="p"
@@ -65,6 +65,7 @@
                   @click="$emit('updatePriority', p)"
                 >{{ p }}</button>
               </div>
+              <StatusBadge v-else :status="task.priority" />
             </div>
             <div v-if="task.created_at" class="field">
               <div class="field-header">
@@ -88,7 +89,7 @@
             <div class="field" @dblclick="startEditing('description')">
               <div class="field-header">
                 <label class="field-label">Task description</label>
-                <button v-if="editing !== 'description'" class="field-edit-btn" @click="startEditing('description')" title="Edit">
+                <button v-if="canWrite && editing !== 'description'" class="field-edit-btn" @click="startEditing('description')" title="Edit">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
               </div>
@@ -126,7 +127,7 @@
             <div class="field" @dblclick="startEditing('result')">
               <div class="field-header">
                 <label class="field-label">Outcome or notes</label>
-                <button v-if="editing !== 'result'" class="field-edit-btn" @click="startEditing('result')" title="Edit">
+                <button v-if="canWrite && editing !== 'result'" class="field-edit-btn" @click="startEditing('result')" title="Edit">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
               </div>
@@ -177,6 +178,10 @@ const emit = defineEmits<{
   save: [field: string, value: string]
   updatePriority: [priority: string]
 }>()
+
+// A viewer reads the same fields; the pencils and the priority chips go, and
+// priority renders as the badge it already is elsewhere.
+const { canWrite } = useResearchRole()
 
 const editing = ref<string | null>(null)
 const editValues = reactive({ title: '', description: '', result: '' })
@@ -231,16 +236,6 @@ function saveField(field: string) {
   align-items: center;
   padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--color-border);
-}
-.modal-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
 }
 .header-code {
   font-size: var(--type-xs);
@@ -309,11 +304,6 @@ function saveField(field: string) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-1);
-}
-.field-label {
-  font-size: var(--type-xs);
-  font-weight: 500;
-  color: var(--color-text-muted);
 }
 .field-edit-btn {
   display: flex;

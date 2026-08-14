@@ -27,6 +27,7 @@ const config: StorybookConfig = {
           '@': path.resolve(__dirname, '..'),
           '#imports': path.resolve(__dirname, './stubs/imports.ts'),
           '#app': path.resolve(__dirname, './stubs/app.ts'),
+          '#components': path.resolve(__dirname, './stubs/components.ts'),
         },
       },
       plugins: [
@@ -38,6 +39,19 @@ const config: StorybookConfig = {
             {
               [path.resolve(__dirname, '../composables/useCrossRefs')]: ['renderRefs'],
               [path.resolve(__dirname, '../composables/useTagHue')]: ['tagHue'],
+              // Pure formatting over a string — the real one, so a card in the
+              // catalogue reads the same "2h ago" the product does.
+              [path.resolve(__dirname, '../composables/useRelativeTime')]: [
+                'relativeTime',
+                'absoluteTime',
+                'parseTimestamp',
+              ],
+              // Module-scoped role state. The stories set it through the real
+              // composable so a viewer story renders the viewer's card.
+              [path.resolve(__dirname, '../composables/useResearchRole')]: ['useResearchRole'],
+              // Real composable, not a stub: it is module-scoped state plus
+              // vue refs, so a component that raises a toast raises a real one.
+              [path.resolve(__dirname, '../composables/useToasts')]: ['useToasts'],
               [path.resolve(__dirname, './stubs/imports')]: [
                 'useApi',
                 'useAuth',

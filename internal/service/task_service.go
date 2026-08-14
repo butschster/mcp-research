@@ -29,17 +29,18 @@ type UpdateTaskRequest struct {
 type TaskService struct {
 	tasks      *storage.TaskRepository
 	researches *storage.ResearchRepository
+	access     *Access
 	crossrefs  CrossRefParser
 	events     EventNotifier
 	log        *slog.Logger
 }
 
-func NewTaskService(tasks *storage.TaskRepository, researches *storage.ResearchRepository, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *TaskService {
-	return &TaskService{tasks: tasks, researches: researches, crossrefs: crossrefs, events: events, log: log}
+func NewTaskService(tasks *storage.TaskRepository, researches *storage.ResearchRepository, access *Access, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *TaskService {
+	return &TaskService{tasks: tasks, researches: researches, access: access, crossrefs: crossrefs, events: events, log: log}
 }
 
 func (s *TaskService) Create(ctx context.Context, req CreateTaskRequest) (*domain.Task, error) {
-	if err := validateResearchAccess(ctx, s.researches, req.ResearchID); err != nil {
+	if err := s.access.Write(ctx, req.ResearchID); err != nil {
 		return nil, fmt.Errorf("research %s: %w", req.ResearchID, err)
 	}
 
@@ -73,14 +74,14 @@ func (s *TaskService) Get(ctx context.Context, id string) (*domain.Task, error) 
 	if task == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, task.ResearchID); err != nil {
+	if err := s.access.Read(ctx, task.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 	return task, nil
 }
 
 func (s *TaskService) List(ctx context.Context, researchID string, filter storage.TaskFilter) ([]*domain.Task, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
 	return s.tasks.FindByResearch(ctx, researchID, filter)
@@ -94,8 +95,8 @@ func (s *TaskService) Update(ctx context.Context, id string, req UpdateTaskReque
 	if task == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, task.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, task.ResearchID); err != nil {
+		return nil, err
 	}
 
 	if req.Title != nil {
@@ -143,8 +144,8 @@ func (s *TaskService) Delete(ctx context.Context, id string) error {
 	if task == nil {
 		return ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, task.ResearchID); err != nil {
-		return ErrNotFound
+	if err := s.access.Write(ctx, task.ResearchID); err != nil {
+		return err
 	}
 	if err := s.tasks.Delete(ctx, id); err != nil {
 		return err

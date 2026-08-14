@@ -26,6 +26,7 @@ type AuthService struct {
 	apiKeys           *storage.APIKeyRepository
 	oauthRepo         *storage.OAuthRepository
 	researches        *storage.ResearchRepository
+	teams             *storage.TeamRepository
 	jwt               *auth.JWTManager
 	allowRegistration bool
 	log               *slog.Logger
@@ -36,6 +37,7 @@ func NewAuthService(
 	apiKeys *storage.APIKeyRepository,
 	oauthRepo *storage.OAuthRepository,
 	researches *storage.ResearchRepository,
+	teams *storage.TeamRepository,
 	jwt *auth.JWTManager,
 	allowRegistration bool,
 	log *slog.Logger,
@@ -45,6 +47,7 @@ func NewAuthService(
 		apiKeys:           apiKeys,
 		oauthRepo:         oauthRepo,
 		researches:        researches,
+		teams:             teams,
 		jwt:               jwt,
 		allowRegistration: allowRegistration,
 		log:               log,
@@ -55,7 +58,20 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	if !s.allowRegistration {
 		return nil, "", ErrRegistrationClosed
 	}
+	return s.register(ctx, email, password, name)
+}
 
+// RegisterInvited creates an account for someone holding a valid invitation,
+// whether or not open registration is on. The invite is the authorization:
+// without this, turning registration off would make it impossible to bring
+// anyone onto a team, which is the one thing invitations exist for.
+//
+// The caller must have already validated the invite.
+func (s *AuthService) RegisterInvited(ctx context.Context, email, password, name string) (*domain.User, string, error) {
+	return s.register(ctx, email, password, name)
+}
+
+func (s *AuthService) register(ctx context.Context, email, password, name string) (*domain.User, string, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
 		return nil, "", ErrInvalidEmail
@@ -88,10 +104,23 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		return nil, "", fmt.Errorf("create user: %w", err)
 	}
 
+	// The personal team is not optional: without one the user cannot create a
+	// research at all, so a failure here is a failed registration rather than
+	// something to log and carry on from.
+	team := &domain.Team{
+		ID:        uuid.New().String(),
+		Name:      personalTeamName(user),
+		Personal:  true,
+		CreatedBy: user.ID,
+	}
+	if err := s.teams.CreateWithOwner(ctx, team, user.ID); err != nil {
+		return nil, "", fmt.Errorf("create personal team: %w", err)
+	}
+
 	// First user claims orphaned researches
 	count, _ := s.users.Count(ctx)
 	if count == 1 {
-		if n, err := s.researches.ClaimOrphanedResearches(ctx, user.ID); err == nil && n > 0 {
+		if n, err := s.researches.ClaimOrphanedResearches(ctx, user.ID, team.ID); err == nil && n > 0 {
 			s.log.Info("claimed orphaned researches for first user", "user", user.Email, "count", n)
 		}
 	}
@@ -102,6 +131,18 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	}
 
 	return user, token, nil
+}
+
+// personalTeamName is what the user will see in a team picker before they have
+// ever thought about teams, so it is their own name rather than "Personal".
+func personalTeamName(user *domain.User) string {
+	if name := strings.TrimSpace(user.Name); name != "" {
+		return name
+	}
+	if i := strings.Index(user.Email, "@"); i > 0 {
+		return user.Email[:i]
+	}
+	return user.Email
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (*domain.User, string, error) {
@@ -171,6 +212,20 @@ func (s *AuthService) ValidateToken(ctx context.Context, token string) (*domain.
 	}
 
 	return nil, nil
+}
+
+// UserIDForToken resolves a credential to a user id, or "" for anything it
+// does not accept. It is what the WebSocket handshake authenticates with —
+// the same JWT, API key or OAuth token every other route takes.
+func (s *AuthService) UserIDForToken(ctx context.Context, token string) string {
+	if s == nil {
+		return ""
+	}
+	user, err := s.ValidateToken(ctx, token)
+	if err != nil || user == nil {
+		return ""
+	}
+	return user.ID
 }
 
 // CreateAPIKey generates a new API key for the user.

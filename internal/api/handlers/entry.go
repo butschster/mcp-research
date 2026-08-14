@@ -95,7 +95,7 @@ func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Reque
 
 	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags, auth.UserIDFromContext(r.Context()))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "entry not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -177,7 +177,7 @@ func (h *EntryHandler) GetRelated(w http.ResponseWriter, r *http.Request) {
 
 	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags, auth.UserIDFromContext(r.Context()))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

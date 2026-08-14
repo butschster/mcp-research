@@ -1,5 +1,14 @@
 <script setup lang="ts">
 const { login, authEnabled, allowRegistration } = useAuth()
+const route = useRoute()
+
+// Where to land afterwards. An invitation link sends people here and has to get
+// them back, so signing in resumes the journey instead of ending it on the
+// research list.
+const next = computed(() => safeNext(route.query.next) ?? '/')
+const registerLink = computed(() =>
+  route.query.next ? `/register?next=${encodeURIComponent(String(route.query.next))}` : '/register',
+)
 
 const email = ref('')
 const password = ref('')
@@ -18,7 +27,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     await login(email.value, password.value)
-    navigateTo('/')
+    navigateTo(next.value)
   } catch (e: any) {
     error.value = e?.data?.error || e?.message || 'Login failed'
   } finally {
@@ -100,7 +109,7 @@ async function handleSubmit() {
           </form>
 
           <p v-if="allowRegistration" class="auth-footer">
-            Don't have an account? <NuxtLink to="/register" class="auth-link">Create one</NuxtLink>
+            Don't have an account? <NuxtLink :to="registerLink" class="auth-link">Create one</NuxtLink>
           </p>
         </div>
       </div>

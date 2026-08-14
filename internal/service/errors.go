@@ -1,16 +1,17 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"unicode"
-
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/storage"
 )
 
 var (
-	ErrNotFound             = errors.New("not found")
+	ErrNotFound = errors.New("not found")
+	// ErrForbidden is for a caller who may see the research but not do this to
+	// it — a viewer trying to write. It is deliberately distinct from
+	// ErrNotFound: hiding a research from someone who can already read it
+	// protects nothing and reads as a bug.
+	ErrForbidden            = errors.New("your role in this team does not allow this")
 	ErrDuplicateSectionName = errors.New("section name already exists in this research")
 	ErrSectionHasNoEntries  = errors.New("cannot complete a section with no entries")
 	ErrTextReplaceNotFound  = errors.New("text_replace: from string not found in content")
@@ -19,21 +20,6 @@ var (
 	ErrAnswerRequired       = errors.New("answered questions must have a non-empty answer")
 	ErrMutualExclusion      = errors.New("mutually exclusive fields provided")
 )
-
-// validateResearchAccess checks that the research exists and the current user owns it.
-func validateResearchAccess(ctx context.Context, repo *storage.ResearchRepository, researchID string) error {
-	research, err := repo.FindByID(ctx, researchID)
-	if err != nil {
-		return err
-	}
-	if research == nil {
-		return ErrNotFound
-	}
-	if uid := auth.UserIDFromContext(ctx); uid != "" && research.UserID != "" && research.UserID != uid {
-		return ErrNotFound
-	}
-	return nil
-}
 
 // isCode returns true if s looks like a short code (e.g. R1, E23, SS1, T5, Q3) rather than a UUID.
 func isCode(s string) bool {

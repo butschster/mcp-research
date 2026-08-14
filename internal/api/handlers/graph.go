@@ -17,6 +17,7 @@ type GraphHandler struct {
 	task      *service.TaskService
 	entries   *storage.EntryRepository
 	crossrefs *storage.CrossRefRepository
+	access    *service.Access
 	log       *slog.Logger
 }
 
@@ -28,12 +29,13 @@ func NewGraphHandler(
 	task *service.TaskService,
 	entries *storage.EntryRepository,
 	crossrefs *storage.CrossRefRepository,
+	access *service.Access,
 	log *slog.Logger,
 ) *GraphHandler {
 	return &GraphHandler{
 		research: research, section: section, entry: entry,
 		session: session, task: task, entries: entries,
-		crossrefs: crossrefs, log: log,
+		crossrefs: crossrefs, access: access, log: log,
 	}
 }
 
@@ -80,7 +82,7 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	// 1. Sections
 	sections, err := h.section.List(ctx, researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	sectionNames := map[string]string{} // id -> display_name
@@ -99,7 +101,7 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	// 2. Entries (with tags)
 	allEntries, err := h.entries.FindByResearch(ctx, researchID, storage.EntryFilter{})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	entryTags := map[string][]string{}  // entry_id -> tags
@@ -170,9 +172,11 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 5. Cross-references
+	// 5. Cross-references, as this reader may see them: an edge into a research
+	// they cannot open would put its id in the graph.
 	refs, err := h.crossrefs.FindByResearch(ctx, researchID)
 	if err == nil {
+		refs = h.access.VisibleCrossRefs(ctx, refs)
 		for _, ref := range refs {
 			if !ref.Resolved {
 				continue

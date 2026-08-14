@@ -28,7 +28,7 @@ func (h *SessionHandler) ListByResearch(w http.ResponseWriter, r *http.Request) 
 
 	sessions, err := h.session.ListByResearch(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

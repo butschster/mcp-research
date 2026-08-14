@@ -13,10 +13,10 @@ import (
 func TestSectionService_List(t *testing.T) {
 	db := setupTestDB(t)
 	r, sec := createTestResearchWithSection(t, db)
-	svc := NewSectionService(
-		storage.NewSectionRepository(db),
+	svc := NewSectionService(storage.NewSectionRepository(db),
 		storage.NewEntryRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -37,10 +37,10 @@ func TestSectionService_List(t *testing.T) {
 func TestSectionService_Get(t *testing.T) {
 	db := setupTestDB(t)
 	_, sec := createTestResearchWithSection(t, db)
-	svc := NewSectionService(
-		storage.NewSectionRepository(db),
+	svc := NewSectionService(storage.NewSectionRepository(db),
 		storage.NewEntryRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -69,7 +69,7 @@ func TestSectionService_Update(t *testing.T) {
 	notifier := &mockNotifier{}
 	sectionRepo := storage.NewSectionRepository(db)
 	entryRepo := storage.NewEntryRepository(db)
-	svc := NewSectionService(sectionRepo, entryRepo, storage.NewResearchRepository(db), notifier, slog.Default())
+	svc := NewSectionService(sectionRepo, entryRepo, storage.NewResearchRepository(db), testAccess(db), notifier, slog.Default())
 	ctx := context.Background()
 
 	t.Run("partial updates", func(t *testing.T) {
@@ -117,7 +117,7 @@ func TestSectionService_Update(t *testing.T) {
 		r, sec := createTestResearchWithSection(t, db)
 
 		// Create an entry in the section
-		entrySvc := NewEntryService(entryRepo, sectionRepo, storage.NewResearchRepository(db), nil, storage.NewBlockRepository(db), storage.NewEntryRevisionRepository(db), storage.NewCrossRefRepository(db), nil, &mockNotifier{}, slog.Default())
+		entrySvc := NewEntryService(entryRepo, sectionRepo, storage.NewResearchRepository(db), testAccess(db), nil, storage.NewBlockRepository(db), storage.NewEntryRevisionRepository(db), storage.NewCrossRefRepository(db), nil, &mockNotifier{}, slog.Default())
 		_, err := entrySvc.Create(ctx, CreateEntryRequest{
 			ResearchID: r.ID,
 			SectionID:  sec.ID,

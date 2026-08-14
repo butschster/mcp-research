@@ -4,9 +4,23 @@
  * `relativeTime` already existed privately inside ResearchCard; it is lifted
  * here so the revision history and the card agree on what "2h ago" means.
  */
+/**
+ * Reads a timestamp the API might send in either shape.
+ *
+ * SQLite stores `2026-08-14 15:59:40` and the JSON encoder emits
+ * `2026-08-14T15:59:40Z`; a bare `new Date()` reads the first as **local** time
+ * and the second as UTC, so the same instant came out hours apart depending on
+ * which route returned it. Everything that parses a timestamp goes through
+ * here.
+ */
+export function parseTimestamp(iso: string): Date {
+  if (!iso) return new Date(NaN)
+  return new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z')
+}
+
 export function relativeTime(iso: string): string {
   if (!iso) return ''
-  const then = new Date(iso).getTime()
+  const then = parseTimestamp(iso).getTime()
   if (Number.isNaN(then)) return iso
 
   const diff = Date.now() - then
@@ -26,6 +40,6 @@ export function absoluteTime(
   opts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' },
 ): string {
   if (!iso) return ''
-  const d = new Date(iso)
+  const d = parseTimestamp(iso)
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, opts)
 }

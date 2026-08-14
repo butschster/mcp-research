@@ -15,6 +15,10 @@ type ResearchCreateInput struct {
 	Goal        string             `json:"goal" jsonschema:"What the research aims to achieve"`
 	Tags        []string           `json:"tags" jsonschema:"Tags for categorization"`
 	Sections    []SectionSpecInput `json:"sections" jsonschema:"Initial sections to create"`
+	// Without this the agent's work always landed in the caller's personal
+	// team and had to be moved by hand afterwards, which is the wrong default
+	// for anyone who set a team up in order to work in it.
+	TeamID *string `json:"team_id,omitempty" jsonschema:"Team to create it in. Use team_list to find one. Defaults to your personal team."`
 }
 
 type SectionSpecInput struct {
@@ -27,7 +31,7 @@ type SectionSpecInput struct {
 func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *slog.Logger) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "research_create",
-		Description: "Creates a new research project with optional initial sections. Returns the research_id and count of sections created.",
+		Description: "Creates a new research project with optional initial sections, in your personal team unless team_id names another one you may write to (see team_list). Returns the research_id and count of sections created.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ResearchCreateInput) (*mcp.CallToolResult, any, error) {
 		var errs []string
 		if input.Name == "" {
@@ -53,6 +57,7 @@ func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *
 		}
 
 		research, createdSections, err := svc.Create(ctx, service.CreateResearchRequest{
+			TeamID:      derefStr(input.TeamID),
 			Name:        input.Name,
 			Description: input.Description,
 			Goal:        input.Goal,
@@ -64,13 +69,17 @@ func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *
 			return errorResult(err.Error())
 		}
 
-		return successResult(map[string]any{
+		result := map[string]any{
 			"research_id":      research.ID,
 			"code":             research.Code,
 			"name":             research.Name,
 			"status":           research.Status,
 			"sections_created": len(createdSections),
 			"hint":             "Use [[" + research.Code + "]] to reference this research from other entries. Use [[" + research.Code + ":E1]] to reference a specific entry.",
-		})
+		}
+		if research.TeamName != "" && !research.TeamPersonal {
+			result["team"] = research.TeamName
+		}
+		return successResult(result)
 	})
 }

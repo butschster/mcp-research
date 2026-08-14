@@ -54,17 +54,18 @@ type SessionService struct {
 	sessions   *storage.SessionRepository
 	questions  *storage.QuestionRepository
 	researches *storage.ResearchRepository
+	access     *Access
 	crossrefs  CrossRefParser
 	events     EventNotifier
 	log        *slog.Logger
 }
 
-func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, researches *storage.ResearchRepository, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *SessionService {
-	return &SessionService{db: db, sessions: sessions, questions: questions, researches: researches, crossrefs: crossrefs, events: events, log: log}
+func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, researches *storage.ResearchRepository, access *Access, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *SessionService {
+	return &SessionService{db: db, sessions: sessions, questions: questions, researches: researches, access: access, crossrefs: crossrefs, events: events, log: log}
 }
 
 func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (*domain.Session, []*domain.Question, error) {
-	if err := validateResearchAccess(ctx, s.researches, req.ResearchID); err != nil {
+	if err := s.access.Write(ctx, req.ResearchID); err != nil {
 		return nil, nil, fmt.Errorf("research %s: %w", req.ResearchID, err)
 	}
 
@@ -135,7 +136,7 @@ func (s *SessionService) Get(ctx context.Context, id string) (*SessionWithQuesti
 		return nil, ErrNotFound
 	}
 	id = session.ID
-	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
+	if err := s.access.Read(ctx, session.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 
@@ -170,7 +171,7 @@ func (s *SessionService) Get(ctx context.Context, id string) (*SessionWithQuesti
 }
 
 func (s *SessionService) GetByIDOrCode(ctx context.Context, researchID string, idOrCode string) (*SessionWithQuestions, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, ErrNotFound
 	}
 
@@ -233,8 +234,8 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 	if session == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, session.ResearchID); err != nil {
+		return nil, err
 	}
 
 	if req.Title != nil {
@@ -266,7 +267,7 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 }
 
 func (s *SessionService) ListByResearch(ctx context.Context, researchID string) ([]*domain.Session, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
 	return s.sessions.FindByResearch(ctx, researchID)
@@ -288,8 +289,8 @@ func (s *SessionService) AddQuestions(ctx context.Context, sessionID string, req
 	if session == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, session.ResearchID); err != nil {
+		return nil, err
 	}
 
 	var questions []*domain.Question
@@ -339,6 +340,21 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 		return nil, ErrNotFound
 	}
 
+	// `question_update` takes a caller-supplied question id and writes an
+	// answer to it. Without this, holding a question's UUID was enough to
+	// write into someone else's research — the same hole its sibling
+	// ListQuestions carried, one method over.
+	session, err := s.sessions.FindByID(ctx, question.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("find session: %w", err)
+	}
+	if session == nil {
+		return nil, ErrNotFound
+	}
+	if err := s.access.Write(ctx, session.ResearchID); err != nil {
+		return nil, err
+	}
+
 	if status != nil {
 		question.Status = *status
 	}
@@ -357,13 +373,10 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 
 	// Parse crossrefs from answer text
 	if s.crossrefs != nil && question.Answer != "" {
-		session, _ := s.sessions.FindByID(ctx, question.SessionID)
-		if session != nil {
-			s.crossrefs.ParseCrossRefs(ctx, "question", question.ID, session.ResearchID, question.Answer)
-		}
+		s.crossrefs.ParseCrossRefs(ctx, "question", question.ID, session.ResearchID, question.Answer)
 	}
 
-	s.events.Notify(Event{Type: "question.updated", EntityID: question.ID, Entity: "question"})
+	s.events.Notify(Event{Type: "question.updated", ResearchID: session.ResearchID, EntityID: question.ID, Entity: "question"})
 	return question, nil
 }
 
@@ -382,7 +395,7 @@ func (s *SessionService) ListQuestions(ctx context.Context, sessionID string, fi
 	if session == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
+	if err := s.access.Read(ctx, session.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 	return s.questions.FindBySession(ctx, sessionID, filter)

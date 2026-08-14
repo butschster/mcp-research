@@ -89,13 +89,6 @@ function onCreate() {
   padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--color-border);
 }
-.modal-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-}
 .modal-close {
   display: flex;
   align-items: center;
@@ -121,37 +114,13 @@ function onCreate() {
   padding: var(--space-5) var(--space-6);
 }
 
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  border-top: 1px solid var(--color-border);
-}
 
 .form-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
-.form-label {
-  font-size: var(--type-xs);
-  font-weight: 500;
-  color: var(--color-text-muted);
-}
-.form-input, .form-textarea {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--type-sm);
-  font-family: inherit;
-  line-height: 1.5;
-}
 .form-textarea { resize: vertical; min-height: 60px; }
-.form-input:focus, .form-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
 
 .priority-selector {
   display: flex;

@@ -13,9 +13,9 @@ import (
 func TestTaskService_Create(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewTaskService(
-		storage.NewTaskRepository(db),
+	svc := NewTaskService(storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		notifier,
 		slog.Default(),
@@ -82,9 +82,9 @@ func TestTaskService_Create(t *testing.T) {
 
 func TestTaskService_Get(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewTaskService(
-		storage.NewTaskRepository(db),
+	svc := NewTaskService(storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		&mockNotifier{},
 		slog.Default(),
@@ -116,9 +116,9 @@ func TestTaskService_Get(t *testing.T) {
 
 func TestTaskService_List(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewTaskService(
-		storage.NewTaskRepository(db),
+	svc := NewTaskService(storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		&mockNotifier{},
 		slog.Default(),
@@ -165,9 +165,9 @@ func TestTaskService_List(t *testing.T) {
 func TestTaskService_Update(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewTaskService(
-		storage.NewTaskRepository(db),
+	svc := NewTaskService(storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		notifier,
 		slog.Default(),
@@ -262,9 +262,9 @@ func TestTaskService_Update(t *testing.T) {
 func TestTaskService_Delete(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewTaskService(
-		storage.NewTaskRepository(db),
+	svc := NewTaskService(storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		notifier,
 		slog.Default(),
@@ -301,9 +301,9 @@ func TestTaskService_Delete(t *testing.T) {
 
 func TestTaskService_CountByStatus(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewTaskService(
-		storage.NewTaskRepository(db),
+	svc := NewTaskService(storage.NewTaskRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		&mockNotifier{},
 		slog.Default(),
