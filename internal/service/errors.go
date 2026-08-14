@@ -14,7 +14,7 @@ var (
 	ErrDuplicateSectionName = errors.New("section name already exists in this research")
 	ErrSectionHasNoEntries  = errors.New("cannot complete a section with no entries")
 	ErrTextReplaceNotFound  = errors.New("text_replace: from string not found in content")
-	ErrTextReplaceOnBlocks  = errors.New("text_replace does not work on a blocks entry: it would edit the stored JSON as text. Send the whole document in content instead")
+	ErrTextReplaceOnBlocks  = errors.New("text_replace does not work on a blocks entry: it would edit the stored JSON as text. Use entry_patch to change one block, or send the whole document in content")
 	ErrQuestionDepthLimit   = errors.New("question nesting depth limit exceeded (max 3 levels)")
 	ErrAnswerRequired       = errors.New("answered questions must have a non-empty answer")
 	ErrMutualExclusion      = errors.New("mutually exclusive fields provided")

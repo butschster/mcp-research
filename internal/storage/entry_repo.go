@@ -273,7 +273,10 @@ func (r *EntryRepository) FindTagsByResearch(ctx context.Context, researchID str
 
 // FindRelatedByTags returns entries that share at least one tag with the given entry,
 // excluding the entry itself. Results are ordered by number of shared tags (descending).
-func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string) ([]*domain.Entry, error) {
+// FindRelatedByTags matches entries sharing tags. userID scopes it exactly as
+// SearchEntries does: without it, tagging an entry "security" listed every
+// user's entries with that tag, ids and all.
+func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string, userID string) ([]*domain.Entry, error) {
 	if len(tags) == 0 {
 		return nil, nil
 	}
@@ -288,13 +291,17 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 		placeholders += "?"
 		args = append(args, t)
 	}
-	args = append(args, entryID)
+	args = append(args, entryID, userID, userID)
 
 	query := fmt.Sprintf(
 		`SELECT e.id, e.code, e.research_id, e.section_id, e.session_id, e.entry_type, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at,
 		        COUNT(*) as shared
 		 FROM entries e, json_each(e.tags) jt
 		 WHERE jt.value IN (%s) AND e.id != ?
+		   AND (? = '' OR EXISTS (
+		         SELECT 1 FROM researches res
+		          WHERE res.id = e.research_id
+		            AND (res.user_id IS NULL OR res.user_id = '' OR res.user_id = ?)))
 		 GROUP BY e.id
 		 ORDER BY shared DESC, e.created_at DESC`, placeholders)
 

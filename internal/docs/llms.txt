@@ -7,7 +7,7 @@
 ```
 Research (R1, R2...) — statuses: active, completed, archived
   |-- Section (S1, S2...) — logical topics within a research
-  |     |-- Entry (E1, E2...) — markdown documents with findings
+  |     |-- Entry (E1, E2...) — markdown or block documents with findings
   |
   |-- Session (SS1, SS2...) — interactive Q&A interview (multiple per research)
   |     |-- Question (Q1, Q2...) — structured prompts with answers
@@ -41,7 +41,7 @@ A research can have **multiple sessions** (e.g. initial exploration, deep-dive, 
 
 ## Docs
 
-- [MCP Client Guide](/llms/mcp-client-guide.md): Practical guide for AI assistants interacting via MCP tools. Covers all 32 tools, the input-schema contract (every property required, which ones accept `null`), content formatting (newlines, markdown, cross-references), entry types, roadmap node types, entity references, common pitfalls, and where short codes are accepted. Start here if you are an MCP client.
+- [MCP Client Guide](/llms/mcp-client-guide.md): Practical guide for AI assistants interacting via MCP tools. Covers all 33 tools, the input-schema contract (every property required, which ones accept `null`), content formatting (newlines, markdown, cross-references), entry types, roadmap node types, entity references, common pitfalls, and where short codes are accepted. Start here if you are an MCP client.
 - [Domain Guide](/llms/domain-guide.md): Complete reference for every entity (Research, Section, Entry, Session, Question, Task, Roadmap, CrossRef). Describes fields, statuses, relationships, lifecycle, and when to use each entity. Includes tagging strategy, cross-reference syntax, and tips.
 - [Conducting Research](/llms/conducting-research.md): Step-by-step guide on how to initialize, conduct, and complete a research project. Interview workflow, entry creation with cross-references, task tracking, roadmap creation, and best practices.
 - [Tasks](/llms/tasks.md): Guide to using tasks for tracking work items, action items, and outcomes within a research. When to create tasks, statuses, priorities, tasks vs questions, and best practices.

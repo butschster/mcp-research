@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
@@ -107,6 +108,11 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 			entryType, domain.EntryMarkdown, domain.EntryBlocks, domain.EntryArtifact)
 	}
 
+	// Kept because normalization is about to strip server-owned state out of it,
+	// and on creation that state is the only copy there is — an imported research
+	// carries its ticks in the file and nowhere else.
+	authored := req.Content
+
 	// Content normalization depends on the type and must happen after it is known:
 	// normalizeContent expands a literal \n, which inside a block document's JSON
 	// strings would produce a real newline and make the JSON unparseable.
@@ -184,7 +190,14 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		if derr != nil {
 			return nil, derr
 		}
-		report, serr := s.saveBlockDocument(ctx, entry, doc)
+		// On creation the author owns the state: this is how an imported research
+		// keeps the ticks it was exported with. Every later write strips it —
+		// Terraform draws the same line, honouring a field on create and ignoring
+		// it on update.
+		if incoming, perr := ParseStoredBlockDocument(authored); perr == nil {
+			carryAuthoredState(doc, incoming)
+		}
+		report, serr := s.saveBlockDocument(ctx, entry, doc, stateAuthoritative)
 		if serr != nil {
 			return nil, serr
 		}
@@ -220,6 +233,11 @@ func (s *EntryService) GetByIDOrCode(ctx context.Context, researchID, idOrCode s
 	entry, err := s.entries.FindByID(ctx, idOrCode)
 	if err != nil {
 		return nil, fmt.Errorf("find entry: %w", err)
+	}
+	// A UUID resolves globally, so it can name an entry of a research the caller
+	// was never checked against — the access check above only covered researchID.
+	if entry != nil && entry.ResearchID != researchID {
+		return nil, ErrNotFound
 	}
 	// If not found and looks like a code, try by code
 	if entry == nil && isCode(idOrCode) {
@@ -330,7 +348,7 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		if derr != nil {
 			return nil, derr
 		}
-		report, serr := s.saveBlockDocument(ctx, entry, doc)
+		report, serr := s.saveBlockDocument(ctx, entry, doc, stateFromAuthor)
 		if serr != nil {
 			return nil, serr
 		}
@@ -539,7 +557,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 		case "research":
 			// [[R2]] — link to a research
 			targetResearch, err := s.researches.FindByCode(ctx, first)
-			if err == nil && targetResearch != nil {
+			if err == nil && targetResearch != nil && s.mayReference(ctx, targetResearch) {
 				cr.TargetResearchID = targetResearch.ID
 				cr.Resolved = true
 			}
@@ -548,7 +566,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 			if first != "" {
 				// Cross-research: [[R2:E5]]
 				targetResearch, err := s.researches.FindByCode(ctx, first)
-				if err == nil && targetResearch != nil {
+				if err == nil && targetResearch != nil && s.mayReference(ctx, targetResearch) {
 					cr.TargetResearchID = targetResearch.ID
 					if second != "" {
 						targetEntry, err := s.entries.FindByCode(ctx, targetResearch.ID, second)
@@ -693,7 +711,7 @@ func (s *EntryService) convertStoredContent(entry *domain.Entry, target domain.E
 
 	switch {
 	case target == domain.EntryMarkdown && from == domain.EntryBlocks:
-		doc, err := NormalizeBlockDocument(entry.Content)
+		doc, err := ParseStoredBlockDocument(entry.Content)
 		if err != nil {
 			return "", "", fmt.Errorf("cannot convert to markdown: %w", err)
 		}
@@ -738,4 +756,17 @@ func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (st
 	default:
 		return normalizeContent(raw), domain.EntryMarkdown, nil
 	}
+}
+
+// mayReference decides whether a cross-reference may resolve to a research the
+// author does not own.
+//
+// A short code is global, so [[R2:E5]] used to resolve into anyone's research and
+// store its entry's uuid in the caller's own crossrefs table — which turned
+// writing [[R1:E1]], [[R1:E2]], … in your own entry into a way to harvest another
+// user's entry ids. A reference across a USER boundary simply stays unresolved:
+// the [[…]] still renders as text, it just does not become a link.
+func (s *EntryService) mayReference(ctx context.Context, target *domain.Research) bool {
+	uid := auth.UserIDFromContext(ctx)
+	return uid == "" || target.UserID == "" || target.UserID == uid
 }

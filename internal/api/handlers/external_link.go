@@ -11,11 +11,12 @@ import (
 type ExternalLinkHandler struct {
 	links    *storage.ExternalLinkRepository
 	research *service.ResearchService
+	entrySvc *service.EntryService
 	log      *slog.Logger
 }
 
-func NewExternalLinkHandler(links *storage.ExternalLinkRepository, research *service.ResearchService, log *slog.Logger) *ExternalLinkHandler {
-	return &ExternalLinkHandler{links: links, research: research, log: log}
+func NewExternalLinkHandler(links *storage.ExternalLinkRepository, research *service.ResearchService, entrySvc *service.EntryService, log *slog.Logger) *ExternalLinkHandler {
+	return &ExternalLinkHandler{links: links, research: research, entrySvc: entrySvc, log: log}
 }
 
 func (h *ExternalLinkHandler) ListByResearch(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +66,13 @@ func (h *ExternalLinkHandler) ListByResearch(w http.ResponseWriter, r *http.Requ
 
 func (h *ExternalLinkHandler) ListByEntry(w http.ResponseWriter, r *http.Request) {
 	entryID := r.PathValue("id")
+
+	// The entry has to be one the caller may open: this endpoint used to take any
+	// entry uuid and return that entry's code, title and outbound links.
+	if _, err := h.entrySvc.Get(r.Context(), entryID); err != nil {
+		writeError(w, http.StatusNotFound, "entry not found")
+		return
+	}
 
 	links, err := h.links.FindBySource(r.Context(), "entry", entryID)
 	if err != nil {

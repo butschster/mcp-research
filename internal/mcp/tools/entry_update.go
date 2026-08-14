@@ -29,7 +29,7 @@ type TextReplaceSpec struct {
 func RegisterEntryUpdate(srv *mcp.Server, svc *service.EntryService, log *slog.Logger) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "entry_update",
-		Description: "Updates an entry. Supports text_replace for surgical content edits (replaces first occurrence of 'from' with 'to'). Only provided fields are updated.",
+		Description: "Updates an entry. Only provided fields are updated. text_replace does surgical edits of a markdown entry and is refused on a blocks entry — use entry_patch there, which edits blocks by id.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input EntryUpdateInput) (*mcp.CallToolResult, any, error) {
 		if input.EntryID == "" {
 			return validationErrorResult([]string{"entry_id is required"})
@@ -69,11 +69,21 @@ func RegisterEntryUpdate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 			return errorResult(err.Error())
 		}
 
-		return successResult(map[string]any{
+		result := map[string]any{
 			"entry_id": entry.ID,
 			"title":    entry.Title,
 			"status":   entry.Status,
 			"updated":  true,
-		})
+		}
+		// The whole-document rewrite is exactly where a human's checklist ticks
+		// die, and they die silently unless the writer is told.
+		if r := entry.BlockReport; r != nil {
+			result["blocks"] = r.Blocks
+			result["blocks_reidentified"] = r.Reidentified
+			result["state_preserved"] = r.StatePreserved
+			result["state_lost"] = r.StateLost
+			result["rev"] = service.DocumentRev(entry.Content)
+		}
+		return successResult(result)
 	})
 }

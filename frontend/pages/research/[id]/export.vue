@@ -1,10 +1,10 @@
 <template>
-  <div ref="docRoot" v-if="pending" class="skeleton-page">
+  <div v-if="pending" class="skeleton-page">
     <div class="skeleton-card" style="height: 60px; margin-bottom: 2rem;"></div>
     <div class="skeleton-card" style="height: 600px;"></div>
   </div>
 
-  <div v-else-if="exportData" class="export-page">
+  <div ref="docRoot" v-else-if="exportData" class="export-page">
     <!-- Toolbar (hidden in print) -->
     <div class="export-toolbar no-print">
       <Breadcrumbs :crumbs="[

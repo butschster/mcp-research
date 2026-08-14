@@ -142,8 +142,9 @@ An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
 
 - **Markdown export** (`?format=md`, and the `markdown` field of the JSON
   responses) serializes the blocks: headings, lists, tables, quotes and code
-  become their markdown equivalents, and a `callout` becomes a labelled
-  blockquote.
+  become their markdown equivalents, a `callout` becomes a labelled blockquote, a
+  `mermaid` block becomes a ```mermaid fence, and a `checklist` becomes a GitHub
+  task list carrying the ticks as they stand.
 - **An `html` block is named, not emitted.** The export gets
   `*<title> — interactive HTML, view in the web UI.*` and its caption. A whole
   HTML document in a markdown file is not readable, is not markdown, and inlined

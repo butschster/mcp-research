@@ -82,6 +82,7 @@ func RegisterEntryPatch(srv *mcp.Server, svc *service.EntryService, log *slog.Lo
 		}
 		if entry.BlockReport != nil {
 			result["blocks"] = entry.BlockReport.Blocks
+			result["blocks_reidentified"] = entry.BlockReport.Reidentified
 			result["state_preserved"] = entry.BlockReport.StatePreserved
 			result["state_lost"] = entry.BlockReport.StateLost
 		}

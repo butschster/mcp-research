@@ -55,7 +55,7 @@ func NewServer(
 	mux := http.NewServeMux()
 
 	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, log)
-	eh := handlers.NewEntryHandler(entrySvc, entryRepo, researchRepo, log)
+	eh := handlers.NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, log)
 	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
@@ -148,7 +148,7 @@ func NewServer(
 	crReadHandler.SetRoadmapService(roadmapSvc)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
-	elHandler := handlers.NewExternalLinkHandler(externalLinkRepo, researchSvc, log)
+	elHandler := handlers.NewExternalLinkHandler(externalLinkRepo, researchSvc, entrySvc, log)
 	mux.Handle("GET /api/researches/{id}/links", wrapRead(elHandler.ListByResearch))
 	mux.Handle("GET /api/entries/{id}/links", wrapRead(elHandler.ListByEntry))
 	mux.Handle("GET /api/entries/{id}/related", wrapRead(eh.GetRelated))

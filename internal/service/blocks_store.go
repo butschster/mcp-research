@@ -143,7 +143,20 @@ func normalizeItemText(s string) string {
 // documentToRows converts a normalized document into rows, carrying state
 // forward from prev. Matching is by block id first — the identity the format is
 // built on — then by item text for blocks whose id was not recognized.
-func documentToRows(entry *domain.Entry, doc *domain.BlockDocument, prev []storage.BlockRow) ([]storage.BlockRow, domain.BlockSaveReport) {
+// stateSource says where the state in doc came from.
+//
+// A patch works on the document the server itself assembled, so its state IS the
+// truth — including the absence of a tick, which is how unticking the last item
+// of a block is expressed. Author content is the opposite: state was stripped on
+// the way in, so anything stored has to be carried forward.
+type stateSource int
+
+const (
+	stateFromAuthor stateSource = iota
+	stateAuthoritative
+)
+
+func documentToRows(entry *domain.Entry, doc *domain.BlockDocument, prev []storage.BlockRow, src stateSource) ([]storage.BlockRow, domain.BlockSaveReport) {
 	byID := make(map[string]storage.BlockRow, len(prev))
 	for _, r := range prev {
 		byID[r.BlockID] = r
@@ -152,7 +165,6 @@ func documentToRows(entry *domain.Entry, doc *domain.BlockDocument, prev []stora
 
 	report := domain.BlockSaveReport{Blocks: len(doc.Blocks)}
 	rows := make([]storage.BlockRow, 0, len(doc.Blocks))
-	carriedText := map[string]bool{}
 
 	for i, b := range doc.Blocks {
 		data, incoming := splitState(b.Data)
@@ -162,20 +174,24 @@ func documentToRows(entry *domain.Entry, doc *domain.BlockDocument, prev []stora
 		}
 
 		state := incoming
-		if old, ok := byID[b.ID]; ok {
-			if old.Type == string(b.Type) && state == "" {
-				state = old.State
-			}
-		} else {
-			report.Reidentified++
-			// The id is new. If this block's items carry text the previous
-			// document had ticked, the human's intent survives the rename.
-			if state == "" {
-				if revived := reviveByText(data, byText, carriedText); revived != "" {
-					state = revived
+		if src == stateFromAuthor {
+			if old, ok := byID[b.ID]; ok {
+				if old.Type == string(b.Type) && state == "" {
+					state = old.State
+				}
+			} else {
+				report.Reidentified++
+				// The id is new. If this block's items carry text the previous
+				// document had ticked, the human's intent survives the rename.
+				if state == "" {
+					state = reviveByText(data, byText)
 				}
 			}
 		}
+		// A tick whose item is gone is not a tick. Dropping it here is what keeps
+		// the report honest: an agent that kept the block id but re-keyed its
+		// items used to be told nothing was lost while every box went blank.
+		state = pruneState(state, data)
 		rows = append(rows, storage.BlockRow{
 			EntryID:    entry.ID,
 			ResearchID: entry.ResearchID,
@@ -193,7 +209,10 @@ func documentToRows(entry *domain.Entry, doc *domain.BlockDocument, prev []stora
 
 // reviveByText rebuilds a state map for a block whose id changed, from item text
 // that was ticked in the previous document.
-func reviveByText(data map[string]any, byText, used map[string]bool) string {
+// reviveByText consumes what it matches: one tick in the old document may revive
+// exactly one item. Otherwise a document rewritten into two checklists that share
+// an item text would show work done twice that nobody did once.
+func reviveByText(data map[string]any, byText map[string]bool) string {
 	if len(byText) == 0 {
 		return ""
 	}
@@ -204,12 +223,38 @@ func reviveByText(data map[string]any, byText, used map[string]bool) string {
 			continue
 		}
 		state[key] = true
-		used[norm] = true
+		delete(byText, norm)
 	}
 	if len(state) == 0 {
 		return ""
 	}
 	b, err := json.Marshal(state)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// pruneState drops ticks whose item no longer exists in the block.
+func pruneState(raw string, data map[string]any) string {
+	st := parseState(raw)
+	if len(st) == 0 {
+		return ""
+	}
+	live := itemTexts(data)
+	kept := map[string]any{}
+	for key, v := range st {
+		if _, ok := live[key]; !ok {
+			continue
+		}
+		if b, isBool := v.(bool); isBool && b {
+			kept[key] = true
+		}
+	}
+	if len(kept) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(kept)
 	if err != nil {
 		return ""
 	}
@@ -244,18 +289,43 @@ func countChecked(raw string) int {
 }
 
 // LoadBlockDocument reads an entry's blocks from their rows.
-func (s *EntryService) LoadBlockDocument(ctx context.Context, entryID string) (*domain.BlockDocument, error) {
-	rows, err := s.blocks.FindByEntry(ctx, nil, entryID)
+//
+// A blocks entry with no rows falls back to its projection. Migration 017
+// backfills every document that predates the rows, but a fallback that costs one
+// parse is worth having: without it an entry that slipped through would look
+// empty, and a patch that appends to an empty document REPLACES the article.
+func (s *EntryService) LoadBlockDocument(ctx context.Context, entry *domain.Entry) (*domain.BlockDocument, error) {
+	rows, err := s.blocks.FindByEntry(ctx, nil, entry.ID)
 	if err != nil {
 		return nil, err
+	}
+	if len(rows) == 0 && strings.TrimSpace(entry.Content) != "" {
+		doc, perr := ParseStoredBlockDocument(entry.Content)
+		if perr != nil {
+			return nil, fmt.Errorf("entry %s has no blocks and its content is not a document: %w", entry.Code, perr)
+		}
+		return doc, nil
 	}
 	return rowsToDocument(rows), nil
 }
 
-// saveBlockDocument writes a document as rows and projects it back into
-// entries.content, both inside one transaction. A half-written document is the
-// worst thing this product could store, so the two never happen separately.
-func (s *EntryService) saveBlockDocument(ctx context.Context, entry *domain.Entry, doc *domain.BlockDocument) (domain.BlockSaveReport, error) {
+// mutateBlocks is the only way a block document changes.
+//
+// The document is loaded, changed and written inside ONE transaction. Reading it
+// outside was a real lost update, not a theoretical one: two people ticking two
+// items of the same checklist both read the same rows, and the second write
+// carried the first one's box back to unticked while reporting success.
+//
+// expectedRev, when set, is checked against the document as it is inside the
+// transaction — checking it against a copy read earlier would leave the same
+// window open one layer up.
+func (s *EntryService) mutateBlocks(
+	ctx context.Context,
+	entry *domain.Entry,
+	expectedRev string,
+	src stateSource,
+	mutate func(doc *domain.BlockDocument) error,
+) (domain.BlockSaveReport, error) {
 	var report domain.BlockSaveReport
 
 	tx, err := s.blocks.DB().BeginTx(ctx, nil)
@@ -268,15 +338,40 @@ func (s *EntryService) saveBlockDocument(ctx context.Context, entry *domain.Entr
 	if err != nil {
 		return report, err
 	}
-	rows, rep := documentToRows(entry, doc, prev)
+
+	doc := rowsToDocument(prev)
+	if len(prev) == 0 && strings.TrimSpace(entry.Content) != "" {
+		// Rows are missing for a document that predates them (migration 017
+		// backfills, this covers whatever slipped past). Without it a patch would
+		// append to an empty document and replace the article with one block.
+		if parsed, perr := ParseStoredBlockDocument(entry.Content); perr == nil {
+			doc = parsed
+		}
+	}
+
+	if expectedRev != "" {
+		current, merr := MarshalBlockDocument(doc)
+		if merr != nil {
+			return report, merr
+		}
+		if DocumentRev(current) != expectedRev {
+			return report, ErrConflict
+		}
+	}
+
+	if err := mutate(doc); err != nil {
+		return report, err
+	}
+
+	rows, rep := documentToRows(entry, doc, prev, src)
 	report = rep
 
 	if err := s.blocks.ReplaceForEntry(ctx, tx, entry.ID, rows); err != nil {
 		return report, err
 	}
 
-	// The projection is what every reader sees, so it is built from the rows
-	// just written rather than from the document that produced them.
+	// The projection is what every reader sees, so it is built from the rows just
+	// written rather than from the document that produced them.
 	projection, err := MarshalBlockDocument(rowsToDocument(rows))
 	if err != nil {
 		return report, err
@@ -289,4 +384,47 @@ func (s *EntryService) saveBlockDocument(ctx context.Context, entry *domain.Entr
 		return report, fmt.Errorf("commit: %w", err)
 	}
 	return report, nil
+}
+
+// saveBlockDocument replaces a document wholesale.
+func (s *EntryService) saveBlockDocument(ctx context.Context, entry *domain.Entry, doc *domain.BlockDocument, src stateSource) (domain.BlockSaveReport, error) {
+	return s.mutateBlocks(ctx, entry, "", src, func(cur *domain.BlockDocument) error {
+		cur.Version = doc.Version
+		cur.Blocks = doc.Blocks
+		return nil
+	})
+}
+
+// carryAuthoredState copies state from a document as its author sent it onto the
+// normalized one, matching by block id and keeping only keys the normalized block
+// still has. Used on creation and import, where there is no stored state to carry
+// forward and the file is the only place ticks can come from.
+func carryAuthoredState(doc, authored *domain.BlockDocument) {
+	if doc == nil || authored == nil {
+		return
+	}
+	byID := make(map[string]domain.Block, len(authored.Blocks))
+	for _, b := range authored.Blocks {
+		if b.ID != "" {
+			byID[b.ID] = b
+		}
+	}
+	for i, b := range doc.Blocks {
+		src, ok := byID[b.ID]
+		if !ok || src.Type != b.Type {
+			continue
+		}
+		raw, _ := src.Data[blockStateKey].(map[string]any)
+		if len(raw) == 0 {
+			continue
+		}
+		encoded, err := json.Marshal(raw)
+		if err != nil {
+			continue
+		}
+		if pruned := pruneState(string(encoded), b.Data); pruned != "" {
+			state := parseState(pruned)
+			doc.Blocks[i].Data[blockStateKey] = state
+		}
+	}
 }

@@ -30,3 +30,20 @@ CREATE INDEX IF NOT EXISTS idx_entry_blocks_order ON entry_blocks(entry_id, posi
 
 -- Owner-scoped block queries: "find the block", rather than "find the entry".
 CREATE INDEX IF NOT EXISTS idx_entry_blocks_research ON entry_blocks(research_id, type);
+
+-- Backfill. Documents written before this migration live only in entries.content,
+-- and a patch reads rows: without this, the first insert into such a document
+-- would replace it with the one block that was inserted. Every stored document
+-- already carries block ids (the normalizer fills them), so identity survives.
+INSERT INTO entry_blocks (entry_id, research_id, block_id, position, type, data, state)
+SELECT e.id,
+       e.research_id,
+       COALESCE(json_extract(b.value, '$.id'), lower(hex(randomblob(4)))),
+       b.key,
+       COALESCE(json_extract(b.value, '$.type'), 'paragraph'),
+       COALESCE(json_extract(b.value, '$.data'), '{}'),
+       ''
+  FROM entries e, json_each(json_extract(e.content, '$.blocks')) b
+ WHERE e.entry_type = 'blocks'
+   AND json_valid(e.content)
+   AND json_extract(e.content, '$.blocks') IS NOT NULL;

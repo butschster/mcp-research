@@ -76,22 +76,14 @@ func (s *EntryService) PatchBlocks(ctx context.Context, entryID string, req Patc
 	if len(req.Ops) == 0 {
 		return nil, fmt.Errorf("no ops given")
 	}
-	if req.Rev != "" && req.Rev != DocumentRev(entry.Content) {
-		return nil, ErrConflict
-	}
-
-	doc, err := s.LoadBlockDocument(ctx, entry.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	blocks, err := applyOps(doc.Blocks, req.Ops)
-	if err != nil {
-		return nil, err
-	}
-	doc.Blocks = blocks
-
-	report, err := s.saveBlockDocument(ctx, entry, doc)
+	report, err := s.mutateBlocks(ctx, entry, req.Rev, stateAuthoritative, func(doc *domain.BlockDocument) error {
+		blocks, aerr := applyOps(doc.Blocks, req.Ops)
+		if aerr != nil {
+			return aerr
+		}
+		doc.Blocks = blocks
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -224,6 +216,17 @@ func applyInsert(blocks []domain.Block, op BlockOp) ([]domain.Block, error) {
 	seen := map[string]bool{}
 	for _, b := range blocks {
 		seen[b.ID] = true
+	}
+	// The schema promises the id you choose is the id a later op can point at.
+	// Silently minting a different one broke that promise and made the next op
+	// fail on an id the caller had every reason to believe existed.
+	if op.ID != "" {
+		if seen[op.ID] {
+			return nil, fmt.Errorf("block id %q is already used in this document", op.ID)
+		}
+		if !blockIDPattern.MatchString(op.ID) {
+			return nil, fmt.Errorf("block id %q is not usable: %s", op.ID, blockIDRule)
+		}
 	}
 	block := domain.Block{ID: blockID(op.ID, seen), Type: domain.BlockType(op.Type), Data: data}
 

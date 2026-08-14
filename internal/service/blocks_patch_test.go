@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -57,7 +58,11 @@ func patchFixture(t *testing.T) (*EntryService, context.Context, *domain.Entry) 
 
 func blocksOf(t *testing.T, svc *EntryService, ctx context.Context, id string) []domain.Block {
 	t.Helper()
-	doc, err := svc.LoadBlockDocument(ctx, id)
+	entry, err := svc.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("get entry: %v", err)
+	}
+	doc, err := svc.LoadBlockDocument(ctx, entry)
 	if err != nil {
 		t.Fatalf("load document: %v", err)
 	}
@@ -329,7 +334,7 @@ func TestProjectionMatchesRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	fromRows, err := svc.LoadBlockDocument(ctx, entry.ID)
+	fromRows, err := svc.LoadBlockDocument(ctx, stored)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -354,3 +359,153 @@ func ids(blocks []domain.Block) []string {
 	}
 	return out
 }
+
+// Every one of these was a real defect found by reviewing the first cut.
+func TestBlockDefectsFoundInReview(t *testing.T) {
+	t.Run("unticking the last item of a block sticks", func(t *testing.T) {
+		svc, ctx, entry := patchFixture(t)
+		on, off := true, false
+		if _, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpSetState, ID: "cccc3333", Item: "k1", Checked: &on},
+		}}); err != nil {
+			t.Fatalf("tick: %v", err)
+		}
+		if _, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpSetState, ID: "cccc3333", Item: "k1", Checked: &off},
+		}}); err != nil {
+			t.Fatalf("untick: %v", err)
+		}
+		for _, b := range blocksOf(t, svc, ctx, entry.ID) {
+			for _, item := range checklistItems(b.Data) {
+				if item.Checked {
+					t.Errorf("item %q is still ticked after being unticked", item.Key)
+				}
+			}
+		}
+	})
+
+	t.Run("a rewrite that re-keys items reports the ticks it killed", func(t *testing.T) {
+		svc, ctx, entry := patchFixture(t)
+		on := true
+		if _, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpSetState, ID: "cccc3333", Item: "k1", Checked: &on},
+		}}); err != nil {
+			t.Fatalf("tick: %v", err)
+		}
+		// Block id kept, items sent as plain strings — which the catalog allows,
+		// and which mints fresh keys. The ticks cannot survive; the report used to
+		// claim they had.
+		rewritten := `{"blocks":[
+			{"id":"cccc3333","type":"checklist","data":{"items":["Something else entirely","And another"]}}
+		]}`
+		updated, err := svc.Update(ctx, entry.ID, UpdateEntryRequest{Content: &rewritten})
+		if err != nil {
+			t.Fatalf("update: %v", err)
+		}
+		if updated.BlockReport == nil || updated.BlockReport.StateLost != 1 {
+			t.Errorf("report = %+v, want state_lost 1", updated.BlockReport)
+		}
+	})
+
+	t.Run("one tick revives at most one item", func(t *testing.T) {
+		svc, ctx, entry := patchFixture(t)
+		on := true
+		if _, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpSetState, ID: "cccc3333", Item: "k1", Checked: &on},
+		}}); err != nil {
+			t.Fatalf("tick: %v", err)
+		}
+		// Two checklists, fresh ids, both containing the ticked text.
+		rewritten := `{"blocks":[
+			{"type":"checklist","data":{"title":"Prod","items":[{"text":"Back up the database"}]}},
+			{"type":"checklist","data":{"title":"Staging","items":[{"text":"back up   the Database"}]}}
+		]}`
+		if _, err := svc.Update(ctx, entry.ID, UpdateEntryRequest{Content: &rewritten}); err != nil {
+			t.Fatalf("update: %v", err)
+		}
+		ticks := 0
+		for _, b := range blocksOf(t, svc, ctx, entry.ID) {
+			for _, item := range checklistItems(b.Data) {
+				if item.Checked {
+					ticks++
+				}
+			}
+		}
+		if ticks != 1 {
+			t.Errorf("ticks = %d, want 1 — one tick must not multiply across blocks", ticks)
+		}
+	})
+
+	t.Run("an id the caller chose is used or refused, never swapped", func(t *testing.T) {
+		svc, ctx, entry := patchFixture(t)
+		_, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpInsert, ID: "todo-1", Type: "paragraph", Data: map[string]any{"text": "x"}},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "not usable") {
+			t.Fatalf("error = %v, want a refusal naming the id rule", err)
+		}
+		_, err = svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpInsert, ID: "aaaa1111", Type: "paragraph", Data: map[string]any{"text": "x"}},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "already used") {
+			t.Fatalf("error = %v, want a refusal for a duplicate id", err)
+		}
+	})
+
+	t.Run("a document whose rows are missing is not truncated by a patch", func(t *testing.T) {
+		svc, ctx, entry := patchFixture(t)
+		// Exactly the state of every blocks entry written before migration 017.
+		if err := svc.blocks.DeleteForEntry(ctx, nil, entry.ID); err != nil {
+			t.Fatalf("clear rows: %v", err)
+		}
+		if _, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpInsert, Type: "paragraph", Data: map[string]any{"text": "appended"}},
+		}}); err != nil {
+			t.Fatalf("patch: %v", err)
+		}
+		got := blocksOf(t, svc, ctx, entry.ID)
+		if len(got) != 4 {
+			t.Fatalf("document holds %d blocks, want the original 3 plus the new one", len(got))
+		}
+	})
+
+	t.Run("ticks survive an export and import round trip", func(t *testing.T) {
+		svc, ctx, entry := patchFixture(t)
+		on := true
+		if _, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{
+			{Op: OpSetState, ID: "cccc3333", Item: "k1", Checked: &on},
+		}}); err != nil {
+			t.Fatalf("tick: %v", err)
+		}
+		exported, err := svc.Get(ctx, entry.ID)
+		if err != nil {
+			t.Fatalf("get: %v", err)
+		}
+
+		// Import re-creates the entry from the exported content.
+		research, sections, _ := NewResearchService(
+			storage.NewResearchRepository(dbOf(svc)), storage.NewSectionRepository(dbOf(svc)), &mockNotifier{}, slog.Default(),
+		).Create(ctx, CreateResearchRequest{Name: "Imported", Goal: "T",
+			Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}}})
+		imported, err := svc.Create(ctx, CreateEntryRequest{
+			ResearchID: research.ID, SectionID: sections[0].ID,
+			Title: "Runbook", Content: exported.Content, Type: domain.EntryBlocks,
+		})
+		if err != nil {
+			t.Fatalf("import: %v", err)
+		}
+		ticks := 0
+		for _, b := range blocksOf(t, svc, ctx, imported.ID) {
+			for _, item := range checklistItems(b.Data) {
+				if item.Checked {
+					ticks++
+				}
+			}
+		}
+		if ticks != 1 {
+			t.Errorf("ticks after a round trip = %d, want 1", ticks)
+		}
+	})
+}
+
+func dbOf(svc *EntryService) *sql.DB { return svc.blocks.DB() }

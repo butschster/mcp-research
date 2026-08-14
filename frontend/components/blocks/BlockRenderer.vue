@@ -205,6 +205,9 @@ function checklistItems(b: Block): CheckItem[] {
 async function toggle(b: Block, item: CheckItem, checked: boolean) {
   if (props.readonly || !props.entryId || !b.id) return
 
+  // Told before the request goes out: the WebSocket echo of this write usually
+  // arrives before its HTTP response, and a refetch mid-tick makes the box blink.
+  emit('ticked')
   optimistic.value = { ...optimistic.value, [item.token]: checked }
   pending.value = new Set(pending.value).add(item.token)
   failed.value.delete(item.token)
@@ -217,7 +220,6 @@ async function toggle(b: Block, item: CheckItem, checked: boolean) {
         ops: [{ op: 'set_state', id: b.id, item: item.key, checked }],
       },
     })
-    emit('ticked')
   } catch {
     // Revert visibly. A silent revert is worse than an error: the reader
     // re-ticks and assumes it stuck.

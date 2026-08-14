@@ -38,7 +38,7 @@ func TestResolveCode_DoesNotCrossUsers(t *testing.T) {
 
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, nopNotifier{}, log)
 	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, nopNotifier{}, log)
-	handler := NewEntryHandler(entrySvc, entryRepo, researchRepo, log)
+	handler := NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, log)
 
 	alice := &domain.User{ID: uuid.New().String(), Email: "alice@test.com", PasswordHash: "x", Name: "Alice"}
 	mallory := &domain.User{ID: uuid.New().String(), Email: "mallory@test.com", PasswordHash: "x", Name: "Mallory"}
@@ -91,6 +91,31 @@ func TestResolveCode_DoesNotCrossUsers(t *testing.T) {
 		}
 		if got.Data.ID != secret.ID {
 			t.Errorf("id = %q, want %q", got.Data.ID, secret.ID)
+		}
+	})
+
+	t.Run("another user cannot use a uuid through their own research", func(t *testing.T) {
+		// The code branch was fixed; the uuid branch of GetByIDOrCode still
+		// resolved globally, so Mallory could pass HER research id and Alice's
+		// entry uuid and read it.
+		mallorysResearch, _, err := researchSvc.Create(auth.WithUser(t.Context(), mallory), service.CreateResearchRequest{
+			Name: "Mallory's Research", Goal: "Test",
+			Sections: []service.CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+		})
+		if err != nil {
+			t.Fatalf("create research: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/x", nil)
+		req.SetPathValue("id", mallorysResearch.ID)
+		req.SetPathValue("code", secret.ID)
+		req = req.WithContext(auth.WithUser(req.Context(), mallory))
+		rec := httptest.NewRecorder()
+		handler.ResolveCode(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("status = %d, want 404", rec.Code)
+		}
+		if strings.Contains(rec.Body.String(), "hunter2") {
+			t.Errorf("response leaked the entry: %s", rec.Body.String())
 		}
 	})
 

@@ -23,7 +23,7 @@ import (
 //  1. domain.BlockType constant
 //  2. a normalizer here
 //  3. a branch in frontend/components/blocks/BlockRenderer.vue
-//  4. the catalog in internal/docs/llms/blocks.md
+//  4. the catalog in internal/docs/blocks.md
 //
 // blockNormalizer validates and clamps one block's data, returning ok=false to
 // drop the block.
@@ -147,6 +147,9 @@ func ArtifactToBlockDocument(html string) *domain.BlockDocument {
 		Blocks:  []domain.Block{{Type: domain.BlockHTML, Data: data}},
 	}
 }
+
+// blockIDRule is the same rule in words, for an error a caller can act on.
+const blockIDRule = "4 to 16 lowercase letters or digits"
 
 var blockIDPattern = regexp.MustCompile(`^[a-z0-9]{4,16}$`)
 

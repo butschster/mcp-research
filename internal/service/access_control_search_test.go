@@ -236,3 +236,89 @@ func TestTextReplaceRefusedOnBlocks(t *testing.T) {
 		}
 	})
 }
+
+// Three more leaks of the same shape, found by auditing the block work: each
+// returned another user's data to an authenticated caller who never touched
+// their research.
+func TestAccessControl_RelatedAndRefs(t *testing.T) {
+	db := setupTestDB(t)
+	log := slog.Default()
+
+	userRepo := storage.NewUserRepository(db)
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	blockRepo := storage.NewBlockRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, &mockNotifier{}, log)
+
+	alice, mallory := setupTwoUsers(t, userRepo)
+	ctxA, ctxM := userCtx(alice), userCtx(mallory)
+
+	researchA, sectionsA, _ := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "T",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	secret, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: researchA.ID, SectionID: sectionsA[0].ID,
+		Title: "Alice's incident notes", Content: "The passphrase is hunter2.",
+		Tags: []string{"security"},
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+
+	researchM, sectionsM, _ := researchSvc.Create(ctxM, CreateResearchRequest{
+		Name: "Mallory's Research", Goal: "T",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+
+	t.Run("tags do not relate entries across users", func(t *testing.T) {
+		mine, err := entrySvc.Create(ctxM, CreateEntryRequest{
+			ResearchID: researchM.ID, SectionID: sectionsM[0].ID,
+			Title: "My notes", Content: "Nothing here.", Tags: []string{"security"},
+		})
+		if err != nil {
+			t.Fatalf("create entry: %v", err)
+		}
+		related, err := entryRepo.FindRelatedByTags(ctxM, mine.ID, []string{"security"}, mallory.ID)
+		if err != nil {
+			t.Fatalf("related: %v", err)
+		}
+		for _, e := range related {
+			if e.ResearchID == researchA.ID {
+				t.Errorf("related entries leaked %q from another user", e.Title)
+			}
+		}
+	})
+
+	t.Run("a cross-research reference does not cross a user", func(t *testing.T) {
+		// Mallory writes [[R1:E1]] in her own entry. It must stay unresolved:
+		// resolving it would store Alice's entry uuid in Mallory's crossrefs,
+		// which is how a foreign id becomes harvestable.
+		body := "See [[" + researchA.Code + ":" + secret.Code + "]]."
+		mine, err := entrySvc.Create(ctxM, CreateEntryRequest{
+			ResearchID: researchM.ID, SectionID: sectionsM[0].ID,
+			Title: "Probe", Content: body,
+		})
+		if err != nil {
+			t.Fatalf("create entry: %v", err)
+		}
+		refs, err := crossrefRepo.FindBySourceEntry(ctxM, mine.ID)
+		if err != nil {
+			t.Fatalf("crossrefs: %v", err)
+		}
+		for _, r := range refs {
+			if r.TargetEntryID == secret.ID || r.TargetResearchID == researchA.ID {
+				t.Errorf("crossref resolved across users: target_entry=%q target_research=%q", r.TargetEntryID, r.TargetResearchID)
+			}
+		}
+	})
+
+	t.Run("a uuid from another research is not readable through your own", func(t *testing.T) {
+		if _, err := entrySvc.GetByIDOrCode(ctxM, researchM.ID, secret.ID); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got %v", err)
+		}
+	})
+}

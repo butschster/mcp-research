@@ -228,8 +228,15 @@ function onTicked() {
   ownWriteAt = Date.now()
 }
 useRealtimeUpdates((event: any) => {
-  if (event?.entity !== 'entry' || event?.entity_id !== entryId) return
-  if (Date.now() - ownWriteAt < 1500) return
+  // The event carries the entry's UUID; the route parameter is usually a short
+  // code (every link in the app builds /entry/E3). Comparing the two meant the
+  // page never refreshed for anyone who arrived by clicking a link.
+  if (event?.entity !== 'entry') return
+  if (event.entity_id !== entry.value?.id && event.entity_id !== entryId) return
+  // A tick this page just made is already on screen; refetching would only make
+  // the checkbox flicker. The window is armed before the request goes out, since
+  // the event usually arrives before the response does.
+  if (Date.now() - ownWriteAt < 1200) return
   refresh()
 })
 const entry = computed(() => data.value?.data)
