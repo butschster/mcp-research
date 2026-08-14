@@ -69,11 +69,22 @@ func blockTextLines(blk domain.Block) []string {
 			out = append(out, strings.Join(parts, " "))
 		}
 		return out
+	case domain.BlockChecklist:
+		out := []string{str(d, "title")}
+		for _, text := range checklistItems(d) {
+			out = append(out, text.Text)
+		}
+		return out
 	case domain.BlockImage:
 		return []string{str(d, "alt"), str(d, "caption")}
 	case domain.BlockHTML:
 		// Only the author-written framing is prose; the document body is not.
 		return []string{str(d, "title"), str(d, "caption")}
+	case domain.BlockMermaid:
+		// Same rule as code and html: the source is notation, the caption is the
+		// author writing. Node labels look like prose but arrive wrapped in
+		// syntax, and indexing them would put `-->` and `subgraph` in the index.
+		return []string{str(d, "caption")}
 	case domain.BlockCode, domain.BlockDivider:
 		return nil
 	}
@@ -208,6 +219,30 @@ func BlockDocumentToMarkdown(doc *domain.BlockDocument) string {
 		case domain.BlockCode:
 			b.WriteString("```" + str(d, "language") + "\n" + str(d, "code") + "\n```\n\n")
 
+		case domain.BlockChecklist:
+			// GitHub task list syntax: the export is a working checklist, and a
+			// reader who has never seen this app still sees what is done.
+			if t := str(d, "title"); t != "" {
+				b.WriteString("**" + t + "**\n\n")
+			}
+			for _, item := range checklistItems(d) {
+				mark := " "
+				if item.Checked {
+					mark = "x"
+				}
+				b.WriteString("- [" + mark + "] " + item.Text + "\n")
+			}
+			b.WriteString("\n")
+
+		case domain.BlockMermaid:
+			// A mermaid fence is markdown that renders: GitHub and this app both
+			// draw it, so the export loses nothing.
+			b.WriteString("```mermaid\n" + str(d, "code") + "\n```\n")
+			if cap := str(d, "caption"); cap != "" {
+				b.WriteString("*" + cap + "*\n")
+			}
+			b.WriteString("\n")
+
 		case domain.BlockCallout:
 			// Markdown has no callout; a blockquote with a label keeps the intent.
 			label := strings.ToUpper(str(d, "variant"))
@@ -247,4 +282,34 @@ func BlockDocumentToMarkdown(doc *domain.BlockDocument) string {
 		}
 	}
 	return strings.TrimRight(b.String(), "\n") + "\n"
+}
+
+// ChecklistItem is one line of a checklist block, with the tick resolved from
+// the block's state map.
+type ChecklistItem struct {
+	Key     string
+	Text    string
+	Checked bool
+}
+
+// checklistItems pairs items with their state, which is stored beside them
+// rather than inside them.
+func checklistItems(d map[string]any) []ChecklistItem {
+	state, _ := d[blockStateKey].(map[string]any)
+	items, _ := d["items"].([]any)
+	out := make([]ChecklistItem, 0, len(items))
+	for _, it := range items {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		key, _ := m["key"].(string)
+		text, _ := m["text"].(string)
+		checked := false
+		if state != nil {
+			checked, _ = state[key].(bool)
+		}
+		out = append(out, ChecklistItem{Key: key, Text: text, Checked: checked})
+	}
+	return out
 }

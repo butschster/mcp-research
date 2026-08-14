@@ -4,7 +4,7 @@
     <div class="skeleton-card" style="height: 600px;"></div>
   </div>
 
-  <div v-else-if="exportData" class="export-page">
+  <div ref="docRoot" v-else-if="exportData" class="export-page">
     <!-- Toolbar (hidden in print) -->
     <div class="export-toolbar no-print">
       <Breadcrumbs :crumbs="[
@@ -85,7 +85,17 @@
           <div v-if="entry.tags?.length" class="entry-meta">
             <span v-for="tag in entry.tags" :key="tag" class="doc-tag doc-tag-sm">{{ tag }}</span>
           </div>
-          <div class="markdown-content" v-html="renderMarkdown(entryBody(entry))"></div>
+          <!-- A blocks entry renders through the block renderer rather than its
+               markdown projection: this page is what becomes the PDF, and a
+               diagram or an HTML visual is exactly what must not be flattened
+               to a note here. Downloading .md still gets the text form. -->
+          <BlocksBlockRenderer
+            v-if="blocksOf(entry)"
+            :blocks="blocksOf(entry)"
+            :research-slug="researchSlug"
+            readonly
+          />
+          <div v-else class="markdown-content" v-html="renderMarkdown(entryBody(entry))"></div>
         </article>
       </section>
 
@@ -134,6 +144,7 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { renderMermaidBlocks } from '~/composables/useMermaid'
 marked.setOptions({ gfm: true, breaks: true })
 
 const route = useRoute()
@@ -151,6 +162,30 @@ const totalEntries = computed(() =>
 function entryBody(entry: any): string {
   return entry?.content_markdown || entry?.content || ''
 }
+
+const docRoot = ref<HTMLElement | null>(null)
+
+// A blocks entry ships its document as JSON; parse it once per entry so the
+// renderer gets blocks rather than a string.
+function blocksOf(entry: any): any[] | null {
+  if (entry?.entry_type !== 'blocks' || !entry?.content) return null
+  try {
+    const doc = JSON.parse(entry.content)
+    const blocks = Array.isArray(doc) ? doc : doc?.blocks
+    return Array.isArray(blocks) && blocks.length ? blocks : null
+  } catch {
+    return null
+  }
+}
+
+// Markdown entries carry their diagrams as ```mermaid fences. Draw them, or the
+// printed page shows the source of a diagram instead of the diagram.
+async function drawDiagrams() {
+  await nextTick()
+  if (docRoot.value) await renderMermaidBlocks(docRoot.value)
+}
+onMounted(drawDiagrams)
+watch(() => exportData.value, drawDiagrams)
 
 function renderMarkdown(content: string): string {
   if (!content) return ''
@@ -271,7 +306,6 @@ function printPage() {
 /* Sections */
 .doc-section {
   margin-bottom: var(--space-10);
-  page-break-inside: avoid;
 }
 .section-heading {
   font-size: var(--type-xl);
@@ -298,7 +332,6 @@ function printPage() {
   margin-bottom: var(--space-8);
   padding-bottom: var(--space-6);
   border-bottom: 1px solid var(--color-border);
-  page-break-inside: avoid;
 }
 .doc-entry:last-child { border-bottom: none; }
 .entry-heading {
@@ -402,7 +435,11 @@ function printPage() {
   .doc-header { border-bottom-color: #ccc; }
   .doc-toc { background: #f8f8f8; border-color: #ddd; }
   .doc-section { page-break-before: auto; }
-  .doc-entry { page-break-inside: avoid; }
+  /* Neither a section nor an entry may refuse to break: both are routinely
+     longer than a sheet, and refusing left the first page empty and started the
+     document on the second. Small units still stay whole — figure, diagram,
+     table, checklist. */
+  .doc-section, .doc-entry { page-break-inside: auto; }
   .doc-question { background: #f8f8f8; border-color: #ddd; }
   .doc-task { border-color: #ddd; }
   .entry-code { background: #e8f4f8; }

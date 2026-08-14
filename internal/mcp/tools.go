@@ -20,6 +20,7 @@ func (s *Server) registerTools() {
 	tools.RegisterEntryCreate(s.server, s.entry, s.log)
 	tools.RegisterEntryList(s.server, s.entry, s.log)
 	tools.RegisterEntryRead(s.server, s.entry, s.log)
+	tools.RegisterEntryPatch(s.server, s.entry, s.log)
 	tools.RegisterEntryUpdate(s.server, s.entry, s.log)
 	tools.RegisterEntryDelete(s.server, s.entry, s.log)
 

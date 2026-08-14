@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -326,6 +327,58 @@ func (h *WriteHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
+}
+
+// PatchEntry applies block operations to a blocks entry. A write, so it is
+// registered with wrap(); the checkbox in the web UI posts here too, which keeps
+// the browser and an agent indistinguishable to the server.
+func (h *WriteHandler) PatchEntry(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var input struct {
+		Rev string `json:"rev"`
+		Ops []struct {
+			Op      string         `json:"op"`
+			ID      string         `json:"id"`
+			Type    string         `json:"type"`
+			Data    map[string]any `json:"data"`
+			After   string         `json:"after"`
+			Before  string         `json:"before"`
+			At      string         `json:"at"`
+			Item    string         `json:"item"`
+			Checked *bool          `json:"checked"`
+		} `json:"ops"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if len(input.Ops) == 0 {
+		writeError(w, http.StatusBadRequest, "ops is required")
+		return
+	}
+
+	ops := make([]service.BlockOp, 0, len(input.Ops))
+	for _, o := range input.Ops {
+		ops = append(ops, service.BlockOp{
+			Op: o.Op, ID: o.ID, Type: o.Type, Data: o.Data,
+			After: o.After, Before: o.Before, At: o.At,
+			Item: o.Item, Checked: o.Checked,
+		})
+	}
+
+	entry, err := h.entry.PatchBlocks(r.Context(), id, service.PatchBlocksRequest{Ops: ops, Rev: input.Rev})
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotFound):
+			writeError(w, http.StatusNotFound, "entry not found")
+		case errors.Is(err, service.ErrConflict):
+			// The one case a client can act on by itself: re-read and re-anchor.
+			writeError(w, http.StatusConflict, err.Error())
+		default:
+			writeError(w, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": entry, "rev": service.DocumentRev(entry.Content)})
 }
 
 func (h *WriteHandler) DeleteEntry(w http.ResponseWriter, r *http.Request) {

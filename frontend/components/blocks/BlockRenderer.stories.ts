@@ -121,6 +121,141 @@ export const WithHtmlBlock: Story = {
   },
 }
 
+// The dedicated block type: a diagram is a figure with a caption, drawn with pan,
+// zoom, fullscreen and a link back to the live editor.
+export const MermaidBlock: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'paragraph', data: { text: 'A diagram sits in the reading column like any other block.' } },
+      {
+        type: 'mermaid',
+        data: {
+          code: 'flowchart TD\n    A[entry_create] --> B{entry_type}\n    B -->|markdown| C[normalizeContent]\n    B -->|blocks| D[NormalizeBlockDocument]\n    B -->|artifact| E[ArtifactToBlockDocument]',
+          caption: 'Where content goes on the way in — see [[E3]].',
+        },
+      },
+    ],
+  },
+}
+
+// The older spelling still draws, so documents written before the block type
+// existed keep working.
+export const MermaidAsCodeBlock: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'paragraph', data: { text: 'A diagram sits in the reading column like any other block.' } },
+      {
+        type: 'code',
+        data: {
+          language: 'mermaid',
+          code: 'flowchart TD\n    A[entry_create] --> B{entry_type}\n    B -->|markdown| C[normalizeContent]\n    B -->|blocks| D[NormalizeBlockDocument]\n    B -->|artifact| E[ArtifactToBlockDocument]',
+        },
+      },
+      { type: 'code', data: { language: 'bash', code: 'make build-all   # ordinary code, printed as-is' } },
+    ],
+  },
+}
+
+// A source mermaid cannot parse keeps the source and offers the editor, which
+// reports the syntax error.
+export const BrokenMermaid: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'code', data: { language: 'mermaid', code: 'flowchart TD\n    A --> ((broken' } },
+    ],
+  },
+}
+
+// The one block a reader writes to. Without an entryId the checkboxes render
+// their state and do nothing, which is also what a read-only viewer sees.
+export const Checklist: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'paragraph', data: { text: 'Steps of the migration, ticked as they are done.' } },
+      {
+        id: 'a1b2c3d4',
+        type: 'checklist',
+        data: {
+          title: 'Release runbook',
+          items: [
+            { key: 'k1', text: 'Back up the database' },
+            { key: 'k2', text: 'Run the migration on a copy — see [[E3]]' },
+            { key: 'k3', text: 'Announce the window' },
+          ],
+          state: { k1: true },
+        },
+      },
+    ],
+  },
+}
+
+export const ChecklistReadOnly: Story = {
+  args: {
+    ...Checklist.args,
+    readonly: true,
+  },
+}
+
+// With an entry id the boxes are live. Ticking here posts to that entry, so the
+// story exists to show the enabled control, not to be clicked in anger.
+export const ChecklistInteractive: Story = {
+  args: {
+    ...Checklist.args,
+    entryId: 'demo-entry-id',
+  },
+}
+
+// Two checklists in one document: the failure line belongs to the item that
+// failed, not to every checklist on the page.
+export const ChecklistTwoInOneDocument: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      {
+        id: 'aaaa1111',
+        type: 'checklist',
+        data: { title: 'Prod', items: [{ key: 'k1', text: 'Back up' }], state: { k1: true } },
+      },
+      {
+        id: 'bbbb2222',
+        type: 'checklist',
+        data: { title: 'Staging', items: [{ key: 'k1', text: 'Back up' }] },
+      },
+    ],
+  },
+}
+
+// An empty checklist is dropped by the normalizer, so this can only be reached
+// by a renderer bug — the story documents that it degrades quietly.
+export const ChecklistEmpty: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [{ id: 'aaaa1111', type: 'checklist', data: { title: 'Nothing to do', items: [] } }],
+  },
+}
+
+// Long unbreakable text must wrap rather than scroll the page sideways.
+export const ChecklistLongToken: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      {
+        id: 'aaaa1111',
+        type: 'checklist',
+        data: {
+          items: [
+            { key: 'k1', text: 'Revoke a1b2c3d4-e5f6-7890-abcd-ef1234567890-a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+          ],
+        },
+      },
+    ],
+  },
+}
+
 // Text that tries to inject markup must render as text.
 export const HostileText: Story = {
   args: {

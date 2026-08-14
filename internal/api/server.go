@@ -55,7 +55,7 @@ func NewServer(
 	mux := http.NewServeMux()
 
 	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, log)
-	eh := handlers.NewEntryHandler(entrySvc, entryRepo, researchRepo, log)
+	eh := handlers.NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, log)
 	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
@@ -148,7 +148,7 @@ func NewServer(
 	crReadHandler.SetRoadmapService(roadmapSvc)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
-	elHandler := handlers.NewExternalLinkHandler(externalLinkRepo, researchSvc, log)
+	elHandler := handlers.NewExternalLinkHandler(externalLinkRepo, researchSvc, entrySvc, log)
 	mux.Handle("GET /api/researches/{id}/links", wrapRead(elHandler.ListByResearch))
 	mux.Handle("GET /api/entries/{id}/links", wrapRead(elHandler.ListByEntry))
 	mux.Handle("GET /api/entries/{id}/related", wrapRead(eh.GetRelated))
@@ -158,7 +158,7 @@ func NewServer(
 			writeJSON(w, http.StatusOK, map[string]any{"entries": []any{}, "researches": []any{}})
 			return
 		}
-		entries, err := entryRepo.SearchEntries(r.Context(), q, 20)
+		entries, err := entryRepo.SearchEntries(r.Context(), q, 20, auth.UserIDFromContext(r.Context()))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 			return
@@ -188,6 +188,7 @@ func NewServer(
 	mux.Handle("PUT /api/sections/{sectionId}", wrap(wh.UpdateSection))
 	mux.Handle("POST /api/entries", wrap(wh.CreateEntry))
 	mux.Handle("PUT /api/entries/{id}", wrap(wh.UpdateEntry))
+	mux.Handle("POST /api/entries/{id}/patch", wrap(wh.PatchEntry))
 	mux.Handle("DELETE /api/entries/{id}", wrap(wh.DeleteEntry))
 	mux.Handle("POST /api/tasks", wrap(wh.CreateTask))
 	mux.Handle("PUT /api/tasks/{id}", wrap(wh.UpdateTask))

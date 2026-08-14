@@ -19,6 +19,7 @@ func setupExportService(t *testing.T) (*ExportService, *ResearchService, *Sectio
 	researchRepo := storage.NewResearchRepository(db)
 	sectionRepo := storage.NewSectionRepository(db)
 	entryRepo := storage.NewEntryRepository(db)
+	blockRepo := storage.NewBlockRepository(db)
 	sessionRepo := storage.NewSessionRepository(db)
 	questionRepo := storage.NewQuestionRepository(db)
 	taskRepo := storage.NewTaskRepository(db)
@@ -32,7 +33,7 @@ func setupExportService(t *testing.T) (*ExportService, *ResearchService, *Sectio
 
 	researchSvc := NewResearchService(researchRepo, sectionRepo, events, log)
 	sectionSvc := NewSectionService(sectionRepo, entryRepo, researchRepo, events, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, crossrefRepo, externalLinkRepo, events, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, crossrefRepo, externalLinkRepo, events, log)
 	entrySvc.SetRoadmapRepos(roadmapRepo, roadmapNodeRepo)
 	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, events, log)
 	taskSvc := NewTaskService(taskRepo, researchRepo, entrySvc, events, log)

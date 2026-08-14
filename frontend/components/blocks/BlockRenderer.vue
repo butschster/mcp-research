@@ -1,5 +1,5 @@
 <template>
-  <div class="block-doc">
+  <div ref="root" class="block-doc">
     <template v-for="(b, i) in blocks" :key="i">
       <!-- paragraph -->
       <p v-if="b.type === 'paragraph'" class="b-paragraph" v-html="inline(b.data.text)"></p>
@@ -40,9 +40,37 @@
       </blockquote>
 
       <!-- code -->
+      <!-- A mermaid source is a diagram, not code: the viewer is mounted into
+           the container from script, so Vue never patches what is inside it. -->
+      <figure v-else-if="isMermaid(b)" class="b-figure">
+        <div class="b-mermaid" :data-mermaid="i"></div>
+        <figcaption v-if="b.data.caption" v-html="inline(b.data.caption)"></figcaption>
+      </figure>
+
       <div v-else-if="b.type === 'code'" class="b-code-wrap">
         <span v-if="b.data.language" class="b-code-lang">{{ b.data.language }}</span>
         <pre class="b-code"><code>{{ b.data.code }}</code></pre>
+      </div>
+
+      <!-- checklist: the one block a reader writes to -->
+      <div v-else-if="b.type === 'checklist'" class="b-checklist">
+        <p v-if="b.data.title" class="b-checklist-title">{{ b.data.title }}</p>
+        <template v-for="item in checklistItems(b)" :key="item.key">
+          <label :class="['b-check', { 'is-done': item.checked, 'is-busy': pending.has(item.token) }]">
+            <input
+              type="checkbox"
+              :checked="item.checked"
+              :disabled="!tickable(b)"
+              :aria-busy="pending.has(item.token)"
+              @change="toggle(b, item, ($event.target as HTMLInputElement).checked)"
+            />
+            <span v-html="inline(item.text)"></span>
+          </label>
+          <!-- Beside the item that failed, not under the whole block: with two
+               checklists in a document a shared line said nothing about which
+               box did not save. -->
+          <p v-if="failed[item.token]" class="b-check-error" role="status">{{ failed[item.token] }}</p>
+        </template>
       </div>
 
       <!-- callout -->
@@ -76,6 +104,9 @@
 
 <script setup lang="ts">
 import { renderInline } from '~/composables/useInlineMarkdown'
+import { createMermaidFallback, createMermaidViewer } from '~/composables/useMermaidViewer'
+
+const root = ref<HTMLElement | null>(null)
 
 interface Block {
   type: string
@@ -90,14 +121,150 @@ const props = withDefaults(
     researchSlug?: string
     /** Read-only context handed to html blocks over postMessage. */
     bridgeData?: Record<string, unknown> | null
+    /** Entry the blocks belong to. Required for a checklist to be tickable. */
+    entryId?: string
+    /** A viewer who may read but not write gets checkboxes that show state and
+     *  do nothing. The server is the control; this is the courtesy. */
+    readonly?: boolean
   }>(),
-  { blocks: () => [], researchSlug: '', bridgeData: null }
+  { blocks: () => [], researchSlug: '', bridgeData: null, entryId: '', readonly: false }
 )
 
 function inline(text: string): string {
   return renderInline(text, props.researchSlug)
 }
 
+
+// Both spellings draw: the dedicated block type, and a code block that declares
+// mermaid — agents reach for the latter, and it worked before the type existed.
+function isMermaid(b: Block): boolean {
+  const declared = b.type === 'mermaid' || (b.type === 'code' && b.data?.language === 'mermaid')
+  return declared && !!b.data?.code
+}
+
+// What each container currently holds, so a re-render only redraws diagrams
+// whose source actually changed. Keyed by the element, not by index: the
+// element goes away with the block, and so does its entry.
+const drawn = new WeakMap<HTMLElement, string>()
+
+// Rendering a diagram takes long enough for a second update to arrive mid-flight
+// (a save, then the WebSocket echo of it). Only the newest run may paint, and it
+// records what it drew *after* drawing — otherwise a slow first run could land
+// on top of a fast second one and the guard would call it current.
+let drawRun = 0
+
+async function drawDiagrams() {
+  const run = ++drawRun
+  await nextTick()
+  const host = root.value
+  if (!host) return
+  for (const el of host.querySelectorAll<HTMLElement>('.b-mermaid')) {
+    const source = props.blocks[Number(el.dataset.mermaid)]?.data?.code || ''
+    if (!source || drawn.get(el) === source) continue
+    const node = (await createMermaidViewer(source)) ?? (await createMermaidFallback(source))
+    if (run !== drawRun) return
+    drawn.set(el, source)
+    el.replaceChildren(node)
+  }
+}
+
+onMounted(drawDiagrams)
+watch(() => props.blocks, drawDiagrams, { deep: true })
+
+const emit = defineEmits<{ (e: 'ticked'): void }>()
+
+const { authFetch } = useAuth()
+const config = useRuntimeConfig()
+
+// Ticks applied locally before the server has confirmed them, keyed by
+// block+item. A checkbox that waits for a round trip before moving feels broken,
+// and a checklist is ticked in bursts.
+const optimistic = ref<Record<string, boolean>>({})
+const pending = ref<Set<string>>(new Set())
+// Message per item, not a flag: the server says what went wrong — a stale
+// document, an item that no longer exists, an expired session — and "reload the
+// page" was wrong for most of them.
+const failed = ref<Record<string, string>>({})
+
+interface CheckItem {
+  key: string
+  token: string
+  text: string
+  checked: boolean
+}
+
+function checklistItems(b: Block): CheckItem[] {
+  const state = (b.data?.state || {}) as Record<string, boolean>
+  return ((b.data?.items || []) as any[]).map((it) => {
+    const key = it?.key || ''
+    const token = `${b.id || ''}:${key}`
+    return {
+      key,
+      token,
+      text: it?.text || '',
+      checked: token in optimistic.value ? optimistic.value[token]! : !!state[key],
+    }
+  })
+}
+
+// A checkbox that cannot be saved must be disabled rather than guarded in the
+// handler: the browser flips the box before any handler runs, and returning
+// early left it flipped, saying "done" about something nobody recorded.
+function tickable(b: Block): boolean {
+  return !props.readonly && !!props.entryId && !!b.id
+}
+
+async function toggle(b: Block, item: CheckItem, checked: boolean) {
+  if (!tickable(b)) return
+  // Not disabled while in flight: disabling a focused control blurs it, and a
+  // keyboard reader was thrown back to the top of the page on every tick.
+  if (pending.value.has(item.token)) return
+
+  // Told before the request goes out: the WebSocket echo of this write usually
+  // arrives before its HTTP response, and a refetch mid-tick makes the box blink.
+  emit('ticked')
+  optimistic.value = { ...optimistic.value, [item.token]: checked }
+  pending.value = new Set(pending.value).add(item.token)
+  const cleared = { ...failed.value }
+  delete cleared[item.token]
+  failed.value = cleared
+
+  const base = config.public.apiBase || ''
+  try {
+    await authFetch(`${base}/api/entries/${props.entryId}/patch`, {
+      method: 'POST',
+      body: {
+        ops: [{ op: 'set_state', id: b.id, item: item.key, checked }],
+      },
+    })
+  } catch (e: any) {
+    // Revert visibly. A silent revert is worse than an error: the reader
+    // re-ticks and assumes it stuck.
+    const next = { ...optimistic.value }
+    delete next[item.token]
+    optimistic.value = next
+    failed.value = { ...failed.value, [item.token]: saveError(e) }
+  } finally {
+    const p = new Set(pending.value)
+    p.delete(item.token)
+    pending.value = p
+  }
+}
+
+function saveError(e: any): string {
+  const status = e?.status ?? e?.response?.status
+  const detail = e?.data?.error ?? e?.response?._data?.error
+  if (status === 409) return 'Not saved — the document changed. Reload the page.'
+  if (status === 401 || status === 403) return 'Not saved — your session expired. Sign in again.'
+  if (!status) return 'Not saved — the server could not be reached.'
+  return detail ? `Not saved — ${detail}` : 'Not saved.'
+}
+
+// A fresh document from the server is the truth again.
+watch(() => props.blocks, () => {
+  optimistic.value = {}
+  failed.value = {}
+})
 
 // With a header row the first row is the header; without one every row is body.
 function bodyRows(b: Block): any[] {
@@ -222,6 +389,32 @@ function bodyRows(b: Block): any[] {
   border: none;
 }
 
+/* The viewer is built outside the component and carries no scoped attribute,
+   hence :deep. Its own vertical margin is dropped so document rhythm stays with
+   `.block-doc > * + *`, the way every other block spaces itself. */
+.b-mermaid :deep(.mermaid-diagram),
+.b-mermaid :deep(.mermaid-broken) { margin: 0; }
+
+.b-checklist { display: flex; flex-direction: column; gap: var(--space-1); }
+.b-checklist-title { font-weight: 600; margin-bottom: var(--space-1); }
+.b-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 0.15rem 0;
+  line-height: var(--line-base);
+  cursor: pointer;
+}
+.b-check input { margin-top: 0.35rem; accent-color: var(--color-primary); cursor: pointer; }
+.b-check.is-done span { color: var(--color-text-muted); text-decoration: line-through; }
+.b-check.is-busy { opacity: 0.6; }
+.b-check input:disabled { cursor: default; }
+.b-check-error {
+  margin-left: 1.6rem;
+  font-size: var(--type-xs);
+  color: var(--color-warning);
+}
+
 /* A callout is tinted, not just bordered: at a glance the colour should carry the
    severity without reading the title. */
 .b-callout {
@@ -330,5 +523,24 @@ function bodyRows(b: Block): any[] {
   .b-table th { color: #555; }
   .b-html-title { color: #333; border: 1px solid #ddd; }
   .b-callout-title { color: #333 !important; }
+  .b-mermaid :deep(.mermaid-diagram) { background: none; border: none; }
+  /* A wide table scrolls on screen; on paper the columns past the margin were
+     simply absent, with the scrollbar track printed where they should be. */
+  .b-table-wrap { overflow: visible; }
+  /* Neither a diagram nor a sandboxed visual can be split across a sheet: one
+     used to leave an empty bordered rectangle on the page before it. */
+  .b-figure,
+  .b-mermaid,
+  .b-checklist { break-inside: avoid; }
+  /* The record of what was DONE was the palest ink on the page: muted grey on a
+     grey box, while the unfinished items printed solid black. */
+  .b-check.is-done span { color: #111; text-decoration-color: #999; }
+  /* These two set their own light colour for the dark UI, so on white they came
+     out as pale grey on pale grey — the code block was the worst of it. */
+  .b-code,
+  .b-code code { color: #111; }
+  .b-quote,
+  .b-quote :deep(*) { color: #222; }
+  .b-check input { filter: none; }
 }
 </style>

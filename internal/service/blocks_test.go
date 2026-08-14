@@ -115,6 +115,26 @@ func TestNormalizeBlockDocument_Blocks(t *testing.T) {
 		}
 	})
 
+	t.Run("mermaid keeps the source verbatim and drops an empty one", func(t *testing.T) {
+		// A backslash in a mermaid label is data — expanding it the way a prose
+		// field does would rewrite the diagram.
+		doc := normDoc(t, `{"blocks":[
+			{"type":"mermaid","data":{"code":"flowchart TD\\n  A[C:\\\\notes] --> B","caption":"The *path* case"}},
+			{"type":"mermaid","data":{"code":"   "}},
+			{"type":"mermaid","data":{"caption":"no source"}}
+		]}`)
+		if len(doc.Blocks) != 1 {
+			t.Fatalf("blocks = %d, want 1 (sourceless ones dropped)", len(doc.Blocks))
+		}
+		d := doc.Blocks[0].Data
+		if got := str(d, "code"); !strings.Contains(got, `C:\\notes`) || strings.Contains(got, "\n") {
+			t.Errorf("code = %q, want the source stored verbatim", got)
+		}
+		if got := str(d, "caption"); got != "The *path* case" {
+			t.Errorf("caption = %q, want it kept", got)
+		}
+	})
+
 	t.Run("callout falls back to info and keeps the title", func(t *testing.T) {
 		doc := normDoc(t, `{"blocks":[{"type":"callout","data":{"variant":"nuclear","title":"Heads up","text":"body"}}]}`)
 		d := doc.Blocks[0].Data

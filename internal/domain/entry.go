@@ -37,6 +37,17 @@ func (t EntryType) Stored() bool {
 	return t == EntryMarkdown || t == EntryBlocks
 }
 
+// BlockSaveReport tells a writer what happened to state it never mentioned:
+// how many blocks arrived with an unrecognized id, and how many ticks that cost.
+// It is attached to the response of a write and never stored — an agent that
+// dropped block ids has to be told, because the loss is otherwise silent.
+type BlockSaveReport struct {
+	Blocks         int `json:"blocks"`
+	Reidentified   int `json:"blocks_reidentified"`
+	StatePreserved int `json:"state_preserved"`
+	StateLost      int `json:"state_lost"`
+}
+
 type Entry struct {
 	ID          string      `json:"id"`
 	Code        string      `json:"code"`
@@ -51,4 +62,6 @@ type Entry struct {
 	Tags        []string    `json:"tags"`
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
+	// Set on a write to a blocks entry, never persisted. See BlockSaveReport.
+	BlockReport *BlockSaveReport `json:"block_report,omitempty"`
 }

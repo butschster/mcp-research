@@ -36,7 +36,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `entry_create` | Create an entry in a section — markdown by default, or a block document via `entry_type` |
 | `entry_read` | Read full entry content |
 | `entry_list` | List entries in a section (metadata only, no content) |
-| `entry_update` | Update title, content, description, status, tags, session link, or do text replacement |
+| `entry_update` | Update title, content, description, status, tags, session link, entry type, or replace text in a **markdown** entry (`text_replace`) |
+| `entry_patch` | Edit blocks of a `blocks` entry by id — update, insert, delete, move, tick a checklist item — as one atomic, strict change. The surgical edit path for block documents; `text_replace` is refused on them |
 | `entry_delete` | Delete an entry (also removes its cross-references and external links) |
 
 ### Sessions & Questions
@@ -129,7 +130,9 @@ Consequences:
 
 ## Content Formatting
 
-All content fields that support markdown (`content` in entries, `answer` in questions, `notes` in sessions, `description` and `result` in tasks) follow these rules.
+All content fields that support markdown (`content` in a markdown entry, `answer` in questions, `notes` in sessions, `description` and `result` in tasks) follow these rules.
+
+They do **not** apply to an entry with `entry_type: blocks`: there `content` is a JSON block document, markdown is not parsed, and each block field has its own rules — see [Block Documents](/llms/blocks.md).
 
 ### Newlines
 
@@ -180,6 +183,13 @@ Tips:
 - Combine diagrams with markdown text for context
 - Use descriptive node labels
 - Mermaid blocks work in entry content, question answers, session notes, and task descriptions/results
+- Diagrams are interactive: drag to pan, ctrl/⌘ and scroll to zoom, a button for fullscreen,
+  and a link that reopens the diagram in mermaid.live
+- A diagram that fails to parse keeps its source and links to the editor, which reports the
+  syntax error
+- In a `blocks` document diagrams get their own block type: `{"type": "mermaid", "data":
+  {"code": "flowchart TD\n  A --> B", "caption": "optional"}}`. A `code` block with
+  `language: "mermaid"` is accepted as the same thing
 
 ### Cross-references
 
@@ -219,7 +229,9 @@ Entries live in sections and represent synthesized research findings.
 | `blocks` | A block document `{version:1,blocks:[{type,data}]}` | Each block by its own renderer |
 | `artifact` | A complete, self-contained HTML document | Sugar: stored as a `blocks` document holding one `html` block |
 
-Use `blocks` when the entry is a composed document — prose plus an alert, a table, a chart, a hand-built visual — rather than one stream of text. Ten block types are available: `paragraph`, `heading`, `list`, `table`, `quote`, `code`, `callout`, `divider`, `image`, `html`. Text fields carry the inline markdown subset and `[[E3]]` references, and they are indexed; `code` and `html` bodies are not. **Read [Block Documents](/llms/blocks.md) for the field-by-field catalog before writing one** — an unknown type or a mistyped field is dropped silently, so a guessed field name means a missing block.
+Use `blocks` when the entry is a composed document — prose plus an alert, a table, a chart, a checklist, a diagram, a hand-built visual — rather than one stream of text. Twelve block types are available: `paragraph`, `heading`, `list`, `table`, `quote`, `code`, `callout`, `divider`, `image`, `checklist`, `mermaid`, `html`. Text fields carry the inline markdown subset and `[[E3]]` references, and they are indexed; `code`, `mermaid` and `html` bodies are not. **Read [Block Documents](/llms/blocks.md) for the field-by-field catalog before writing one** — an unknown type or a mistyped field is dropped silently, so a guessed field name means a missing block.
+
+Editing one: send the whole document again in `content` (forgiving — bad blocks are dropped) or change part of it with `entry_patch`, which addresses blocks by their `id` and is strict and atomic. `text_replace` does **not** work on a blocks entry and is rejected: it would run a string replacement over the stored JSON. Keep the block `id`s and the `checklist` item `key`s you read back — they are what a human's ticks hang on, and `entry_update` reports nothing when they are lost.
 
 `artifact` still works and needs no document: pass the HTML as `content` and it is wrapped in one `html` block, taking its title from `<title>`. Reading the entry back returns `entry_type: blocks` — nothing stores `artifact` any more.
 
@@ -234,7 +246,7 @@ Writing HTML — as an `html` block inside a document, or via the `artifact` ali
 - Read-only host context arrives after load as `window.researchData` and a `research-data` event: the research (id, code, name, goal), the entry (id, code, title, tags) and the section list. Render from it rather than hardcoding names.
 - **Exports do not contain the HTML.** A markdown export names the block and points at the web UI; a wall of markup in a `.md` file is neither readable nor markdown. `research_export` / `research_import` carry `entry_type`, so the document survives a round trip. See [Export](/llms/export.md).
 
-`[[E3]]` inside HTML is stored as literal text: cross-references are extracted from markdown content and from block text fields, never from an HTML body.
+`[[E3]]` inside HTML is stored as literal text: cross-references are extracted from markdown content and from block text fields, never from a `code`, `mermaid` or `html` body.
 
 ### Statuses
 
@@ -260,6 +272,8 @@ Entries should be self-contained markdown documents. Common patterns:
 When `title` is null or empty, the server extracts it from the first non-empty line of content (stripping markdown heading markers, max 100 chars; `Untitled` if the content is blank).
 
 When `description` is null, the server generates it from lines 2-5 of content (stripping markdown, max 200 chars).
+
+For a `blocks` entry both come from the document instead: the title from the first `heading`, else the first sentence of the first `paragraph`, else a lone `html` block's `title` — and the call **fails** when the document offers none of those. The description falls back to the first paragraph that is not already the title, or an `html` block's `caption`.
 
 When `session_id` is null, the server links the entry to the research's currently active session if one exists. Pass an explicit session ID to override that, and use `entry_update` with `session_id: ""` to unlink.
 
@@ -341,6 +355,10 @@ When answering a question, set both `answer` and `status: "answered"` in the sam
 ### 6. Combining replace and append parameters
 
 `research_update` rejects `memory` together with `add_memory`, and `session_update` rejects `notes` together with `add_note`. Pick one per call: the plain field replaces the whole value, the `add_*` field appends a single item. Set the other to `null`.
+
+### 7. Editing a blocks entry as if it were text
+
+`text_replace` is rejected on an entry with `entry_type: blocks` — it would rewrite the stored JSON as a string. Use `entry_patch` for part of the document, or `entry_update` with the whole document in `content`. Switching an entry **to** `blocks` also needs the block-form `content` in the same call; without it the call fails rather than wrapping the markdown in one paragraph.
 
 ## Short Codes
 

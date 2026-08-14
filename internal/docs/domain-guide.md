@@ -50,16 +50,18 @@ Logical division within a research. Organizes entries by topic.
 ### Entry
 
 A document containing research findings. Lives in a section. Holds either markdown
-or, when `entry_type` is `artifact`, a self-contained HTML document rendered in a
-sandboxed iframe at its full height — used for charts, interactive tables and
-hand-laid-out visuals. An artifact's HTML is not searched as text and contributes
-no cross-references.
+or, when `entry_type` is `blocks`, a JSON document of typed blocks — prose next to
+tables, callouts, checklists, mermaid diagrams and self-contained HTML rendered in
+a sandboxed iframe. See [Block Documents](/llms/blocks.md). `entry_type: artifact`
+is an input alias for a block document holding one `html` block; it is never
+stored, and such an entry reads back as `blocks`. A `code`, `mermaid` or `html`
+body is not searched as text and contributes no cross-references.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `entry_type` | enum | `markdown` (default) / `artifact` |
-| `title` | string | Entry title (auto-generated from content if omitted; for artifacts taken from `<title>`, and required if absent) |
-| `content` | string | Markdown, or a full HTML document for artifacts |
+| `entry_type` | enum | `markdown` (default) / `blocks` (`artifact` accepted on input, stored as `blocks`) |
+| `title` | string | Entry title (auto-generated from content if omitted; for a block document from its first heading, and the call fails when there is nothing to take one from) |
+| `content` | string | Markdown, a block document, or a full HTML document for the `artifact` alias |
 | `description` | string | Short summary (auto-generated if omitted) |
 | `section_id` | string | Parent section |
 | `session_id` | string | Optional: session that produced this entry |
@@ -74,6 +76,7 @@ no cross-references.
 - Title/description auto-generated from content if not provided.
 - `session_id` tracks provenance. When you leave it empty, the server links the entry to the research's active session automatically; the session export (`/research/{code}/session/{sessionCode}/export`) lists entries by this link.
 - Deleting an entry (`entry_delete`) also deletes its cross-references and extracted external links.
+- A blocks entry is edited whole with `entry_update` or block by block with `entry_patch`; `text_replace` is refused on it.
 - URLs found in entry content are extracted into an external-links index, readable at `GET /api/entries/{id}/links` and `GET /api/researches/{id}/links`.
 
 **Cross-reference syntax in content:**

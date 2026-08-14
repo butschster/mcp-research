@@ -64,13 +64,23 @@ func (r *EntryRepository) FindByCode(ctx context.Context, researchID, code strin
 }
 
 func (r *EntryRepository) Update(ctx context.Context, entry *domain.Entry) error {
+	return r.UpdateTx(ctx, nil, entry)
+}
+
+// UpdateTx is Update inside a caller's transaction. A block document is written
+// as rows and as the projection in entries.content, and those two must land
+// together or not at all.
+func (r *EntryRepository) UpdateTx(ctx context.Context, q Querier, entry *domain.Entry) error {
+	if q == nil {
+		q = r.db
+	}
 	now := time.Now().UTC().Format(time.DateTime)
 	var sessionID *string
 	if entry.SessionID != "" {
 		sessionID = &entry.SessionID
 	}
 
-	_, err := r.db.ExecContext(ctx,
+	_, err := q.ExecContext(ctx,
 		`UPDATE entries SET entry_type=?, title=?, content=?, description=?, status=?, tags=?, code=?, session_id=?, updated_at=?
 		 WHERE id=?`,
 		entry.Type, entry.Title, entry.Content, entry.Description,
@@ -93,7 +103,12 @@ func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entr
 
 // SearchEntries performs a full-text search across entry title, description, and content.
 // Returns entries without content for efficiency, ordered by relevance (title > description > content).
-func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int) ([]*domain.Entry, error) {
+// SearchEntries matches title, description and content. userID scopes the search
+// the way validateResearchAccess scopes everything else: an empty userID means
+// auth is off and there is nothing to scope by, and a research with no owner
+// stays visible to everyone. Without this the endpoint returned every user's
+// entries, and its content LIKE made the search box an oracle over their text.
+func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int, userID string) ([]*domain.Entry, error) {
 	if query == "" {
 		return nil, nil
 	}
@@ -110,11 +125,16 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 		          ELSE 0
 		        END AS relevance
 		 FROM entries
-		 WHERE title LIKE ? OR description LIKE ? OR content LIKE ?
+		 WHERE (title LIKE ? OR description LIKE ? OR content LIKE ?)
+		   AND (? = '' OR EXISTS (
+		         SELECT 1 FROM researches res
+		          WHERE res.id = entries.research_id
+		            AND (res.user_id IS NULL OR res.user_id = '' OR res.user_id = ?)))
 		 ORDER BY relevance DESC, created_at DESC
 		 LIMIT ?`,
 		pattern, pattern, pattern,
 		pattern, pattern, pattern,
+		userID, userID,
 		limit,
 	)
 	if err != nil {
@@ -253,7 +273,10 @@ func (r *EntryRepository) FindTagsByResearch(ctx context.Context, researchID str
 
 // FindRelatedByTags returns entries that share at least one tag with the given entry,
 // excluding the entry itself. Results are ordered by number of shared tags (descending).
-func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string) ([]*domain.Entry, error) {
+// FindRelatedByTags matches entries sharing tags. userID scopes it exactly as
+// SearchEntries does: without it, tagging an entry "security" listed every
+// user's entries with that tag, ids and all.
+func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string, userID string) ([]*domain.Entry, error) {
 	if len(tags) == 0 {
 		return nil, nil
 	}
@@ -268,13 +291,17 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 		placeholders += "?"
 		args = append(args, t)
 	}
-	args = append(args, entryID)
+	args = append(args, entryID, userID, userID)
 
 	query := fmt.Sprintf(
 		`SELECT e.id, e.code, e.research_id, e.section_id, e.session_id, e.entry_type, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at,
 		        COUNT(*) as shared
 		 FROM entries e, json_each(e.tags) jt
 		 WHERE jt.value IN (%s) AND e.id != ?
+		   AND (? = '' OR EXISTS (
+		         SELECT 1 FROM researches res
+		          WHERE res.id = e.research_id
+		            AND (res.user_id IS NULL OR res.user_id = '' OR res.user_id = ?)))
 		 GROUP BY e.id
 		 ORDER BY shared DESC, e.created_at DESC`, placeholders)
 

@@ -1,24 +1,27 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
 )
 
 type EntryHandler struct {
-	entry    *service.EntryService
-	entries  *storage.EntryRepository
-	research *storage.ResearchRepository
-	log      *slog.Logger
+	entry       *service.EntryService
+	researchSvc *service.ResearchService
+	entries     *storage.EntryRepository
+	research    *storage.ResearchRepository
+	log         *slog.Logger
 }
 
-func NewEntryHandler(entry *service.EntryService, entries *storage.EntryRepository, research *storage.ResearchRepository, log *slog.Logger) *EntryHandler {
-	return &EntryHandler{entry: entry, entries: entries, research: research, log: log}
+func NewEntryHandler(entry *service.EntryService, researchSvc *service.ResearchService, entries *storage.EntryRepository, research *storage.ResearchRepository, log *slog.Logger) *EntryHandler {
+	return &EntryHandler{entry: entry, researchSvc: researchSvc, entries: entries, research: research, log: log}
 }
 
 func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -48,9 +51,7 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"data": entry,
-	})
+	writeJSON(w, http.StatusOK, entryPayload(entry))
 }
 
 func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
@@ -71,9 +72,7 @@ func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"data": entry,
-	})
+	writeJSON(w, http.StatusOK, entryPayload(entry))
 }
 
 func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +93,7 @@ func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags)
+	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags, auth.UserIDFromContext(r.Context()))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -112,31 +111,31 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 	researchID := r.PathValue("id")
 	entryCode := r.PathValue("code")
 
-	entry, err := h.entries.FindByCode(r.Context(), researchID, entryCode)
+	// Through the service, never the repository: EntryService.GetByIDOrCode is
+	// what checks ownership. Resolving a code straight from the repo returned
+	// any user's entry, content included, to anyone who knew the research id.
+	entry, err := h.entry.GetByIDOrCode(r.Context(), researchID, entryCode)
 	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "entry not found")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if entry == nil {
-		writeError(w, http.StatusNotFound, "entry not found")
-		return
-	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"data": entry,
-	})
+	writeJSON(w, http.StatusOK, entryPayload(entry))
 }
 
 // ResolveResearchCode resolves a research short code to its ID and metadata.
 func (h *EntryHandler) ResolveResearchCode(w http.ResponseWriter, r *http.Request) {
 	code := r.PathValue("code")
 
-	research, err := h.research.FindByCode(r.Context(), code)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if research == nil {
+	// Through the service: a short code is global, so resolving it from the
+	// repository turned R1, R2, R3… into an enumeration of every user's
+	// researches, ids and names included.
+	research, err := h.researchSvc.Get(r.Context(), code)
+	if err != nil || research == nil {
 		writeError(w, http.StatusNotFound, "research not found")
 		return
 	}
@@ -176,7 +175,7 @@ func (h *EntryHandler) GetRelated(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags)
+	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags, auth.UserIDFromContext(r.Context()))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -186,4 +185,14 @@ func (h *EntryHandler) GetRelated(w http.ResponseWriter, r *http.Request) {
 		"data":  related,
 		"count": len(related),
 	})
+}
+
+// entryPayload adds the document revision for a blocks entry, so a client can
+// send it back with a patch and get a conflict rather than a silent overwrite.
+func entryPayload(entry *domain.Entry) map[string]any {
+	out := map[string]any{"data": entry}
+	if entry != nil && entry.Type == domain.EntryBlocks {
+		out["rev"] = service.DocumentRev(entry.Content)
+	}
+	return out
 }

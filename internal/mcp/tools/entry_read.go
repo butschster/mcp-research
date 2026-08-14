@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -26,6 +27,14 @@ func RegisterEntryRead(srv *mcp.Server, svc *service.EntryService, log *slog.Log
 			return errorResult(err.Error())
 		}
 
-		return successResult(entry)
+		if entry.Type != domain.EntryBlocks {
+			return successResult(entry)
+		}
+		// A blocks entry carries its revision, so a following entry_patch can send
+		// it back and be told "the document changed" instead of overwriting.
+		return successResult(map[string]any{
+			"entry": entry,
+			"rev":   service.DocumentRev(entry.Content),
+		})
 	})
 }

@@ -113,6 +113,8 @@
           :blocks="blocks"
           :research-slug="researchSlug"
           :bridge-data="blockBridgeData"
+          :entry-id="entry?.id"
+          @ticked="onTicked"
         />
         <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
         <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
@@ -214,6 +216,29 @@ const sections = computed(() => researchData.value?.data?.sections ?? [])
 
 // Entry data (pass research context for code-based lookup)
 const { data, pending, refresh } = await useApi<{ data: any }>(`/api/researches/${id}/entries/${entryId}`)
+
+// This was the one reader-facing page with no live updates, which mattered less
+// while an agent was the only writer. Now a checkbox writes from here, and the
+// same entry can be open twice.
+// A tick the reader just made is already on screen; refetching would only make
+// the checkbox flicker. Everything else — an agent rewriting the entry — has to
+// land, or the next save from this page overwrites it.
+let ownWriteAt = 0
+function onTicked() {
+  ownWriteAt = Date.now()
+}
+useRealtimeUpdates((event: any) => {
+  // The event carries the entry's UUID; the route parameter is usually a short
+  // code (every link in the app builds /entry/E3). Comparing the two meant the
+  // page never refreshed for anyone who arrived by clicking a link.
+  if (event?.entity !== 'entry') return
+  if (event.entity_id !== entry.value?.id && event.entity_id !== entryId) return
+  // A tick this page just made is already on screen; refetching would only make
+  // the checkbox flicker. The window is armed before the request goes out, since
+  // the event usually arrives before the response does.
+  if (Date.now() - ownWriteAt < 1200) return
+  refresh()
+})
 const entry = computed(() => data.value?.data)
 
 const sectionName = computed(() => {

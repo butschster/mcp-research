@@ -1,50 +1,32 @@
-import mermaid from 'mermaid'
+import { createMermaidViewer, mermaidLiveAnchor } from '~/composables/useMermaidViewer'
 
-let initialized = false
-
-function ensureInit() {
-  if (initialized) return
-  initialized = true
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'dark',
-    themeVariables: {
-      darkMode: true,
-      background: '#1a1a2e',
-      primaryColor: '#f0b849',
-      primaryTextColor: '#e0e0e0',
-      primaryBorderColor: '#f0b849',
-      lineColor: '#555',
-      secondaryColor: '#2a2a3e',
-      tertiaryColor: '#1e1e30',
-      fontFamily: "'Inter', sans-serif",
-    },
-    flowchart: { curve: 'basis' },
-    sequence: { mirrorActors: false },
-  })
-}
-
-let counter = 0
-
+/**
+ * Turns every ```mermaid fence inside rendered markdown into an interactive
+ * diagram. The markup comes from v-html, so Vue does not track these nodes and
+ * they are safe to replace.
+ */
 export async function renderMermaidBlocks(container: HTMLElement) {
-  ensureInit()
   const blocks = container.querySelectorAll<HTMLElement>('pre > code.language-mermaid')
   if (!blocks.length) return
 
   for (const code of blocks) {
     const pre = code.parentElement!
-    const source = code.textContent || ''
-    const id = `mermaid-${++counter}`
+    // Callers run this on mount *and* on a content watcher, which can fire twice
+    // over the same DOM — and rendering is async, so two runs can be inside this
+    // loop at once. A failed block stays in place, so the claim has to be staked
+    // before the await, or it collects a second debug link per concurrent run.
+    if (pre.classList.contains('mermaid-error') || pre.dataset.mermaidBusy) continue
+    pre.dataset.mermaidBusy = '1'
 
-    try {
-      const { svg } = await mermaid.render(id, source)
-      const wrapper = document.createElement('div')
-      wrapper.className = 'mermaid-diagram'
-      wrapper.innerHTML = svg
-      pre.replaceWith(wrapper)
-    } catch {
-      // leave the code block as-is on parse errors
+    const source = code.textContent || ''
+    const view = await createMermaidViewer(source)
+    if (view) {
+      pre.replaceWith(view)
+    } else {
+      // leave the source in place on parse errors, with a way to open it in the
+      // editor that will say what is wrong with it
       pre.classList.add('mermaid-error')
+      pre.after(await mermaidLiveAnchor(source, 'edit'))
     }
   }
 }

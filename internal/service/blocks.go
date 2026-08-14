@@ -23,7 +23,7 @@ import (
 //  1. domain.BlockType constant
 //  2. a normalizer here
 //  3. a branch in frontend/components/blocks/BlockRenderer.vue
-//  4. the catalog in internal/docs/llms/blocks.md
+//  4. the catalog in internal/docs/blocks.md
 //
 // blockNormalizer validates and clamps one block's data, returning ok=false to
 // drop the block.
@@ -39,7 +39,31 @@ var blockNormalizers = map[domain.BlockType]blockNormalizer{
 	domain.BlockCallout:   normCallout,
 	domain.BlockDivider:   normDivider,
 	domain.BlockImage:     normImage,
+	domain.BlockChecklist: normChecklist,
+	domain.BlockMermaid:   normMermaid,
 	domain.BlockHTML:      normHTML,
+}
+
+// ParseStoredBlockDocument reads a document the server itself wrote, without
+// normalizing it.
+//
+// Normalization is for input: it strips `state`, because ticks are server-owned
+// and an author must not be able to assert them. Running it over stored content
+// on the way OUT would therefore erase exactly what a reader came for — which is
+// how the markdown export first came to show every box unticked.
+func ParseStoredBlockDocument(raw string) (*domain.BlockDocument, error) {
+	var doc domain.BlockDocument
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &doc); err != nil {
+		var bare []domain.Block
+		if err2 := json.Unmarshal([]byte(strings.TrimSpace(raw)), &bare); err2 != nil {
+			return nil, fmt.Errorf("content is not a block document: %w", err)
+		}
+		doc.Blocks = bare
+	}
+	if doc.Version == 0 {
+		doc.Version = domain.BlockDocumentVersion
+	}
+	return &doc, nil
 }
 
 // NormalizeBlockDocument parses and normalizes a stored or incoming document.
@@ -123,6 +147,9 @@ func ArtifactToBlockDocument(html string) *domain.BlockDocument {
 		Blocks:  []domain.Block{{Type: domain.BlockHTML, Data: data}},
 	}
 }
+
+// blockIDRule is the same rule in words, for an error a caller can act on.
+const blockIDRule = "4 to 16 lowercase letters or digits"
 
 var blockIDPattern = regexp.MustCompile(`^[a-z0-9]{4,16}$`)
 
@@ -274,6 +301,77 @@ func normCallout(d map[string]any) (map[string]any, bool) {
 
 func normDivider(map[string]any) (map[string]any, bool) {
 	return map[string]any{}, true
+}
+
+// normChecklist accepts items as plain strings or as {key, text} objects, and
+// mints a key for any item that arrives without one — the same preserve-or-mint
+// rule as block ids, one level down.
+//
+// It deliberately does NOT read `state`. Ticks are server-owned and live in the
+// block's row; dropping whatever an author sends is what gives that field a
+// single origin, and it is why an agent rewriting a document cannot clear them.
+// itemKeyPattern is looser than blockIDPattern on purpose: an item key only has
+// to be unique inside its block, and an author writing "k1" or "backup" should
+// keep it rather than have it silently replaced — a replaced key is a lost tick.
+var itemKeyPattern = regexp.MustCompile(`^[a-z0-9_-]{1,24}$`)
+
+// itemKey preserves a safe, unused key and mints one otherwise, the same
+// preserve-or-mint rule as block ids.
+func itemKey(given string, seen map[string]bool) string {
+	key := strings.ToLower(strings.TrimSpace(given))
+	if !itemKeyPattern.MatchString(key) || seen[key] {
+		key = newBlockID()
+	}
+	seen[key] = true
+	return key
+}
+
+func normChecklist(d map[string]any) (map[string]any, bool) {
+	raw, _ := d["items"].([]any)
+	seen := map[string]bool{}
+	items := make([]any, 0, len(raw))
+	for _, it := range raw {
+		var key, text string
+		switch v := it.(type) {
+		case string:
+			text = v
+		case map[string]any:
+			key, _ = v["key"].(string)
+			text, _ = v["text"].(string)
+		default:
+			continue
+		}
+		text = clampStr(normalizeContent(text), domain.MaxBlockText)
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		items = append(items, map[string]any{"key": itemKey(key, seen), "text": text})
+		if len(items) >= domain.MaxListItems {
+			break
+		}
+	}
+	if len(items) == 0 {
+		return nil, false
+	}
+	out := map[string]any{"items": items}
+	if t := clampStr(normalizeTitle(str(d, "title")), domain.MaxHeadingText); t != "" {
+		out["title"] = t
+	}
+	return out, true
+}
+
+func normMermaid(d map[string]any) (map[string]any, bool) {
+	// Verbatim, like code: mermaid has its own escapes, and expanding literal
+	// \n here would rewrite a label that contains one.
+	code := clampStr(sanitizeUTF8(str(d, "code")), domain.MaxMermaidText)
+	if strings.TrimSpace(code) == "" {
+		return nil, false
+	}
+	out := map[string]any{"code": code}
+	if cap := clampStr(normalizeContent(str(d, "caption")), domain.MaxCaptionText); cap != "" {
+		out["caption"] = cap
+	}
+	return out, true
 }
 
 func normImage(d map[string]any) (map[string]any, bool) {

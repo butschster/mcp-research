@@ -436,7 +436,7 @@ func entryMarkdown(e *domain.Entry) string {
 	}
 	switch e.Type {
 	case domain.EntryBlocks:
-		doc, err := service.NormalizeBlockDocument(e.Content)
+		doc, err := service.ParseStoredBlockDocument(e.Content)
 		if err != nil {
 			// Unreadable document: say so rather than emitting JSON or nothing.
 			return "*This entry holds a block document that could not be read.*"
