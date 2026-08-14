@@ -710,8 +710,10 @@ body::after {
 
 @media print {
   .mermaid-toolbar { display: none; }
-  /* Neither the recess nor the grid means anything on paper. */
-  .mermaid-diagram { background: none; }
+  /* Neither the recess, the grid nor the frame means anything on paper: a
+     diagram is a figure, and a box drawn around it only competes with the boxes
+     inside it. */
+  .mermaid-diagram { background: none; border: none; }
   .mermaid-canvas { background-image: none; }
   .mermaid-live-link { display: none; }
   /* Nothing is pannable on paper: the stage drops its transform and the frame

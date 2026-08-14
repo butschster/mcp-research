@@ -523,7 +523,7 @@ function bodyRows(b: Block): any[] {
   .b-table th { color: #555; }
   .b-html-title { color: #333; border: 1px solid #ddd; }
   .b-callout-title { color: #333 !important; }
-  .b-mermaid :deep(.mermaid-diagram) { background: none; border-color: #ddd; }
+  .b-mermaid :deep(.mermaid-diagram) { background: none; border: none; }
   /* A wide table scrolls on screen; on paper the columns past the margin were
      simply absent, with the scrollbar track printed where they should be. */
   .b-table-wrap { overflow: visible; }

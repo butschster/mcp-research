@@ -220,7 +220,9 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
 }
 
 @media print {
-  .artifact-iframe { border-color: #ddd; }
+  /* No frame drawn around it: the artifact brings its own surface, and a border
+     on top of that only competes with it. */
+  .artifact-iframe { border: none; }
   /* An iframe has no internal break points, so a split cuts the visual in half. */
   .artifact-frame { break-inside: avoid; }
 }
