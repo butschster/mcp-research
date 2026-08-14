@@ -54,7 +54,15 @@ const channel = `artifact-${Math.random().toString(36).slice(2)}`
  * the frame's document to measure it. Instead we append a reporter to the document
  * we are about to render: it posts its height on load and on every resize.
  */
-const shim = computed(() => `
+// The artifact is the one thing that keeps its own look when the page is printed
+// to PDF: it is a document someone authored, not part of our chrome. Browsers
+// drop background colours when printing, and the frame is a separate document we
+// cannot reach with our stylesheet, so the rule is injected alongside the height
+// reporter.
+const printStyle = `
+<style>@media print { :root, body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }</style>`
+
+const shim = computed(() => printStyle + `
 <script>(function(){
   var CH = ${JSON.stringify(channel)};
   var last = -1;
@@ -212,9 +220,8 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
 }
 
 @media print {
-  /* The document inside the frame keeps whatever it was built with — it is a
-     PDF of this page, not a paper rendering of it — but it cannot be split
-     across sheets, since an iframe has no break points. */
+  .artifact-iframe { border-color: #ddd; }
+  /* An iframe has no internal break points, so a split cuts the visual in half. */
   .artifact-frame { break-inside: avoid; }
 }
 </style>

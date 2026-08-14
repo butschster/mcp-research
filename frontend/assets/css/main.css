@@ -709,10 +709,10 @@ body::after {
 .markdown-content pre.mermaid-error { border-left: 3px solid var(--color-warning, #d4a017); }
 
 @media print {
-  /* Printing exists to make a PDF of this page, not to reformat it for paper, so
-     the design travels as it is — dark surfaces, the dot grid, all of it. Only
-     the controls go, because a button in a PDF is a lie. */
   .mermaid-toolbar { display: none; }
+  /* Neither the recess nor the grid means anything on paper. */
+  .mermaid-diagram { background: none; }
+  .mermaid-canvas { background-image: none; }
   .mermaid-live-link { display: none; }
   /* Nothing is pannable on paper: the stage drops its transform and the frame
      grows to the diagram. The transform and the svg's pixel size are inline
@@ -819,33 +819,24 @@ body::after {
 /* --- Print -------------------------------------------------------------- */
 
 @media print {
-  /* The PDF is meant to look like the app. Browsers drop background colours when
-     printing unless told otherwise, and without this the dark theme arrives as
-     dark text on white — the worst of both. */
-  html, body {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-    background: var(--color-bg);
-    color: var(--color-text);
-  }
   .app-nav, .app-footer, .filter-bar, .sidebar, .btn, .warning-banner,
   .no-print { display: none !important; }
-  /* The noise and glow layers are fixed, so they would repeat on every sheet. */
+  .breadcrumbs a { color: inherit; }
+  body { background: white; color: black; }
   body::before, body::after { display: none; }
   .main-content { padding-top: 0; }
   .page-header { margin-bottom: var(--space-4); padding-bottom: var(--space-2); }
-  /* The card keeps its surface; only the hover lift and the shadow go, since
-     both are answers to a pointer that a PDF does not have. */
   .card {
-    box-shadow: none;
-    transform: none;
+    border: none; background: none; break-inside: avoid;
+    box-shadow: none; transform: none; padding: 0;
   }
   .card::before { display: none; }
-  .card:hover { box-shadow: none; }
+  .card:hover { box-shadow: none; border-color: transparent; }
+  .badge { border: 1px solid currentColor; }
   .layout-sidebar { grid-template-columns: 1fr; }
+  .markdown-content pre { background: #f5f5f5; }
   * { animation: none !important; transition: none !important; }
-  /* A link cannot be followed on paper but can be in a PDF, so it keeps its
-     colour and stays recognisable. */
+  a { color: inherit; text-decoration: none; }
 }
 
 /* --- Utility Classes ---------------------------------------------------- */
