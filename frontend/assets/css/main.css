@@ -580,7 +580,10 @@ body::after {
 .mermaid-diagram {
   position: relative;
   margin: var(--space-5) 0;
-  background: var(--color-surface-hover);
+  /* Recessed below the page rather than raised above it, the way the code block
+     is: a canvas you look into, not a card sitting on the article. There is no
+     token darker than the page, so it is a black wash over whatever is behind. */
+  background: rgba(0, 0, 0, 0.28);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -598,6 +601,11 @@ body::after {
   /* Vertical swipes stay with the page: inline, the reader scrolls past a tall
      diagram rather than panning it. Enlarged, the diagram takes the touch. */
   touch-action: pan-y;
+  /* The dot grid mermaid.live draws behind a diagram, at its 30px pitch. It
+     belongs to the frame, not to the stage: staying put while the diagram moves
+     over it is what makes panning legible. */
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.15) 2px, transparent 2px);
+  background-size: 30px 30px;
 }
 .mermaid-canvas.is-panning { cursor: grabbing; }
 .mermaid-canvas:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
@@ -699,6 +707,9 @@ body::after {
 
 @media print {
   .mermaid-toolbar { display: none; }
+  /* Neither the recess nor the grid means anything on paper. */
+  .mermaid-diagram { background: none; }
+  .mermaid-canvas { background-image: none; }
   .mermaid-live-link { display: none; }
   /* Nothing is pannable on paper: the stage drops its transform and the frame
      grows to the diagram. The transform and the svg's pixel size are inline
