@@ -21,8 +21,14 @@ type Server struct {
 	task     *service.TaskService
 	roadmap  *service.RoadmapService
 	export   *service.ExportService
+	baseURL  string
 	log      *slog.Logger
 }
+
+// SetBaseURL gives the tools a public origin to build download links with. It
+// is set after construction because the API server's configuration is resolved
+// later; a tool reads it when it is called, not when it is registered.
+func (s *Server) SetBaseURL(url string) { s.baseURL = url }
 
 func NewServer(
 	research *service.ResearchService,

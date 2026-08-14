@@ -7,22 +7,54 @@ const meta: Meta<typeof ModalOverlay> = {
   tags: ['autodocs'],
   argTypes: {
     visible: { control: 'boolean' },
-    size: { control: 'select', options: ['sm', 'md', 'lg'] },
+    size: { control: 'select', options: ['sm', 'md', 'lg', 'xl'] },
     flush: { control: 'boolean' },
+    labelledby: { control: 'text' },
+  },
+  parameters: {
+    docs: {
+      description: {
+        component:
+          'The shell every modal sits in: overlay, card chrome, Escape to close, ' +
+          'focus moved inside on open and returned to the trigger on close, and Tab ' +
+          'cycling within the card. Pass `labelledby` with the id of the heading ' +
+          'inside the slot — without it a screen reader announces only "dialog", ' +
+          'and the attribute cannot be handed down as a fallthrough because the ' +
+          'root is a `<Teleport>`.',
+      },
+    },
   },
 }
 export default meta
 type Story = StoryObj<typeof ModalOverlay>
 
+/** The canonical shape: the heading carries an id and `labelledby` points at it,
+ *  so the dialog announces by name. */
 export const Default: Story = {
-  args: { visible: true },
-  render: (args) => ({
+  args: { visible: true, labelledby: 'modal-default-title' },
+  render: (args: any) => ({
     components: { ModalOverlay },
     setup() { return { args } },
     template: `
       <ModalOverlay v-bind="args">
-        <h3 style="margin: 0 0 0.5rem; font-weight: 600;">Modal Title</h3>
-        <p style="color: var(--color-text-muted); font-size: var(--type-sm); margin: 0;">This is a default-sized modal with some content inside.</p>
+        <h3 id="modal-default-title" style="margin: 0 0 0.5rem; font-weight: 600;">Rebuild cross-references</h3>
+        <p style="color: var(--color-text-muted); font-size: var(--type-sm); margin: 0;">Re-scans every entry in R1 and repairs any [[E3]] link that no longer resolves.</p>
+      </ModalOverlay>
+    `,
+  }),
+}
+
+/** No `labelledby`: identical on screen, and announced as nothing but "dialog".
+ *  Every modal in the app looked like this before the prop existed. */
+export const WithoutLabel: Story = {
+  args: { visible: true },
+  render: (args: any) => ({
+    components: { ModalOverlay },
+    setup() { return { args } },
+    template: `
+      <ModalOverlay v-bind="args">
+        <h3 style="margin: 0 0 0.5rem; font-weight: 600;">Rebuild cross-references</h3>
+        <p style="color: var(--color-text-muted); font-size: var(--type-sm); margin: 0;">The heading has no id, so nothing names the dialog for a screen reader.</p>
       </ModalOverlay>
     `,
   }),
@@ -30,7 +62,7 @@ export const Default: Story = {
 
 export const Small: Story = {
   args: { visible: true, size: 'sm' },
-  render: (args) => ({
+  render: (args: any) => ({
     components: { ModalOverlay },
     setup() { return { args } },
     template: `
@@ -48,7 +80,7 @@ export const Small: Story = {
 
 export const Large: Story = {
   args: { visible: true, size: 'lg' },
-  render: (args) => ({
+  render: (args: any) => ({
     components: { ModalOverlay },
     setup() { return { args } },
     template: `
@@ -66,9 +98,36 @@ export const Large: Story = {
   }),
 }
 
+/** `xl` is a fixed-height workspace rather than a box that grows with its
+ *  content: always flush, panes scrolling independently. This is the shape the
+ *  entry history panel sits in. */
+export const ExtraLarge: Story = {
+  args: { visible: true, size: 'xl', labelledby: 'modal-xl-title' },
+  render: (args: any) => ({
+    components: { ModalOverlay },
+    setup() { return { args } },
+    template: `
+      <ModalOverlay v-bind="args">
+        <header style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--color-border);">
+          <h2 id="modal-xl-title" style="margin: 0; font-size: var(--type-base); font-weight: 600;">History — E3 Vault layout</h2>
+          <button class="btn btn-sm">Close</button>
+        </header>
+        <div style="flex: 1; display: grid; grid-template-columns: 280px 1fr; min-height: 0;">
+          <ul style="list-style: none; margin: 0; padding: 0.75rem; overflow-y: auto; border-right: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 0.5rem;">
+            <li v-for="i in 14" :key="i" class="card" style="padding: 0.5rem 0.75rem; font-size: var(--type-sm);">Revision {{ 15 - i }}</li>
+          </ul>
+          <div style="overflow-y: auto; padding: 1rem 1.5rem; font-size: var(--type-sm); color: var(--color-text-muted);">
+            <p v-for="i in 12" :key="i" style="margin: 0 0 0.75rem;">Each pane scrolls on its own, so the column rule runs the full height of the dialog and neither side squeezes the other.</p>
+          </div>
+        </div>
+      </ModalOverlay>
+    `,
+  }),
+}
+
 export const Flush: Story = {
   args: { visible: true, size: 'lg', flush: true },
-  render: (args) => ({
+  render: (args: any) => ({
     components: { ModalOverlay },
     setup() { return { args } },
     template: `
@@ -87,7 +146,7 @@ export const Flush: Story = {
 
 export const Hidden: Story = {
   args: { visible: false },
-  render: (args) => ({
+  render: (args: any) => ({
     components: { ModalOverlay },
     setup() { return { args } },
     template: `

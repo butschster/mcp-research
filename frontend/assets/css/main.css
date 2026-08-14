@@ -58,6 +58,9 @@
   --z-elevated: 10;
   --z-overlay: 100;
   --z-noise: 200;
+  /* Above the grain and above a dialog: a notification that a modal covers is a
+     notification nobody reads. */
+  --z-toast: 300;
 }
 
 /* --- Reset -------------------------------------------------------------- */

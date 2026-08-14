@@ -201,6 +201,12 @@ entry back returns `entry_type: blocks`.
   ```mermaid fence — which GitHub and this app both draw — and an `html` block
   becomes a named note saying to view it in the web UI, its document being the one
   thing that cannot be markdown.
+- **Obsidian vault export** (`?format=obsidian`) uses the same serializer with two
+  changes: the mermaid.live link under a diagram is dropped because Obsidian draws
+  the fence itself, and an **`html` block becomes a real `.html` file** under
+  `_html/` — a fragment gets wrapped in `<!doctype html>` — with a callout in the
+  note linking to it. It is the one export that carries the HTML rather than
+  naming it. See [Export](/llms/export.md).
 - **JSON export**: a blocks entry also carries `content_markdown` beside
   `content`, so a reader does not need to know the block format.
 - **Portable export/import**: `entry_type` travels in the file. A file written

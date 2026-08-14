@@ -26,7 +26,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `research_list` | List all researches with optional status filter |
 | `research_update` | Update name, goal, status, instruction, memory, tags |
 | `research_add_section` | Add a new section to an existing research |
-| `research_export` | Export a full research (sections, entries, sessions, questions, tasks, roadmaps) as portable JSON |
+| `research_export` | Export a full research (sections, entries, sessions, questions, tasks, roadmaps). `format` defaults to `portable` (JSON for `research_import`); `format: "obsidian"` returns a link to download it as an Obsidian vault |
 | `research_import` | Re-create a research from a portable export payload |
 
 ### Entries
@@ -95,7 +95,7 @@ Read this before composing any tool call. Input schemas are generated from Go st
 Consequences:
 
 - **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
-- **Two exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), and `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted). Sending `null` for those three works as well, so "send every property as `null`" is still a correct strategy everywhere.
+- **Three exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), and `research_export` requires `research_id` alone (`format` may be omitted). Sending `null` for those four works as well, so "send every property as `null`" is still a correct strategy everywhere.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
 - Unknown property names are rejected outright (`additionalProperties: false`).
@@ -113,6 +113,7 @@ Consequences:
 | `position_x`, `position_y` | `0` (frontend auto-layouts) |
 | `session_id` (entry) | The research's currently active session, if there is one |
 | `limit` (`entry_history`) | `20` newest revisions; the result says `truncated: true` when more exist |
+| `format` (`research_export`) | `portable` — the JSON `research_import` takes. `obsidian` returns a vault download link instead; `json` / `vault` / `zip` are accepted aliases, anything else is a validation error |
 | `to` (`entry_diff`) | The newest revision |
 | `from` (`entry_diff`) | The revision before `to` — so a call with neither shows the most recent change |
 
@@ -250,7 +251,7 @@ Writing HTML — as an `html` block inside a document, or via the `artifact` ali
 - Scripts run. The frame is sandboxed with `allow-scripts` and without `allow-same-origin`, so the document cannot read cookies, storage or the host page — and cannot fetch from the API.
 - The frame reports its own height, so it is shown in full with no inner scrollbar. Do not set `height: 100%` on `body` expecting a viewport; lay out for a document that grows.
 - Read-only host context arrives after load as `window.researchData` and a `research-data` event: the research (id, code, name, goal), the entry (id, code, title, tags) and the section list. Render from it rather than hardcoding names.
-- **Exports do not contain the HTML.** A markdown export names the block and points at the web UI; a wall of markup in a `.md` file is neither readable nor markdown. `research_export` / `research_import` carry `entry_type`, so the document survives a round trip. See [Export](/llms/export.md).
+- **Markdown exports do not contain the HTML.** A markdown export names the block and points at the web UI; a wall of markup in a `.md` file is neither readable nor markdown. The Obsidian vault export (`research_export` with `format: "obsidian"`) is the exception: there each `html` block is written as a real `.html` file under `_html/` and linked from the note. `research_export` / `research_import` carry `entry_type`, so the document survives a round trip. See [Export](/llms/export.md).
 
 `[[E3]]` inside HTML is stored as literal text: cross-references are extracted from markdown content and from block text fields, never from a `code`, `mermaid` or `html` body.
 

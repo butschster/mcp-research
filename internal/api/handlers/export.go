@@ -19,6 +19,8 @@ type ExportHandler struct {
 	session   *service.SessionService
 	task      *service.TaskService
 	exportSvc *service.ExportService
+	obsidian  *service.ObsidianService
+	roadmap   *service.RoadmapService
 	log       *slog.Logger
 }
 
@@ -42,9 +44,28 @@ func (h *ExportHandler) SetExportService(svc *service.ExportService) {
 	h.exportSvc = svc
 }
 
+// SetObsidianService enables `?format=obsidian`. Without it the route keeps
+// working and the format reports itself as unconfigured.
+func (h *ExportHandler) SetObsidianService(svc *service.ObsidianService) {
+	h.obsidian = svc
+}
+
+// SetRoadmapService lets the export payload carry a roadmap count, which is
+// what the download dialog needs to know whether the option applies.
+func (h *ExportHandler) SetRoadmapService(svc *service.RoadmapService) {
+	h.roadmap = svc
+}
+
 // Export returns all research data as JSON (for frontend rendering) and as markdown.
 func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	idOrCode := r.PathValue("id")
+
+	// The vault export reads the research itself and does its own ownership
+	// check, so it branches before this handler fetches anything.
+	if r.URL.Query().Get("format") == "obsidian" {
+		h.ExportObsidian(w, r)
+		return
+	}
 
 	research, err := h.research.Get(r.Context(), idOrCode)
 	if err != nil {
@@ -116,12 +137,23 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// A count rather than the roadmaps themselves: this payload is already the
+	// whole research, and the only caller that needs roadmaps here is a dialog
+	// asking whether the option applies at all.
+	roadmapCount := 0
+	if h.roadmap != nil {
+		if rms, err := h.roadmap.List(r.Context(), researchID); err == nil {
+			roadmapCount = len(rms)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"research": research,
-		"sections": sectionData,
-		"sessions": sessionExports,
-		"tasks":    tasks,
-		"markdown": md,
+		"research":      research,
+		"sections":      sectionData,
+		"sessions":      sessionExports,
+		"tasks":         tasks,
+		"roadmap_count": roadmapCount,
+		"markdown":      md,
 	})
 }
 

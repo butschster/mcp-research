@@ -367,6 +367,23 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 	return question, nil
 }
 
+// ListQuestions returns a session's questions, for a caller who owns the
+// research the session belongs to.
+//
+// The ownership check is the point: `question_list` passes a caller-supplied
+// session id straight through, so without it anyone holding a session's UUID
+// could read another user's questions and answers. Every sibling method checks;
+// this one did not, and a read path is exactly where that is hardest to notice.
 func (s *SessionService) ListQuestions(ctx context.Context, sessionID string, filter storage.QuestionFilter) ([]*domain.Question, error) {
+	session, err := s.sessions.FindByID(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("find session: %w", err)
+	}
+	if session == nil {
+		return nil, ErrNotFound
+	}
+	if err := validateResearchAccess(ctx, s.researches, session.ResearchID); err != nil {
+		return nil, ErrNotFound
+	}
 	return s.questions.FindBySession(ctx, sessionID, filter)
 }

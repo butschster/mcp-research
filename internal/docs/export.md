@@ -1,6 +1,6 @@
 # Export
 
-How to export research data as documents. Two scopes exist: a whole research, and a single session. Both come in a JSON form (structured data + pre-rendered markdown) and a raw `.md` download.
+How to export research data as documents. Two scopes exist: a whole research, and a single session. Both come in a JSON form (structured data + pre-rendered markdown) and a raw `.md` download. A whole research has two further forms: an **Obsidian vault** (`?format=obsidian`, a zip of linked notes — a document to read) and the **portable JSON** (a research to move to another server). Everything here is a read endpoint; only the portable import writes.
 
 ## Export Pages (Web UI)
 
@@ -55,9 +55,15 @@ Returns all research data as structured JSON:
   "tasks": [
     { "title": "...", "status": "completed", "result": "..." }
   ],
+  "roadmap_count": 2,
   "markdown": "# Full document as markdown string..."
 }
 ```
+
+`roadmap_count` is a number, not the roadmaps: this payload is already the whole
+research, and the count exists so a client can tell whether the roadmap option of
+the vault export applies at all. Use `roadmap_list` / `GET /api/researches/{id}/roadmaps`
+to read them.
 
 ### Download Markdown File
 
@@ -117,6 +123,150 @@ The markdown document structure:
 3. `## Questions (N answered of M)` — one `### Q:` block per question with area, priority, status, rationale, and answer
 4. `## Entries produced in this session` — each entry with its code, section, tags, status, and full content (omitted when the session produced no entries)
 
+## Obsidian Vault Export
+
+```
+GET /api/researches/{id}/export?format=obsidian
+```
+
+The same route as the JSON export, behind `format=obsidian`. Returns
+`application/zip`: the research as a folder of cross-linked markdown notes, ready
+to unzip into an [Obsidian](https://obsidian.md) vault. Any editor that reads
+markdown can open it; only the links are Obsidian-flavoured. The archive is built
+whole before the first byte is sent, so a failure is still a status code rather
+than a truncated zip.
+
+The archive has no wrapper folder — its entries are at the root, because every
+extractor already creates a folder named after the zip. On the command line use
+`unzip -d "R1 — Competitive Landscape" file.zip`, or the files land in the
+current directory.
+
+```
+R1 — Competitive Landscape.zip
+├── README.md                     goal, description, memory, instruction, and a
+│                                 linked table of contents of every entry,
+│                                 session, task and roadmap in the vault
+├── 01 — Market Analysis/         one folder per section, numbered in section order
+│   └── E1 — Pricing model.md
+├── 02 — Competitors/
+├── Unfiled/                      entries whose section is gone (usually absent)
+├── Sessions/SS1 — Initial exploration.md
+├── Tasks/T1 — Verify the claim.md
+├── Roadmaps/RM1 — Migration plan.md      nodes and edges as a mermaid diagram
+├── _html/E2 — Revenue chart (13b3d97a).html
+├── _history/E1.md                only with revisions=true
+└── _Unresolved/R2 E5.md          one note per reference pointing outside the export
+```
+
+**A cross-reference is retargeted at the note's filename and keeps its code as
+the display text**: `[[E3]]` is exported as `[[E3 — Pricing model|E3]]`. The
+reader sees exactly what the author wrote, and the link resolves — so backlinks,
+unlinked mentions and the graph view work.
+
+Obsidian's `aliases` do **not** resolve a hand-written link. An alias makes a
+note findable in the quick switcher, in search and in link autocomplete, where
+choosing a suggestion inserts a link to the *filename* with the alias as display
+text; a `[[E3]]` typed into a file is matched against filenames only, and left
+alone it renders as an unresolved link that offers to create an empty note.
+Aliases are still written, for the switcher.
+
+The retargeting happens on the way out and never in storage — the same kind of
+rendering as a block document becoming markdown. Re-exporting rebuilds every link
+from the current titles, so renaming an entry cannot leave a stale link behind.
+
+- **Entries, sessions, tasks and roadmaps each get a note**, because each is a
+  link target. A node link (`[[RM1:N3]]`) lands on its roadmap note, and
+  `[[R1:E1]]` — the qualified form of a reference inside the same research —
+  lands on the same note as `[[E1]]`.
+- **Every note links home**, with a relative markdown link to `README.md` rather
+  than a wikilink: two exports unzipped into one vault hold two `README.md`
+  files, and a name could not tell them apart.
+- **A reference to something outside the export** — another research, a deleted
+  entry, a folder the options omitted (`[[SS1]]` with `sessions=false`, `[[T1]]`
+  with `tasks=false`) — gets a stub under `_Unresolved/` explaining what it points
+  at. The link is a real reference, so it stays visible as one rather than
+  dangling silently. Only text shaped like a code (`E12`, `R2:E5`, `RM1:N3`)
+  qualifies, and at most 200 stubs are written.
+- **An entry's frontmatter** carries `code`, `title`, `aliases`, `research`,
+  `section`, `type` (`markdown` or `blocks`), `status`, `tags`, `created`,
+  `updated`, and the `session` that produced it. With `revisions=true` it also
+  carries the current `revision` and its `author` (`agent`, `human`, `import`,
+  `restore`); without that option neither key is present, whatever history the
+  entry has. Empty values are dropped rather than written blank. A session note
+  carries `code`, `title`, `aliases`, `research`, `focus`, `status`, `created`,
+  `updated`; a task also `priority` and `completed`; a roadmap also `statuses`.
+  Frontmatter is written with a YAML encoder, so a title containing `:` or a
+  quote still parses.
+- **Filenames** are `E1 — Title` and keep Cyrillic and other non-ASCII. What a
+  filesystem refuses is removed (`: * ? " < > |`), a path separator becomes `-`,
+  newlines and control characters become spaces, Windows reserved names get a
+  trailing `_`, and a component longer than 100 bytes is cut on a rune boundary.
+  The code leads the name, so two entries with the same title cannot collide.
+- **Block documents** render through the same markdown projection as the `.md`
+  export, so checklists keep their ticks and mermaid stays a fence — which
+  Obsidian draws. The live-editor link under a diagram is omitted here for that
+  reason.
+- **An `html` block becomes a real file** under `_html/` with a callout linking
+  to it. Obsidian sanitizes inline HTML and runs no scripts, so an inlined
+  artifact would be a broken shell of itself; a separate file opens in a browser
+  and is still the artifact.
+- **A tag Obsidian cannot index** (one containing a space, a tab or `#`) stays
+  exact in the frontmatter, and a line at the end of the note names the tags that
+  will not appear in the tag pane. The vocabulary is the author's; it is not
+  mangled to fit a reader.
+
+Query options — everything is included by default except revisions:
+
+| Param | Default | Effect |
+|---|---|---|
+| `sessions` | `true` | `false` omits `Sessions/` and the session link in each entry's footer. The `session` frontmatter key stays: it is provenance, not a link |
+| `tasks` | `true` | `false` omits `Tasks/` |
+| `roadmaps` | `true` | `false` omits `Roadmaps/` |
+| `html` | `true` | `false` omits `_html/`; the callout stays and says the file was left out |
+| `revisions` | `false` | `true` adds `_history/{code}.md` for every entry that has history — a table of revision, date, author, session and summary — plus a link to it in the entry's footer, and the `revision` / `author` frontmatter keys |
+
+`false`, `0`, `no`, `off` and `n` turn an option off; `true`, `1`, `yes`, `on`
+and `y` turn it on (case-insensitive). Anything else keeps the default rather
+than guessing, and a mistyped flag never turns the export into an error.
+
+### From the MCP tool
+
+`research_export` takes an optional `format`:
+
+| Value | Result |
+|---|---|
+| absent, `null`, `""`, `portable`, `json` | the portable JSON payload below — unchanged, and the input for `research_import` |
+| `obsidian`, `vault`, `zip` | a JSON object describing the vault download |
+| anything else | a validation error: `format must be portable or obsidian` |
+
+A tool result cannot carry a zip, so `format: "obsidian"` returns the link
+instead:
+
+```json
+{
+  "format": "obsidian",
+  "url": "https://host/api/researches/R1/export?format=obsidian",
+  "research": "Competitive Landscape",
+  "contains": "README.md with a linked table of contents, a folder per section, ...",
+  "links": "Cross-references are retargeted at the notes they name and keep their codes as display text ...",
+  "auth": "The link needs the same credentials as the REST API ...",
+  "description": "Download the zip and unzip it into a folder in an Obsidian vault. Options: ..."
+}
+```
+
+- The research is resolved before the link is built, so a bad `research_id` is an
+  error now rather than a link that 404s later.
+- `url` is absolute when the server has a base URL configured; otherwise it is the
+  bare path `/api/researches/R1/export?format=obsidian` and `description` says so.
+  Do not invent an origin for it.
+- The URL is a normal read endpoint: it needs the API token or JWT as an
+  `Authorization: Bearer` header. Pasting it into a browser tab only works on a
+  server running without auth. Say that when you hand the link to a user.
+- The query options above apply to that URL; the tool has no parameters for them.
+
+**The vault does not travel back.** It is a document format; use the portable
+JSON below to move a research between servers.
+
 ## Portable Export / Import
 
 The markdown/JSON exports above are for reading. To move a research to another server, use the portable format instead — it carries sections, entries, sessions, questions, tasks, and roadmaps in a versioned envelope (`version`, `exported_at`, `research`):
@@ -126,11 +276,11 @@ GET  /api/researches/{id}/export/portable   -> portable JSON (downloaded as <nam
 POST /api/researches/import                 -> body is that JSON, returns the new research_id and code
 ```
 
-The `research_export` MCP tool returns the same portable payload for a research ID or short code.
+The `research_export` MCP tool returns the same portable payload for a research ID or short code — that is what `format` defaults to.
 
 Import re-creates entities from scratch: new UUIDs, new short codes, cross-references re-parsed from the imported content.
 
-**No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server.
+**No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server. The vault's `_history/` tables (`revisions=true`) are a readable record, not a transferable one — nothing imports them back.
 
 ## Auth
 
@@ -153,6 +303,12 @@ An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
   it would leak its `<style>` and `<script>` into whatever renders the file. The
   same applies to legacy `artifact` rows written before the type was folded into
   the `html` block.
+- **The Obsidian export is the exception on both counts.** One serializer renders
+  a block document everywhere, with two overrides for the vault: the mermaid.live
+  link under a diagram is dropped (Obsidian draws the fence itself), and an `html`
+  block is written as a real file under `_html/` — wrapped in `<!doctype html>`
+  when the block is a fragment — with a callout in the note linking to it. It is
+  the one export where the HTML survives.
 - **JSON responses** (`GET .../export` and `GET .../sessions/{sessionId}/export`
   without `format=md`) carry `entry_type` next to `content`, and for a blocks
   entry also `content_markdown` — the same rendering the `.md` file uses. Read
@@ -167,4 +323,4 @@ An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
 
 ## Cross-References in Export
 
-Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[RM1]]`) are preserved as-is in markdown export. In the web export pages, they are rendered as clickable links.
+Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[RM1]]`) are preserved as-is in markdown export. In the web export pages, they are rendered as clickable links. In the Obsidian vault they are preserved as-is too and resolve as links there, because `[[...]]` is Obsidian's own syntax and each note aliases its code.

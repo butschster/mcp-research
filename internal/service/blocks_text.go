@@ -159,9 +159,30 @@ func firstSentence(s string) string {
 	return clampStr(s, 200)
 }
 
+// MarkdownOptions tunes the projection for one export target. The zero value is
+// what the markdown and session exports have always produced.
+type MarkdownOptions struct {
+	// HTMLBlock renders an html block. Nil keeps the default — the block is
+	// named rather than inlined, because a wall of markup is not markdown. The
+	// Obsidian export overrides it: there the document is written beside the
+	// note as a real file, so it can be linked instead of described.
+	HTMLBlock func(blk domain.Block) string
+	// OmitMermaidLink drops the live-editor line under a diagram. It exists for
+	// readers that draw mermaid themselves, where the link is a kilobyte of
+	// base64 in the middle of a note and buys nothing.
+	OmitMermaidLink bool
+}
+
 // BlockDocumentToMarkdown serializes a document so the research and session
 // exports produce a readable file instead of raw JSON.
 func BlockDocumentToMarkdown(doc *domain.BlockDocument) string {
+	return BlockDocumentToMarkdownWith(doc, MarkdownOptions{})
+}
+
+// BlockDocumentToMarkdownWith is BlockDocumentToMarkdown with the per-target
+// overrides applied. One serializer, so a block type added to it appears in
+// every export at once.
+func BlockDocumentToMarkdownWith(doc *domain.BlockDocument, opts MarkdownOptions) string {
 	if doc == nil {
 		return ""
 	}
@@ -244,7 +265,9 @@ func BlockDocumentToMarkdown(doc *domain.BlockDocument) string {
 			if cap := str(d, "caption"); cap != "" {
 				b.WriteString("*" + cap + "*\n")
 			}
-			b.WriteString(mermaidLiveLine(code))
+			if !opts.OmitMermaidLink {
+				b.WriteString(mermaidLiveLine(code))
+			}
 			b.WriteString("\n")
 
 		case domain.BlockCallout:
@@ -271,6 +294,10 @@ func BlockDocumentToMarkdown(doc *domain.BlockDocument) string {
 			b.WriteString("\n")
 
 		case domain.BlockHTML:
+			if opts.HTMLBlock != nil {
+				b.WriteString(opts.HTMLBlock(blk))
+				continue
+			}
 			// An HTML document cannot become markdown. Name it and keep the
 			// author's framing so the export reads as a deliberate omission
 			// rather than a hole.

@@ -6,6 +6,7 @@
         :class="['modal-card', sizeClass, { 'modal-flush': props.flush }]"
         role="dialog"
         aria-modal="true"
+        :aria-labelledby="labelledby"
         tabindex="-1"
         @keydown.esc.stop="$emit('close')"
         @keydown.tab="trapFocus"
@@ -30,6 +31,12 @@ const props = defineProps<{
   visible: boolean
   size?: 'sm' | 'md' | 'lg' | 'xl'
   flush?: boolean // removes inner padding so slot content controls its own spacing
+  /**
+   * Id of the element that titles the dialog. Without it a screen reader
+   * announces "dialog" and nothing else — and this cannot be passed through as a
+   * fallthrough attribute, because the component's root is a Teleport.
+   */
+  labelledby?: string
 }>()
 
 defineEmits<{ close: [] }>()
