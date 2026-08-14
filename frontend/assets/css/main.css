@@ -177,6 +177,7 @@ body::after {
 }
 
 .page-title {
+  overflow-wrap: anywhere;
   font-size: var(--type-2xl);
   font-weight: 700;
   line-height: var(--line-tight);
@@ -479,6 +480,48 @@ body::after {
 }
 .copy-btn:hover { color: var(--color-text); border-color: rgba(108, 197, 224, 0.25); background: var(--color-surface-hover); }
 .copy-btn.copied { color: var(--color-success); border-color: rgba(52, 211, 153, 0.2); }
+
+/* --- Page header layout -------------------------------------------------- */
+
+/* These lived in pages/index.vue's scoped style, so every other page that used
+   them — /teams, /teams/{id}, /settings — got the class name and none of the
+   layout: buttons dropped below their title and skeleton lists rendered as one
+   slab. */
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- Avatar -------------------------------------------------------------- */
+
+/* The initial standing in for a person. It lived in app.vue's stylesheet until
+   the member list needed one too — a shared rule has no business depending on a
+   page component being mounted. Size is overridable per consumer. */
+.user-avatar {
+  width: var(--avatar-size, 22px);
+  height: var(--avatar-size, 22px);
+  border-radius: 50%;
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--avatar-size, 22px) * 0.45);
+  font-weight: 600;
+  flex-shrink: 0;
+}
 
 /* --- Warning Banner ----------------------------------------------------- */
 

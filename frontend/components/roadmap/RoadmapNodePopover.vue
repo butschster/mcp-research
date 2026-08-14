@@ -60,7 +60,7 @@
               {{ refLabel }} status
               <span v-if="node.refData.code" class="entity-code">{{ node.refData.code }}</span>
             </label>
-            <div class="status-chips">
+            <div v-if="canWrite" class="status-chips">
               <button
                 v-for="s in entityStatuses"
                 :key="s"
@@ -68,6 +68,7 @@
                 @click="$emit('update-entity-status', node.refType, node.refId, s)"
               >{{ s }}</button>
             </div>
+            <StatusBadge v-else-if="node.refData?.status" :status="node.refData.status" />
           </div>
         </div>
 
@@ -84,7 +85,8 @@
         <!-- Roadmap node status chips (only for non-ref nodes) -->
         <div v-if="statuses.length && !node.refType" class="statuses-section">
           <label class="field-label">Status</label>
-          <div class="status-chips">
+          <StatusBadge v-if="!canWrite && node.status" :status="node.status" />
+          <div v-else-if="canWrite" class="status-chips">
             <button
               v-for="s in statuses"
               :key="s"
@@ -125,6 +127,9 @@ const props = defineProps<{
   } | null
   statuses: string[]
 }>()
+
+// Opening the entity stays; changing its status does not.
+const { canWrite } = useResearchRole()
 
 defineEmits<{
   'update-status': [nodeId: string, status: string]

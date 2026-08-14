@@ -29,10 +29,16 @@ func (h *ResearchHandler) List(w http.ResponseWriter, r *http.Request) {
 		status := domain.ResearchStatus(s)
 		filter.Status = &status
 	}
+	// `?team=` narrows the list to one team. It is a filter, not a scope: the
+	// list is flat across every team the caller belongs to, and this is how a
+	// reader with several of them looks at one at a time.
+	if t := r.URL.Query().Get("team"); t != "" {
+		filter.TeamID = &t
+	}
 
 	researches, err := h.research.List(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -54,7 +60,7 @@ func (h *ResearchHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := research.ID
 	sections, err := h.section.List(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -98,7 +104,7 @@ func (h *ResearchHandler) ListSectionEntries(w http.ResponseWriter, r *http.Requ
 
 	entries, err := h.entry.List(r.Context(), researchID, sectionID, storage.EntryFilter{})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -125,7 +131,7 @@ func (h *ResearchHandler) ListAllEntries(w http.ResponseWriter, r *http.Request)
 
 	entries, err := h.entry.ListByResearch(r.Context(), researchID, filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -147,7 +153,7 @@ func (h *ResearchHandler) ListTags(w http.ResponseWriter, r *http.Request) {
 
 	tags, err := h.entries.FindTagsByResearch(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

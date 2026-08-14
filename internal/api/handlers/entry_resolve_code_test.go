@@ -36,15 +36,22 @@ func TestResolveCode_DoesNotCrossUsers(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 
-	researchSvc := service.NewResearchService(researchRepo, sectionRepo, nopNotifier{}, log)
-	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, nopNotifier{}, log)
+	researchSvc := service.NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), service.NewAccess(storage.NewTeamRepository(db)), nopNotifier{}, log)
+	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, service.NewAccess(storage.NewTeamRepository(db)), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, nopNotifier{}, log)
 	handler := NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, log)
 
+	teamRepo := storage.NewTeamRepository(db)
 	alice := &domain.User{ID: uuid.New().String(), Email: "alice@test.com", PasswordHash: "x", Name: "Alice"}
 	mallory := &domain.User{ID: uuid.New().String(), Email: "mallory@test.com", PasswordHash: "x", Name: "Mallory"}
 	for _, u := range []*domain.User{alice, mallory} {
 		if err := userRepo.Create(t.Context(), u); err != nil {
 			t.Fatalf("create user: %v", err)
+		}
+		// The personal team registration would have created. Without it the
+		// user cannot own a research, which is not a state the product makes.
+		team := &domain.Team{ID: uuid.New().String(), Name: u.Name, Personal: true, CreatedBy: u.ID}
+		if err := teamRepo.CreateWithOwner(t.Context(), team, u.ID); err != nil {
+			t.Fatalf("create personal team: %v", err)
 		}
 	}
 

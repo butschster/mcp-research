@@ -66,21 +66,31 @@ export function useAuth() {
     localStorage.setItem('auth_token', res.token)
   }
 
-  async function register(email: string, password: string, name: string) {
+  /**
+   * Creates an account. `inviteToken` lets someone who was handed a link
+   * register on a server with registration closed, and joins them to the team
+   * in the same request — the invitation is the authorization.
+   */
+  async function register(email: string, password: string, name: string, inviteToken?: string) {
     const res = await $fetch<{ user: User; token: string }>(`${baseURL}/api/auth/register`, {
       method: 'POST',
-      body: { email, password, name },
+      body: { email, password, name, invite_token: inviteToken },
     })
     user.value = res.user
     token.value = res.token
     localStorage.setItem('auth_token', res.token)
   }
 
-  function logout() {
+  function logout(next = '/login') {
     user.value = null
     token.value = null
     localStorage.removeItem('auth_token')
-    navigateTo('/login')
+    // Module-scoped caches survive a client-side route change, so anything
+    // keyed to the person has to be dropped here by name. Without this the
+    // next account in the same tab renders the previous one's team names,
+    // member counts and filter options.
+    useTeams().reset()
+    navigateTo(next)
   }
 
   // Authenticated $fetch wrapper for use outside useApi composable

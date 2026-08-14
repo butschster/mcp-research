@@ -130,6 +130,11 @@ const props = withDefaults(
   { blocks: () => [], researchSlug: '', bridgeData: null, entryId: '', readonly: false }
 )
 
+// The reader's role in the research on screen. `readonly` is the caller's own
+// choice of context — an export preview, say — and this is the permission; a
+// tick needs both.
+const { canWrite } = useResearchRole()
+
 function inline(text: string): string {
   return renderInline(text, props.researchSlug)
 }
@@ -211,7 +216,10 @@ function checklistItems(b: Block): CheckItem[] {
 // handler: the browser flips the box before any handler runs, and returning
 // early left it flipped, saying "done" about something nobody recorded.
 function tickable(b: Block): boolean {
-  return !props.readonly && !!props.entryId && !!b.id
+  // A viewer's tick would be a write — the box posts a patch to the entry —
+  // so the role has to reach this far down into rendered content. This is the
+  // edit affordance most easily missed: it does not look like a button.
+  return canWrite.value && !props.readonly && !!props.entryId && !!b.id
 }
 
 async function toggle(b: Block, item: CheckItem, checked: boolean) {

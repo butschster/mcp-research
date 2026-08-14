@@ -39,6 +39,7 @@ func (h *WriteHandler) CreateResearch(w http.ResponseWriter, r *http.Request) {
 		Description string   `json:"description"`
 		Goal        string   `json:"goal"`
 		Tags        []string `json:"tags"`
+		TeamID      string   `json:"team_id"`
 		Sections    []struct {
 			Name        string `json:"name"`
 			DisplayName string `json:"display_name"`
@@ -65,9 +66,10 @@ func (h *WriteHandler) CreateResearch(w http.ResponseWriter, r *http.Request) {
 	research, created, err := h.research.Create(r.Context(), service.CreateResearchRequest{
 		Name: input.Name, Description: input.Description,
 		Goal: input.Goal, Tags: input.Tags, Sections: sections,
+		TeamID: input.TeamID,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -108,7 +110,7 @@ func (h *WriteHandler) UpdateResearch(w http.ResponseWriter, r *http.Request) {
 		Memory: input.Memory, AddMemory: input.AddMemory,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": research})
@@ -137,7 +139,7 @@ func (h *WriteHandler) AddSection(w http.ResponseWriter, r *http.Request) {
 		Description: input.Description, Position: input.Position,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"data": section})
@@ -166,7 +168,7 @@ func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 		Status: status, Position: input.Position,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": section})
@@ -201,7 +203,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 		Status: domain.EntryStatus(input.Status), Tags: input.Tags,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
@@ -253,7 +255,7 @@ func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 		Status: status, Tags: input.Tags, TextReplace: textReplace, SessionID: input.SessionID,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": entry})
@@ -281,7 +283,7 @@ func (h *WriteHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		Description: input.Description, Priority: domain.Priority(input.Priority),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"data": task})
@@ -314,7 +316,7 @@ func (h *WriteHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		Title: input.Title, Status: status, Priority: priority, Result: input.Result,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": task})
@@ -323,7 +325,7 @@ func (h *WriteHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 func (h *WriteHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("id")
 	if err := h.task.Delete(r.Context(), taskID); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
@@ -384,7 +386,7 @@ func (h *WriteHandler) PatchEntry(w http.ResponseWriter, r *http.Request) {
 func (h *WriteHandler) DeleteEntry(w http.ResponseWriter, r *http.Request) {
 	entryID := r.PathValue("id")
 	if err := h.entry.Delete(r.Context(), entryID); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
@@ -427,7 +429,7 @@ func (h *WriteHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		Focus: input.Focus, Questions: questions,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"data": session})
@@ -457,7 +459,7 @@ func (h *WriteHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		Notes: input.Notes, AddNote: input.AddNote,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": session})
@@ -483,7 +485,7 @@ func (h *WriteHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 
 	question, err := h.session.UpdateQuestion(r.Context(), questionID, status, input.Answer)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": question})
@@ -517,7 +519,7 @@ func (h *WriteHandler) AddQuestions(w http.ResponseWriter, r *http.Request) {
 
 	questions, err := h.session.AddQuestions(r.Context(), sessionID, requests)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": questions, "count": len(questions)})

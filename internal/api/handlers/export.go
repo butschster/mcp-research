@@ -77,13 +77,13 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 	sections, err := h.section.List(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
 	allEntries, err := h.entries.FindByResearchWithContent(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 	sessions, err := h.session.ListByResearch(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 	tasks, err := h.task.List(r.Context(), researchID, storage.TaskFilter{})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -174,14 +174,14 @@ func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
 
 	questions, err := h.session.ListQuestions(r.Context(), sess.Session.ID, storage.QuestionFilter{})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
 	// Entries produced during this session, grouped by their section.
 	allEntries, err := h.entries.FindByResearchWithContent(r.Context(), research.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	var sessionEntries []*domain.Entry
@@ -193,7 +193,7 @@ func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
 
 	sections, err := h.section.List(r.Context(), research.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	sectionNames := make(map[string]string, len(sections))

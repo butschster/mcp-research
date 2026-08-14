@@ -42,13 +42,13 @@ func setupObsidian(t *testing.T) *obsidianFixture {
 	roadmapNodeRepo := storage.NewRoadmapNodeRepository(db)
 	roadmapEdgeRepo := storage.NewRoadmapEdgeRepository(db)
 
-	researchSvc := NewResearchService(researchRepo, sectionRepo, events, log)
-	sectionSvc := NewSectionService(sectionRepo, entryRepo, researchRepo, events, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, revisionRepo, crossrefRepo, externalLinkRepo, events, log)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), events, log)
+	sectionSvc := NewSectionService(sectionRepo, entryRepo, researchRepo, testAccess(db), events, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), sessionRepo, blockRepo, revisionRepo, crossrefRepo, externalLinkRepo, events, log)
 	entrySvc.SetRoadmapRepos(roadmapRepo, roadmapNodeRepo)
-	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, events, log)
-	taskSvc := NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
-	roadmapSvc := NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, events, log)
+	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, testAccess(db), entrySvc, events, log)
+	taskSvc := NewTaskService(taskRepo, researchRepo, testAccess(db), entrySvc, events, log)
+	roadmapSvc := NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, testAccess(db), events, log)
 	roadmapSvc.SetRefResolvers(entryRepo, taskRepo, sessionRepo, questionRepo, sectionRepo)
 
 	return &obsidianFixture{

@@ -67,7 +67,7 @@
               {{ expandAll ? 'Collapse all' : 'Expand all' }}
             </button>
             <button
-              v-if="diff && diff.to.revision !== current"
+              v-if="canWrite && diff && diff.to.revision !== current"
               class="btn btn-sm btn-primary"
               @click="$emit('restore', diff.to.revision)"
             >
@@ -134,6 +134,10 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ close: []; restore: [number] }>()
+
+// Reading the history is a read. Writing an old revision back over the entry
+// is not, so only that button goes.
+const { canWrite } = useResearchRole()
 
 const { authFetch } = useAuth()
 const apiBase = useRuntimeConfig().public.apiBase || ''

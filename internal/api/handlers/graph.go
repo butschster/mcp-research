@@ -80,7 +80,7 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	// 1. Sections
 	sections, err := h.section.List(ctx, researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	sectionNames := map[string]string{} // id -> display_name
@@ -99,7 +99,7 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	// 2. Entries (with tags)
 	allEntries, err := h.entries.FindByResearch(ctx, researchID, storage.EntryFilter{})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	entryTags := map[string][]string{}  // entry_id -> tags

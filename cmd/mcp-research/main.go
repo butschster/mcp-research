@@ -68,19 +68,27 @@ func main() {
 	roadmapRepo := storage.NewRoadmapRepository(db)
 	roadmapNodeRepo := storage.NewRoadmapNodeRepository(db)
 	roadmapEdgeRepo := storage.NewRoadmapEdgeRepository(db)
+	teamRepo := storage.NewTeamRepository(db)
+	teamInviteRepo := storage.NewTeamInviteRepository(db)
+	userRepo := storage.NewUserRepository(db)
+
+	// Every service asks the same guard what the caller may do, so there is one
+	// place to get authorization wrong instead of eight.
+	access := service.NewAccess(teamRepo)
 
 	// Services
-	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
-	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, events, log)
-	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, revisionRepo, crossrefRepo, externalLinkRepo, events, log)
+	researchSvc := service.NewResearchService(researchRepo, sectionRepo, teamRepo, access, events, log)
+	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, access, events, log)
+	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, access, sessionRepo, blockRepo, revisionRepo, crossrefRepo, externalLinkRepo, events, log)
 	entrySvc.SetRoadmapRepos(roadmapRepo, roadmapNodeRepo)
 	entrySvc.SetRevisionLimit(cfg.RevisionLimit)
-	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, events, log)
-	taskSvc := service.NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
-	roadmapSvc := service.NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, events, log)
+	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, access, entrySvc, events, log)
+	taskSvc := service.NewTaskService(taskRepo, researchRepo, access, entrySvc, events, log)
+	roadmapSvc := service.NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, access, events, log)
 	roadmapSvc.SetRefResolvers(entryRepo, taskRepo, sessionRepo, questionRepo, sectionRepo)
 	exportSvc := service.NewExportService(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, log)
 	obsidianSvc := service.NewObsidianService(researchSvc, sectionSvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, revisionRepo, log)
+	teamSvc := service.NewTeamService(teamRepo, teamInviteRepo, userRepo, researchRepo, events, log)
 
 	// Auth (optional)
 	var authSvc *service.AuthService
@@ -93,12 +101,11 @@ func main() {
 			log.Warn("no jwt_secret configured, generated random secret (will change on restart)")
 		}
 
-		userRepo := storage.NewUserRepository(db)
 		apiKeyRepo := storage.NewAPIKeyRepository(db)
 		oauthRepo := storage.NewOAuthRepository(db)
 		jwtMgr := auth.NewJWTManager(cfg.JWTSecret, 30*24*time.Hour)
 
-		authSvc = service.NewAuthService(userRepo, apiKeyRepo, oauthRepo, researchRepo, jwtMgr, cfg.AllowRegistration, log)
+		authSvc = service.NewAuthService(userRepo, apiKeyRepo, oauthRepo, researchRepo, teamRepo, jwtMgr, cfg.AllowRegistration, log)
 		oauthSvc = service.NewOAuthService(oauthRepo, log)
 
 		// Resolve or auto-create default user
@@ -152,7 +159,7 @@ func main() {
 		AutoLoginToken: autoLoginToken,
 		MCPHandler:     srv.StreamableHTTPHandler(),
 	}
-	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

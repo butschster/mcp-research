@@ -12,12 +12,13 @@ import (
 
 type AuthHandler struct {
 	authSvc        *service.AuthService
+	teams          *service.TeamService
 	autoLoginToken string // JWT for default user (empty = disabled)
 	log            *slog.Logger
 }
 
-func NewAuthHandler(authSvc *service.AuthService, autoLoginToken string, log *slog.Logger) *AuthHandler {
-	return &AuthHandler{authSvc: authSvc, autoLoginToken: autoLoginToken, log: log}
+func NewAuthHandler(authSvc *service.AuthService, teams *service.TeamService, autoLoginToken string, log *slog.Logger) *AuthHandler {
+	return &AuthHandler{authSvc: authSvc, teams: teams, autoLoginToken: autoLoginToken, log: log}
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -25,12 +26,34 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 		Name     string `json:"name"`
+		// InviteToken lets someone who was handed a link create an account on a
+		// server with registration closed. The invitation is the authorization;
+		// without this, turning registration off would make it impossible to
+		// bring anyone new onto a team, which is what invitations are for.
+		InviteToken string `json:"invite_token"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
 
-	user, token, err := h.authSvc.Register(r.Context(), input.Email, input.Password, input.Name)
+	invited := false
+	if input.InviteToken != "" && h.teams != nil {
+		preview, err := h.teams.PreviewInvite(r.Context(), input.InviteToken)
+		if err == nil && preview.Status == service.InvitePending {
+			invited = true
+		}
+	}
+
+	var (
+		user  *domain.User
+		token string
+		err   error
+	)
+	if invited {
+		user, token, err = h.authSvc.RegisterInvited(r.Context(), input.Email, input.Password, input.Name)
+	} else {
+		user, token, err = h.authSvc.Register(r.Context(), input.Email, input.Password, input.Name)
+	}
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrEmailTaken):
@@ -47,9 +70,23 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Join straight away: the point of following the link was to get in, and
+	// making the new account press Join again on a page it has already read is
+	// a step for nobody's benefit.
+	joined := map[string]any(nil)
+	if invited {
+		ctx := auth.WithUser(r.Context(), user)
+		if result, aerr := h.teams.AcceptInvite(ctx, input.InviteToken); aerr == nil {
+			joined = map[string]any{"team_id": result.TeamID, "team_name": result.TeamName, "role": result.Role}
+		} else {
+			h.log.Warn("registered from an invite but could not join", "error", aerr)
+		}
+	}
+
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"user":  user,
-		"token": token,
+		"user":   user,
+		"token":  token,
+		"joined": joined,
 	})
 }
 

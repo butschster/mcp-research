@@ -101,13 +101,17 @@ func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entr
 	return r.scanEntry(row, true)
 }
 
-// SearchEntries performs a full-text search across entry title, description, and content.
-// Returns entries without content for efficiency, ordered by relevance (title > description > content).
-// SearchEntries matches title, description and content. userID scopes the search
-// the way validateResearchAccess scopes everything else: an empty userID means
-// auth is off and there is nothing to scope by, and a research with no owner
-// stays visible to everyone. Without this the endpoint returned every user's
-// entries, and its content LIKE made the search box an oracle over their text.
+// SearchEntries matches title, description and content, and returns entries
+// without their content, ordered by relevance (title > description > content).
+//
+// userID scopes it the way Access scopes everything else: by **team
+// membership**, not by who created the research. Scoping by creator was both
+// too narrow — a colleague's entries in a shared team never appeared, which is
+// the point of having one — and too wide, because an ownerless research
+// matched everybody while `research.Get` refused it, turning the search box
+// into an oracle over text its reader could not open.
+//
+// An empty userID means auth is off and there is nothing to scope by.
 func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int, userID string) ([]*domain.Entry, error) {
 	if query == "" {
 		return nil, nil
@@ -129,7 +133,8 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 		   AND (? = '' OR EXISTS (
 		         SELECT 1 FROM researches res
 		          WHERE res.id = entries.research_id
-		            AND (res.user_id IS NULL OR res.user_id = '' OR res.user_id = ?)))
+		            AND (res.team_id = 'team-local'
+		                 OR res.team_id IN (SELECT team_id FROM team_members WHERE user_id = ?))))
 		 ORDER BY relevance DESC, created_at DESC
 		 LIMIT ?`,
 		pattern, pattern, pattern,
@@ -271,11 +276,13 @@ func (r *EntryRepository) FindTagsByResearch(ctx context.Context, researchID str
 	return result, rows.Err()
 }
 
-// FindRelatedByTags returns entries that share at least one tag with the given entry,
-// excluding the entry itself. Results are ordered by number of shared tags (descending).
-// FindRelatedByTags matches entries sharing tags. userID scopes it exactly as
-// SearchEntries does: without it, tagging an entry "security" listed every
-// user's entries with that tag, ids and all.
+// FindRelatedByTags returns entries sharing at least one tag with the given
+// entry, excluding it, ordered by how many tags they share.
+//
+// userID scopes it exactly as SearchEntries does, and for the same reason it
+// had to stop scoping by creator: a teammate saw none of a colleague's related
+// entries, while someone removed from a team went on seeing every entry they
+// had created there.
 func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string, userID string) ([]*domain.Entry, error) {
 	if len(tags) == 0 {
 		return nil, nil
@@ -301,7 +308,8 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 		   AND (? = '' OR EXISTS (
 		         SELECT 1 FROM researches res
 		          WHERE res.id = e.research_id
-		            AND (res.user_id IS NULL OR res.user_id = '' OR res.user_id = ?)))
+		            AND (res.team_id = 'team-local'
+		                 OR res.team_id IN (SELECT team_id FROM team_members WHERE user_id = ?))))
 		 GROUP BY e.id
 		 ORDER BY shared DESC, e.created_at DESC`, placeholders)
 

@@ -11,18 +11,30 @@ const (
 )
 
 type Research struct {
-	ID          string         `json:"id"`
-	Code        string         `json:"code"`
-	UserID      string         `json:"user_id,omitempty"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Goal        string         `json:"goal"`
-	Status      ResearchStatus `json:"status"`
-	Instruction string         `json:"instruction"`
-	Memory      []string       `json:"memory"`
-	Tags        []string       `json:"tags"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID   string `json:"id"`
+	Code string `json:"code"`
+	// UserID is who created the research. It is a record, not a permission:
+	// access comes from TeamID and the caller's role in that team.
+	UserID string `json:"user_id,omitempty"`
+	// TeamID is the owning team — the thing authorization actually consults.
+	TeamID string `json:"team_id,omitempty"`
+	// TeamName and Role are resolved per request for display, so a reader can
+	// see whose team a research is in and the UI can hide controls the caller
+	// cannot use. Neither is stored on the research.
+	TeamName string   `json:"team_name,omitempty"`
+	Role     TeamRole `json:"role,omitempty"`
+	// TeamPersonal lets the UI leave a solo user's own researches unbadged —
+	// labelling every card with your own name is noise, not information.
+	TeamPersonal bool           `json:"team_is_personal,omitempty"`
+	Name         string         `json:"name"`
+	Description  string         `json:"description"`
+	Goal         string         `json:"goal"`
+	Status       ResearchStatus `json:"status"`
+	Instruction  string         `json:"instruction"`
+	Memory       []string       `json:"memory"`
+	Tags         []string       `json:"tags"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 type SectionStatus string

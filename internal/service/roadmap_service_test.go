@@ -15,11 +15,11 @@ func setupRoadmapService(t *testing.T) (*RoadmapService, *mockNotifier, *sql.DB,
 	t.Helper()
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewRoadmapService(
-		storage.NewRoadmapRepository(db),
+	svc := NewRoadmapService(storage.NewRoadmapRepository(db),
 		storage.NewRoadmapNodeRepository(db),
 		storage.NewRoadmapEdgeRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		notifier,
 		slog.Default(),
 	)

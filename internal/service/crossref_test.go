@@ -20,8 +20,8 @@ func TestCrossRefParsing_SameResearch(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
-	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, slog.Default())
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, slog.Default())
 
 	r, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
 		Name: "Test",
@@ -83,8 +83,8 @@ func TestCrossRefParsing_ForwardReference(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
-	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, slog.Default())
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, slog.Default())
 
 	r, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
 		Name: "Test", Sections: []CreateSectionRequest{{Name: "s1"}},
@@ -143,9 +143,9 @@ func TestCrossRefParsing_QuestionAnswer(t *testing.T) {
 	sessionRepo := storage.NewSessionRepository(db)
 	questionRepo := storage.NewQuestionRepository(db)
 
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
-	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, slog.Default())
-	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, notifier, slog.Default())
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, slog.Default())
+	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, testAccess(db), entrySvc, notifier, slog.Default())
 
 	r, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
 		Name: "Test", Sections: []CreateSectionRequest{{Name: "s1"}},
@@ -196,9 +196,9 @@ func TestCrossRefParsing_TaskResult(t *testing.T) {
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	taskRepo := storage.NewTaskRepository(db)
 
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
-	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, slog.Default())
-	taskSvc := NewTaskService(taskRepo, researchRepo, entrySvc, notifier, slog.Default())
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, slog.Default())
+	taskSvc := NewTaskService(taskRepo, researchRepo, testAccess(db), entrySvc, notifier, slog.Default())
 
 	r, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
 		Name: "Test", Sections: []CreateSectionRequest{{Name: "s1"}},
@@ -241,7 +241,7 @@ func TestResearchService_ResolveID(t *testing.T) {
 
 	researchRepo := storage.NewResearchRepository(db)
 	sectionRepo := storage.NewSectionRepository(db)
-	svc := NewResearchService(researchRepo, sectionRepo, notifier, slog.Default())
+	svc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, slog.Default())
 
 	r, _, _ := svc.Create(ctx, CreateResearchRequest{Name: "Test"})
 
@@ -281,8 +281,8 @@ func TestEntryService_GetByIDOrCode(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
-	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, slog.Default())
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, slog.Default())
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, slog.Default())
 
 	r, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
 		Name: "Test", Sections: []CreateSectionRequest{{Name: "s1"}},

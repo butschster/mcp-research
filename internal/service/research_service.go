@@ -17,6 +17,9 @@ type CreateResearchRequest struct {
 	Goal        string
 	Tags        []string
 	Sections    []CreateSectionRequest
+	// TeamID puts the research in a team other than the creator's personal
+	// one. Empty is the ordinary case and the only one a solo user ever hits.
+	TeamID string
 }
 
 type CreateSectionRequest struct {
@@ -40,18 +43,26 @@ type UpdateResearchRequest struct {
 type ResearchService struct {
 	researches *storage.ResearchRepository
 	sections   *storage.SectionRepository
+	teams      *storage.TeamRepository
+	access     *Access
 	events     EventNotifier
 	log        *slog.Logger
 }
 
-func NewResearchService(researches *storage.ResearchRepository, sections *storage.SectionRepository, events EventNotifier, log *slog.Logger) *ResearchService {
-	return &ResearchService{researches: researches, sections: sections, events: events, log: log}
+func NewResearchService(researches *storage.ResearchRepository, sections *storage.SectionRepository, teams *storage.TeamRepository, access *Access, events EventNotifier, log *slog.Logger) *ResearchService {
+	return &ResearchService{researches: researches, sections: sections, teams: teams, access: access, events: events, log: log}
 }
 
 func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest) (*domain.Research, []*domain.Section, error) {
+	teamID, err := s.resolveCreateTeam(ctx, req.TeamID)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	research := &domain.Research{
 		ID:          uuid.New().String(),
 		UserID:      auth.UserIDFromContext(ctx),
+		TeamID:      teamID,
 		Name:        normalizeTitle(req.Name),
 		Description: normalizeContent(req.Description),
 		Goal:        normalizeContent(req.Goal),
@@ -84,8 +95,64 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 		sections = append(sections, section)
 	}
 
+	s.decorate(ctx, research)
 	s.events.Notify(Event{Type: "research.created", ResearchID: research.ID, EntityID: research.ID, Entity: "research"})
 	return research, sections, nil
+}
+
+// resolveCreateTeam decides which team a new research lands in.
+//
+// A research with no team would be reachable by nobody once auth is on, so
+// there is no "unassigned" outcome here: either the caller named a team they
+// may write to, or it goes to their personal one.
+func (s *ResearchService) resolveCreateTeam(ctx context.Context, requested string) (string, error) {
+	uid := auth.UserIDFromContext(ctx)
+	if uid == "" {
+		// Local mode: no users, one team, everything in it.
+		return domain.LocalTeamID, nil
+	}
+
+	if requested != "" {
+		role, ok, err := s.teams.FindRole(ctx, requested, uid)
+		if err != nil {
+			return "", fmt.Errorf("find team role: %w", err)
+		}
+		if !ok {
+			return "", ErrNotFound
+		}
+		if !role.CanWrite() {
+			return "", ErrForbidden
+		}
+		return requested, nil
+	}
+
+	team, err := s.teams.FindPersonal(ctx, uid)
+	if err != nil {
+		return "", fmt.Errorf("find personal team: %w", err)
+	}
+	if team == nil {
+		// Every user gets one at registration and the migration backfilled the
+		// rest, so this is a broken account rather than a missing feature.
+		return "", fmt.Errorf("user %s has no personal team", uid)
+	}
+	return team.ID, nil
+}
+
+// decorate fills the per-request fields — the owning team's name and what the
+// caller may do — so a reader can tell whose team a research is in and the UI
+// can hide controls instead of letting them fail on click.
+func (s *ResearchService) decorate(ctx context.Context, research *domain.Research) {
+	if research == nil {
+		return
+	}
+	research.Role = s.access.RoleOrEmpty(ctx, research.ID)
+	if research.TeamID == "" {
+		return
+	}
+	if team, err := s.teams.FindByID(ctx, research.TeamID); err == nil && team != nil {
+		research.TeamName = team.Name
+		research.TeamPersonal = team.Personal
+	}
 }
 
 func (s *ResearchService) Get(ctx context.Context, id string) (*domain.Research, error) {
@@ -103,10 +170,12 @@ func (s *ResearchService) Get(ctx context.Context, id string) (*domain.Research,
 	if research == nil {
 		return nil, ErrNotFound
 	}
-	// Ownership check: if research has a user and caller is a different user, deny
-	if uid := auth.UserIDFromContext(ctx); uid != "" && research.UserID != "" && research.UserID != uid {
-		return nil, ErrNotFound
+	// Membership, not ownership: a colleague in the same team sees this, and
+	// the creator of a research they were since removed from does not.
+	if err := s.access.Read(ctx, research.ID); err != nil {
+		return nil, err
 	}
+	s.decorate(ctx, research)
 	return research, nil
 }
 
@@ -119,12 +188,46 @@ func (s *ResearchService) ResolveID(ctx context.Context, idOrCode string) (strin
 	return r.ID, nil
 }
 
+// List returns the researches of every team the caller belongs to. Filtering
+// by creator instead would hide a colleague's work in a shared team, which is
+// the whole point of having one.
 func (s *ResearchService) List(ctx context.Context, filter storage.ResearchFilter) ([]*domain.Research, error) {
-	// Scope to current user if authenticated
-	if uid := auth.UserIDFromContext(ctx); uid != "" {
-		filter.UserID = &uid
+	uid := auth.UserIDFromContext(ctx)
+	if uid != "" {
+		filter.MemberOf = &uid
 	}
-	return s.researches.FindAll(ctx, filter)
+
+	researches, err := s.researches.FindAll(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	if researches == nil {
+		// An empty list is now an ordinary state — a new member of a team that
+		// holds nothing yet — and `"data": null` is not a list.
+		researches = []*domain.Research{}
+	}
+	if uid == "" || len(researches) == 0 {
+		return researches, nil
+	}
+
+	// One query for the caller's teams rather than two per research: the list
+	// is the busiest read in the product.
+	teams, err := s.teams.ListByUser(ctx, uid)
+	if err != nil {
+		return researches, nil
+	}
+	byID := make(map[string]*domain.Team, len(teams))
+	for _, t := range teams {
+		byID[t.ID] = t
+	}
+	for _, r := range researches {
+		if t := byID[r.TeamID]; t != nil {
+			r.TeamName = t.Name
+			r.TeamPersonal = t.Personal
+			r.Role = t.Role
+		}
+	}
+	return researches, nil
 }
 
 func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResearchRequest) (*domain.Research, error) {
@@ -135,6 +238,9 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 
 	research, err := s.Get(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.access.Write(ctx, research.ID); err != nil {
 		return nil, err
 	}
 
@@ -172,8 +278,8 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 }
 
 func (s *ResearchService) AddSection(ctx context.Context, researchID string, req CreateSectionRequest) (*domain.Section, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, researchID); err != nil {
+		return nil, err
 	}
 
 	// Check for duplicate name

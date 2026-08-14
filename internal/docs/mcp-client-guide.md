@@ -1,6 +1,6 @@
 # MCP Client Guide
 
-Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
+Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
 
 ## Two Ways to Interact
 
@@ -23,11 +23,11 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 |------|---------|
 | `research_create` | Create research with sections, tags, and goal |
 | `research_get` | Load full research context (sections, entry counts, active session) |
-| `research_list` | List all researches with optional status filter |
+| `research_list` | List every research you can reach, with optional status filter. Marks a shared one with `team` and a read-only one with `access: "read-only"` |
 | `research_update` | Update name, goal, status, instruction, memory, tags |
 | `research_add_section` | Add a new section to an existing research |
 | `research_export` | Export a full research (sections, entries, sessions, questions, tasks, roadmaps). `format` defaults to `portable` (JSON for `research_import`); `format: "obsidian"` returns a link to download it as an Obsidian vault |
-| `research_import` | Re-create a research from a portable export payload |
+| `research_import` | Re-create a research from a portable export payload. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team |
 
 ### Entries
 
@@ -82,6 +82,33 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `roadmap_update_node` | Update a single node |
 | `roadmap_remove_nodes` | Remove nodes (edges auto-cascade) |
 
+## Access: You Can See More Than You Can Write
+
+A research is owned by a **team**, and your role in that team decides what you may do to it. You may therefore be able to read a research, list its entries and export it, and still be refused when you try to write to it. The creator of a research has no standing privileges over it: `user_id` records who made it and is never consulted for permission.
+
+| Role | May do |
+|------|--------|
+| `viewer` | Every read tool (`*_get`, `*_list`, `*_read`, `entry_history`, `entry_diff`, `research_export`) |
+| `editor` | The above, plus every create/update/delete tool |
+| `owner` | The above, plus team management and moving a research to another team (REST only) |
+
+**How you find out, before you fail:**
+
+- `research_list` marks each item it needs to. A research owned by a team that is not your own personal one carries `team` with the team's name; one you may only read carries `access: "read-only"`. **No `access` key means you may write to it.**
+- `research_get` returns the research record itself, which carries `team_id`, `team_name`, `team_is_personal` and `role` (`viewer` / `editor` / `owner`).
+- With `auth_enabled: false` there is no caller and no check: `access` never appears, and every tool is permitted.
+
+**How a refusal arrives** — as an ordinary tool result with `isError: true`, never as a protocol error:
+
+| Text | Means | Do |
+|------|-------|----|
+| `your role in this team does not allow this` | You are in the team but only a `viewer` | Do not retry. Tell the user which research it was and that they need editor rights, or pick another research |
+| `not found` | Either no such id, **or** it belongs to a team you are not in — the two are deliberately indistinguishable | Re-run `research_list` and use an id from it |
+
+A new research created with `research_create` always lands in your own personal team, so a research you created this session is always writable. `research_import` takes an optional `team_id` to put an imported research somewhere else; you must be an editor or owner of that team.
+
+Full model — roles, invitations, transfer and the team REST routes: [Domain Guide](/llms/domain-guide.md#team).
+
 ## Nullable and Optional Fields
 
 Read this before composing any tool call. Input schemas are generated from Go structs, and the generated schema lists **every** property of a tool (and of every nested object) in `required`, with `additionalProperties: false`. Optionality is expressed by nullability, not by absence:
@@ -95,7 +122,7 @@ Read this before composing any tool call. Input schemas are generated from Go st
 Consequences:
 
 - **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
-- **Three exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), and `research_export` requires `research_id` alone (`format` may be omitted). Sending `null` for those four works as well, so "send every property as `null`" is still a correct strategy everywhere.
+- **Four exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), `research_export` requires `research_id` alone (`format` may be omitted), and `research_import` requires `data` alone (`team_id` may be omitted). Sending `null` for those five properties works as well, so "send every property as `null`" is still a correct strategy everywhere.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
 - Unknown property names are rejected outright (`additionalProperties: false`).
@@ -114,6 +141,7 @@ Consequences:
 | `session_id` (entry) | The research's currently active session, if there is one |
 | `limit` (`entry_history`) | `20` newest revisions; the result says `truncated: true` when more exist |
 | `format` (`research_export`) | `portable` — the JSON `research_import` takes. `obsidian` returns a vault download link instead; `json` / `vault` / `zip` are accepted aliases, anything else is a validation error |
+| `team_id` (`research_import`) | Your personal team |
 | `to` (`entry_diff`) | The newest revision |
 | `from` (`entry_diff`) | The revision before `to` — so a call with neither shows the most recent change |
 
@@ -387,6 +415,15 @@ Three more things worth knowing about revisions:
   number. Never pass one into `from` / `to`.
 
 See [Revisions](/llms/revisions.md).
+
+### 9. Assuming every research you can see is one you can write to
+
+Reading a research is not permission to change it. Check `research_list` for
+`access: "read-only"`, or `role` on the record `research_get` returns, before you
+plan a session, an entry or a task against a research you did not create. A
+`viewer` gets `your role in this team does not allow this` on the first write —
+after the user has already answered your questions. See
+[Access](#access-you-can-see-more-than-you-can-write).
 
 ## Short Codes
 

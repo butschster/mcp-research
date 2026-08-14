@@ -69,6 +69,7 @@ type RoadmapService struct {
 	nodes      *storage.RoadmapNodeRepository
 	edges      *storage.RoadmapEdgeRepository
 	researches *storage.ResearchRepository
+	access     *Access
 	events     EventNotifier
 	log        *slog.Logger
 	// Optional repos for reference resolution (set via SetRefResolvers)
@@ -84,6 +85,7 @@ func NewRoadmapService(
 	nodes *storage.RoadmapNodeRepository,
 	edges *storage.RoadmapEdgeRepository,
 	researches *storage.ResearchRepository,
+	access *Access,
 	events EventNotifier,
 	log *slog.Logger,
 ) *RoadmapService {
@@ -92,6 +94,7 @@ func NewRoadmapService(
 		nodes:      nodes,
 		edges:      edges,
 		researches: researches,
+		access:     access,
 		events:     events,
 		log:        log,
 	}
@@ -114,7 +117,7 @@ func (s *RoadmapService) SetRefResolvers(
 
 // Create creates a roadmap with initial nodes and edges in one call.
 func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (*domain.Roadmap, error) {
-	if err := validateResearchAccess(ctx, s.researches, req.ResearchID); err != nil {
+	if err := s.access.Write(ctx, req.ResearchID); err != nil {
 		return nil, fmt.Errorf("research %s: %w", req.ResearchID, err)
 	}
 
@@ -218,7 +221,7 @@ func (s *RoadmapService) Get(ctx context.Context, id string) (*domain.Roadmap, e
 	if rm == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, rm.ResearchID); err != nil {
+	if err := s.access.Read(ctx, rm.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
 
@@ -240,7 +243,7 @@ func (s *RoadmapService) Get(ctx context.Context, id string) (*domain.Roadmap, e
 // GetByIDOrCode returns a roadmap scoped to a research. Accepts UUID or short code (e.g. RM1).
 // Validates that the roadmap belongs to the given research.
 func (s *RoadmapService) GetByIDOrCode(ctx context.Context, researchID, idOrCode string) (*domain.Roadmap, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, ErrNotFound
 	}
 
@@ -296,7 +299,7 @@ func (s *RoadmapService) refAllowed(ctx context.Context, researchID string) bool
 	if researchID == "" {
 		return false
 	}
-	return validateResearchAccess(ctx, s.researches, researchID) == nil
+	return s.access.Read(ctx, researchID) == nil
 }
 
 func (s *RoadmapService) resolveRef(ctx context.Context, refType, refID string) *domain.RoadmapNodeRefData {
@@ -465,7 +468,7 @@ func (s *RoadmapService) resolveQuestionRef(ctx context.Context, id string) *dom
 
 // List returns all roadmaps for a research (without nodes/edges).
 func (s *RoadmapService) List(ctx context.Context, researchID string) ([]*domain.Roadmap, error) {
-	if err := validateResearchAccess(ctx, s.researches, researchID); err != nil {
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
 	return s.roadmaps.FindByResearch(ctx, researchID)
@@ -480,8 +483,8 @@ func (s *RoadmapService) Update(ctx context.Context, id string, req UpdateRoadma
 	if rm == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, rm.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, rm.ResearchID); err != nil {
+		return nil, err
 	}
 
 	if req.Title != nil {
@@ -514,8 +517,8 @@ func (s *RoadmapService) Delete(ctx context.Context, id string) error {
 	if rm == nil {
 		return ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, rm.ResearchID); err != nil {
-		return ErrNotFound
+	if err := s.access.Write(ctx, rm.ResearchID); err != nil {
+		return err
 	}
 
 	if err := s.roadmaps.Delete(ctx, id); err != nil {
@@ -535,8 +538,8 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 	if rm == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, rm.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, rm.ResearchID); err != nil {
+		return nil, err
 	}
 
 	tempToReal := make(map[string]string)
@@ -617,8 +620,8 @@ func (s *RoadmapService) UpdateNode(ctx context.Context, nodeID string, req Upda
 	if rm == nil {
 		return nil, ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, rm.ResearchID); err != nil {
-		return nil, ErrNotFound
+	if err := s.access.Write(ctx, rm.ResearchID); err != nil {
+		return nil, err
 	}
 
 	if req.Title != nil {
@@ -669,8 +672,8 @@ func (s *RoadmapService) RemoveNodes(ctx context.Context, roadmapID string, node
 	if rm == nil {
 		return ErrNotFound
 	}
-	if err := validateResearchAccess(ctx, s.researches, rm.ResearchID); err != nil {
-		return ErrNotFound
+	if err := s.access.Write(ctx, rm.ResearchID); err != nil {
+		return err
 	}
 
 	for _, nodeID := range nodeIDs {

@@ -25,10 +25,10 @@ func (h *ImportHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	research, err := h.export.Import(r.Context(), &data)
+	research, err := h.export.Import(r.Context(), &data, r.URL.Query().Get("team"))
 	if err != nil {
 		h.log.Error("import failed", "error", err)
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

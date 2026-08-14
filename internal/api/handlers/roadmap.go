@@ -27,7 +27,7 @@ func (h *RoadmapHandler) ListByResearch(w http.ResponseWriter, r *http.Request) 
 
 	roadmaps, err := h.roadmap.List(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Nodes: nodes, Edges: edges,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (h *RoadmapHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	rm, err := h.roadmap.Update(r.Context(), r.PathValue("id"), req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -161,7 +161,7 @@ func (h *RoadmapHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *RoadmapHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.roadmap.Delete(r.Context(), r.PathValue("id")); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -193,7 +193,7 @@ func (h *RoadmapHandler) UpdateNode(w http.ResponseWriter, r *http.Request) {
 		RefType:  input.RefType, RefID: input.RefID, Metadata: input.Metadata,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

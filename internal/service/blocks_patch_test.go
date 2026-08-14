@@ -23,8 +23,8 @@ func patchFixture(t *testing.T) (*EntryService, context.Context, *domain.Entry) 
 	entryRepo := storage.NewEntryRepository(db)
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
-	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, &mockNotifier{}, log)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, &mockNotifier{}, log)
 
 	ctx := context.Background()
 	research, sections, err := researchSvc.Create(ctx, CreateResearchRequest{
@@ -483,8 +483,12 @@ func TestBlockDefectsFoundInReview(t *testing.T) {
 		}
 
 		// Import re-creates the entry from the exported content.
-		research, sections, _ := NewResearchService(
-			storage.NewResearchRepository(dbOf(svc)), storage.NewSectionRepository(dbOf(svc)), &mockNotifier{}, slog.Default(),
+		research, sections, _ := NewResearchService(storage.NewResearchRepository(dbOf(svc)),
+			storage.NewSectionRepository(dbOf(svc)),
+			storage.NewTeamRepository(dbOf(svc)),
+			testAccess(dbOf(svc)),
+			&mockNotifier{},
+			slog.Default(),
 		).Create(ctx, CreateResearchRequest{Name: "Imported", Goal: "T",
 			Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}}})
 		imported, err := svc.Create(ctx, CreateEntryRequest{

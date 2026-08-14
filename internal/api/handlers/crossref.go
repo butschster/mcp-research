@@ -36,7 +36,7 @@ func (h *CrossRefHandler) ListForResearch(w http.ResponseWriter, r *http.Request
 
 	refs, err := h.crossrefs.FindByResearch(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -62,14 +62,14 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 	// Outgoing: this entry references others
 	outgoing, err := h.crossrefs.FindBySourceEntry(r.Context(), entry.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
 	// Incoming: others reference this entry
 	incoming, err := h.crossrefs.FindByTargetEntry(r.Context(), entry.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 
@@ -185,7 +185,7 @@ func (h *CrossRefHandler) Rebuild(w http.ResponseWriter, r *http.Request) {
 
 	count, err := h.entrySvc.RebuildCrossRefs(r.Context(), researchID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

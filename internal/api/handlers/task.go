@@ -27,7 +27,7 @@ func (h *TaskHandler) ListByResearch(w http.ResponseWriter, r *http.Request) {
 
 	tasks, err := h.task.List(r.Context(), researchID, storage.TaskFilter{})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeServiceError(w, err)
 		return
 	}
 

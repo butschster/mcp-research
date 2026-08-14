@@ -1,7 +1,7 @@
 <template>
   <div
     class="kanban-card"
-    draggable="true"
+    :draggable="canWrite"
     @dragstart="$emit('dragstart', $event)"
     @dragend="$emit('dragend', $event)"
     @click="$emit('click')"
@@ -16,6 +16,10 @@
 
 <script setup lang="ts">
 import { renderRefs } from '~/composables/useCrossRefs'
+
+// A card that lifts and snaps back is worse than a card that does not lift:
+// the drop would 403, after the reader has already committed to the gesture.
+const { canWrite } = useResearchRole()
 
 defineProps<{
   task: any

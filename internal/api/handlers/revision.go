@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -187,15 +186,4 @@ func optionalInt(raw string) (int, error) {
 		return 0, nil
 	}
 	return strconv.Atoi(raw)
-}
-
-// writeServiceError maps the service layer's sentinel errors onto status codes.
-// ErrNotFound covers both "no such thing" and "not yours" by design — see the
-// access-control notes in CLAUDE.md — so it must never become a 403 here.
-func writeServiceError(w http.ResponseWriter, err error) {
-	if errors.Is(err, service.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "not found")
-		return
-	}
-	writeError(w, http.StatusInternalServerError, err.Error())
 }

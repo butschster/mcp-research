@@ -13,9 +13,10 @@ import (
 func TestResearchService_Create(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewResearchService(
-		storage.NewResearchRepository(db),
+	svc := NewResearchService(storage.NewResearchRepository(db),
 		storage.NewSectionRepository(db),
+		storage.NewTeamRepository(db),
+		testAccess(db),
 		notifier,
 		slog.Default(),
 	)
@@ -85,9 +86,10 @@ func TestResearchService_Create(t *testing.T) {
 
 func TestResearchService_Get(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewResearchService(
-		storage.NewResearchRepository(db),
+	svc := NewResearchService(storage.NewResearchRepository(db),
 		storage.NewSectionRepository(db),
+		storage.NewTeamRepository(db),
+		testAccess(db),
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -117,9 +119,10 @@ func TestResearchService_Get(t *testing.T) {
 
 func TestResearchService_List(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewResearchService(
-		storage.NewResearchRepository(db),
+	svc := NewResearchService(storage.NewResearchRepository(db),
 		storage.NewSectionRepository(db),
+		storage.NewTeamRepository(db),
+		testAccess(db),
 		&mockNotifier{},
 		slog.Default(),
 	)
@@ -155,9 +158,10 @@ func TestResearchService_List(t *testing.T) {
 func TestResearchService_Update(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewResearchService(
-		storage.NewResearchRepository(db),
+	svc := NewResearchService(storage.NewResearchRepository(db),
 		storage.NewSectionRepository(db),
+		storage.NewTeamRepository(db),
+		testAccess(db),
 		notifier,
 		slog.Default(),
 	)
@@ -251,9 +255,10 @@ func TestResearchService_Update(t *testing.T) {
 func TestResearchService_AddSection(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewResearchService(
-		storage.NewResearchRepository(db),
+	svc := NewResearchService(storage.NewResearchRepository(db),
 		storage.NewSectionRepository(db),
+		storage.NewTeamRepository(db),
+		testAccess(db),
 		notifier,
 		slog.Default(),
 	)

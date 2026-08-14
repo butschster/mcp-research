@@ -13,11 +13,11 @@ import (
 func TestSessionService_Create(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewSessionService(
-		db,
+	svc := NewSessionService(db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		notifier,
 		slog.Default(),
@@ -84,11 +84,11 @@ func TestSessionService_Create(t *testing.T) {
 
 func TestSessionService_Get(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewSessionService(
-		db,
+	svc := NewSessionService(db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		&mockNotifier{},
 		slog.Default(),
@@ -136,11 +136,11 @@ func TestSessionService_Get(t *testing.T) {
 func TestSessionService_Update(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewSessionService(
-		db,
+	svc := NewSessionService(db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		notifier,
 		slog.Default(),
@@ -221,11 +221,11 @@ func TestSessionService_Update(t *testing.T) {
 
 func TestSessionService_ListByResearch(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewSessionService(
-		db,
+	svc := NewSessionService(db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		&mockNotifier{},
 		slog.Default(),
@@ -248,11 +248,11 @@ func TestSessionService_ListByResearch(t *testing.T) {
 func TestSessionService_AddQuestions(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewSessionService(
-		db,
+	svc := NewSessionService(db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		notifier,
 		slog.Default(),
@@ -337,11 +337,11 @@ func TestSessionService_AddQuestions(t *testing.T) {
 func TestSessionService_UpdateQuestion(t *testing.T) {
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}
-	svc := NewSessionService(
-		db,
+	svc := NewSessionService(db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		notifier,
 		slog.Default(),
@@ -397,11 +397,11 @@ func TestSessionService_UpdateQuestion(t *testing.T) {
 
 func TestSessionService_ListQuestions(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewSessionService(
-		db,
+	svc := NewSessionService(db,
 		storage.NewSessionRepository(db),
 		storage.NewQuestionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		nil,
 		&mockNotifier{},
 		slog.Default(),

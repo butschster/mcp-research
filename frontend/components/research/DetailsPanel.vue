@@ -16,7 +16,7 @@
           <div class="field" @dblclick="startEdit('goal')">
             <div class="field-header">
               <label class="field-label">Goal</label>
-              <button v-if="editingField !== 'goal'" class="field-edit-btn" @click="startEdit('goal')" title="Edit">
+              <button v-if="canWrite && editingField !== 'goal'" class="field-edit-btn" @click="startEdit('goal')" title="Edit">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
             </div>
@@ -35,7 +35,7 @@
           <div class="field" @dblclick="startEdit('description')">
             <div class="field-header">
               <label class="field-label">Description</label>
-              <button v-if="editingField !== 'description'" class="field-edit-btn" @click="startEdit('description')" title="Edit">
+              <button v-if="canWrite && editingField !== 'description'" class="field-edit-btn" @click="startEdit('description')" title="Edit">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
             </div>
@@ -54,7 +54,7 @@
           <div class="field" @dblclick="startEdit('tags')">
             <div class="field-header">
               <label class="field-label">Tags</label>
-              <button v-if="editingField !== 'tags'" class="field-edit-btn" @click="startEdit('tags')" title="Edit">
+              <button v-if="canWrite && editingField !== 'tags'" class="field-edit-btn" @click="startEdit('tags')" title="Edit">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
             </div>
@@ -86,7 +86,7 @@
           <div class="field" @dblclick="startEdit('instruction')">
             <div class="field-header">
               <label class="field-label">System prompt for the AI assistant</label>
-              <button v-if="editingField !== 'instruction'" class="field-edit-btn" @click="startEdit('instruction')" title="Edit">
+              <button v-if="canWrite && editingField !== 'instruction'" class="field-edit-btn" @click="startEdit('instruction')" title="Edit">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
             </div>
@@ -133,6 +133,10 @@ const props = defineProps<{
   research: any
   open: boolean
 }>()
+
+// A viewer sees the same fields, without the pencils. The panel is a display of
+// the research either way; only the way in changes.
+const { canWrite } = useResearchRole()
 
 const emit = defineEmits<{
   save: [field: string, value: any]

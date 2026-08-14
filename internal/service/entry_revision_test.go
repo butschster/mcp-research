@@ -26,9 +26,9 @@ func revisionFixture(t *testing.T) (*EntryService, *SessionService, context.Cont
 	sessionRepo := storage.NewSessionRepository(db)
 	questionRepo := storage.NewQuestionRepository(db)
 
-	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, revisionRepo, crossrefRepo, nil, &mockNotifier{}, log)
-	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, &mockNotifier{}, log)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), sessionRepo, blockRepo, revisionRepo, crossrefRepo, nil, &mockNotifier{}, log)
+	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, testAccess(db), entrySvc, &mockNotifier{}, log)
 
 	ctx := context.Background()
 	research, sections, err := researchSvc.Create(ctx, CreateResearchRequest{

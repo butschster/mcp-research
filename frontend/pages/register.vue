@@ -1,15 +1,26 @@
 <script setup lang="ts">
 const { register, allowRegistration } = useAuth()
+const route = useRoute()
 
-const email = ref('')
+// An invitation carries both the destination and the address it was sent to,
+// so the field is filled in for someone who has just been handed a link.
+const next = computed(() => safeNext(route.query.next) ?? '/')
+const loginLink = computed(() =>
+  route.query.next ? `/login?next=${encodeURIComponent(String(route.query.next))}` : '/login',
+)
+
+const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
 const password = ref('')
 const name = ref('')
 const error = ref('')
 const submitting = ref(false)
 
 // Redirect if registration is disabled
-if (!allowRegistration.value) {
-  navigateTo('/login')
+// An invitation is its own authorization, so a closed server still lets its
+// holder through — the token is checked again server-side.
+const inviteToken = computed(() => (typeof route.query.invite === 'string' ? route.query.invite : ''))
+if (!allowRegistration.value && !inviteToken.value) {
+  navigateTo(route.query.next ? `/login?next=${encodeURIComponent(String(route.query.next))}` : '/login')
 }
 
 const ready = ref(false)
@@ -23,8 +34,8 @@ async function handleSubmit() {
   error.value = ''
   submitting.value = true
   try {
-    await register(email.value, password.value, name.value)
-    navigateTo('/')
+    await register(email.value, password.value, name.value, inviteToken.value || undefined)
+    navigateTo(next.value)
   } catch (e: any) {
     error.value = e?.data?.error || e?.message || 'Registration failed'
   } finally {
@@ -119,7 +130,7 @@ async function handleSubmit() {
           </form>
 
           <p class="auth-footer">
-            Already have an account? <NuxtLink to="/login" class="auth-link">Sign in</NuxtLink>
+            Already have an account? <NuxtLink :to="loginLink" class="auth-link">Sign in</NuxtLink>
           </p>
         </div>
       </div>

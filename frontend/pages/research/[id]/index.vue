@@ -20,6 +20,8 @@
         </div>
         <div class="research-actions">
           <StatusBadge :status="research.status" />
+          <TeamChip v-if="showTeamChip" :name="research.team_name" />
+          <TeamViewerNotice v-if="isViewer" :team-name="research.team_name" />
 
           <!-- Icon nav buttons -->
           <NuxtLink :to="`/research/${researchSlug}/tasks`" class="btn btn-icon" title="Tasks">
@@ -56,8 +58,22 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
                   {{ exporting ? 'Saving...' : 'Download JSON' }}
                 </button>
-                <div class="dropdown-divider"></div>
+                <NuxtLink
+                  v-if="research.team_id && authEnabled"
+                  :to="`/teams/${research.team_id}`"
+                  class="dropdown-item"
+                  @click.native="menuOpen = false"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Members
+                </NuxtLink>
+                <button v-if="canAdmin && authEnabled" class="dropdown-item" @click="openTransfer(); menuOpen = false">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                  Move to team…
+                </button>
+                <div v-if="canWrite" class="dropdown-divider"></div>
                 <button
+                  v-if="canWrite"
                   class="dropdown-item"
                   :class="{ 'dropdown-item--danger': research.status !== 'archived' }"
                   @click="toggleArchive(); menuOpen = false"
@@ -142,6 +158,17 @@
   </div>
 
   <EmptyState v-else icon="&#x1F50D;" title="Research not found" />
+    <ResearchTransferModal
+      :visible="transferOpen"
+      :research="{ code: research?.code, name: research?.name || '' }"
+      :current-team-id="research?.team_id || ''"
+      :current-team-name="research?.team_name || ''"
+      :teams="[...ownedTeams]"
+      :busy="transferring"
+      :error="transferError"
+      @transfer="transfer"
+      @close="transferOpen = false"
+    />
 </template>
 
 <script setup lang="ts">
@@ -152,6 +179,52 @@ const id = route.params.id as string
 const { data: researchData, pending } = await useApi<{ data: any }>(`/api/researches/${id}`)
 
 const research = computed(() => researchData.value?.data?.research)
+
+// The role rides on the payload every research page already awaits, so no
+// screen ever renders edit controls and then takes them away.
+const { authEnabled } = useAuth()
+const { canWrite, canAdmin, isViewer, setFromResearch } = useResearchRole()
+watch(research, (r) => setFromResearch(r), { immediate: true })
+
+const showTeamChip = computed(() => !!research.value?.team_name && !research.value?.team_is_personal)
+
+// Moving a research is the only action that changes who can see it, so it gets
+// a dialog that says so rather than a menu item that just does it.
+const { ownedTeams, load: loadTeams } = useTeams()
+const transferOpen = ref(false)
+const transferring = ref(false)
+const transferError = ref('')
+
+async function openTransfer() {
+  transferError.value = ''
+  // Awaited: opening first showed "you own only this team" and then a picker
+  // with nothing selected and Move disabled, on every deep-linked page load.
+  await loadTeams()
+  transferOpen.value = true
+}
+
+async function transfer(teamId: string) {
+  transferring.value = true
+  transferError.value = ''
+  try {
+    const { authFetch } = useAuth()
+    const cfg = useRuntimeConfig()
+    await authFetch(`${cfg.public.apiBase || ''}/api/researches/${research.value.id}/transfer`, {
+      method: 'POST',
+      body: { team_id: teamId },
+    })
+    transferOpen.value = false
+    const target = ownedTeams.value.find((t) => t.id === teamId)
+    useToasts().success(`Moved to ${target?.name || 'the other team'}`)
+    // Permissions may have changed under the reader — refetch rather than
+    // leaving the page showing what they could do a moment ago.
+    await refreshNuxtData()
+  } catch (e: any) {
+    transferError.value = e?.data?.error || 'The server refused the move'
+  } finally {
+    transferring.value = false
+  }
+}
 const researchSlug = computed(() => research.value?.code || id)
 const sections = computed(() => researchData.value?.data?.sections ?? [])
 const activeSession = computed(() => researchData.value?.data?.active_session)

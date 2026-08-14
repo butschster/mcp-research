@@ -161,7 +161,9 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 
 // Import creates a full research from ExportData.
 // Returns the newly created research.
-func (s *ExportService) Import(ctx context.Context, data *domain.ExportData) (*domain.Research, error) {
+// Import rebuilds a research from an export file, in the caller's personal
+// team unless teamID names another one they may write to.
+func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, teamID string) (*domain.Research, error) {
 	if data.Version != 1 {
 		return nil, fmt.Errorf("unsupported export version: %d", data.Version)
 	}
@@ -189,6 +191,7 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData) (*d
 	}
 
 	research, sections, err := s.research.Create(ctx, CreateResearchRequest{
+		TeamID:      teamID,
 		Name:        r.Name,
 		Description: r.Description,
 		Goal:        r.Goal,

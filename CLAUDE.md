@@ -121,14 +121,35 @@ deploy/
 
 A research can have **multiple sessions** (e.g. initial exploration, deep-dive, follow-up). Each session has its own questions. Questions and answers may contain `[[...]]` cross-references just like entries. The frontend renders these references as clickable links everywhere: question text, answers, task titles/results, session notes.
 
-### User Scoping & Access Control
+### Teams, Roles & Access Control
 
-When `auth_enabled` is true:
-- `Research.UserID` links each research to its owner
-- `ResearchService.Get()` checks ownership — returns `ErrNotFound` for cross-user access (no information leak)
-- `ResearchService.List()` automatically filters by `auth.UserIDFromContext(ctx)`
-- All downstream services (Entry, Section, Session, Task) call `validateResearchAccess()` before any operation
-- Access control is tested in `internal/service/access_control_test.go` (24 tests covering all entities)
+**A team owns a research, and a role in that team is what grants access.**
+`researches.user_id` still records who created it and is **never consulted for a
+permission decision** — two sources of truth for who may do what is how this
+class of bug happens.
+
+- Every user gets a **personal team** at registration (`AuthService.register`).
+  A solo user never meets the concept: their researches live there and the whole
+  teams UI stays out of the way until they belong to a second team.
+- Roles are `viewer` (read + export), `editor` (+ write content), `owner`
+  (+ manage members, move researches between teams).
+- **`service.Access` is the only place the decision is made.** Every service is
+  handed one at construction and calls `Read` / `Write` / `Admin`; there are no
+  free-standing helpers left. Adding a service method without one of these calls
+  is how a viewer gets a write.
+- A non-member gets `ErrNotFound` — confirming a research exists is itself
+  information. A member who merely lacks the right gets `ErrForbidden` (403),
+  because hiding it from someone who can already read it protects nothing.
+- With `auth_enabled: false` nothing changes: nobody is in the request context,
+  so no permission is checked. Existence still is — `Access` verifies the
+  research is there even with no caller.
+- `ResearchService.List` joins `team_members`, not `user_id`. Filtering by
+  creator would hide a colleague's work in a shared team.
+- Handlers map service errors through `handlers.writeServiceError` — a new
+  endpoint gets 403/404/409 right by default instead of by remembering.
+- Tested in `internal/service/role_matrix_test.go` (entity × role × operation),
+  `membership_test.go` (invites, last-owner guard, transfer) and
+  `access_control_test.go` (cross-user isolation).
 
 ### Short Codes
 

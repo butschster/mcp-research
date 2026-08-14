@@ -16,6 +16,7 @@
         <h1 class="page-title">{{ session.title }}</h1>
         <div class="session-header-actions">
           <StatusBadge :status="session.status" />
+          <TeamViewerNotice v-if="isViewer" :team-name="researchData?.data?.research?.team_name" />
           <ActionMenu>
             <NuxtLink
               :to="`/research/${researchSlug}/session/${sessionSlug}/export`"
@@ -76,11 +77,11 @@
       </div>
 
       <!-- Add question -->
-      <button v-if="!showAddQuestion" class="btn btn-sm add-btn" @click="showAddQuestion = true">
+      <button v-if="canWrite && !showAddQuestion" class="btn btn-sm add-btn" @click="showAddQuestion = true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add question
       </button>
-      <form v-else class="add-form" @submit.prevent="submitQuestion">
+      <form v-else-if="canWrite" class="add-form" @submit.prevent="submitQuestion">
         <input v-model="newQuestion.text" class="add-input" placeholder="Question text..." required autofocus />
         <div class="add-form-row">
           <input v-model="newQuestion.area" class="add-input add-input-sm" placeholder="Area (optional)" />
@@ -146,6 +147,13 @@ const sessionId = route.params.sessionId as string
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
 const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
 const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
+
+// Every research-scoped page publishes the caller's role from the payload it
+// already fetches, so the controls beneath it — down to a checkbox inside
+// rendered content — know whether they may write.
+const { canWrite, canAdmin, isViewer, setFromResearch } = useResearchRole()
+watch(researchData, (d) => setFromResearch(d?.data?.research), { immediate: true })
+
 const { data, pending } = await useApi<{ data: any }>(`/api/researches/${id}/sessions/${sessionId}`)
 
 const session  = computed(() => data.value?.data?.session ?? data.value?.data?.Session)

@@ -12,10 +12,10 @@ import (
 )
 
 func newEntryService(db *sql.DB, n EventNotifier) *EntryService {
-	return NewEntryService(
-		storage.NewEntryRepository(db),
+	return NewEntryService(storage.NewEntryRepository(db),
 		storage.NewSectionRepository(db),
 		storage.NewResearchRepository(db),
+		testAccess(db),
 		storage.NewSessionRepository(db),
 		storage.NewBlockRepository(db),
 		storage.NewEntryRevisionRepository(db),

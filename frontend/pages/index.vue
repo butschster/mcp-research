@@ -21,6 +21,11 @@
         <option value="completed">Completed</option>
         <option value="archived">Archived</option>
       </select>
+      <!-- Only when there is a choice to make. A solo user never sees this. -->
+      <select v-if="teams.length > 1" v-model="teamFilter" :disabled="teamsLoading" aria-label="Filter by team">
+        <option value="">All teams</option>
+        <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
+      </select>
       <span v-if="tagFilter" class="active-tag-filter">
         Tag: <strong>{{ tagFilter }}</strong>
         <button class="tag-clear" @click="tagFilter = ''">&times;</button>
@@ -46,6 +51,16 @@
       />
     </div>
 
+    <!-- Empty because of the team filter, not because there is nothing -->
+    <EmptyState
+      v-else-if="teamFilter"
+      icon="&#x1F4C1;"
+      title="No researches in this team yet"
+      description="Researches created in this team will appear here. An agent connected to your account can create one."
+    >
+      <button class="btn btn-sm" @click="teamFilter = ''">Show all teams</button>
+    </EmptyState>
+
     <!-- Empty -->
     <EmptyState
       v-else
@@ -62,8 +77,27 @@ const { authFetch } = useAuth()
 const config = useRuntimeConfig()
 const base = config.public.apiBase || ''
 
+const route = useRoute()
+const router = useRouter()
+const { teams, loading: teamsLoading, load: loadTeams } = useTeams()
+
 const statusFilter = ref('active')
 const tagFilter = ref('')
+
+// The team filter lives in the URL rather than in global state, so a scoped
+// list is a link someone can send — which is the only real advantage a
+// workspace switcher would have had.
+const teamFilter = computed({
+  get: () => (typeof route.query.team === 'string' ? route.query.team : ''),
+  set: (value: string) => {
+    const query = { ...route.query }
+    if (value) query.team = value
+    else delete query.team
+    router.replace({ query })
+  },
+})
+
+onMounted(() => loadTeams())
 const importing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -93,9 +127,13 @@ async function handleImportFile(event: Event) {
   }
 }
 
-const apiUrl = computed(() =>
-  statusFilter.value ? `/api/researches?status=${statusFilter.value}` : '/api/researches'
-)
+const apiUrl = computed(() => {
+  const params = new URLSearchParams()
+  if (statusFilter.value) params.set('status', statusFilter.value)
+  if (teamFilter.value) params.set('team', teamFilter.value)
+  const query = params.toString()
+  return query ? `/api/researches?${query}` : '/api/researches'
+})
 
 const { data, pending, refresh } = useApi<{ data: any[] }>(apiUrl.value)
 
@@ -104,7 +142,7 @@ async function refreshList() {
   data.value = res
 }
 
-watch(statusFilter, refreshList)
+watch([statusFilter, teamFilter], refreshList)
 
 const researches = computed(() => data.value?.data ?? [])
 
@@ -136,6 +174,7 @@ useRealtimeUpdates(async (event) => {
   gap: var(--space-3);
 }
 .skeleton-list {
+  /* This page's skeletons stand in for cards in a grid, not for rows. */
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: var(--space-6);
