@@ -53,6 +53,21 @@ As information accumulates:
 6. Each entry gets an auto-assigned short code (E1, E2, ...)
 7. Entries created while a session is active are linked to it automatically, which is what the session export lists as "entries produced in this session"
 
+### Build on What Exists, Don't Overwrite It
+
+Before rewriting an entry a previous session produced:
+
+1. `entry_history` — who wrote it last, in which session, and what they changed
+2. `entry_diff` — the change itself, if the history suggests someone corrected something
+
+A revision whose author is `human` is a person's edit in the web UI: treat it as
+the strongest reason to extend rather than replace what is there.
+
+Every write that changes something leaves a revision, so nothing is permanently
+lost and an earlier version can be restored. But undoing another session's
+correction without noticing is exactly the failure this history exists to catch.
+See [Revisions](/llms/revisions.md).
+
 ### Track Progress
 
 - Use `research_update` with `add_memory` to record key insights

@@ -70,6 +70,38 @@ func openAPISpec(_ bool) map[string]any {
 		),
 	}
 
+	paths["/api/entries/{id}/revisions"] = map[string]any{
+		"get": endpoint("List entry revisions", "Every write to an entry appends a revision. Newest first, WITHOUT content — use /api/entries/{id}/revisions/{revision} for one revision's content.",
+			[]param{path("id", "Entry UUID")},
+			response200(obj(field("data", "object", "Contains: entry_id, entry_code, title, current (newest revision number), revisions (array of revision, author_kind, session_code, summary, created_at, title, status, tags)"))),
+		),
+	}
+
+	paths["/api/entries/{id}/revisions/{revision}"] = map[string]any{
+		"get": endpoint("Get one revision", "Returns a single revision including the content the entry had at that point.",
+			[]param{path("id", "Entry UUID"), path("revision", "Revision number, 1-based")},
+			response200(obj(field("data", "object", "Revision with content, title, description, entry_type, status, tags, author_kind, session_id, summary, created_at"))),
+		),
+	}
+
+	paths["/api/entries/{id}/diff"] = map[string]any{
+		"get": endpoint("Diff two revisions", "Compares two revisions. Both bounds are optional: 'to' defaults to the newest revision and 'from' to the one before it, so the bare URL answers 'what changed last'. Block documents are compared as rendered markdown, not as stored JSON.",
+			[]param{
+				path("id", "Entry UUID"),
+				query("from", "Revision to compare from (default: the one before 'to')", false),
+				query("to", "Revision to compare to (default: newest)", false),
+			},
+			response200(obj(field("data", "object", "Contains: entry_id, entry_code, from, to, summary (e.g. '+12 −3'), content {lines[{op,text,words}], added, removed, unified}"))),
+		),
+	}
+
+	paths["/api/sessions/{id}/changes"] = map[string]any{
+		"get": endpoint("What a session changed", "Every entry the session created or edited, with the revision range and a diff. Broader than the session's entry list, which covers only entries it created.",
+			[]param{path("id", "Session UUID")},
+			response200(obj(field("data", "object", "Contains: session_id, session_code, created, modified, changes (array of entry_id, entry_code, title, created, deleted, from_revision, to_revision, summary, diff)"))),
+		),
+	}
+
 	paths["/api/researches/{id}/entries/by-code/{code}"] = map[string]any{
 		"get": endpoint("Resolve entry by code", "Find entry by short code (e.g. E1, E2) within a research.",
 			[]param{path("id", "Research UUID"), path("code", "Entry short code (e.g. E1)")},

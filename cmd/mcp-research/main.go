@@ -62,6 +62,7 @@ func main() {
 	sessionRepo := storage.NewSessionRepository(db)
 	questionRepo := storage.NewQuestionRepository(db)
 	taskRepo := storage.NewTaskRepository(db)
+	revisionRepo := storage.NewEntryRevisionRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	externalLinkRepo := storage.NewExternalLinkRepository(db)
 	roadmapRepo := storage.NewRoadmapRepository(db)
@@ -71,8 +72,9 @@ func main() {
 	// Services
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, events, log)
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, events, log)
-	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, crossrefRepo, externalLinkRepo, events, log)
+	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, revisionRepo, crossrefRepo, externalLinkRepo, events, log)
 	entrySvc.SetRoadmapRepos(roadmapRepo, roadmapNodeRepo)
+	entrySvc.SetRevisionLimit(cfg.RevisionLimit)
 	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, entrySvc, events, log)
 	roadmapSvc := service.NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, events, log)

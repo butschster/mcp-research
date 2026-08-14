@@ -319,11 +319,14 @@ func (s *EntryService) LoadBlockDocument(ctx context.Context, entry *domain.Entr
 // expectedRev, when set, is checked against the document as it is inside the
 // transaction — checking it against a copy read earlier would leave the same
 // window open one layer up.
+// note says how the resulting revision is labelled, or that none is wanted —
+// creation records its own after the fact, and a checkbox tick records none.
 func (s *EntryService) mutateBlocks(
 	ctx context.Context,
 	entry *domain.Entry,
 	expectedRev string,
 	src stateSource,
+	note revisionNote,
 	mutate func(doc *domain.BlockDocument) error,
 ) (domain.BlockSaveReport, error) {
 	var report domain.BlockSaveReport
@@ -380,6 +383,12 @@ func (s *EntryService) mutateBlocks(
 	if err := s.entries.UpdateTx(ctx, tx, entry); err != nil {
 		return report, fmt.Errorf("update entry: %w", err)
 	}
+	// Inside the same transaction as the write it describes: a revision that
+	// outlived a rolled-back write would be a snapshot of a document that never
+	// existed.
+	if err := s.recordRevision(ctx, tx, entry, note); err != nil {
+		return report, err
+	}
 	if err := tx.Commit(); err != nil {
 		return report, fmt.Errorf("commit: %w", err)
 	}
@@ -387,8 +396,8 @@ func (s *EntryService) mutateBlocks(
 }
 
 // saveBlockDocument replaces a document wholesale.
-func (s *EntryService) saveBlockDocument(ctx context.Context, entry *domain.Entry, doc *domain.BlockDocument, src stateSource) (domain.BlockSaveReport, error) {
-	return s.mutateBlocks(ctx, entry, "", src, func(cur *domain.BlockDocument) error {
+func (s *EntryService) saveBlockDocument(ctx context.Context, entry *domain.Entry, doc *domain.BlockDocument, src stateSource, note revisionNote) (domain.BlockSaveReport, error) {
+	return s.mutateBlocks(ctx, entry, "", src, note, func(cur *domain.BlockDocument) error {
 		cur.Version = doc.Version
 		cur.Blocks = doc.Blocks
 		return nil

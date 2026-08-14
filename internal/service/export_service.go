@@ -172,6 +172,11 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData) (*d
 		return nil, err
 	}
 
+	// Every entry this creates gets revision 1 attributed to the import rather
+	// than to an agent that never wrote it. The imported file is where the text
+	// came from, and a history that claims otherwise is worse than no history.
+	ctx = WithAuthor(ctx, domain.AuthorImport)
+
 	// 1. Create research with sections
 	sectionReqs := make([]CreateSectionRequest, len(r.Sections))
 	for i, sec := range r.Sections {

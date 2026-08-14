@@ -51,7 +51,7 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, entryPayload(entry))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry)))
 }
 
 func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,7 @@ func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, entryPayload(entry))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry)))
 }
 
 func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +124,7 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, entryPayload(entry))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry)))
 }
 
 // ResolveResearchCode resolves a research short code to its ID and metadata.
@@ -195,4 +195,23 @@ func entryPayload(entry *domain.Entry) map[string]any {
 		out["rev"] = service.DocumentRev(entry.Content)
 	}
 	return out
+}
+
+// withProvenance adds who last wrote the entry and when, so the page can say it
+// without opening the history. `rev` here is the document hash a blocks entry
+// carries; `revision` is the numbered snapshot — different things, and the two
+// names sit side by side in this payload precisely because clients confuse them.
+func withProvenance(payload map[string]any, rev *domain.EntryRevision) map[string]any {
+	if rev == nil {
+		return payload
+	}
+	payload["revision"] = rev.Revision
+	payload["author_kind"] = rev.AuthorKind
+	payload["revised_at"] = rev.CreatedAt
+	if rev.SessionCode != "" {
+		payload["revision_session"] = map[string]any{
+			"code": rev.SessionCode, "title": rev.SessionTitle, "id": rev.SessionID,
+		}
+	}
+	return payload
 }

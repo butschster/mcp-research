@@ -54,6 +54,13 @@
         Entries
         <span v-if="sessionEntries.length" class="tab-count">{{ sessionEntries.length }}</span>
       </button>
+      <button
+        :class="['content-tab', { active: activeTab === 'changes' }]"
+        @click="activeTab = 'changes'"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+        Changes
+      </button>
     </div>
 
     <!-- Questions panel -->
@@ -116,6 +123,13 @@
       </div>
       <EmptyState v-else icon="&#x1F4C4;" title="No entries" description="Entries linked to this session will appear here." />
     </div>
+
+    <!-- Changes panel -->
+    <SessionChangesList
+      v-if="activeTab === 'changes' && session"
+      :session-id="session.id"
+      :research-slug="researchSlug"
+    />
   </div>
 
   <EmptyState v-else icon="&#x1F50D;" title="Session not found" />
@@ -164,7 +178,7 @@ function tagHue(tag: string): number {
 }
 
 // Active tab
-const activeTab = ref<'questions' | 'entries'>('questions')
+const activeTab = ref<'questions' | 'entries' | 'changes'>('questions')
 
 const { authFetch } = useAuth()
 const rtBase = useRuntimeConfig().public.apiBase || ''

@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { runMockFetch } from '../../__mocks__/api'
 
 export {
   ref,
@@ -61,7 +62,9 @@ export const useAuth = () => ({
   login: () => Promise.resolve(),
   register: () => Promise.resolve(),
   logout: () => {},
-  authFetch: (_url: string, _opts?: any) => Promise.resolve({} as any),
+  // Routed through __mocks__/api so a story can render a component that fetches
+  // its own data. Unrouted URLs resolve to {}, as before.
+  authFetch: (url: string, opts?: any) => runMockFetch(url, opts),
 })
 
 export const renderRefs = (text: string, _slug?: string) => text ?? ''

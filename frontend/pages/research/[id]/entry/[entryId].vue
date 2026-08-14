@@ -47,6 +47,10 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Edit
             </button>
+            <button class="btn btn-sm" @click="showHistory = true">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+              History
+            </button>
             <button class="btn btn-sm" @click="copyMarkdown">
               <svg v-if="!copied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
               <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -61,6 +65,14 @@
         <div v-if="entry.tags?.length" class="entry-tags">
           <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
         </div>
+        <button v-if="provenance" class="entry-provenance no-print" @click="showHistory = true">
+          <EntryAuthorBadge :kind="provenance.author_kind" />
+          <span class="provenance-sep" aria-hidden="true">·</span>
+          <span>edited {{ relativeTime(provenance.revised_at) }}</span>
+          <span class="provenance-sep" aria-hidden="true">·</span>
+          <span class="provenance-rev">r{{ provenance.revision }}</span>
+          <span class="provenance-cta">View history →</span>
+        </button>
         <NuxtLink v-if="linkedSession" :to="`/research/${researchSlug}/session/${linkedSession.code || linkedSession.id}`" class="entry-session-link">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
           {{ linkedSession.title }}
@@ -165,6 +177,28 @@
       </ClientOnly>
     </div>
 
+    <!-- Revision history -->
+    <EntryHistoryPanel
+      ref="historyPanel"
+      :visible="showHistory"
+      :entry-id="entry.id"
+      :entry-title="entry.title"
+      :entry-code="entry.code"
+      :restore-error="restoreFailed"
+      @close="showHistory = false"
+      @restore="askRestore"
+    />
+
+    <ConfirmModal
+      :visible="restoreTarget !== null"
+      title="Restore revision"
+      :message="`Restore revision ${restoreTarget} onto this entry? The current text is kept in the history as its own revision — nothing is lost.`"
+      confirm-label="Restore"
+      :loading="restoring"
+      @confirm="confirmRestore"
+      @cancel="restoreTarget = null"
+    />
+
     <!-- Delete confirmation -->
     <ConfirmModal
       :visible="showDeleteConfirm"
@@ -187,6 +221,7 @@ import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { tagHue } from '~/composables/useTagHue'
+import { relativeTime } from '~/composables/useRelativeTime'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
 
 const route = useRoute()
@@ -504,6 +539,47 @@ async function changeStatus(newStatus: string) {
 }
 
 
+// --- Revision history ---
+const showHistory = ref(false)
+const historyPanel = ref<{ reload: () => Promise<void> } | null>(null)
+const restoreTarget = ref<number | null>(null)
+const restoring = ref(false)
+const restoreFailed = ref(false)
+
+const provenance = computed(() => {
+  const d: any = data.value
+  return d?.revision ? { revision: d.revision, author_kind: d.author_kind, revised_at: d.revised_at } : null
+})
+
+function askRestore(revision: number) {
+  restoreFailed.value = false
+  restoreTarget.value = revision
+}
+
+async function confirmRestore() {
+  if (!entry.value || restoreTarget.value === null) return
+  restoring.value = true
+  restoreFailed.value = false
+  try {
+    await authFetch(`${rtBase}/api/entries/${entry.value.id}/revisions/${restoreTarget.value}/restore`, {
+      method: 'POST',
+    })
+    restoreTarget.value = null
+    await refresh()
+    // The restore itself is a new revision, so the open panel is now stale.
+    await historyPanel.value?.reload()
+  } catch (e: any) {
+    // The confirm closes either way: leaving it open with the button reset is
+    // indistinguishable from a click that never registered. The panel shows
+    // what happened, where the reader is looking.
+    restoreTarget.value = null
+    restoreFailed.value = true
+    console.error('Failed to restore revision:', e)
+  } finally {
+    restoring.value = false
+  }
+}
+
 // --- Delete ---
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
@@ -559,6 +635,23 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 </script>
 
 <style scoped>
+.entry-provenance {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.entry-provenance:hover .provenance-cta { color: var(--color-primary); }
+.provenance-sep { opacity: 0.5; }
+.provenance-rev { font-family: 'JetBrains Mono', monospace; }
+.provenance-cta { color: var(--color-text-muted); }
+
 .entry-session-link {
   display: inline-flex;
   align-items: center;

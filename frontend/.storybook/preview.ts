@@ -2,6 +2,15 @@ import type { Preview } from '@storybook/vue3'
 import { setup } from '@storybook/vue3'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { INITIAL_VIEWPORTS } from '@storybook/addon-viewport'
+import ModalOverlay from '../components/ModalOverlay.vue'
+import EmptyState from '../components/EmptyState.vue'
+import EntryDiffView from '../components/entry/DiffView.vue'
+import EntryAuthorBadge from '../components/entry/AuthorBadge.vue'
+import EntryFieldChanges from '../components/entry/FieldChanges.vue'
+import EntryRevisionRow from '../components/entry/RevisionRow.vue'
+import ShortCode from '../components/ShortCode.vue'
+import StatusBadge from '../components/StatusBadge.vue'
+import TagList from '../components/TagList.vue'
 import '../assets/css/main.css'
 
 const router = createRouter({
@@ -30,6 +39,19 @@ setup((app) => {
   app.component('Teleport', {
     template: '<slot />',
   })
+
+  // Nuxt auto-registers components by their path-derived name; Storybook does
+  // not. These are the ones a rendered component looks up inside its own
+  // template, under the exact name Nuxt would give them.
+  app.component('ModalOverlay', ModalOverlay)
+  app.component('EmptyState', EmptyState)
+  app.component('EntryDiffView', EntryDiffView)
+  app.component('EntryAuthorBadge', EntryAuthorBadge)
+  app.component('EntryFieldChanges', EntryFieldChanges)
+  app.component('EntryRevisionRow', EntryRevisionRow)
+  app.component('ShortCode', ShortCode)
+  app.component('StatusBadge', StatusBadge)
+  app.component('TagList', TagList)
 })
 
 const preview: Preview = {

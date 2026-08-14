@@ -25,7 +25,7 @@ func TestAccessControl_Search(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, &mockNotifier{}, log)
 
 	userA, userB := setupTwoUsers(t, userRepo)
 	ctxA := userCtx(userA)
@@ -93,7 +93,7 @@ func TestAccessControl_RoadmapRefData(t *testing.T) {
 	edgeRepo := storage.NewRoadmapEdgeRepository(db)
 
 	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, &mockNotifier{}, log)
 	roadmapSvc := NewRoadmapService(roadmapRepo, nodeRepo, edgeRepo, researchRepo, &mockNotifier{}, log)
 	roadmapSvc.SetRefResolvers(entryRepo, nil, nil, nil, sectionRepo)
 
@@ -176,7 +176,7 @@ func TestTextReplaceRefusedOnBlocks(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, &mockNotifier{}, log)
 
 	userA, _ := setupTwoUsers(t, userRepo)
 	ctx := auth.WithUser(userCtx(userA), userA)
@@ -251,7 +251,7 @@ func TestAccessControl_RelatedAndRefs(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, &mockNotifier{}, log)
 
 	alice, mallory := setupTwoUsers(t, userRepo)
 	ctxA, ctxM := userCtx(alice), userCtx(mallory)

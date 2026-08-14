@@ -9,6 +9,11 @@
         {{ copied ? '&#x2713; Copied' : 'Copy' }}
       </button>
     </div>
+    <!-- What the reader should do next. An empty state that names no action is
+         a dead end; an error state without one is worse. -->
+    <div v-if="$slots.default" class="empty-actions">
+      <slot />
+    </div>
   </div>
 </template>
 
@@ -33,4 +38,5 @@ async function copy() {
 .empty-icon  { font-size: 2.5rem; margin-bottom: var(--space-5); line-height: 1; opacity: 0.7; }
 .empty-title { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); color: var(--color-text); line-height: var(--line-tight); letter-spacing: -0.01em; }
 .empty-desc  { font-size: var(--type-sm); max-width: 40ch; margin-left: auto; margin-right: auto; }
+.empty-actions { margin-top: var(--space-4); display: flex; gap: var(--space-2); justify-content: center; }
 </style>

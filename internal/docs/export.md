@@ -100,7 +100,7 @@ Returns JSON:
 ```
 
 - `questions` — every question of the session, unfiltered, ordered by `position`.
-- `entries` — only entries whose `session_id` equals this session, with full content. `entry_create` links the entry to the research's active session automatically when `session_id` is not given, so entries created during an interview show up here without extra work.
+- `entries` — only entries whose `session_id` equals this session, with full content. `entry_create` links the entry to the research's active session automatically when `session_id` is not given, so entries created during an interview show up here without extra work. An entry the session **edited** without creating is not here; `GET /api/sessions/{id}/changes` covers those, with the revision range and a diff — see [Revisions](/llms/revisions.md).
 - `section_names` — map of section ID to display name (falls back to the slug `name`), so the client can label each entry without a second request.
 
 ### Download Markdown File
@@ -130,6 +130,8 @@ The `research_export` MCP tool returns the same portable payload for a research 
 
 Import re-creates entities from scratch: new UUIDs, new short codes, cross-references re-parsed from the imported content.
 
+**No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server.
+
 ## Auth
 
 Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see the caller's own researches. `POST /api/researches/import` is a write endpoint and always requires the bearer token when `api_token` or `auth_enabled` is configured.
@@ -137,7 +139,7 @@ Export endpoints are read endpoints: unauthenticated by default, but they requir
 ## Block Documents in Export
 
 An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
-[Block Documents](blocks.md)), so every export has to render it rather than write
+[Block Documents](/llms/blocks.md)), so every export has to render it rather than write
 `content` out:
 
 - **Markdown export** (`?format=md`, and the `markdown` field of the JSON

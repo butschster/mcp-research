@@ -39,6 +39,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `entry_update` | Update title, content, description, status, tags, session link, entry type, or replace text in a **markdown** entry (`text_replace`) |
 | `entry_patch` | Edit blocks of a `blocks` entry by id — update, insert, delete, move, tick a checklist item — as one atomic, strict change. The surgical edit path for block documents; `text_replace` is refused on them |
 | `entry_delete` | Delete an entry (also removes its cross-references and external links) |
+| `entry_history` | List an entry's revisions: who wrote each one (agent, human, import, restore), in which session, and what it changed. Read it before rewriting an entry another session wrote |
+| `entry_diff` | Unified diff between two revisions; with no numbers, the most recent change. Block documents are compared as markdown, not JSON |
 
 ### Sessions & Questions
 
@@ -93,6 +95,7 @@ Read this before composing any tool call. Input schemas are generated from Go st
 Consequences:
 
 - **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
+- **Two exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), and `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted). Sending `null` for those three works as well, so "send every property as `null`" is still a correct strategy everywhere.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
 - Unknown property names are rejected outright (`additionalProperties: false`).
@@ -109,6 +112,9 @@ Consequences:
 | `description` (entry) | Auto-generated from lines 2-5 of content |
 | `position_x`, `position_y` | `0` (frontend auto-layouts) |
 | `session_id` (entry) | The research's currently active session, if there is one |
+| `limit` (`entry_history`) | `20` newest revisions; the result says `truncated: true` when more exist |
+| `to` (`entry_diff`) | The newest revision |
+| `from` (`entry_diff`) | The revision before `to` — so a call with neither shows the most recent change |
 
 ### Example: creating a session with the fewest meaningful values
 
@@ -359,6 +365,27 @@ When answering a question, set both `answer` and `status: "answered"` in the sam
 ### 7. Editing a blocks entry as if it were text
 
 `text_replace` is rejected on an entry with `entry_type: blocks` — it would rewrite the stored JSON as a string. Use `entry_patch` for part of the document, or `entry_update` with the whole document in `content`. Switching an entry **to** `blocks` also needs the block-form `content` in the same call; without it the call fails rather than wrapping the markdown in one paragraph.
+
+### 8. Rewriting an entry without reading what happened to it
+
+An entry may have been written by another session, corrected by a person, or
+already fixed by you. `entry_history` costs one call and tells you who last
+touched it and what they changed; `entry_diff` shows the change itself. Nothing
+is lost if you overwrite it — every write that changes something appends a
+revision, and an earlier one can be restored — but undoing someone's correction
+and not noticing is a real failure mode, and the history is how you avoid it.
+
+Three more things worth knowing about revisions:
+
+- A write that changes nothing appends nothing, so re-sending identical content
+  leaves the history as it was.
+- `entry_history` returns no content — it is metadata per revision. Use
+  `entry_diff` for what changed and `entry_read` for the current text.
+- A `rev` (the 12-character content hash a `blocks` entry carries for optimistic
+  concurrency, returned by `entry_read` and `entry_patch`) is **not** a revision
+  number. Never pass one into `from` / `to`.
+
+See [Revisions](/llms/revisions.md).
 
 ## Short Codes
 

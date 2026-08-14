@@ -1,0 +1,155 @@
+# Revisions
+
+Every write that changes what an entry says appends a snapshot. Nothing is
+overwritten in place any more: the entry as it stood before your edit is still
+readable, still diffable, and can be restored.
+
+This exists because entries are written by models across many sessions. The
+third session can quietly make a document worse, and without a history nobody
+can prove it happened or get the earlier text back.
+
+## What a revision holds
+
+| Field | Meaning |
+|-------|---------|
+| `revision` | 1-based, per entry. Never reused. |
+| `title`, `description`, `content`, `entry_type`, `status`, `tags` | The entry exactly as it stood after that write |
+| `author_kind` | `agent`, `human`, `import` or `restore` — see below |
+| `session_id` / `session` | The session that was **active when the write happened** |
+| `summary` | A short label: "Updated content, tags", "Patched blocks: inserted 2" |
+| `created_at` | When it was written |
+
+`content` is the one field a list never carries: `entry_history` and
+`GET /api/entries/{id}/revisions` return metadata only, because a history of a
+long entry made of copies of it is unreadable and expensive. Read one revision's
+content with `GET /api/entries/{id}/revisions/{n}`, or `entry_diff` for what
+changed between two.
+
+`author_kind` is the field a reader looks at first. "A person wrote this" and "a
+model wrote this" are different claims, and until this existed the product could
+not tell them apart. The credential is the evidence:
+
+| Kind | Written by |
+|------|-----------|
+| `agent` | Every MCP write, and a REST write carrying an API key, an OAuth token or the legacy write token |
+| `human` | A REST write from a browser session (a JWT) — and one with no credential at all, where the only thing on that port is the web UI |
+| `import` | `research_import` / `POST /api/researches/import` |
+| `restore` | The system putting an earlier revision back |
+
+In the MCP result the field is called `author`, and the session comes back as
+`session` holding the `SS`-code. `author_kind`, `session_id` and `session_code`
+are the REST spellings of the same three things.
+
+## Not the same as a block document's `rev`
+
+A `blocks` entry carries a `rev` — a content hash used to reject a patch written
+against a document that has since changed (see [Block Documents](/llms/blocks.md)).
+That is optimistic concurrency, for one write.
+
+A **revision** is a numbered snapshot in time. Different jobs, unfortunately
+similar words. `rev` is a hash like `9f2c1a44be07`, returned by `entry_read` and
+`entry_patch` and sent back to `entry_patch`; a revision is a number like `4`,
+returned by `entry_history` and sent to `entry_diff`. Neither is accepted where
+the other belongs.
+
+## What does and does not create one
+
+Created:
+
+- `entry_create` — revision 1, the entry as it was first written
+- `entry_update` — any change to title, description, content, type, status or tags
+- `entry_patch` — any structural change to a block document
+- import — revision 1, attributed to `import`
+- restore — a new revision holding the restored content
+
+Not created:
+
+- **A write that changes nothing.** Rewriting identical text three times leaves
+  one revision, not three.
+- **A checkbox tick** (`entry_patch` with only `set_state` ops). Ticking a box is
+  not an edit to the document, and recording it would bury the writes that
+  changed what the entry says under a history of clicks.
+
+An entry that predates this feature carries one backfilled revision: number 1,
+`author_kind: agent`, no summary, timestamped with the entry's last update rather
+than its creation. A one-row history like that is the absence of a record, not a
+claim that the entry was written once.
+
+## Tools
+
+`entry_history(entry_id, limit?)` — the revision list, newest first: `revision`,
+`author`, `created_at`, `title`, `status`, `entry_type`, `tags`, `description`,
+plus `summary` and `session` (the `SS`-code) where they are known. **No content.**
+`limit` defaults to 20 and may be omitted; when more revisions exist the result
+carries `truncated: true`.
+
+`entry_diff(entry_id, from?, to?)` — a unified diff between two revisions.
+`to` defaults to the newest revision and `from` to the one before it, so a call
+with neither shows the most recent change. The result carries `from`, `to`,
+`author`, `changed_at`, a `summary` of the shape `+12 −3`, the `added` and
+`removed` line counts, and `diff`: the classic `+`/`-` text with three lines of
+context. A changed title comes back as `title_before` / `title_after`. Both
+arguments are revision **numbers**, never a `rev` hash.
+
+**Read the history before rewriting an entry another session wrote.** It is the
+cheapest way to avoid undoing someone's correction, and `entry_diff` will show
+you exactly what the last session changed and why the document looks the way it
+does.
+
+Block documents are diffed through their **markdown projection**, never their
+JSON: what changed is a paragraph, not a field inside an object.
+
+Two documents of more than 4000 lines each are not aligned line by line; the
+comparison falls back to "everything was replaced" and says `truncated: true`.
+
+## REST
+
+```
+GET  /api/entries/{id}/revisions               list, newest first, no content
+GET  /api/entries/{id}/revisions/{n}           one revision, with content
+GET  /api/entries/{id}/diff?from=3&to=5        both bounds optional
+POST /api/entries/{id}/revisions/{n}/restore   restore, as a new revision
+GET  /api/sessions/{id}/changes                everything a session created or changed
+```
+
+`{id}` on the entry routes is the entry **UUID** — unlike `GET /api/entries/{id}`,
+they do not resolve an `E`-code. The session route takes a UUID or an `SS` code.
+The four `GET`s are read endpoints: unauthenticated by default, bearer token
+required when `auth_enabled` is set. The restore is a write and needs the token
+whenever `api_token` or `auth_enabled` is configured.
+
+## Restoring
+
+Restoring revision 2 onto a document at revision 7 produces revision **8**.
+History is append-only: revision 7 is still there, and restoring is itself
+undoable by restoring it. Restoring the newest revision changes nothing and so
+appends nothing — the no-op rule above applies to a restore as well.
+
+Two things survive a restore that you might expect to be rolled back, both
+deliberately:
+
+- **Checkbox state.** The ticks belong to whoever made them, not to the prose an
+  agent wrote around them. Restoring the text of a document does not untick a
+  human's work.
+- **Block ids.** They come back with the restored document, so anything bound to
+  a block stays bound to it.
+
+## What a session changed
+
+`GET /api/sessions/{id}/changes` reports every entry a session created or
+edited, with the revision range and a diff — including entries it edited without
+creating, which the "entries produced in this session" list has never covered.
+The web UI renders it as the **Changes** tab on a session page.
+
+## History size
+
+Every revision is kept: there is no configuration option that caps history, and
+nothing trims it today. An entry is kilobytes of markdown or JSON, so keeping
+everything is both cheap and the honest choice for a research tool. The cap the
+service can apply keeps the newest N **plus revision 1** — the only record of
+what the entry looked like when it was created — but nothing switches it on.
+
+Deleting an entry deletes its history with it (the rows cascade), and so does
+deleting the research. History does not travel: a portable export carries no
+revisions, and every entry an import creates starts again at revision 1,
+attributed to `import`.

@@ -24,7 +24,7 @@ func patchFixture(t *testing.T) (*EntryService, context.Context, *domain.Entry) 
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, &mockNotifier{}, log)
 
 	ctx := context.Background()
 	research, sections, err := researchSvc.Create(ctx, CreateResearchRequest{

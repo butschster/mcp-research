@@ -127,6 +127,18 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 	return user, token, nil
 }
 
+// IsSessionToken reports whether the token is a JWT issued to a browser session,
+// as opposed to an API key or an OAuth access token held by a program. Callers
+// use it to tell a person's write from a machine's; it says nothing about
+// whether the token is authorized, which is ValidateToken's job.
+func (s *AuthService) IsSessionToken(token string) bool {
+	if s == nil || token == "" {
+		return false
+	}
+	_, err := s.jwt.Validate(token)
+	return err == nil
+}
+
 // ValidateToken tries JWT, then API key, then OAuth token. Returns the user or nil.
 func (s *AuthService) ValidateToken(ctx context.Context, token string) (*domain.User, error) {
 	if token == "" {

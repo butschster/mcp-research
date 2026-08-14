@@ -1,7 +1,15 @@
 <template>
   <Teleport to="body">
     <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-      <div :class="['modal-card', sizeClass, { 'modal-flush': props.flush }]">
+      <div
+        ref="card"
+        :class="['modal-card', sizeClass, { 'modal-flush': props.flush }]"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
+        @keydown.esc.stop="$emit('close')"
+        @keydown.tab="trapFocus"
+      >
         <slot />
       </div>
     </div>
@@ -9,18 +17,90 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * The dialog shell every modal in the app sits in.
+ *
+ * It owns the keyboard contract, because a contract implemented once per modal
+ * is a contract seven modals get wrong differently: Escape closes, focus moves
+ * into the dialog on open and returns to the trigger on close, and Tab cycles
+ * inside rather than walking the page behind — which, since the dialog is
+ * teleported to the end of <body>, means walking the entire page.
+ */
 const props = defineProps<{
   visible: boolean
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   flush?: boolean // removes inner padding so slot content controls its own spacing
 }>()
 
 defineEmits<{ close: [] }>()
 
+const card = ref<HTMLElement | null>(null)
+// The element that had focus when the dialog opened, so it can be given back.
+let restoreTo: HTMLElement | null = null
+
 const sizeClass = computed(() => {
+  if (props.size === 'xl') return 'modal-xl'
   if (props.size === 'lg') return 'modal-lg'
   if (props.size === 'sm') return 'modal-sm'
   return ''
+})
+
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+function focusable(): HTMLElement[] {
+  if (!card.value) return []
+  return Array.from(card.value.querySelectorAll<HTMLElement>(FOCUSABLE))
+    .filter((el) => el.offsetParent !== null || el === document.activeElement)
+}
+
+function trapFocus(event: KeyboardEvent) {
+  const items = focusable()
+  if (items.length === 0) {
+    // Nothing to move to; keep focus on the dialog rather than letting Tab
+    // escape into the page behind it.
+    event.preventDefault()
+    card.value?.focus()
+    return
+  }
+  const first = items[0]!
+  const last = items[items.length - 1]!
+  const active = document.activeElement as HTMLElement | null
+
+  if (event.shiftKey && (active === first || active === card.value)) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+watch(
+  () => props.visible,
+  async (open) => {
+    if (open) {
+      restoreTo = document.activeElement as HTMLElement | null
+      await nextTick()
+      // The first control, or the dialog itself when it holds none — either way
+      // focus is inside, so the first Tab continues from here.
+      const items = focusable()
+      ;(items[0] ?? card.value)?.focus()
+      return
+    }
+    restoreTo?.focus?.()
+    restoreTo = null
+  },
+)
+
+onBeforeUnmount(() => {
+  restoreTo?.focus?.()
 })
 </script>
 
@@ -44,12 +124,30 @@ const sizeClass = computed(() => {
   max-width: 460px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
 }
+/* The dialog takes focus when it holds no controls; that is a programmatic
+   focus, not a keyboard one, so it should not paint a ring. */
+.modal-card:focus {
+  outline: none;
+}
 .modal-lg {
   max-width: 720px;
   max-height: 85vh;
   overflow-y: auto;
 }
 .modal-sm { max-width: 360px; }
+
+/* A fixed-height workspace rather than a box that grows with its content: the
+   panes inside scroll independently, so a column rule runs the full height and
+   neither pane is squeezed by the other. Always flush — an xl dialog owns its
+   own spacing. */
+.modal-xl {
+  max-width: min(1040px, calc(100vw - var(--space-8)));
+  height: 85vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .modal-flush { padding: 0; }
 
 /* Responsive */
@@ -57,5 +155,9 @@ const sizeClass = computed(() => {
   .modal-overlay { padding: var(--space-4); }
   .modal-card { max-width: 100%; padding: var(--space-4); }
   .modal-lg { max-height: calc(100dvh - var(--space-8)); }
+  .modal-xl {
+    max-width: 100%;
+    height: calc(100dvh - var(--space-8));
+  }
 }
 </style>
