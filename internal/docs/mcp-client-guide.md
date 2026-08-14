@@ -37,6 +37,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `entry_read` | Read full entry content |
 | `entry_list` | List entries in a section (metadata only, no content) |
 | `entry_update` | Update title, content, description, status, tags, session link, or do text replacement |
+| `entry_patch` | Edit blocks of a `blocks` entry by id — update, insert, delete, move, tick a checklist item — as one atomic, strict change |
 | `entry_delete` | Delete an entry (also removes its cross-references and external links) |
 
 ### Sessions & Questions

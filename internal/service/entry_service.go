@@ -57,6 +57,7 @@ type EntryService struct {
 	sections      *storage.SectionRepository
 	researches    *storage.ResearchRepository
 	sessions      *storage.SessionRepository
+	blocks        *storage.BlockRepository
 	crossrefs     *storage.CrossRefRepository
 	externalLinks *storage.ExternalLinkRepository
 	roadmaps      *storage.RoadmapRepository
@@ -65,8 +66,8 @@ type EntryService struct {
 	log           *slog.Logger
 }
 
-func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, sessions *storage.SessionRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
-	return &EntryService{entries: entries, sections: sections, researches: researches, sessions: sessions, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
+func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, sessions *storage.SessionRepository, blocks *storage.BlockRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
+	return &EntryService{entries: entries, sections: sections, researches: researches, sessions: sessions, blocks: blocks, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
 }
 
 // SetRoadmapRepos enables [[RM1]] and [[RM1:N3]] cross-reference resolution.
@@ -178,6 +179,18 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		return nil, fmt.Errorf("create entry: %w", err)
 	}
 
+	if entry.Type == domain.EntryBlocks {
+		doc, derr := NormalizeBlockDocument(entry.Content)
+		if derr != nil {
+			return nil, derr
+		}
+		report, serr := s.saveBlockDocument(ctx, entry, doc)
+		if serr != nil {
+			return nil, serr
+		}
+		entry.BlockReport = &report
+	}
+
 	s.updateCrossRefs(ctx, entry)
 	s.updateExternalLinks(ctx, entry)
 	s.events.Notify(Event{Type: "entry.created", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
@@ -246,6 +259,9 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 	if err := validateResearchAccess(ctx, s.researches, entry.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
+	// Remembered before anything below can rewrite it: an entry that stops being
+	// a block document has to take its rows with it.
+	prevType := entry.Type
 
 	// The target type decides how new content is normalized, so settle it before
 	// touching content — and remember whether the type itself was asked to change,
@@ -307,8 +323,29 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		entry.Content = strings.Replace(entry.Content, req.TextReplace.From, req.TextReplace.To, 1)
 	}
 
-	if err := s.entries.Update(ctx, entry); err != nil {
-		return nil, fmt.Errorf("update entry: %w", err)
+	if entry.Type == domain.EntryBlocks {
+		// Rows are the document; entries.content is the projection written beside
+		// them in the same transaction. Both happen inside saveBlockDocument.
+		doc, derr := NormalizeBlockDocument(entry.Content)
+		if derr != nil {
+			return nil, derr
+		}
+		report, serr := s.saveBlockDocument(ctx, entry, doc)
+		if serr != nil {
+			return nil, serr
+		}
+		entry.BlockReport = &report
+	} else {
+		if err := s.entries.Update(ctx, entry); err != nil {
+			return nil, fmt.Errorf("update entry: %w", err)
+		}
+		if prevType == domain.EntryBlocks {
+			// It is markdown now, so the rows describe nothing. Leaving them would
+			// resurrect stale ticks if it ever became a block document again.
+			if derr := s.blocks.DeleteForEntry(ctx, nil, entry.ID); derr != nil {
+				return nil, derr
+			}
+		}
 	}
 
 	s.updateCrossRefs(ctx, entry)

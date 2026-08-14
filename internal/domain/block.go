@@ -47,6 +47,11 @@ const (
 	BlockCallout   BlockType = "callout"
 	BlockDivider   BlockType = "divider"
 	BlockImage     BlockType = "image"
+	// BlockChecklist is the one block whose state a human owns. Items carry a
+	// stable key for the same reason blocks carry an id: inserting an item above
+	// a ticked one must not move the tick. The ticks themselves are never in the
+	// author's payload — see service.normChecklist.
+	BlockChecklist BlockType = "checklist"
 	// BlockMermaid holds a mermaid source drawn as a diagram. It is deliberately
 	// separate from BlockCode: a diagram is a figure with a caption, not a
 	// listing, and an exporter has to know which one it is looking at.

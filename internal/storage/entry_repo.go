@@ -64,13 +64,23 @@ func (r *EntryRepository) FindByCode(ctx context.Context, researchID, code strin
 }
 
 func (r *EntryRepository) Update(ctx context.Context, entry *domain.Entry) error {
+	return r.UpdateTx(ctx, nil, entry)
+}
+
+// UpdateTx is Update inside a caller's transaction. A block document is written
+// as rows and as the projection in entries.content, and those two must land
+// together or not at all.
+func (r *EntryRepository) UpdateTx(ctx context.Context, q Querier, entry *domain.Entry) error {
+	if q == nil {
+		q = r.db
+	}
 	now := time.Now().UTC().Format(time.DateTime)
 	var sessionID *string
 	if entry.SessionID != "" {
 		sessionID = &entry.SessionID
 	}
 
-	_, err := r.db.ExecContext(ctx,
+	_, err := q.ExecContext(ctx,
 		`UPDATE entries SET entry_type=?, title=?, content=?, description=?, status=?, tags=?, code=?, session_id=?, updated_at=?
 		 WHERE id=?`,
 		entry.Type, entry.Title, entry.Content, entry.Description,

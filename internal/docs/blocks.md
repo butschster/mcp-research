@@ -53,7 +53,7 @@ indexed: a snippet mentioning a code is not a citation.
 Literal `\n` in a text field becomes a real newline. In `code`, `mermaid` and
 `html` it does not — a backslash there is data.
 
-## Block catalog (11 types)
+## Block catalog (12 types)
 
 | `type` | `data` |
 |---|---|
@@ -63,6 +63,7 @@ Literal `\n` in a text field becomes a real newline. In `code`, `mermaid` and
 | `table` | `{ header: bool (default true), rows: string[][] }` — non-array rows dropped, max 200 rows × 20 columns; no rows ⇒ dropped |
 | `quote` | `{ text, cite? }` — `text` required |
 | `code` | `{ code, language? }` — `code` required, stored verbatim. `language` is lowercased and reduced to `a-z0-9+#-_.`. `language: "mermaid"` is accepted as a spelling of the `mermaid` block below and draws the same way |
+| `checklist` | `{ items: [{key?, text}], title? }` — items may also be plain strings. `key` is minted when absent and **preserved when you send it**, exactly like a block `id`; it is what a tick is attached to. Ticks live in `data.state` (`{key: true}`) which is **server-owned: any `state` you send is dropped**. Tick with `entry_patch` `set_state`, or by clicking in the web UI |
 | `mermaid` | `{ code, caption? }` — `code` is a mermaid source, required, stored verbatim, max 20000 chars. Drawn as a diagram: pan, zoom, fullscreen, and a link that reopens it in mermaid.live. A source mermaid cannot parse falls back to the source with a link to the editor, which reports the error |
 | `callout` | `{ variant: "info"\|"warning"\|"success"\|"danger", text, title? }` — `text` required; an unknown variant becomes `info` |
 | `divider` | `{}` — always kept |
@@ -95,6 +96,49 @@ document cannot read cookies, storage or the host page, and cannot call the API.
   `research-data` event: the research, the entry, and the section list.
 - `title` and `caption` are the author's framing around the frame, and they are
   indexed; the HTML body is not.
+
+## Editing one block
+
+`entry_update` replaces the whole document. `entry_patch` changes part of it,
+addressing blocks by `id`:
+
+```json
+{ "entry_id": "…", "rev": "9f2c1a…", "ops": [
+  { "op": "update", "id": "a1b2c3d4", "data": { "text": "Rewritten." } },
+  { "op": "insert", "type": "paragraph", "data": { "text": "New." }, "after": "a1b2c3d4" },
+  { "op": "delete", "id": "e5f6a7b8" },
+  { "op": "move",   "id": "c3d4e5f6", "at": "start" },
+  { "op": "set_state", "id": "b2c3d4e5", "item": "k1", "checked": true }
+]}
+```
+
+- Ops apply **in order against one working copy**, so an op may target a block an
+  earlier op inserted. Give the new block an `id` and the next op can point at it.
+- Placement is `after` / `before` / `at: "start"|"end"`, at most one. None means
+  append.
+- **A patch is strict.** An unknown block id, an unknown type, or data a type
+  rejects fails the whole patch and writes nothing. This is the opposite of a
+  whole-document write, and deliberately so: there you sent the article and can
+  read back what stored, here you did not, so a silently dropped op would be
+  indistinguishable from success.
+- `rev` comes from reading the entry. Send it for structural edits and the patch
+  is rejected if the document changed since you read it. `set_state` does not
+  need it — it names one item and cannot clobber prose.
+- `set_state` sets an absolute value, never a toggle.
+
+## Keeping a human's ticks
+
+A checklist is ticked by a person and rewritten by an agent, so the server keeps
+the two apart:
+
+- Ticks live in a column beside the block, never in what an author sends. A
+  `state` field in your payload is dropped.
+- A whole-document `entry_update` **carries ticks forward** by block `id` and item
+  `key`. Send the ids back and nothing is lost.
+- If you drop the ids, the server falls back to matching item text, and tells you
+  what happened: the result carries `blocks_reidentified`, `state_preserved` and
+  `state_lost`. A non-zero `state_lost` means someone's afternoon of ticking is
+  gone — read the entry first and echo its ids back.
 
 ## Entry title and description
 
@@ -133,6 +177,6 @@ converts what is stored.
 
 ## Caps
 
-400 blocks per document, 20000 characters per text field, 100000 for `code`,
+400 blocks per document, 200 checklist items, 20000 characters per text field, 100000 for `code`,
 20000 for `mermaid`, 200000 for `html`, 200 list items, 200×20 table cells. Text over a cap is clamped
 on a character boundary, not cut mid-character.

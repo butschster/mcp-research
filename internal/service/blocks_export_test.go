@@ -181,3 +181,35 @@ func TestEntryIndexText(t *testing.T) {
 		}
 	})
 }
+
+// The markdown export is the one place a tick leaves this app, and it silently
+// showed every box empty: the export ran stored content back through the input
+// normalizer, which strips server-owned state by design.
+func TestBlockDocumentToMarkdown_ChecklistState(t *testing.T) {
+	stored := `{"version":1,"blocks":[{"id":"cccc3333","type":"checklist","data":{
+		"title":"Before the migration",
+		"items":[{"key":"k1","text":"Back up"},{"key":"k2","text":"Dry run"}],
+		"state":{"k1":true}}}]}`
+
+	doc, err := ParseStoredBlockDocument(stored)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	md := BlockDocumentToMarkdown(doc)
+
+	if !strings.Contains(md, "- [x] Back up") {
+		t.Errorf("a ticked item is not marked done:\n%s", md)
+	}
+	if !strings.Contains(md, "- [ ] Dry run") {
+		t.Errorf("an unticked item is not marked open:\n%s", md)
+	}
+
+	// And the input path must still refuse to take state from an author.
+	normalized, err := NormalizeBlockDocument(stored)
+	if err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	if _, has := normalized.Blocks[0].Data["state"]; has {
+		t.Error("normalization kept author-sent state; it must have one origin")
+	}
+}

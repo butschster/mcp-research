@@ -365,7 +365,7 @@ func validateImportEntries(r domain.ExportResearch) error {
 				// normalizeContent is deliberately NOT applied here: it expands a
 				// literal \n, which inside the document's JSON strings would make it
 				// unparseable and turn a valid entry into an import failure.
-				doc, err := NormalizeBlockDocument(e.Content)
+				doc, err := ParseStoredBlockDocument(e.Content)
 				if err != nil {
 					return fmt.Errorf("entry %q in section %q: %w", e.Title, sec.Name, err)
 				}
