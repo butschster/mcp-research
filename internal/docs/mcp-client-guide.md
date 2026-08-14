@@ -84,6 +84,9 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 ## Access: You Can See More Than You Can Write
 
+`team_list` names the teams you belong to and your role in each. Pass a `team_id` to `research_create` (or `research_import`) to put new work where your colleagues can see it — without it every research lands in your personal team and someone has to move it by hand.
+
+
 A research is owned by a **team**, and your role in that team decides what you may do to it. You may therefore be able to read a research, list its entries and export it, and still be refused when you try to write to it. The creator of a research has no standing privileges over it: `user_id` records who made it and is never consulted for permission.
 
 | Role | May do |

@@ -1,10 +1,14 @@
 <template>
   <div
     class="kanban-card"
+    role="button"
+    tabindex="0"
     :draggable="canWrite"
     @dragstart="$emit('dragstart', $event)"
     @dragend="$emit('dragend', $event)"
     @click="$emit('click')"
+    @keydown.enter.prevent="$emit('click')"
+    @keydown.space.prevent="$emit('click')"
   >
     <div class="kanban-card-top">
       <span class="short-code">{{ task.code }}</span>
@@ -19,6 +23,10 @@ import { renderRefs } from '~/composables/useCrossRefs'
 
 // A card that lifts and snaps back is worse than a card that does not lift:
 // the drop would 403, after the reader has already committed to the gesture.
+//
+// Dragging is the pointer's way in; Enter and Space are everyone else's. The
+// card is the only route to a task's detail, so without them a keyboard reader
+// cannot open a task at all.
 const { canWrite } = useResearchRole()
 
 defineProps<{
@@ -42,6 +50,11 @@ defineEmits<{
   cursor: grab;
   transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
   user-select: none;
+}
+/* It takes focus now, so it has to show it. */
+.kanban-card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 .kanban-card:hover {
   border-color: var(--color-border-strong);

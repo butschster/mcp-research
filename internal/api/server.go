@@ -45,6 +45,7 @@ func NewServer(
 	exportSvc *service.ExportService,
 	obsidianSvc *service.ObsidianService,
 	teamSvc *service.TeamService,
+	access *service.Access,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
 	entryRepo *storage.EntryRepository,
@@ -180,7 +181,7 @@ func NewServer(
 	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))
-	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crReadHandler := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, access, log)
 	crReadHandler.SetRoadmapService(roadmapSvc)
 	mux.Handle("GET /api/researches/{id}/crossrefs", wrapRead(crReadHandler.ListForResearch))
 	mux.Handle("GET /api/entries/{id}/crossrefs", wrapRead(crReadHandler.GetForEntry))
@@ -216,12 +217,12 @@ func NewServer(
 	mux.Handle("GET /api/roadmaps/{id}", wrapRead(rmh.Get))
 
 	// --- Graph endpoint ---
-	gh := handlers.NewGraphHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, entryRepo, crossrefRepo, log)
+	gh := handlers.NewGraphHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, entryRepo, crossrefRepo, access, log)
 	mux.Handle("GET /api/researches/{id}/graph", wrapRead(gh.Get))
 
 	// --- Write endpoints ---
 	wh := handlers.NewWriteHandler(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, log)
-	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, log)
+	crh := handlers.NewCrossRefHandler(crossrefRepo, entrySvc, researchSvc, access, log)
 	crh.SetRoadmapService(roadmapSvc)
 
 	mux.Handle("POST /api/researches", wrap(wh.CreateResearch))
@@ -285,7 +286,13 @@ func NewServer(
 	}
 
 	// WebSocket
-	mux.HandleFunc("/ws", ws.HandleWebSocket(hub))
+	// The hub decides delivery per event, so this only has to establish who is
+	// on the other end. With auth off it takes anyone, as it always has.
+	var wsValidator ws.TokenValidator
+	if authSvc != nil {
+		wsValidator = authSvc
+	}
+	mux.HandleFunc("/ws", ws.HandleWebSocket(hub, wsValidator))
 
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {

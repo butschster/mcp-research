@@ -62,7 +62,7 @@ Legacy MCP Client
     | SSE (:8081)
     |
 Go Process
-    |-- MCP Server (32 tools, 2 prompts)
+    |-- MCP Server (36 tools, 2 prompts)
     |-- REST API (:8088) -- read-only + write (bearer auth)
     |-- WebSocket (:8088/ws) -- real-time event push
     |-- OAuth2 endpoints (/auth/*)

@@ -172,3 +172,64 @@ func TestReach_TransferRefusesAnUnknownTeam(t *testing.T) {
 	}
 }
 
+
+// The reference a colleague writes has to work for whoever may follow it, not
+// only for whoever wrote it. That is the whole point of a shared team, and it
+// is the case the old author-time check could not express.
+func TestReach_CrossTeamReferenceResolvesForAnEntitledReader(t *testing.T) {
+	k := newRoleKit(t)
+	owner, member, shared, section, teamID := k.sharedResearch(t, domain.TeamEditor)
+
+	target, err := k.entry.Create(owner, CreateEntryRequest{
+		ResearchID: shared.ID, SectionID: section.ID,
+		Title: "The target", Content: "body",
+	})
+	if err != nil {
+		t.Fatalf("seed target: %v", err)
+	}
+
+	// A second team, holding a research that points at the first one. The
+	// member belongs to both; the owner belongs only to the first.
+	second, err := k.team.Create(member, "Second team")
+	if err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	_ = teamID
+	own, sections, err := k.research.Create(member, CreateResearchRequest{
+		TeamID: second.ID, Name: "Points across teams", Goal: "G",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	if err != nil {
+		t.Fatalf("create research: %v", err)
+	}
+	pointer, err := k.entry.Create(member, CreateEntryRequest{
+		ResearchID: own.ID, SectionID: sections[0].ID,
+		Title: "Pointer", Content: "See [[" + shared.Code + ":" + target.Code + "]].",
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+
+	refs, err := storage.NewCrossRefRepository(k.db).FindBySourceEntry(member, pointer.ID)
+	if err != nil {
+		t.Fatalf("crossrefs: %v", err)
+	}
+
+	var resolvedForMember bool
+	for _, r := range testAccess(k.db).VisibleCrossRefs(member, refs) {
+		if r.TargetEntryID == target.ID && r.Resolved {
+			resolvedForMember = true
+		}
+	}
+	if !resolvedForMember {
+		t.Error("someone in both teams should be able to follow their own reference")
+	}
+
+	// A stranger to both teams gets the same row with everything stripped.
+	stranger := userCtx(createTestUser(t, k.db, "stranger@test.com", "Stranger"))
+	for _, r := range testAccess(k.db).VisibleCrossRefs(stranger, refs) {
+		if r.Resolved || r.TargetEntryID != "" || r.TargetResearchID != "" {
+			t.Errorf("a stranger was handed a target: %+v", r)
+		}
+	}
+}

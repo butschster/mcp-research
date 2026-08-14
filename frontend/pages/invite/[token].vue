@@ -241,7 +241,5 @@ async function copyInviter() {
 .invite-action { width: 100%; justify-content: center; margin-top: var(--space-6); }
 .signed-in-as { font-size: var(--type-xs); color: var(--color-text-muted); margin-top: var(--space-4); }
 .text-link { color: var(--color-primary); }
-.link-btn { background: none; border: none; padding: 0; font: inherit; cursor: pointer; }
-.inline-error { font-size: var(--type-xs); color: var(--color-error); margin-top: var(--space-3); }
 .selectable { user-select: all; }
 </style>

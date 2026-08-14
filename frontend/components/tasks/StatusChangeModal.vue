@@ -74,16 +74,6 @@ function onConfirm() {
   padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--color-border);
 }
-.modal-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-}
 .modal-close {
   display: flex;
   align-items: center;
@@ -120,13 +110,6 @@ function onConfirm() {
   padding: var(--space-5) var(--space-6);
 }
 
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  border-top: 1px solid var(--color-border);
-}
 
 .task-info {
   font-size: var(--type-sm);
@@ -151,11 +134,6 @@ function onConfirm() {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-.form-label {
-  font-size: var(--type-xs);
-  font-weight: 500;
-  color: var(--color-text-muted);
 }
 .form-textarea {
   width: 100%;

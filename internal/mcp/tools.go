@@ -52,6 +52,9 @@ func (s *Server) registerTools() {
 	tools.RegisterRoadmapUpdateNode(s.server, s.roadmap, s.log)
 	tools.RegisterRoadmapRemoveNodes(s.server, s.roadmap, s.log)
 
+	// Team tools
+	tools.RegisterTeamList(s.server, s.team, s.log)
+
 	// Import/Export tools
 	tools.RegisterResearchExport(s.server, s.export, s.research, func() string { return s.baseURL }, s.log)
 	tools.RegisterResearchImport(s.server, s.export, s.log)

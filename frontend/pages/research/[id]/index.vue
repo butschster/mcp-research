@@ -40,51 +40,43 @@
           </NuxtLink>
 
           <!-- More menu -->
-          <div class="dropdown" ref="dropdownRef">
-            <button class="btn btn-icon" title="More actions" @click="menuOpen = !menuOpen">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          <ActionMenu>
+            <button class="action-menu-item" @click="detailsOpen = !detailsOpen">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              {{ detailsOpen ? 'Hide details' : 'Details' }}
             </button>
-            <Transition name="dropdown">
-              <div v-if="menuOpen" class="dropdown-menu">
-                <button class="dropdown-item" @click="detailsOpen = !detailsOpen; menuOpen = false">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                  {{ detailsOpen ? 'Hide details' : 'Details' }}
-                </button>
-                <NuxtLink :to="`/research/${researchSlug}/export`" class="dropdown-item" @click.native="menuOpen = false">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Export
-                </NuxtLink>
-                <button class="dropdown-item" @click="downloadPortableJSON(); menuOpen = false" :disabled="exporting">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
-                  {{ exporting ? 'Saving...' : 'Download JSON' }}
-                </button>
-                <NuxtLink
-                  v-if="research.team_id && authEnabled"
-                  :to="`/teams/${research.team_id}`"
-                  class="dropdown-item"
-                  @click.native="menuOpen = false"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  Members
-                </NuxtLink>
-                <button v-if="canAdmin && authEnabled" class="dropdown-item" @click="openTransfer(); menuOpen = false">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                  Move to team…
-                </button>
-                <div v-if="canWrite" class="dropdown-divider"></div>
-                <button
-                  v-if="canWrite"
-                  class="dropdown-item"
-                  :class="{ 'dropdown-item--danger': research.status !== 'archived' }"
-                  @click="toggleArchive(); menuOpen = false"
-                >
-                  <svg v-if="research.status === 'archived'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                  {{ research.status === 'archived' ? 'Restore' : 'Archive' }}
-                </button>
-              </div>
-            </Transition>
-          </div>
+            <NuxtLink :to="`/research/${researchSlug}/export`" class="action-menu-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+            </NuxtLink>
+            <button class="action-menu-item" :disabled="exporting" @click="downloadPortableJSON()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+              {{ exporting ? 'Saving...' : 'Download JSON' }}
+            </button>
+            <NuxtLink
+              v-if="research.team_id && authEnabled"
+              :to="`/teams/${research.team_id}`"
+              class="action-menu-item"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Members
+            </NuxtLink>
+            <button v-if="canAdmin && authEnabled" class="action-menu-item" @click="openTransfer()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              Move to team…
+            </button>
+            <div v-if="canWrite" class="action-menu-divider"></div>
+            <button
+              v-if="canWrite"
+              class="action-menu-item"
+              :class="{ 'action-menu-item--danger': research.status !== 'archived' }"
+              @click="toggleArchive()"
+            >
+              <svg v-if="research.status === 'archived'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              {{ research.status === 'archived' ? 'Restore' : 'Archive' }}
+            </button>
+          </ActionMenu>
         </div>
       </div>
       <p v-if="research.goal && !detailsOpen" class="card-meta mt-2">{{ research.goal }}</p>
@@ -303,18 +295,6 @@ const rtBase = useRuntimeConfig().public.apiBase || ''
 // Details panel
 const detailsOpen = ref(false)
 
-// Dropdown menu
-const menuOpen = ref(false)
-const dropdownRef = ref<HTMLElement | null>(null)
-
-function onClickOutside(e: MouseEvent) {
-  if (dropdownRef.value && !dropdownRef.value.contains(e.target as Node)) {
-    menuOpen.value = false
-  }
-}
-onMounted(() => document.addEventListener('click', onClickOutside))
-onUnmounted(() => document.removeEventListener('click', onClickOutside))
-
 async function handleDetailsSave(field: string, value: any) {
   const body: Record<string, any> = {}
   if (field === 'tags') {
@@ -429,59 +409,6 @@ useRealtimeUpdates(async (event) => {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   line-height: 1.2;
-}
-
-/* Dropdown */
-.dropdown { position: relative; z-index: 100; }
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  min-width: 180px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  z-index: var(--z-overlay);
-  padding: 0.25rem 0;
-}
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: 0.45rem 0.75rem;
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  font-size: var(--type-sm);
-  cursor: pointer;
-  text-decoration: none;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.dropdown-item:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
-.dropdown-item:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.dropdown-item--danger { color: var(--color-danger, #e05c5c); }
-.dropdown-item--danger:hover { background: rgba(224, 92, 92, 0.1); }
-.dropdown-divider {
-  height: 1px;
-  margin: 0.25rem 0;
-  background: var(--color-border);
-}
-
-/* Dropdown transitions */
-.dropdown-enter-active, .dropdown-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-.dropdown-enter-from, .dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
 }
 
 /* Skeleton */

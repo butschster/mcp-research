@@ -167,40 +167,7 @@ async function copy() {
 </script>
 
 <style scoped>
-.modal-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-4);
-}
-.modal-help { font-size: var(--type-xs); color: var(--color-text-muted); margin: 0 0 var(--space-4); }
-.field-label {
-  display: block;
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
-}
-.text-input {
-  width: 100%;
-  padding: 0.5rem 0.7rem;
-  margin-bottom: var(--space-4);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--type-sm);
-}
-.text-input:focus { outline: none; border-color: var(--color-primary); }
 .link-block { margin-top: 0; max-width: none; }
 .link-input { background: none; border: none; color: var(--color-primary); font-family: inherit; width: 100%; }
 .link-input:focus { outline: none; }
-.inline-error {
-  font-size: var(--type-xs);
-  color: var(--color-error);
-  margin: 0 0 var(--space-3);
-}
-.modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
 </style>

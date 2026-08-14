@@ -505,25 +505,6 @@ watch(renaming, (open) => {
 .danger-strong { color: var(--color-error); }
 .danger-note { font-size: var(--type-xs); color: var(--color-text-muted); text-align: right; }
 
-.modal-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-4);
-}
-.text-input {
-  width: 100%;
-  padding: 0.5rem 0.7rem;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--type-sm);
-}
-.modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
 
 @media (max-width: 768px) {
   .danger-row { flex-direction: column; gap: var(--space-1); }

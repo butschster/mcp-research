@@ -290,9 +290,15 @@ func TestAccessControl_RelatedAndRefs(t *testing.T) {
 	})
 
 	t.Run("a cross-research reference does not cross a user", func(t *testing.T) {
-		// Mallory writes [[R1:E1]] in her own entry. It must stay unresolved:
-		// resolving it would store Alice's entry uuid in Mallory's crossrefs,
-		// which is how a foreign id becomes harvestable.
+		// Mallory writes [[R1:E1]] in her own entry. Writing [[R1:E1]],
+		// [[R1:E2]], … and reading back which ones resolved is how a foreign
+		// entry id becomes harvestable, so what comes back to her must name
+		// nothing of Alice's.
+		//
+		// The row itself now carries the resolution — the reference has to
+		// work for a *reader* who can open both sides, and the author's
+		// permissions are not the reader's. The guarantee therefore lives on
+		// the way out, which is where every caller gets its references.
 		body := "See [[" + researchA.Code + ":" + secret.Code + "]]."
 		mine, err := entrySvc.Create(ctxM, CreateEntryRequest{
 			ResearchID: researchM.ID, SectionID: sectionsM[0].ID,
@@ -301,14 +307,43 @@ func TestAccessControl_RelatedAndRefs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create entry: %v", err)
 		}
-		refs, err := crossrefRepo.FindBySourceEntry(ctxM, mine.ID)
+		stored, err := crossrefRepo.FindBySourceEntry(ctxM, mine.ID)
 		if err != nil {
 			t.Fatalf("crossrefs: %v", err)
 		}
-		for _, r := range refs {
+		for _, r := range testAccess(db).VisibleCrossRefs(ctxM, stored) {
 			if r.TargetEntryID == secret.ID || r.TargetResearchID == researchA.ID {
 				t.Errorf("crossref resolved across users: target_entry=%q target_research=%q", r.TargetEntryID, r.TargetResearchID)
 			}
+			if r.Resolved {
+				t.Error("a reference the reader cannot follow must render as text, not as a link")
+			}
+		}
+	})
+
+	t.Run("but it does resolve for a reader who can open both sides", func(t *testing.T) {
+		// Alice references her own research from her own entry — the same
+		// shape, from someone entitled to follow it.
+		body := "See [[" + researchA.Code + ":" + secret.Code + "]]."
+		hers, err := entrySvc.Create(ctxA, CreateEntryRequest{
+			ResearchID: researchA.ID, SectionID: sectionsA[0].ID,
+			Title: "Alice's own pointer", Content: body,
+		})
+		if err != nil {
+			t.Fatalf("create entry: %v", err)
+		}
+		stored, err := crossrefRepo.FindBySourceEntry(ctxA, hers.ID)
+		if err != nil {
+			t.Fatalf("crossrefs: %v", err)
+		}
+		var resolved bool
+		for _, r := range testAccess(db).VisibleCrossRefs(ctxA, stored) {
+			if r.TargetEntryID == secret.ID && r.Resolved {
+				resolved = true
+			}
+		}
+		if !resolved {
+			t.Error("the reference stayed unresolved for someone who may read the target")
 		}
 	})
 

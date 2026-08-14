@@ -15,11 +15,12 @@ type CrossRefHandler struct {
 	entrySvc    *service.EntryService
 	researchSvc *service.ResearchService
 	roadmapSvc  *service.RoadmapService
+	access      *service.Access
 	log         *slog.Logger
 }
 
-func NewCrossRefHandler(crossrefs *storage.CrossRefRepository, entrySvc *service.EntryService, researchSvc *service.ResearchService, log *slog.Logger) *CrossRefHandler {
-	return &CrossRefHandler{crossrefs: crossrefs, entrySvc: entrySvc, researchSvc: researchSvc, log: log}
+func NewCrossRefHandler(crossrefs *storage.CrossRefRepository, entrySvc *service.EntryService, researchSvc *service.ResearchService, access *service.Access, log *slog.Logger) *CrossRefHandler {
+	return &CrossRefHandler{crossrefs: crossrefs, entrySvc: entrySvc, researchSvc: researchSvc, access: access, log: log}
 }
 
 func (h *CrossRefHandler) SetRoadmapService(svc *service.RoadmapService) {
@@ -39,6 +40,7 @@ func (h *CrossRefHandler) ListForResearch(w http.ResponseWriter, r *http.Request
 		writeServiceError(w, err)
 		return
 	}
+	refs = h.access.VisibleCrossRefs(r.Context(), refs)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data":  refs,
@@ -65,6 +67,7 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	outgoing = h.access.VisibleCrossRefs(r.Context(), outgoing)
 
 	// Incoming: others reference this entry
 	incoming, err := h.crossrefs.FindByTargetEntry(r.Context(), entry.ID)
@@ -72,6 +75,9 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	// Incoming too: an entry someone else linked to from a research this
+	// reader cannot open should not name that research back at them.
+	incoming = h.access.VisibleCrossRefs(r.Context(), incoming)
 
 	// Enrich with metadata
 	type enrichedRef struct {

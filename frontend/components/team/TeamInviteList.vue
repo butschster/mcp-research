@@ -95,17 +95,6 @@ function status(invite: TeamInvite) {
 .invite-email { overflow-wrap: anywhere; }
 .invite-role, .invite-status { font-size: var(--type-xs); color: var(--color-text-muted); white-space: nowrap; }
 .invite-actions { display: flex; gap: var(--space-3); }
-.link-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-size: var(--type-xs);
-  color: var(--color-primary);
-  cursor: pointer;
-}
-.link-btn:hover { text-decoration: underline; }
-.link-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
 .link-danger { color: var(--color-error); }
 
 @media (max-width: 768px) {

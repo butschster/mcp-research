@@ -68,7 +68,33 @@ func (a *Access) Write(ctx context.Context, researchID string) error {
 // whether the thing is there: without this, a bad id in local mode would slip
 // past every service and surface as a foreign-key error from the database.
 func (a *Access) Role(ctx context.Context, researchID string) (domain.TeamRole, error) {
-	uid := auth.UserIDFromContext(ctx)
+	return a.roleFor(ctx, auth.UserIDFromContext(ctx), researchID)
+}
+
+// CanReadResearch answers for a user who is not in the context.
+//
+// The WebSocket hub has an id and no request, and it must reach the same
+// verdict as every HTTP read — so it asks the same function rather than
+// growing a second copy of the rule that could drift from this one.
+func (a *Access) CanReadResearch(ctx context.Context, userID, researchID string) bool {
+	if userID == "" {
+		return false
+	}
+	_, err := a.roleFor(ctx, userID, researchID)
+	return err == nil
+}
+
+// IsTeamMember answers the team half of the same question, for the events
+// that are about a team rather than about a research.
+func (a *Access) IsTeamMember(ctx context.Context, userID, teamID string) bool {
+	if userID == "" || teamID == "" {
+		return false
+	}
+	_, ok, err := a.teams.FindRole(ctx, teamID, userID)
+	return err == nil && ok
+}
+
+func (a *Access) roleFor(ctx context.Context, uid, researchID string) (domain.TeamRole, error) {
 	role, teamID, exists, err := a.teams.ResearchRole(ctx, researchID, uid)
 	if err != nil {
 		return "", err

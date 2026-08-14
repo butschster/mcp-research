@@ -117,7 +117,7 @@ onMounted(() => {
       <div v-if="keyError" class="auth-error">{{ keyError }}</div>
 
       <form @submit.prevent="createKey" class="key-form">
-        <input v-model="newKeyName" type="text" placeholder="Key name (optional)" class="auth-input" />
+        <input v-model="newKeyName" type="text" placeholder="Key name (optional)" class="text-input" />
         <button type="submit" class="auth-button">Create key</button>
       </form>
 
@@ -157,7 +157,7 @@ onMounted(() => {
 }
 .settings-section h2 { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); }
 .key-form { display: flex; gap: var(--space-2); margin: var(--space-4) 0; flex-wrap: wrap; }
-.key-form .auth-input { flex: 1; min-width: 200px; }
+.key-form .text-input { flex: 1; min-width: 200px; }
 .key-form .auth-button { white-space: nowrap; }
 .key-created {
   padding: var(--space-3);
@@ -204,15 +204,6 @@ onMounted(() => {
   font-size: var(--type-sm);
   margin-bottom: var(--space-3);
 }
-.auth-input {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--type-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: inherit;
-}
 .auth-button {
   padding: var(--space-2) var(--space-4);
   background: var(--color-primary);
@@ -233,21 +224,12 @@ onMounted(() => {
   font-size: var(--type-xs);
   color: var(--color-primary);
 }
-.link-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-size: var(--type-xs);
-  color: var(--color-primary);
-  cursor: pointer;
-}
 
 /* Responsive */
 @media (max-width: 768px) {
   .settings-section { padding: var(--space-4); }
   .keys-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .key-form { flex-direction: column; }
-  .key-form .auth-input { min-width: 0; }
+  .key-form .text-input { min-width: 0; }
 }
 </style>

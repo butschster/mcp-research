@@ -18,7 +18,13 @@ function connect() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const config = useRuntimeConfig()
   const base = config.public.apiBase || `${protocol}//${window.location.host}`
-  const wsUrl = base.replace(/^http/, 'ws') + '/ws'
+  // The token rides in the query string because a browser cannot set headers
+  // on a WebSocket handshake — the same accommodation the SSE transport makes.
+  // The hub decides what each connection may see from who it belongs to, so
+  // without this an authenticated server sends nothing.
+  const token = localStorage.getItem('auth_token')
+  const wsUrl = base.replace(/^http/, 'ws') + '/ws' +
+    (token ? `?token=${encodeURIComponent(token)}` : '')
 
   socket = new WebSocket(wsUrl)
 

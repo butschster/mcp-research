@@ -85,16 +85,6 @@ watch(
 </script>
 
 <style scoped>
-.modal-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-4);
-}
-.modal-help { font-size: var(--type-sm); color: var(--color-text-muted); margin: 0 0 var(--space-4); }
-.field-label { display: block; font-size: var(--type-xs); color: var(--color-text-muted); margin-bottom: var(--space-1); }
 .team-picker {
   width: 100%;
   padding: 0.5rem 0.7rem;
@@ -106,6 +96,4 @@ watch(
   font-size: var(--type-sm);
 }
 .consequence { font-size: var(--type-xs); color: var(--color-warning); margin: var(--space-3) 0 0; }
-.inline-error { font-size: var(--type-xs); color: var(--color-error); margin: var(--space-3) 0 0; }
-.modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
 </style>

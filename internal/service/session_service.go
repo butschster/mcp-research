@@ -376,7 +376,7 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 		s.crossrefs.ParseCrossRefs(ctx, "question", question.ID, session.ResearchID, question.Answer)
 	}
 
-	s.events.Notify(Event{Type: "question.updated", EntityID: question.ID, Entity: "question"})
+	s.events.Notify(Event{Type: "question.updated", ResearchID: session.ResearchID, EntityID: question.ID, Entity: "question"})
 	return question, nil
 }
 

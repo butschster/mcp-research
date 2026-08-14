@@ -214,6 +214,20 @@ func (s *AuthService) ValidateToken(ctx context.Context, token string) (*domain.
 	return nil, nil
 }
 
+// UserIDForToken resolves a credential to a user id, or "" for anything it
+// does not accept. It is what the WebSocket handshake authenticates with —
+// the same JWT, API key or OAuth token every other route takes.
+func (s *AuthService) UserIDForToken(ctx context.Context, token string) string {
+	if s == nil {
+		return ""
+	}
+	user, err := s.ValidateToken(ctx, token)
+	if err != nil || user == nil {
+		return ""
+	}
+	return user.ID
+}
+
 // CreateAPIKey generates a new API key for the user.
 func (s *AuthService) CreateAPIKey(ctx context.Context, userID, name string) (string, *domain.APIKey, error) {
 	plain, hash, prefix := auth.GenerateAPIKey()

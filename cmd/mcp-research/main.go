@@ -76,6 +76,10 @@ func main() {
 	// place to get authorization wrong instead of eight.
 	access := service.NewAccess(teamRepo)
 
+	// The hub asks the same guard the HTTP layer does, on every event, so a
+	// membership taken away stops the updates on a socket already open.
+	hub.SetAuthorizer(access, cfg.AuthEnabled)
+
 	// Services
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, teamRepo, access, events, log)
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, access, events, log)
@@ -134,7 +138,7 @@ func main() {
 	}
 
 	// MCP Server
-	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, log, version)
+	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, log, version)
 	srv.SetBaseURL(cfg.BaseURL)
 
 	log.Info("mcp-research started",
@@ -159,7 +163,7 @@ func main() {
 		AutoLoginToken: autoLoginToken,
 		MCPHandler:     srv.StreamableHTTPHandler(),
 	}
-	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

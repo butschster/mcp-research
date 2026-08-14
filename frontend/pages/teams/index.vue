@@ -109,26 +109,4 @@ async function submit() {
 <style scoped>
 .page-lead { font-size: var(--type-sm); color: var(--color-text-muted); max-width: 65ch; margin-top: var(--space-2); }
 .team-skeleton { height: 56px; }
-.modal-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-4);
-}
-.field-label { display: block; font-size: var(--type-xs); color: var(--color-text-muted); margin-bottom: var(--space-1); }
-.text-input {
-  width: 100%;
-  padding: 0.5rem 0.7rem;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--type-sm);
-}
-.text-input:focus { outline: none; border-color: var(--color-primary); }
-.inline-error { font-size: var(--type-xs); color: var(--color-error); margin: var(--space-3) 0 0; }
-.modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
 </style>

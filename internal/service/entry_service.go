@@ -623,24 +623,25 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 		kind, first, second := parseRef(raw)
 
 		switch kind {
+		// Every branch below resolves whatever the code names, without asking
+		// what the author may see. Codes are global, so these lookups reach
+		// anyone's work — and the reader, not the author, is who decides
+		// whether a resolved reference is shown: see Access.VisibleCrossRefs.
 		case "roadmap":
-			// [[RM1]] — link to a roadmap. Roadmap codes are global, so this
-			// lookup finds anyone's; without the access check, writing
-			// [[RM1]], [[RM2]], … was a census of every roadmap on the
-			// instance and of the research each belongs to.
+			// [[RM1]] — link to a roadmap.
 			if s.roadmaps != nil {
 				rm, err := s.roadmaps.FindByCode(ctx, first)
-				if err == nil && rm != nil && s.access.Read(ctx, rm.ResearchID) == nil {
+				if err == nil && rm != nil {
 					cr.TargetRoadmapID = rm.ID
 					cr.TargetResearchID = rm.ResearchID
 					cr.Resolved = true
 				}
 			}
 		case "node":
-			// [[RM1:N3]] — link to a specific node in a roadmap. Same rule.
+			// [[RM1:N3]] — link to a specific node in a roadmap.
 			if s.roadmaps != nil && s.roadmapNodes != nil {
 				rm, err := s.roadmaps.FindByCode(ctx, first)
-				if err == nil && rm != nil && s.access.Read(ctx, rm.ResearchID) == nil {
+				if err == nil && rm != nil {
 					cr.TargetRoadmapID = rm.ID
 					cr.TargetResearchID = rm.ResearchID
 					node, err := s.roadmapNodes.FindByCode(ctx, rm.ID, second)
@@ -653,7 +654,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 		case "research":
 			// [[R2]] — link to a research
 			targetResearch, err := s.researches.FindByCode(ctx, first)
-			if err == nil && targetResearch != nil && s.mayReference(ctx, targetResearch) {
+			if err == nil && targetResearch != nil {
 				cr.TargetResearchID = targetResearch.ID
 				cr.Resolved = true
 			}
@@ -662,7 +663,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 			if first != "" {
 				// Cross-research: [[R2:E5]]
 				targetResearch, err := s.researches.FindByCode(ctx, first)
-				if err == nil && targetResearch != nil && s.mayReference(ctx, targetResearch) {
+				if err == nil && targetResearch != nil {
 					cr.TargetResearchID = targetResearch.ID
 					if second != "" {
 						targetEntry, err := s.entries.FindByCode(ctx, targetResearch.ID, second)
@@ -854,18 +855,3 @@ func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (st
 	}
 }
 
-// mayReference decides whether a cross-reference may resolve to a research the
-// author does not own.
-//
-// A short code is global, so [[R2:E5]] used to resolve into anyone's research and
-// store its entry's uuid in the caller's own crossrefs table — which turned
-// writing [[R1:E1]], [[R1:E2]], … in your own entry into a way to harvest another
-// user's entry ids. A reference the author may not follow simply stays
-// unresolved: the [[…]] still renders as text, it just does not become a link.
-//
-// The question is the same one every read asks, so it is asked the same way.
-// Comparing creators instead would refuse a colleague's research in the
-// author's own team — the reference people in a shared team most want.
-func (s *EntryService) mayReference(ctx context.Context, target *domain.Research) bool {
-	return s.access.Read(ctx, target.ID) == nil
-}

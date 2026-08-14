@@ -60,7 +60,10 @@ Who may do what. A team owns researches; membership in that team is the whole of
 - **Not a member of the owning team** → the research does not exist for you: `not found` from a tool, `404` from REST. Confirming that someone else's research exists is itself a leak, so this is deliberate.
 - **A member without the right** — a `viewer` writing — → `your role in this team does not allow this`, `403` from REST. Hiding a research from someone who can already read it would protect nothing.
 - With `auth_enabled: false` there is no caller and no check: everything lives in one local team and every operation is permitted, exactly as before teams existed.
+- The WebSocket at `/ws` needs the same credential as everything else when auth is on (`?token=…`, because a browser cannot set headers on a handshake), and the hub decides delivery **per event**: a research event reaches only those who may read it, a team event only its members. Membership is re-checked on each event, so removing someone stops their updates on the socket they already have open.
 - That local team survives if auth is later turned on. It has no members, so its researches are **readable by every signed-in user and writable by none** until the first registration claims them — a deliberate compromise between stranding them behind a team nobody can join and letting the first caller take them for themselves.
+
+**Cross-references resolve for the reader, not the author.** `[[R2:E5]]` is stored resolved whatever the writer may see, and every read path strips the targets its reader cannot follow — so a reference into a colleague's research works for whoever is entitled to it, and reads back as plain text for whoever is not.
 
 **Invitations are links, never emails.** The server sends nothing; an owner creates an invitation and hands the link over themselves.
 

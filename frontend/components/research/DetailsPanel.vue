@@ -184,13 +184,6 @@ function saveEdit(field: string) {
   padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--color-border);
 }
-.modal-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-}
 .modal-close {
   display: flex;
   align-items: center;
@@ -260,11 +253,6 @@ function saveEdit(field: string) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-1);
-}
-.field-label {
-  font-size: var(--type-xs);
-  font-weight: 500;
-  color: var(--color-text-muted);
 }
 .field-edit-btn {
   display: flex;

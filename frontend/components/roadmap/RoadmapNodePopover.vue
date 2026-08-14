@@ -164,13 +164,6 @@ const entityStatuses = computed(() => {
   padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--color-border);
 }
-.modal-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-}
 .modal-close {
   display: flex;
   align-items: center;
@@ -222,15 +215,6 @@ const entityStatuses = computed(() => {
 }
 .field + .field {
   border-top: 1px solid var(--color-border);
-}
-.field-label {
-  font-size: var(--type-xs);
-  font-weight: 500;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 .field-value {
   font-size: var(--type-sm);
