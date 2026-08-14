@@ -52,6 +52,25 @@
         <pre class="b-code"><code>{{ b.data.code }}</code></pre>
       </div>
 
+      <!-- checklist: the one block a reader writes to -->
+      <div v-else-if="b.type === 'checklist'" class="b-checklist">
+        <p v-if="b.data.title" class="b-checklist-title">{{ b.data.title }}</p>
+        <label
+          v-for="item in checklistItems(b)"
+          :key="item.key"
+          :class="['b-check', { 'is-done': item.checked, 'is-busy': pending.has(item.token) }]"
+        >
+          <input
+            type="checkbox"
+            :checked="item.checked"
+            :disabled="readonly || pending.has(item.token)"
+            @change="toggle(b, item, ($event.target as HTMLInputElement).checked)"
+          />
+          <span v-html="inline(item.text)"></span>
+        </label>
+        <p v-if="failed.size" class="b-check-error">Not saved — the document changed. Reload the page.</p>
+      </div>
+
       <!-- callout -->
       <aside v-else-if="b.type === 'callout'" :class="['b-callout', `b-callout--${b.data.variant}`]">
         <p v-if="b.data.title" class="b-callout-title">{{ b.data.title }}</p>
@@ -100,8 +119,13 @@ const props = withDefaults(
     researchSlug?: string
     /** Read-only context handed to html blocks over postMessage. */
     bridgeData?: Record<string, unknown> | null
+    /** Entry the blocks belong to. Required for a checklist to be tickable. */
+    entryId?: string
+    /** A viewer who may read but not write gets checkboxes that show state and
+     *  do nothing. The server is the control; this is the courtesy. */
+    readonly?: boolean
   }>(),
-  { blocks: () => [], researchSlug: '', bridgeData: null }
+  { blocks: () => [], researchSlug: '', bridgeData: null, entryId: '', readonly: false }
 )
 
 function inline(text: string): string {
@@ -144,6 +168,75 @@ async function drawDiagrams() {
 
 onMounted(drawDiagrams)
 watch(() => props.blocks, drawDiagrams, { deep: true })
+
+const emit = defineEmits<{ (e: 'ticked'): void }>()
+
+const { authFetch } = useAuth()
+const config = useRuntimeConfig()
+
+// Ticks applied locally before the server has confirmed them, keyed by
+// block+item. A checkbox that waits for a round trip before moving feels broken,
+// and a checklist is ticked in bursts.
+const optimistic = ref<Record<string, boolean>>({})
+const pending = ref<Set<string>>(new Set())
+const failed = ref<Set<string>>(new Set())
+
+interface CheckItem {
+  key: string
+  token: string
+  text: string
+  checked: boolean
+}
+
+function checklistItems(b: Block): CheckItem[] {
+  const state = (b.data?.state || {}) as Record<string, boolean>
+  return ((b.data?.items || []) as any[]).map((it) => {
+    const key = it?.key || ''
+    const token = `${b.id || ''}:${key}`
+    return {
+      key,
+      token,
+      text: it?.text || '',
+      checked: token in optimistic.value ? optimistic.value[token]! : !!state[key],
+    }
+  })
+}
+
+async function toggle(b: Block, item: CheckItem, checked: boolean) {
+  if (props.readonly || !props.entryId || !b.id) return
+
+  optimistic.value = { ...optimistic.value, [item.token]: checked }
+  pending.value = new Set(pending.value).add(item.token)
+  failed.value.delete(item.token)
+
+  const base = config.public.apiBase || ''
+  try {
+    await authFetch(`${base}/api/entries/${props.entryId}/patch`, {
+      method: 'POST',
+      body: {
+        ops: [{ op: 'set_state', id: b.id, item: item.key, checked }],
+      },
+    })
+    emit('ticked')
+  } catch {
+    // Revert visibly. A silent revert is worse than an error: the reader
+    // re-ticks and assumes it stuck.
+    const next = { ...optimistic.value }
+    delete next[item.token]
+    optimistic.value = next
+    failed.value = new Set(failed.value).add(item.token)
+  } finally {
+    const p = new Set(pending.value)
+    p.delete(item.token)
+    pending.value = p
+  }
+}
+
+// A fresh document from the server is the truth again.
+watch(() => props.blocks, () => {
+  optimistic.value = {}
+  failed.value = new Set()
+})
 
 // With a header row the first row is the header; without one every row is body.
 function bodyRows(b: Block): any[] {
@@ -273,6 +366,22 @@ function bodyRows(b: Block): any[] {
    `.block-doc > * + *`, the way every other block spaces itself. */
 .b-mermaid :deep(.mermaid-diagram),
 .b-mermaid :deep(.mermaid-broken) { margin: 0; }
+
+.b-checklist { display: flex; flex-direction: column; gap: var(--space-1); }
+.b-checklist-title { font-weight: 600; margin-bottom: var(--space-1); }
+.b-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 0.15rem 0;
+  line-height: var(--line-base);
+  cursor: pointer;
+}
+.b-check input { margin-top: 0.35rem; accent-color: var(--color-primary); cursor: pointer; }
+.b-check.is-done span { color: var(--color-text-muted); text-decoration: line-through; }
+.b-check.is-busy { opacity: 0.6; }
+.b-check input:disabled { cursor: default; }
+.b-check-error { font-size: var(--type-xs); color: var(--color-warning); }
 
 /* A callout is tinted, not just bordered: at a glance the colour should carry the
    severity without reading the title. */

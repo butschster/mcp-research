@@ -1,5 +1,5 @@
 <template>
-  <div v-if="pending" class="skeleton-page">
+  <div ref="docRoot" v-if="pending" class="skeleton-page">
     <div class="skeleton-card" style="height: 60px; margin-bottom: 2rem;"></div>
     <div class="skeleton-card" style="height: 600px;"></div>
   </div>
@@ -85,7 +85,17 @@
           <div v-if="entry.tags?.length" class="entry-meta">
             <span v-for="tag in entry.tags" :key="tag" class="doc-tag doc-tag-sm">{{ tag }}</span>
           </div>
-          <div class="markdown-content" v-html="renderMarkdown(entryBody(entry))"></div>
+          <!-- A blocks entry renders through the block renderer rather than its
+               markdown projection: this page is what becomes the PDF, and a
+               diagram or an HTML visual is exactly what must not be flattened
+               to a note here. Downloading .md still gets the text form. -->
+          <BlocksBlockRenderer
+            v-if="blocksOf(entry)"
+            :blocks="blocksOf(entry)"
+            :research-slug="researchSlug"
+            readonly
+          />
+          <div v-else class="markdown-content" v-html="renderMarkdown(entryBody(entry))"></div>
         </article>
       </section>
 
@@ -134,6 +144,7 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { renderMermaidBlocks } from '~/composables/useMermaid'
 marked.setOptions({ gfm: true, breaks: true })
 
 const route = useRoute()
@@ -151,6 +162,30 @@ const totalEntries = computed(() =>
 function entryBody(entry: any): string {
   return entry?.content_markdown || entry?.content || ''
 }
+
+const docRoot = ref<HTMLElement | null>(null)
+
+// A blocks entry ships its document as JSON; parse it once per entry so the
+// renderer gets blocks rather than a string.
+function blocksOf(entry: any): any[] | null {
+  if (entry?.entry_type !== 'blocks' || !entry?.content) return null
+  try {
+    const doc = JSON.parse(entry.content)
+    const blocks = Array.isArray(doc) ? doc : doc?.blocks
+    return Array.isArray(blocks) && blocks.length ? blocks : null
+  } catch {
+    return null
+  }
+}
+
+// Markdown entries carry their diagrams as ```mermaid fences. Draw them, or the
+// printed page shows the source of a diagram instead of the diagram.
+async function drawDiagrams() {
+  await nextTick()
+  if (docRoot.value) await renderMermaidBlocks(docRoot.value)
+}
+onMounted(drawDiagrams)
+watch(() => exportData.value, drawDiagrams)
 
 function renderMarkdown(content: string): string {
   if (!content) return ''

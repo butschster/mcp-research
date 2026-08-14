@@ -169,6 +169,37 @@ export const BrokenMermaid: Story = {
   },
 }
 
+// The one block a reader writes to. Without an entryId the checkboxes render
+// their state and do nothing, which is also what a read-only viewer sees.
+export const Checklist: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'paragraph', data: { text: 'Steps of the migration, ticked as they are done.' } },
+      {
+        id: 'a1b2c3d4',
+        type: 'checklist',
+        data: {
+          title: 'Release runbook',
+          items: [
+            { key: 'k1', text: 'Back up the database' },
+            { key: 'k2', text: 'Run the migration on a copy — see [[E3]]' },
+            { key: 'k3', text: 'Announce the window' },
+          ],
+          state: { k1: true },
+        },
+      },
+    ],
+  },
+}
+
+export const ChecklistReadOnly: Story = {
+  args: {
+    ...Checklist.args,
+    readonly: true,
+  },
+}
+
 // Text that tries to inject markup must render as text.
 export const HostileText: Story = {
   args: {
