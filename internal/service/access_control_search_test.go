@@ -1,0 +1,235 @@
+package service
+
+import (
+	"errors"
+	"log/slog"
+	"testing"
+
+	"github.com/butschster/mcp-research/internal/auth"
+	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/butschster/mcp-research/internal/storage"
+)
+
+// The three leaks these cover were all reachable by an authenticated user against
+// another user's research, and all three bypassed validateResearchAccess by going
+// to a repository directly. They live in one file because they are one class.
+
+func TestAccessControl_Search(t *testing.T) {
+	db := setupTestDB(t)
+	log := slog.Default()
+
+	userRepo := storage.NewUserRepository(db)
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, crossrefRepo, nil, &mockNotifier{}, log)
+
+	userA, userB := setupTwoUsers(t, userRepo)
+	ctxA := userCtx(userA)
+
+	research, sections, _ := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Test",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	if _, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: research.ID,
+		SectionID:  sections[0].ID,
+		Title:      "Zaphod deployment notes",
+		Content:    "The passphrase is hunter2 and the bastion is at 10.0.0.1",
+	}); err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+
+	t.Run("owner finds their own entry", func(t *testing.T) {
+		found, err := entryRepo.SearchEntries(ctxA, "Zaphod", 20, userA.ID)
+		if err != nil {
+			t.Fatalf("search: %v", err)
+		}
+		if len(found) != 1 {
+			t.Fatalf("owner got %d results, want 1", len(found))
+		}
+	})
+
+	t.Run("another user finds nothing", func(t *testing.T) {
+		for _, q := range []string{"Zaphod", "hunter2", "bastion"} {
+			found, err := entryRepo.SearchEntries(userCtx(userB), q, 20, userB.ID)
+			if err != nil {
+				t.Fatalf("search %q: %v", q, err)
+			}
+			if len(found) != 0 {
+				// content LIKE makes the search box an oracle: a hit on a term
+				// that appears only in the body confirms the body.
+				t.Errorf("query %q leaked %d of another user's entries", q, len(found))
+			}
+		}
+	})
+
+	t.Run("no user means no scoping, as everywhere else", func(t *testing.T) {
+		found, err := entryRepo.SearchEntries(ctxA, "Zaphod", 20, "")
+		if err != nil {
+			t.Fatalf("search: %v", err)
+		}
+		if len(found) != 1 {
+			t.Fatalf("auth-disabled search got %d results, want 1", len(found))
+		}
+	})
+}
+
+func TestAccessControl_RoadmapRefData(t *testing.T) {
+	db := setupTestDB(t)
+	log := slog.Default()
+
+	userRepo := storage.NewUserRepository(db)
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	roadmapRepo := storage.NewRoadmapRepository(db)
+	nodeRepo := storage.NewRoadmapNodeRepository(db)
+	edgeRepo := storage.NewRoadmapEdgeRepository(db)
+
+	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, crossrefRepo, nil, &mockNotifier{}, log)
+	roadmapSvc := NewRoadmapService(roadmapRepo, nodeRepo, edgeRepo, researchRepo, &mockNotifier{}, log)
+	roadmapSvc.SetRefResolvers(entryRepo, nil, nil, nil, sectionRepo)
+
+	userA, userB := setupTwoUsers(t, userRepo)
+	ctxA, ctxB := userCtx(userA), userCtx(userB)
+
+	// A writes something private.
+	researchA, sectionsA, _ := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Test",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	secret, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: researchA.ID,
+		SectionID:  sectionsA[0].ID,
+		Title:      "Alice's private findings",
+		Content:    "The passphrase is hunter2.",
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+
+	// B builds a roadmap in his own research and points a node at A's entry.
+	researchB, _, _ := researchSvc.Create(ctxB, CreateResearchRequest{Name: "Bob's Research", Goal: "Test"})
+	roadmap, err := roadmapSvc.Create(ctxB, CreateRoadmapRequest{
+		ResearchID: researchB.ID,
+		Title:      "Bob's map",
+		Nodes: []CreateRoadmapNodeRequest{{
+			Title:   "peek",
+			RefType: string(domain.RefTypeEntry),
+			RefID:   secret.ID,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("create roadmap: %v", err)
+	}
+
+	got, err := roadmapSvc.Get(ctxB, roadmap.ID)
+	if err != nil {
+		t.Fatalf("get roadmap: %v", err)
+	}
+	if len(got.Nodes) != 1 {
+		t.Fatalf("nodes = %d, want 1", len(got.Nodes))
+	}
+	// The node is Bob's and must survive; only the resolved payload is withheld.
+	if ref := got.Nodes[0].RefData; ref != nil {
+		t.Errorf("ref data resolved across users: title=%q content=%q", ref.Title, ref.Content)
+	}
+
+	t.Run("the owner still gets their own ref data", func(t *testing.T) {
+		ownRoadmap, err := roadmapSvc.Create(ctxA, CreateRoadmapRequest{
+			ResearchID: researchA.ID,
+			Title:      "Alice's map",
+			Nodes: []CreateRoadmapNodeRequest{{
+				Title:   "mine",
+				RefType: string(domain.RefTypeEntry),
+				RefID:   secret.ID,
+			}},
+		})
+		if err != nil {
+			t.Fatalf("create roadmap: %v", err)
+		}
+		got, err := roadmapSvc.Get(ctxA, ownRoadmap.ID)
+		if err != nil {
+			t.Fatalf("get roadmap: %v", err)
+		}
+		if got.Nodes[0].RefData == nil {
+			t.Fatal("ref data withheld from the owner — the check is too strict")
+		}
+	})
+}
+
+func TestTextReplaceRefusedOnBlocks(t *testing.T) {
+	db := setupTestDB(t)
+	log := slog.Default()
+
+	userRepo := storage.NewUserRepository(db)
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, &mockNotifier{}, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, crossrefRepo, nil, &mockNotifier{}, log)
+
+	userA, _ := setupTwoUsers(t, userRepo)
+	ctx := auth.WithUser(userCtx(userA), userA)
+
+	research, sections, _ := researchSvc.Create(ctx, CreateResearchRequest{
+		Name: "R", Goal: "T",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+
+	doc := `{"blocks":[{"type":"heading","data":{"level":2,"text":"Heading"}}]}`
+	entry, err := entrySvc.Create(ctx, CreateEntryRequest{
+		ResearchID: research.ID,
+		SectionID:  sections[0].ID,
+		Title:      "Block document",
+		Content:    doc,
+		Type:       domain.EntryBlocks,
+	})
+	if err != nil {
+		t.Fatalf("create blocks entry: %v", err)
+	}
+
+	// A quote in the replacement used to be enough to leave unparseable JSON in
+	// the column, with a success returned to the caller.
+	_, err = entrySvc.Update(ctx, entry.ID, UpdateEntryRequest{
+		TextReplace: &TextReplace{From: "Heading", To: `He"ading`},
+	})
+	if !errors.Is(err, ErrTextReplaceOnBlocks) {
+		t.Fatalf("expected ErrTextReplaceOnBlocks, got %v", err)
+	}
+
+	after, err := entrySvc.Get(ctx, entry.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if _, err := NormalizeBlockDocument(after.Content); err != nil {
+		t.Fatalf("stored document no longer parses: %v", err)
+	}
+
+	t.Run("markdown entries keep text_replace", func(t *testing.T) {
+		md, err := entrySvc.Create(ctx, CreateEntryRequest{
+			ResearchID: research.ID,
+			SectionID:  sections[0].ID,
+			Title:      "Markdown",
+			Content:    "hello world",
+		})
+		if err != nil {
+			t.Fatalf("create markdown entry: %v", err)
+		}
+		updated, err := entrySvc.Update(ctx, md.ID, UpdateEntryRequest{
+			TextReplace: &TextReplace{From: "world", To: "there"},
+		})
+		if err != nil {
+			t.Fatalf("text_replace on markdown: %v", err)
+		}
+		if updated.Content != "hello there" {
+			t.Errorf("content = %q, want %q", updated.Content, "hello there")
+		}
+	})
+}

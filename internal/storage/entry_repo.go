@@ -93,7 +93,12 @@ func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entr
 
 // SearchEntries performs a full-text search across entry title, description, and content.
 // Returns entries without content for efficiency, ordered by relevance (title > description > content).
-func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int) ([]*domain.Entry, error) {
+// SearchEntries matches title, description and content. userID scopes the search
+// the way validateResearchAccess scopes everything else: an empty userID means
+// auth is off and there is nothing to scope by, and a research with no owner
+// stays visible to everyone. Without this the endpoint returned every user's
+// entries, and its content LIKE made the search box an oracle over their text.
+func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int, userID string) ([]*domain.Entry, error) {
 	if query == "" {
 		return nil, nil
 	}
@@ -110,11 +115,16 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 		          ELSE 0
 		        END AS relevance
 		 FROM entries
-		 WHERE title LIKE ? OR description LIKE ? OR content LIKE ?
+		 WHERE (title LIKE ? OR description LIKE ? OR content LIKE ?)
+		   AND (? = '' OR EXISTS (
+		         SELECT 1 FROM researches res
+		          WHERE res.id = entries.research_id
+		            AND (res.user_id IS NULL OR res.user_id = '' OR res.user_id = ?)))
 		 ORDER BY relevance DESC, created_at DESC
 		 LIMIT ?`,
 		pattern, pattern, pattern,
 		pattern, pattern, pattern,
+		userID, userID,
 		limit,
 	)
 	if err != nil {

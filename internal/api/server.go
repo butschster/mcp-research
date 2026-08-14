@@ -158,7 +158,7 @@ func NewServer(
 			writeJSON(w, http.StatusOK, map[string]any{"entries": []any{}, "researches": []any{}})
 			return
 		}
-		entries, err := entryRepo.SearchEntries(r.Context(), q, 20)
+		entries, err := entryRepo.SearchEntries(r.Context(), q, 20, auth.UserIDFromContext(r.Context()))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 			return

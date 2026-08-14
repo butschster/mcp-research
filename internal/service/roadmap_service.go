@@ -288,6 +288,17 @@ func (s *RoadmapService) resolveNodeRefs(ctx context.Context, nodes []*domain.Ro
 	}
 }
 
+// refAllowed reports whether the caller may be shown data from researchID.
+// A node lives in the caller's own roadmap, but the entity it points at can live
+// in someone else's research: resolving without this check handed out another
+// user's titles, statuses and a 200-character content preview.
+func (s *RoadmapService) refAllowed(ctx context.Context, researchID string) bool {
+	if researchID == "" {
+		return false
+	}
+	return validateResearchAccess(ctx, s.researches, researchID) == nil
+}
+
 func (s *RoadmapService) resolveRef(ctx context.Context, refType, refID string) *domain.RoadmapNodeRefData {
 	switch domain.RoadmapNodeRefType(refType) {
 	case domain.RefTypeEntry:
@@ -311,6 +322,9 @@ func (s *RoadmapService) resolveEntryRef(ctx context.Context, id string) *domain
 	}
 	entry, err := s.entries.FindByID(ctx, id)
 	if err != nil || entry == nil {
+		return nil
+	}
+	if !s.refAllowed(ctx, entry.ResearchID) {
 		return nil
 	}
 	data := &domain.RoadmapNodeRefData{
@@ -347,6 +361,9 @@ func (s *RoadmapService) resolveTaskRef(ctx context.Context, id string) *domain.
 	if err != nil || task == nil {
 		return nil
 	}
+	if !s.refAllowed(ctx, task.ResearchID) {
+		return nil
+	}
 	return &domain.RoadmapNodeRefData{
 		Title:      task.Title,
 		Status:     string(task.Status),
@@ -363,6 +380,9 @@ func (s *RoadmapService) resolveSessionRef(ctx context.Context, id string) *doma
 	}
 	session, err := s.sessions.FindByID(ctx, id)
 	if err != nil || session == nil {
+		return nil
+	}
+	if !s.refAllowed(ctx, session.ResearchID) {
 		return nil
 	}
 	data := &domain.RoadmapNodeRefData{
@@ -390,6 +410,9 @@ func (s *RoadmapService) resolveSessionRef(ctx context.Context, id string) *doma
 func (s *RoadmapService) resolveResearchRef(ctx context.Context, id string) *domain.RoadmapNodeRefData {
 	research, err := s.researches.FindByID(ctx, id)
 	if err != nil || research == nil {
+		return nil
+	}
+	if !s.refAllowed(ctx, research.ID) {
 		return nil
 	}
 	data := &domain.RoadmapNodeRefData{
@@ -422,6 +445,14 @@ func (s *RoadmapService) resolveQuestionRef(ctx context.Context, id string) *dom
 	}
 	q, err := s.questions.FindByID(ctx, id)
 	if err != nil || q == nil {
+		return nil
+	}
+	// A question owns no research id; its session does.
+	if s.sessions == nil {
+		return nil
+	}
+	session, err := s.sessions.FindByID(ctx, q.SessionID)
+	if err != nil || session == nil || !s.refAllowed(ctx, session.ResearchID) {
 		return nil
 	}
 	return &domain.RoadmapNodeRefData{

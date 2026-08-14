@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -112,13 +113,16 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 	researchID := r.PathValue("id")
 	entryCode := r.PathValue("code")
 
-	entry, err := h.entries.FindByCode(r.Context(), researchID, entryCode)
+	// Through the service, never the repository: EntryService.GetByIDOrCode is
+	// what checks ownership. Resolving a code straight from the repo returned
+	// any user's entry, content included, to anyone who knew the research id.
+	entry, err := h.entry.GetByIDOrCode(r.Context(), researchID, entryCode)
 	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "entry not found")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if entry == nil {
-		writeError(w, http.StatusNotFound, "entry not found")
 		return
 	}
 

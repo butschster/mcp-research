@@ -293,6 +293,13 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 	}
 
 	// text_replace
+	if req.TextReplace != nil && entry.Type == domain.EntryBlocks {
+		// The replacement runs over the stored string after normalization and is
+		// never re-parsed, so on a block document it is unvalidated surgery on
+		// JSON: one quote in the replacement and the document stops parsing, with
+		// a 200 in reply and the page rendering raw JSON.
+		return nil, ErrTextReplaceOnBlocks
+	}
 	if req.TextReplace != nil {
 		if !strings.Contains(entry.Content, req.TextReplace.From) {
 			return nil, ErrTextReplaceNotFound
