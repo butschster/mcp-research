@@ -60,12 +60,29 @@ const channel = `artifact-${Math.random().toString(36).slice(2)}`
 // cannot reach with our stylesheet, so the rule is injected alongside the height
 // reporter.
 const printStyle = `
-<style>@media print { :root, body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }</style>`
+<style id="__print_fix">@media print { :root, body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }</style>`
+
+// The host's page background, duplicated here on purpose: it has to travel INTO
+// the sandboxed document, which cannot read our custom properties.
+const HOST_BACKGROUND = '#0c1220'
+
 
 const shim = computed(() => printStyle + `
 <script>(function(){
   var CH = ${JSON.stringify(channel)};
   var last = -1;
+
+  // An artifact that sets no background of its own was written for a dark host
+  // and gets one, but only for print: on screen the frame behind it supplies it.
+  try {
+    var bg = getComputedStyle(document.body).backgroundColor;
+    if (!bg || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)') {
+      var fix = document.getElementById('__print_fix');
+      if (fix) {
+        fix.textContent += '@media print { html, body { background: ${HOST_BACKGROUND} !important; } }';
+      }
+    }
+  } catch (e) {}
 
   function measure() {
     var d = document.documentElement, b = document.body;
@@ -223,6 +240,14 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
   /* No frame drawn around it: the artifact brings its own surface, and a border
      on top of that only competes with it. */
   .artifact-iframe { border: none; }
+  /* The dark surface behind an artifact is painted by THIS element, not by the
+     document inside it — most artifacts are written expecting a dark host and set
+     no background of their own. Browsers drop an element's background when
+     printing, which left light text on white paper. */
+  .artifact-iframe {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
   /* An iframe has no internal break points, so a split cuts the visual in half. */
   .artifact-frame { break-inside: avoid; }
 }
