@@ -236,11 +236,15 @@ func BlockDocumentToMarkdown(doc *domain.BlockDocument) string {
 
 		case domain.BlockMermaid:
 			// A mermaid fence is markdown that renders: GitHub and this app both
-			// draw it, so the export loses nothing.
-			b.WriteString("```mermaid\n" + str(d, "code") + "\n```\n")
+			// draw it, so the export loses nothing. The link below it is for every
+			// reader whose viewer does not — the diagram rides in the URL fragment,
+			// so nothing is uploaded by following it.
+			code := str(d, "code")
+			b.WriteString("```mermaid\n" + code + "\n```\n")
 			if cap := str(d, "caption"); cap != "" {
 				b.WriteString("*" + cap + "*\n")
 			}
+			b.WriteString(mermaidLiveLine(code))
 			b.WriteString("\n")
 
 		case domain.BlockCallout:
