@@ -501,40 +501,20 @@ function bodyRows(b: Block): any[] {
 }
 
 @media print {
-  /* The dark tints are invisible on paper and the recessed code block turns into
-     a black slab, so everything falls back to hairlines on white. */
-  .b-code-wrap,
-  .b-code-lang,
-  .b-table-wrap,
-  .b-table th,
-  .b-table tbody tr:nth-child(even),
-  .b-callout { background: none; }
-  .b-table-wrap,
-  .b-code-wrap,
-  .b-table th,
-  .b-table td,
-  .b-callout,
-  .b-figure img { border-color: #ddd; }
-  .b-divider { background: none; border-top: 1px solid #ddd; }
-  .b-h2 { border-bottom-color: #ddd; }
-  .b-figure figcaption,
-  .b-quote cite,
-  .b-code-lang,
-  .b-table th { color: #555; }
-  .b-html-title { color: #333; border: 1px solid #ddd; }
-  .b-callout-title { color: #333 !important; }
-  .b-mermaid :deep(.mermaid-diagram) { background: none; border-color: #ddd; }
+  /* The print here is a way to produce a PDF of the document, so the document
+     keeps its own look: dark surfaces, tinted callouts, the recessed code block.
+     What goes is what only makes sense with a pointer. */
+  .b-code-live,
+  .b-mermaid :deep(.mermaid-toolbar) { display: none; }
   /* A wide table scrolls on screen; on paper the columns past the margin were
      simply absent, with the scrollbar track printed where they should be. */
   .b-table-wrap { overflow: visible; }
-  /* Neither a diagram nor a sandboxed visual can be split across a sheet: one
-     used to leave an empty bordered rectangle on the page before it. */
+  /* Nothing here may be split across a sheet: a diagram used to leave an empty
+     bordered rectangle on the page before it. */
   .b-figure,
   .b-mermaid,
-  .b-checklist { break-inside: avoid; }
-  /* The record of what was DONE was the palest ink on the page: muted grey on a
-     grey box, while the unfinished items printed solid black. */
-  .b-check.is-done span { color: #111; text-decoration-color: #999; }
-  .b-check input { filter: none; }
+  .b-checklist,
+  .b-table-wrap,
+  .b-code-wrap { break-inside: avoid; }
 }
 </style>

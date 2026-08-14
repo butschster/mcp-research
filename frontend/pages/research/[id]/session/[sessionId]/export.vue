@@ -347,22 +347,19 @@ function printPage() {
 }
 
 @media print {
+  /* The PDF should look like the page it came from, so the surfaces and tints
+     stay; only the controls go and the page-break rules remain. */
   .no-print { display: none !important; }
   .export-document { max-width: none; }
-  .doc-section { break-inside: auto; }
-  /* The dark-theme border and muted-text tokens are near-invisible on white. */
-  .doc-header,
-  .section-heading,
-  .doc-question,
-  .doc-entry { border-color: #ddd; }
-  .doc-parent,
-  .doc-goal,
-  .doc-meta,
-  .q-meta,
-  .q-rationale,
-  .entry-meta,
-  .doc-empty { color: #555; }
-  .entry-code { background: #e8f4f8; }
-  .doc-tag { background: #f0f0f0; border-color: #ddd; }
+  .doc-section { page-break-before: auto; }
+  /* Not `avoid` on a whole entry: an entry is often longer than a sheet, and
+     refusing to break it left the first page empty and started the document on
+     the second. Breaks are avoided inside the small units instead — a figure, a
+     diagram, a table, a checklist — where a split is actually damaging. */
+  /* Neither a section nor an entry refuses to break: both are routinely longer
+     than a sheet, and refusing left the first page empty and started the
+     document on the second. Breaks are avoided inside the small units instead —
+     a figure, a diagram, a table, a checklist — where a split does damage. */
+  .doc-section, .doc-entry { page-break-inside: auto; }
 }
 </style>

@@ -212,6 +212,9 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
 }
 
 @media print {
-  .artifact-iframe { border-color: #ddd; }
+  /* The document inside the frame keeps whatever it was built with — it is a
+     PDF of this page, not a paper rendering of it — but it cannot be split
+     across sheets, since an iframe has no break points. */
+  .artifact-frame { break-inside: avoid; }
 }
 </style>
