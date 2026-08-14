@@ -1,6 +1,11 @@
 package service
 
 import (
+	"bytes"
+	"compress/zlib"
+	"encoding/base64"
+	"encoding/json"
+	"io"
 	"strings"
 	"testing"
 
@@ -211,5 +216,72 @@ func TestBlockDocumentToMarkdown_ChecklistState(t *testing.T) {
 	}
 	if _, has := normalized.Blocks[0].Data["state"]; has {
 		t.Error("normalization kept author-sent state; it must have one origin")
+	}
+}
+
+// The link under an exported diagram has to be a real one: the whole document is
+// in the fragment, so a mistake in the encoding is invisible until someone opens
+// it and sees the editor's "could not load" diagram.
+func TestMermaidLiveURL_RoundTrips(t *testing.T) {
+	code := "flowchart TD\n    A[Правка] --> B{entry_patch}\n    B -->|set_state| C[одна строка]"
+	url := MermaidLiveURL(code)
+
+	const prefix = "https://mermaid.live/view#pako:"
+	if !strings.HasPrefix(url, prefix) {
+		t.Fatalf("url = %q, want the pako form", url)
+	}
+	payload := strings.TrimPrefix(url, prefix)
+	if strings.ContainsAny(payload, "+/=") {
+		t.Errorf("payload is not url-safe base64: %q", payload)
+	}
+
+	raw, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	zr, err := zlib.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("the payload is not zlib, which is what pako.inflate expects: %v", err)
+	}
+	defer zr.Close()
+	decoded, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatalf("inflate: %v", err)
+	}
+
+	var state struct {
+		Code          string `json:"code"`
+		Mermaid       string `json:"mermaid"`
+		UpdateDiagram bool   `json:"updateDiagram"`
+	}
+	if err := json.Unmarshal(decoded, &state); err != nil {
+		t.Fatalf("state is not the editor's shape: %v", err)
+	}
+	if state.Code != code {
+		t.Errorf("code did not survive the round trip:\n got: %q\nwant: %q", state.Code, code)
+	}
+	// The editor reads `mermaid` as a JSON string, not an object.
+	if !strings.Contains(state.Mermaid, "theme") || !state.UpdateDiagram {
+		t.Errorf("state = %+v, want a theme config and updateDiagram", state)
+	}
+
+	if MermaidLiveURL("") != "" {
+		t.Error("an empty source must produce no link rather than a broken one")
+	}
+}
+
+func TestBlockDocumentToMarkdown_MermaidCarriesTheLink(t *testing.T) {
+	doc := normDoc(t, `{"blocks":[{"type":"mermaid","data":{"code":"flowchart LR\n  A --> B","caption":"How it flows"}}]}`)
+	md := BlockDocumentToMarkdown(doc)
+
+	for _, want := range []string{"```mermaid", "flowchart LR", "*How it flows*", "[Open this diagram in mermaid.live](https://mermaid.live/view#pako:"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("markdown is missing %q:\n%s", want, md)
+		}
+	}
+	// A code block that merely declares mermaid is still a listing, not a figure.
+	plain := normDoc(t, `{"blocks":[{"type":"code","data":{"language":"mermaid","code":"flowchart LR\n  A --> B"}}]}`)
+	if strings.Contains(BlockDocumentToMarkdown(plain), "mermaid.live") {
+		t.Error("a code block gained a diagram link; only the mermaid block should")
 	}
 }
