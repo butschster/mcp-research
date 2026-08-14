@@ -121,9 +121,27 @@ export const WithHtmlBlock: Story = {
   },
 }
 
-// A code block whose language is mermaid is drawn, not printed: pan, zoom,
-// fullscreen, and a link that reopens it in the live editor.
-export const MermaidCodeBlock: Story = {
+// The dedicated block type: a diagram is a figure with a caption, drawn with pan,
+// zoom, fullscreen and a link back to the live editor.
+export const MermaidBlock: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      { type: 'paragraph', data: { text: 'A diagram sits in the reading column like any other block.' } },
+      {
+        type: 'mermaid',
+        data: {
+          code: 'flowchart TD\n    A[entry_create] --> B{entry_type}\n    B -->|markdown| C[normalizeContent]\n    B -->|blocks| D[NormalizeBlockDocument]\n    B -->|artifact| E[ArtifactToBlockDocument]',
+          caption: 'Where content goes on the way in — see [[E3]].',
+        },
+      },
+    ],
+  },
+}
+
+// The older spelling still draws, so documents written before the block type
+// existed keep working.
+export const MermaidAsCodeBlock: Story = {
   args: {
     researchSlug: 'R1',
     blocks: [

@@ -15,6 +15,7 @@ const richDoc = `{"version":1,"blocks":[
   {"type":"table","data":{"header":true,"rows":[["Model","Speed"],["Llama","96"]]}},
   {"type":"quote","data":{"text":"Measure twice.","cite":"folk wisdom"}},
   {"type":"code","data":{"language":"go","code":"fmt.Println(1)"}},
+  {"type":"mermaid","data":{"code":"flowchart TD\n  A --> B","caption":"How it flows"}},
   {"type":"divider","data":{}},
   {"type":"image","data":{"url":"/media/a.png","alt":"chart","caption":"Throughput"}},
   {"type":"html","data":{"html":"<html><body>x</body></html>","title":"Live chart","caption":"interactive"}}
@@ -45,6 +46,9 @@ func TestBlockDocumentToMarkdown(t *testing.T) {
 			"> — folk wisdom",
 			"```go",
 			"fmt.Println(1)",
+			"```mermaid",
+			"flowchart TD",
+			"*How it flows*",
 			"---",
 			"![chart](/media/a.png)",
 			"*Throughput*",

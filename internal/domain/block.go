@@ -28,6 +28,7 @@ const (
 	MaxURLLength     = 2000
 	MaxCalloutText   = 5000
 	MaxCodeText      = 100000
+	MaxMermaidText   = 20000
 	MaxLanguageIdent = 40
 )
 
@@ -46,6 +47,10 @@ const (
 	BlockCallout   BlockType = "callout"
 	BlockDivider   BlockType = "divider"
 	BlockImage     BlockType = "image"
+	// BlockMermaid holds a mermaid source drawn as a diagram. It is deliberately
+	// separate from BlockCode: a diagram is a figure with a caption, not a
+	// listing, and an exporter has to know which one it is looking at.
+	BlockMermaid BlockType = "mermaid"
 	// BlockHTML holds a self-contained HTML document rendered in a sandboxed
 	// iframe. This is what the standalone `artifact` entry type became: as a
 	// block it composes with prose instead of taking over the whole entry.

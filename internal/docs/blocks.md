@@ -40,19 +40,20 @@ field names did not match this catalog.
 
 ## Text fields
 
-Text in `paragraph`, `list`, `table`, `quote`, `callout`, `image.caption` carries
+Text in `paragraph`, `list`, `table`, `quote`, `callout`, `image.caption`,
+`mermaid.caption` carries
 a restricted inline markdown subset: `**bold**`, `*italic*`, `` `code` ``,
 `[label](url)`. Anything else is shown literally.
 
 `[[E3]]`, `[[R2:E5]]`, `[[RM1]]` work inside these fields and **are indexed** —
 they land in the `crossrefs` table and become links in the web UI, exactly as in
-a markdown entry. References inside `code` and `html` bodies are **not** indexed:
-a snippet mentioning a code is not a citation.
+a markdown entry. References inside `code`, `mermaid` and `html` bodies are **not**
+indexed: a snippet mentioning a code is not a citation.
 
-Literal `\n` in a text field becomes a real newline. In `code` and `html` it does
-not — a backslash there is data.
+Literal `\n` in a text field becomes a real newline. In `code`, `mermaid` and
+`html` it does not — a backslash there is data.
 
-## Block catalog (10 types)
+## Block catalog (11 types)
 
 | `type` | `data` |
 |---|---|
@@ -61,7 +62,8 @@ not — a backslash there is data.
 | `list` | `{ style: "unordered"\|"ordered", items: string[] }` — blank and non-string items are dropped, max 200; no items ⇒ block dropped. Unknown style becomes `unordered` |
 | `table` | `{ header: bool (default true), rows: string[][] }` — non-array rows dropped, max 200 rows × 20 columns; no rows ⇒ dropped |
 | `quote` | `{ text, cite? }` — `text` required |
-| `code` | `{ code, language? }` — `code` required, stored verbatim. `language` is lowercased and reduced to `a-z0-9+#-_.`. With `language: "mermaid"` the block is **drawn as a diagram** (pan, zoom, fullscreen, and a link to mermaid.live); a source that fails to parse falls back to the code with a link to the editor |
+| `code` | `{ code, language? }` — `code` required, stored verbatim. `language` is lowercased and reduced to `a-z0-9+#-_.`. `language: "mermaid"` is accepted as a spelling of the `mermaid` block below and draws the same way |
+| `mermaid` | `{ code, caption? }` — `code` is a mermaid source, required, stored verbatim, max 20000 chars. Drawn as a diagram: pan, zoom, fullscreen, and a link that reopens it in mermaid.live. A source mermaid cannot parse falls back to the source with a link to the editor, which reports the error |
 | `callout` | `{ variant: "info"\|"warning"\|"success"\|"danger", text, title? }` — `text` required; an unknown variant becomes `info` |
 | `divider` | `{}` — always kept |
 | `image` | `{ url, alt?, caption? }` — `url` must be `http(s)://` or a domain-relative `/path`; anything else (including `javascript:`, `data:` and protocol-relative `//host`) ⇒ dropped |
@@ -113,8 +115,10 @@ entry back returns `entry_type: blocks`.
 ## Export and import
 
 - **Markdown export** (`?format=md`, research and session): blocks are serialized
-  to markdown. A `callout` becomes a labelled blockquote, an `html` block becomes
-  a named note saying to view it in the web UI — its document cannot be markdown.
+  to markdown. A `callout` becomes a labelled blockquote, a `mermaid` block becomes
+  a ```mermaid fence — which GitHub and this app both draw — and an `html` block
+  becomes a named note saying to view it in the web UI, its document being the one
+  thing that cannot be markdown.
 - **JSON export**: a blocks entry also carries `content_markdown` beside
   `content`, so a reader does not need to know the block format.
 - **Portable export/import**: `entry_type` travels in the file. A file written
@@ -130,5 +134,5 @@ converts what is stored.
 ## Caps
 
 400 blocks per document, 20000 characters per text field, 100000 for `code`,
-200000 for `html`, 200 list items, 200×20 table cells. Text over a cap is clamped
+20000 for `mermaid`, 200000 for `html`, 200 list items, 200×20 table cells. Text over a cap is clamped
 on a character boundary, not cut mid-character.

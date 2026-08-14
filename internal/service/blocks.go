@@ -39,6 +39,7 @@ var blockNormalizers = map[domain.BlockType]blockNormalizer{
 	domain.BlockCallout:   normCallout,
 	domain.BlockDivider:   normDivider,
 	domain.BlockImage:     normImage,
+	domain.BlockMermaid:   normMermaid,
 	domain.BlockHTML:      normHTML,
 }
 
@@ -274,6 +275,20 @@ func normCallout(d map[string]any) (map[string]any, bool) {
 
 func normDivider(map[string]any) (map[string]any, bool) {
 	return map[string]any{}, true
+}
+
+func normMermaid(d map[string]any) (map[string]any, bool) {
+	// Verbatim, like code: mermaid has its own escapes, and expanding literal
+	// \n here would rewrite a label that contains one.
+	code := clampStr(sanitizeUTF8(str(d, "code")), domain.MaxMermaidText)
+	if strings.TrimSpace(code) == "" {
+		return nil, false
+	}
+	out := map[string]any{"code": code}
+	if cap := clampStr(normalizeContent(str(d, "caption")), domain.MaxCaptionText); cap != "" {
+		out["caption"] = cap
+	}
+	return out, true
 }
 
 func normImage(d map[string]any) (map[string]any, bool) {

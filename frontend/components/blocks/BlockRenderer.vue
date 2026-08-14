@@ -41,8 +41,11 @@
 
       <!-- code -->
       <!-- A mermaid source is a diagram, not code: the viewer is mounted into
-           this container from script, so Vue never patches what is inside it. -->
-      <div v-else-if="isMermaid(b)" class="b-mermaid" :data-mermaid="i"></div>
+           the container from script, so Vue never patches what is inside it. -->
+      <figure v-else-if="isMermaid(b)" class="b-figure">
+        <div class="b-mermaid" :data-mermaid="i"></div>
+        <figcaption v-if="b.data.caption" v-html="inline(b.data.caption)"></figcaption>
+      </figure>
 
       <div v-else-if="b.type === 'code'" class="b-code-wrap">
         <span v-if="b.data.language" class="b-code-lang">{{ b.data.language }}</span>
@@ -106,8 +109,11 @@ function inline(text: string): string {
 }
 
 
+// Both spellings draw: the dedicated block type, and a code block that declares
+// mermaid — agents reach for the latter, and it worked before the type existed.
 function isMermaid(b: Block): boolean {
-  return b.type === 'code' && b.data?.language === 'mermaid' && !!b.data?.code
+  const declared = b.type === 'mermaid' || (b.type === 'code' && b.data?.language === 'mermaid')
+  return declared && !!b.data?.code
 }
 
 // What each container currently holds, so a re-render only redraws diagrams

@@ -74,6 +74,11 @@ func blockTextLines(blk domain.Block) []string {
 	case domain.BlockHTML:
 		// Only the author-written framing is prose; the document body is not.
 		return []string{str(d, "title"), str(d, "caption")}
+	case domain.BlockMermaid:
+		// Same rule as code and html: the source is notation, the caption is the
+		// author writing. Node labels look like prose but arrive wrapped in
+		// syntax, and indexing them would put `-->` and `subgraph` in the index.
+		return []string{str(d, "caption")}
 	case domain.BlockCode, domain.BlockDivider:
 		return nil
 	}
@@ -207,6 +212,15 @@ func BlockDocumentToMarkdown(doc *domain.BlockDocument) string {
 
 		case domain.BlockCode:
 			b.WriteString("```" + str(d, "language") + "\n" + str(d, "code") + "\n```\n\n")
+
+		case domain.BlockMermaid:
+			// A mermaid fence is markdown that renders: GitHub and this app both
+			// draw it, so the export loses nothing.
+			b.WriteString("```mermaid\n" + str(d, "code") + "\n```\n")
+			if cap := str(d, "caption"); cap != "" {
+				b.WriteString("*" + cap + "*\n")
+			}
+			b.WriteString("\n")
 
 		case domain.BlockCallout:
 			// Markdown has no callout; a blockquote with a label keeps the intent.

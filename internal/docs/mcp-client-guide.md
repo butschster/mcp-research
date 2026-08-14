@@ -184,7 +184,9 @@ Tips:
   and a link that reopens the diagram in mermaid.live
 - A diagram that fails to parse keeps its source and links to the editor, which reports the
   syntax error
-- In a `blocks` document a `code` block with `language: "mermaid"` is drawn the same way
+- In a `blocks` document diagrams get their own block type: `{"type": "mermaid", "data":
+  {"code": "flowchart TD\n  A --> B", "caption": "optional"}}`. A `code` block with
+  `language: "mermaid"` is accepted as the same thing
 
 ### Cross-references
 
