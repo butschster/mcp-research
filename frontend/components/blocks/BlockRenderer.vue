@@ -55,20 +55,22 @@
       <!-- checklist: the one block a reader writes to -->
       <div v-else-if="b.type === 'checklist'" class="b-checklist">
         <p v-if="b.data.title" class="b-checklist-title">{{ b.data.title }}</p>
-        <label
-          v-for="item in checklistItems(b)"
-          :key="item.key"
-          :class="['b-check', { 'is-done': item.checked, 'is-busy': pending.has(item.token) }]"
-        >
-          <input
-            type="checkbox"
-            :checked="item.checked"
-            :disabled="readonly || pending.has(item.token)"
-            @change="toggle(b, item, ($event.target as HTMLInputElement).checked)"
-          />
-          <span v-html="inline(item.text)"></span>
-        </label>
-        <p v-if="failed.size" class="b-check-error">Not saved — the document changed. Reload the page.</p>
+        <template v-for="item in checklistItems(b)" :key="item.key">
+          <label :class="['b-check', { 'is-done': item.checked, 'is-busy': pending.has(item.token) }]">
+            <input
+              type="checkbox"
+              :checked="item.checked"
+              :disabled="!tickable(b)"
+              :aria-busy="pending.has(item.token)"
+              @change="toggle(b, item, ($event.target as HTMLInputElement).checked)"
+            />
+            <span v-html="inline(item.text)"></span>
+          </label>
+          <!-- Beside the item that failed, not under the whole block: with two
+               checklists in a document a shared line said nothing about which
+               box did not save. -->
+          <p v-if="failed[item.token]" class="b-check-error" role="status">{{ failed[item.token] }}</p>
+        </template>
       </div>
 
       <!-- callout -->
@@ -179,7 +181,10 @@ const config = useRuntimeConfig()
 // and a checklist is ticked in bursts.
 const optimistic = ref<Record<string, boolean>>({})
 const pending = ref<Set<string>>(new Set())
-const failed = ref<Set<string>>(new Set())
+// Message per item, not a flag: the server says what went wrong — a stale
+// document, an item that no longer exists, an expired session — and "reload the
+// page" was wrong for most of them.
+const failed = ref<Record<string, string>>({})
 
 interface CheckItem {
   key: string
@@ -202,15 +207,27 @@ function checklistItems(b: Block): CheckItem[] {
   })
 }
 
+// A checkbox that cannot be saved must be disabled rather than guarded in the
+// handler: the browser flips the box before any handler runs, and returning
+// early left it flipped, saying "done" about something nobody recorded.
+function tickable(b: Block): boolean {
+  return !props.readonly && !!props.entryId && !!b.id
+}
+
 async function toggle(b: Block, item: CheckItem, checked: boolean) {
-  if (props.readonly || !props.entryId || !b.id) return
+  if (!tickable(b)) return
+  // Not disabled while in flight: disabling a focused control blurs it, and a
+  // keyboard reader was thrown back to the top of the page on every tick.
+  if (pending.value.has(item.token)) return
 
   // Told before the request goes out: the WebSocket echo of this write usually
   // arrives before its HTTP response, and a refetch mid-tick makes the box blink.
   emit('ticked')
   optimistic.value = { ...optimistic.value, [item.token]: checked }
   pending.value = new Set(pending.value).add(item.token)
-  failed.value.delete(item.token)
+  const cleared = { ...failed.value }
+  delete cleared[item.token]
+  failed.value = cleared
 
   const base = config.public.apiBase || ''
   try {
@@ -220,13 +237,13 @@ async function toggle(b: Block, item: CheckItem, checked: boolean) {
         ops: [{ op: 'set_state', id: b.id, item: item.key, checked }],
       },
     })
-  } catch {
+  } catch (e: any) {
     // Revert visibly. A silent revert is worse than an error: the reader
     // re-ticks and assumes it stuck.
     const next = { ...optimistic.value }
     delete next[item.token]
     optimistic.value = next
-    failed.value = new Set(failed.value).add(item.token)
+    failed.value = { ...failed.value, [item.token]: saveError(e) }
   } finally {
     const p = new Set(pending.value)
     p.delete(item.token)
@@ -234,10 +251,19 @@ async function toggle(b: Block, item: CheckItem, checked: boolean) {
   }
 }
 
+function saveError(e: any): string {
+  const status = e?.status ?? e?.response?.status
+  const detail = e?.data?.error ?? e?.response?._data?.error
+  if (status === 409) return 'Not saved — the document changed. Reload the page.'
+  if (status === 401 || status === 403) return 'Not saved — your session expired. Sign in again.'
+  if (!status) return 'Not saved — the server could not be reached.'
+  return detail ? `Not saved — ${detail}` : 'Not saved.'
+}
+
 // A fresh document from the server is the truth again.
 watch(() => props.blocks, () => {
   optimistic.value = {}
-  failed.value = new Set()
+  failed.value = {}
 })
 
 // With a header row the first row is the header; without one every row is body.
@@ -383,7 +409,11 @@ function bodyRows(b: Block): any[] {
 .b-check.is-done span { color: var(--color-text-muted); text-decoration: line-through; }
 .b-check.is-busy { opacity: 0.6; }
 .b-check input:disabled { cursor: default; }
-.b-check-error { font-size: var(--type-xs); color: var(--color-warning); }
+.b-check-error {
+  margin-left: 1.6rem;
+  font-size: var(--type-xs);
+  color: var(--color-warning);
+}
 
 /* A callout is tinted, not just bordered: at a glance the colour should carry the
    severity without reading the title. */
@@ -494,5 +524,17 @@ function bodyRows(b: Block): any[] {
   .b-html-title { color: #333; border: 1px solid #ddd; }
   .b-callout-title { color: #333 !important; }
   .b-mermaid :deep(.mermaid-diagram) { background: none; border-color: #ddd; }
+  /* A wide table scrolls on screen; on paper the columns past the margin were
+     simply absent, with the scrollbar track printed where they should be. */
+  .b-table-wrap { overflow: visible; }
+  /* Neither a diagram nor a sandboxed visual can be split across a sheet: one
+     used to leave an empty bordered rectangle on the page before it. */
+  .b-figure,
+  .b-mermaid,
+  .b-checklist { break-inside: avoid; }
+  /* The record of what was DONE was the palest ink on the page: muted grey on a
+     grey box, while the unfinished items printed solid black. */
+  .b-check.is-done span { color: #111; text-decoration-color: #999; }
+  .b-check input { filter: none; }
 }
 </style>

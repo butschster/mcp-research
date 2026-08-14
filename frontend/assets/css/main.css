@@ -571,6 +571,9 @@ body::after {
 .markdown-content tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
 .markdown-content tbody tr:last-child td { border-bottom: none; }
 .markdown-content img { max-width: 100%; border-radius: var(--radius); margin: var(--space-4) 0; }
+/* A UUID chain or a bare URL used to push the whole page sideways on a phone. */
+.markdown-content,
+.block-doc { overflow-wrap: anywhere; }
 .markdown-content a { color: var(--color-primary); text-decoration: none; }
 .markdown-content a:hover { text-decoration: underline; }
 
@@ -717,10 +720,15 @@ body::after {
   .mermaid-canvas { height: auto; overflow: visible; }
   .mermaid-stage { position: static; transform: none !important; }
   .mermaid-stage svg {
-    width: auto !important;
-    height: auto !important;
+    /* Not `width: auto`: mermaid's svg carries width="100%", so auto resolved to
+       the whole text column and blew a small diagram up to 1.5× its size, which
+       is also what pushed it across a page break. */
+    width: revert !important;
+    height: revert !important;
     max-width: 100% !important;
   }
+  /* A diagram split across two sheets left an empty bordered rectangle behind. */
+  .mermaid-diagram { break-inside: avoid; }
 }
 .crossref-link {
   color: var(--color-primary);

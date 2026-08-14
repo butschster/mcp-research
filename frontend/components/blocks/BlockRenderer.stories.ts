@@ -200,6 +200,62 @@ export const ChecklistReadOnly: Story = {
   },
 }
 
+// With an entry id the boxes are live. Ticking here posts to that entry, so the
+// story exists to show the enabled control, not to be clicked in anger.
+export const ChecklistInteractive: Story = {
+  args: {
+    ...Checklist.args,
+    entryId: 'demo-entry-id',
+  },
+}
+
+// Two checklists in one document: the failure line belongs to the item that
+// failed, not to every checklist on the page.
+export const ChecklistTwoInOneDocument: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      {
+        id: 'aaaa1111',
+        type: 'checklist',
+        data: { title: 'Prod', items: [{ key: 'k1', text: 'Back up' }], state: { k1: true } },
+      },
+      {
+        id: 'bbbb2222',
+        type: 'checklist',
+        data: { title: 'Staging', items: [{ key: 'k1', text: 'Back up' }] },
+      },
+    ],
+  },
+}
+
+// An empty checklist is dropped by the normalizer, so this can only be reached
+// by a renderer bug — the story documents that it degrades quietly.
+export const ChecklistEmpty: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [{ id: 'aaaa1111', type: 'checklist', data: { title: 'Nothing to do', items: [] } }],
+  },
+}
+
+// Long unbreakable text must wrap rather than scroll the page sideways.
+export const ChecklistLongToken: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      {
+        id: 'aaaa1111',
+        type: 'checklist',
+        data: {
+          items: [
+            { key: 'k1', text: 'Revoke a1b2c3d4-e5f6-7890-abcd-ef1234567890-a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+          ],
+        },
+      },
+    ],
+  },
+}
+
 // Text that tries to inject markup must render as text.
 export const HostileText: Story = {
   args: {
