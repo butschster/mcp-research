@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Feature work runs through the `new-feature` skill
+
+Any change big enough to be called a feature — a GitHub issue taken into work, a
+new entity, a new tool or route, anything crossing storage → service → api/mcp →
+frontend — starts by invoking the **`new-feature`** skill and follows it to the
+end: scope, plan, build, verify, **run the full agent review fleet**, open a PR.
+
+Running the fleet is part of finishing the work, not a thing to offer afterwards
+or ask permission for. The skill holds the agent list and when a member may be
+skipped.
+
 ## Build & Run Commands
 
 ```bash

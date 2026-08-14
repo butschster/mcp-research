@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/butschster/mcp-research/internal/auth"
@@ -198,7 +199,7 @@ func TestAccessControl_Entry(t *testing.T) {
 	blockRepo := storage.NewBlockRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, log)
 
 	userA, userB := setupTwoUsers(t, userRepo)
 	ctxA := userCtx(userA)
@@ -280,7 +281,7 @@ func TestAccessControl_Task(t *testing.T) {
 	crossrefRepo := storage.NewCrossRefRepository(db)
 	taskRepo := storage.NewTaskRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, log)
 	taskSvc := NewTaskService(taskRepo, researchRepo, entrySvc, notifier, log)
 
 	userA, userB := setupTwoUsers(t, userRepo)
@@ -367,7 +368,7 @@ func TestAccessControl_Session(t *testing.T) {
 	sessionRepo := storage.NewSessionRepository(db)
 	questionRepo := storage.NewQuestionRepository(db)
 	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
-	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, crossrefRepo, nil, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, log)
 	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, notifier, log)
 
 	userA, userB := setupTwoUsers(t, userRepo)
@@ -484,4 +485,176 @@ func TestAccessControl_NoAuth(t *testing.T) {
 	if len(list) != 1 {
 		t.Fatalf("expected 1 research, got %d", len(list))
 	}
+}
+
+// TestAccessControl_Revisions covers the history surface added with entry
+// revisions. A revision holds the entry's full text, so every one of these
+// paths is a copy of the content the ownership check exists to protect — and
+// two of them (diff, restore) can also mutate or describe an entry by id alone.
+func TestAccessControl_Revisions(t *testing.T) {
+	db := setupTestDB(t)
+	notifier := &mockNotifier{}
+	log := slog.Default()
+
+	userRepo := storage.NewUserRepository(db)
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	blockRepo := storage.NewBlockRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	sessionRepo := storage.NewSessionRepository(db)
+	questionRepo := storage.NewQuestionRepository(db)
+
+	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, log)
+	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, notifier, log)
+
+	userA, userB := setupTwoUsers(t, userRepo)
+	ctxA := userCtx(userA)
+	ctxB := userCtx(userB)
+
+	research, sections, _ := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Test",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+
+	session, _, err := sessionSvc.Create(ctxA, CreateSessionRequest{
+		ResearchID: research.ID, Title: "Private session", Focus: "secrets",
+	})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	entry, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: research.ID,
+		SectionID:  sections[0].ID,
+		Content:    "# Secret entry\n\nThis is private.",
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+	if _, err := entrySvc.Update(ctxA, entry.ID, UpdateEntryRequest{Content: ptr("# Secret entry\n\nStill private, now revised.")}); err != nil {
+		t.Fatalf("update entry: %v", err)
+	}
+
+	t.Run("other user cannot list revisions", func(t *testing.T) {
+		if _, _, err := entrySvc.History(ctxB, entry.ID); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got: %v", err)
+		}
+	})
+
+	t.Run("other user cannot read a revision", func(t *testing.T) {
+		if _, err := entrySvc.Revision(ctxB, entry.ID, 1); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got: %v", err)
+		}
+	})
+
+	t.Run("other user cannot diff", func(t *testing.T) {
+		if _, err := entrySvc.Diff(ctxB, entry.ID, 1, 2); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got: %v", err)
+		}
+	})
+
+	t.Run("other user cannot restore", func(t *testing.T) {
+		if _, err := entrySvc.Restore(ctxB, entry.ID, 1); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got: %v", err)
+		}
+		// And the entry is untouched.
+		current, err := entrySvc.Get(ctxA, entry.ID)
+		if err != nil {
+			t.Fatalf("get entry: %v", err)
+		}
+		if !strings.Contains(current.Content, "now revised") {
+			t.Fatalf("a refused restore still changed the entry: %q", current.Content)
+		}
+	})
+
+	t.Run("other user cannot read session changes", func(t *testing.T) {
+		if _, err := entrySvc.SessionChanges(ctxB, research.ID, session.ID); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got: %v", err)
+		}
+	})
+
+	// The leak this test exists for: entries.session_id is caller-supplied, and
+	// the revision history resolves it to a code and a title. Pointing your own
+	// entry at a session from someone else's research must not turn your own
+	// history into a window onto theirs.
+	t.Run("foreign session id on own entry is refused", func(t *testing.T) {
+		otherResearch, otherSections, _ := researchSvc.Create(ctxB, CreateResearchRequest{
+			Name: "Bob's Research", Goal: "Test",
+			Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+		})
+		bobSession, _, err := sessionSvc.Create(ctxB, CreateSessionRequest{
+			ResearchID: otherResearch.ID, Title: "Acquisition talks with Acme", Focus: "secret",
+		})
+		if err != nil {
+			t.Fatalf("create bob session: %v", err)
+		}
+		_ = otherSections
+
+		// A writes to A's own entry, which is fully authorized — only the
+		// session_id points somewhere they may not see.
+		foreign := bobSession.ID
+		_, err = entrySvc.Update(ctxA, entry.ID, UpdateEntryRequest{
+			Content:   ptr("# Secret entry\n\nProbing."),
+			SessionID: &foreign,
+		})
+		if !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected the write to be refused with ErrNotFound, got: %v", err)
+		}
+
+		// And even if such a row existed, the history must not resolve it.
+		_, revs, err := entrySvc.History(ctxA, entry.ID)
+		if err != nil {
+			t.Fatalf("history: %v", err)
+		}
+		for _, rev := range revs {
+			if rev.SessionTitle == "Acquisition talks with Acme" || rev.SessionID == bobSession.ID {
+				t.Fatalf("revision r%d leaked another user's session: code=%q title=%q",
+					rev.Revision, rev.SessionCode, rev.SessionTitle)
+			}
+		}
+	})
+
+	t.Run("session changes with a foreign session id returns nothing", func(t *testing.T) {
+		otherResearch, _, _ := researchSvc.Create(ctxB, CreateResearchRequest{Name: "Bob's Other", Goal: "T"})
+		bobSession, _, err := sessionSvc.Create(ctxB, CreateSessionRequest{
+			ResearchID: otherResearch.ID, Title: "Bob's session", Focus: "x",
+		})
+		if err != nil {
+			t.Fatalf("create bob session: %v", err)
+		}
+
+		// A's own research, B's session id: an empty result, not an error and
+		// not another user's changes.
+		changes, err := entrySvc.SessionChanges(ctxA, research.ID, bobSession.ID)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(changes) != 0 {
+			t.Fatalf("expected no changes, got %d", len(changes))
+		}
+
+		// B's research with A's session id: refused outright.
+		if _, err := entrySvc.SessionChanges(ctxA, otherResearch.ID, session.ID); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got: %v", err)
+		}
+	})
+
+	t.Run("owner can read all of it", func(t *testing.T) {
+		_, revs, err := entrySvc.History(ctxA, entry.ID)
+		if err != nil || len(revs) != 2 {
+			t.Fatalf("owner history: %d revisions, err=%v", len(revs), err)
+		}
+		if _, err := entrySvc.Diff(ctxA, entry.ID, 1, 2); err != nil {
+			t.Fatalf("owner diff: %v", err)
+		}
+		changes, err := entrySvc.SessionChanges(ctxA, research.ID, session.ID)
+		if err != nil {
+			t.Fatalf("owner session changes: %v", err)
+		}
+		if len(changes) == 0 {
+			t.Fatal("owner should see what the session changed")
+		}
+	})
 }

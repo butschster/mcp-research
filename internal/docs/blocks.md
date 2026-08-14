@@ -135,11 +135,15 @@ addressing blocks by `id`:
 - An `update` op replaces the block's `data` entirely — send every field you want
   to keep. It carries the block's ticks forward as long as the block keeps its
   type; changing `type` drops them.
-- `rev` is the document revision. Every `entry_patch` result carries the one it
-  just wrote, so a chain of patches can pass it along and each is rejected if
-  someone else wrote in between. `entry_read` does not return a `rev` today, so a
-  first patch leaves it null and relies on strictness. `set_state` never needs one:
-  it names one item and cannot clobber prose.
+- `rev` is a **content hash** of the document — twelve hex characters, e.g.
+  `9f2c1a44be07` — used for optimistic concurrency. `entry_read` returns it beside
+  a blocks entry and every `entry_patch` result carries the one it just wrote, so a
+  chain of patches can pass it along and each is rejected if someone else wrote in
+  between. `set_state` never needs one: it names one item and cannot clobber prose.
+- **`rev` is not a revision number.** A revision is the numbered snapshot an entry
+  keeps of every write (`1`, `2`, `3`…), read with `entry_history` and `entry_diff` —
+  see [Revisions](/llms/revisions.md). Similar words, different jobs: a `rev` never
+  goes into a history or diff call, and a revision number is never accepted here.
 - `set_state` sets an absolute value, never a toggle, and only on a `checklist`
   block whose item key exists.
 - The tool refuses an entry that is not `entry_type: blocks`, and `entry_update`'s
@@ -163,6 +167,10 @@ the two apart:
 - If you drop the ids, the server falls back to matching **item text**, compared
   case-insensitively and with runs of whitespace collapsed. Reword an item and its
   tick is gone; keep the wording and it survives a regenerated document.
+- **A tick leaves no revision.** A patch whose ops are all `set_state` writes no
+  snapshot into the entry's history — ticking a box is not an edit to the document
+  — while any structural op does. A restore does not untick anything either: the
+  ticks belong to whoever made them. See [Revisions](/llms/revisions.md).
 - What the write tells you: `entry_patch` returns `blocks`, `state_preserved` and
   `state_lost`; the REST write responses carry a `block_report` with
   `blocks_reidentified` beside those. **MCP `entry_update` returns none of them**,

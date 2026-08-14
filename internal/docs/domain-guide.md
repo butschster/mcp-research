@@ -75,7 +75,8 @@ body is not searched as text and contributes no cross-references.
 - Tags enable filtering on the research page. Use consistent taxonomy.
 - Title/description auto-generated from content if not provided.
 - `session_id` tracks provenance. When you leave it empty, the server links the entry to the research's active session automatically; the session export (`/research/{code}/session/{sessionCode}/export`) lists entries by this link.
-- Deleting an entry (`entry_delete`) also deletes its cross-references and extracted external links.
+- Every write that changes an entry appends a [revision](#revision); `entry_history` says who wrote each one and `entry_diff` what it changed. Read them before rewriting an entry a previous session produced.
+- Deleting an entry (`entry_delete`) also deletes its cross-references, its extracted external links, and its whole revision history.
 - A blocks entry is edited whole with `entry_update` or block by block with `entry_patch`; `text_replace` is refused on it.
 - URLs found in entry content are extracted into an external-links index, readable at `GET /api/entries/{id}/links` and `GET /api/researches/{id}/links`.
 
@@ -260,6 +261,35 @@ A directed connection between two roadmap nodes.
 
 ---
 
+### Revision
+
+Every write that changes an entry appends a snapshot: content, title,
+description, `entry_type`, status and tags as they stood after that write, plus
+who wrote it (`agent`, `human`, `import`, `restore`), the session that was active
+at the time, and a short summary of what changed.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `revision` | int | 1-based per entry, never reused. A number, not a short code |
+| `author_kind` | enum | `agent` / `human` / `import` / `restore` |
+| `session_id` | string | Session **active when the write happened** — not the entry's own `session_id` |
+| `summary` | string | "Updated content, tags", "Patched blocks: inserted 2", "Restored revision 1" |
+| `content` | string | The entry's body at that point. Omitted from list responses, present when one revision is read |
+
+**Not created by:** a write that changes nothing, or a checkbox tick — ticking a
+box is not an edit to the document.
+
+**Restoring** an earlier revision writes a new one holding its content, so
+history is append-only and a restore is itself undoable. Checkbox state and
+block ids survive a restore.
+
+Read with `entry_history` and `entry_diff`; `GET /api/sessions/{id}/changes`
+rolls it up per session. Not to be confused with a blocks entry's `rev`, a
+content hash for optimistic concurrency. Full reference:
+[Revisions](/llms/revisions.md).
+
+---
+
 ### CrossRef
 
 Links between documents, extracted automatically from `[[...]]` patterns.
@@ -316,3 +346,5 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | Task | `T1`, `T2` | Per research | — |
 | Roadmap | `RM1`, `RM2` | Per research | `/research/R2/roadmap/RM1` |
 | Node | `N1`, `N2` | Per roadmap | — |
+
+A revision has no short code: it is a plain number, 1-based per entry.

@@ -76,7 +76,15 @@ func (s *EntryService) PatchBlocks(ctx context.Context, entryID string, req Patc
 	if len(req.Ops) == 0 {
 		return nil, fmt.Errorf("no ops given")
 	}
-	report, err := s.mutateBlocks(ctx, entry, req.Rev, stateAuthoritative, func(doc *domain.BlockDocument) error {
+	// A tick is not an edit to the document. Recording it as a revision would
+	// bury the writes that changed what the entry says under a history of
+	// checkbox clicks, and restoring one would be restoring nothing.
+	note := s.resolveSession(ctx, entry, revisionNote{
+		summary: summarizeOps(req.Ops),
+		skip:    stateOnly(req.Ops),
+	})
+
+	report, err := s.mutateBlocks(ctx, entry, req.Rev, stateAuthoritative, note, func(doc *domain.BlockDocument) error {
 		blocks, aerr := applyOps(doc.Blocks, req.Ops)
 		if aerr != nil {
 			return aerr
@@ -99,6 +107,35 @@ func (s *EntryService) PatchBlocks(ctx context.Context, entryID string, req Patc
 	}
 	s.events.Notify(Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
+}
+
+// summarizeOps labels a patch in the history by what it did, so a revision list
+// reads as "Inserted 2 blocks, updated 1" rather than as a column of "Updated".
+func summarizeOps(ops []BlockOp) string {
+	counts := map[string]int{}
+	order := []string{}
+	for _, op := range ops {
+		if _, seen := counts[op.Op]; !seen {
+			order = append(order, op.Op)
+		}
+		counts[op.Op]++
+	}
+	verbs := map[string]string{
+		OpUpdate: "updated", OpInsert: "inserted", OpDelete: "deleted",
+		OpMove: "moved", OpSetState: "ticked",
+	}
+	parts := make([]string, 0, len(order))
+	for _, op := range order {
+		verb, ok := verbs[op]
+		if !ok {
+			verb = op
+		}
+		parts = append(parts, fmt.Sprintf("%s %d", verb, counts[op]))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "Patched blocks: " + strings.Join(parts, ", ")
 }
 
 func stateOnly(ops []BlockOp) bool {

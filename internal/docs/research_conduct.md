@@ -21,6 +21,7 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 | Load full research context (sections + active session) | `research_get`                       |
 | List entries in a section (no content)                 | `entry_list`                         |
 | Read full content of a specific entry                  | `entry_read`                         |
+| See who last wrote an entry and what they changed      | `entry_history`, `entry_diff`        |
 | Create a new entry in a section                        | `entry_create`                       |
 | Start a new session with questions                     | `session_create`                     |
 | Load session state and questions                       | `session_get`                        |
@@ -64,6 +65,8 @@ Clarifying question patterns:
 - For each section with entries, use `entry_list` to see what exists
 - Use `entry_read` on relevant entries to understand current depth and coverage
 - Map what has been completed, what is in progress, and where meaningful gaps remain
+- Before rewriting an entry an earlier session produced, use `entry_history` — and `entry_diff` when it shows a recent
+  change — to learn who wrote it and what they changed. An edit by a `human` is a correction to build on, not to undo
 - Do not restart — build directly on existing work and reference it explicitly
 
 ### Step 5: Continue the Strategic Session

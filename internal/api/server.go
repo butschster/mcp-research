@@ -70,18 +70,38 @@ func NewServer(
 		optionalAuth = auth.OptionalAuth(validator)
 	}
 
+	// markAuthor records who is writing, for the revision history an entry write
+	// leaves behind. The credential is the evidence: a JWT is a browser session,
+	// so a person is typing; an API key, an OAuth token or the legacy write token
+	// is a machine. With no credential at all this is a local run with auth off,
+	// where the only thing on this port is the web UI.
+	//
+	// MCP needs no equivalent — service.AuthorFromContext defaults to agent,
+	// which is what every MCP write is.
+	markAuthor := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			kind := domain.AuthorHuman
+			if token := extractBearerToken(r); token != "" {
+				if authSvc == nil || !authSvc.IsSessionToken(token) {
+					kind = domain.AuthorAgent
+				}
+			}
+			h.ServeHTTP(w, r.WithContext(service.WithAuthor(r.Context(), kind)))
+		})
+	}
+
 	// wrap applies auth to endpoints:
 	// - auth_enabled: user-based auth
 	// - api_token set: legacy bearer token
 	// - neither: no auth
 	wrap := func(h http.HandlerFunc) http.Handler {
 		if requireAuth != nil {
-			return requireAuth(http.HandlerFunc(h))
+			return markAuthor(requireAuth(http.HandlerFunc(h)))
 		}
 		if cfg.APIToken != "" {
-			return bearerAuth(cfg.APIToken)(http.HandlerFunc(h))
+			return markAuthor(bearerAuth(cfg.APIToken)(http.HandlerFunc(h)))
 		}
-		return h
+		return markAuthor(h)
 	}
 
 	// wrapRead applies optional auth to read endpoints (user scoping when auth enabled)
@@ -152,6 +172,12 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/links", wrapRead(elHandler.ListByResearch))
 	mux.Handle("GET /api/entries/{id}/links", wrapRead(elHandler.ListByEntry))
 	mux.Handle("GET /api/entries/{id}/related", wrapRead(eh.GetRelated))
+	revh := handlers.NewRevisionHandler(entrySvc, sessionSvc, researchSvc, log)
+	mux.Handle("GET /api/entries/{id}/revisions", wrapRead(revh.List))
+	mux.Handle("GET /api/entries/{id}/revisions/{revision}", wrapRead(revh.Get))
+	mux.Handle("GET /api/entries/{id}/diff", wrapRead(revh.Diff))
+	mux.Handle("POST /api/entries/{id}/revisions/{revision}/restore", wrap(revh.Restore))
+	mux.Handle("GET /api/sessions/{id}/changes", wrapRead(revh.SessionChanges))
 	mux.Handle("GET /api/search", wrapRead(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("q")
 		if len(q) < 2 {

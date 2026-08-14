@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -59,17 +60,27 @@ type EntryService struct {
 	researches    *storage.ResearchRepository
 	sessions      *storage.SessionRepository
 	blocks        *storage.BlockRepository
+	revisions     *storage.EntryRevisionRepository
 	crossrefs     *storage.CrossRefRepository
 	externalLinks *storage.ExternalLinkRepository
 	roadmaps      *storage.RoadmapRepository
 	roadmapNodes  *storage.RoadmapNodeRepository
 	events        EventNotifier
 	log           *slog.Logger
+	// revisionLimit keeps the newest N revisions per entry plus revision 1.
+	// Zero — the default — keeps everything, which for kilobyte documents is
+	// the honest choice; see SetRevisionLimit.
+	revisionLimit int
 }
 
-func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, sessions *storage.SessionRepository, blocks *storage.BlockRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
-	return &EntryService{entries: entries, sections: sections, researches: researches, sessions: sessions, blocks: blocks, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
+func NewEntryService(entries *storage.EntryRepository, sections *storage.SectionRepository, researches *storage.ResearchRepository, sessions *storage.SessionRepository, blocks *storage.BlockRepository, revisions *storage.EntryRevisionRepository, crossrefs *storage.CrossRefRepository, externalLinks *storage.ExternalLinkRepository, events EventNotifier, log *slog.Logger) *EntryService {
+	return &EntryService{entries: entries, sections: sections, researches: researches, sessions: sessions, blocks: blocks, revisions: revisions, crossrefs: crossrefs, externalLinks: externalLinks, events: events, log: log}
 }
+
+// SetRevisionLimit caps how much history an entry keeps. Revision 1 always
+// survives: it is the only record of what the entry looked like when it was
+// created, and that is the snapshot a reader asks for months later.
+func (s *EntryService) SetRevisionLimit(n int) { s.revisionLimit = n }
 
 // SetRoadmapRepos enables [[RM1]] and [[RM1:N3]] cross-reference resolution.
 func (s *EntryService) SetRoadmapRepos(roadmaps *storage.RoadmapRepository, nodes *storage.RoadmapNodeRepository) {
@@ -166,6 +177,10 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		if active, _ := s.sessions.FindActive(ctx, req.ResearchID); active != nil {
 			sessionID = active.ID
 		}
+	} else if sessionID != "" {
+		if err := s.validateSession(ctx, req.ResearchID, sessionID); err != nil {
+			return nil, err
+		}
 	}
 
 	entry := &domain.Entry{
@@ -197,17 +212,67 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		if incoming, perr := ParseStoredBlockDocument(authored); perr == nil {
 			carryAuthoredState(doc, incoming)
 		}
-		report, serr := s.saveBlockDocument(ctx, entry, doc, stateAuthoritative)
+		report, serr := s.saveBlockDocument(ctx, entry, doc, stateAuthoritative, revisionNote{skip: true})
 		if serr != nil {
 			return nil, serr
 		}
 		entry.BlockReport = &report
 	}
 
+	// Revision 1, after the content is final — for a block document that means
+	// after the rows were written, because entries.content only becomes the
+	// projection of those rows inside saveBlockDocument.
+	//
+	// This is the one write that records its revision outside the transaction
+	// that produced it: creating an entry is already two statements (the row,
+	// then its blocks), and a document that exists without a first snapshot is
+	// recoverable — the next update opens the history — while a snapshot of a
+	// document that failed to store is not.
+	//
+	// The session is the entry's own, already resolved above: explicit if the
+	// caller named one, the active session otherwise. Asking for the active
+	// session again here would override an explicit choice made microseconds
+	// earlier — which is exactly what an import does, where every entry names a
+	// session and one unrelated session happens to be active. Its Changes tab
+	// would then claim it created the whole research.
+	if err := s.recordRevision(ctx, nil, entry, revisionNote{
+		sessionID:  entry.SessionID,
+		sessionSet: true,
+	}); err != nil {
+		s.log.Error("record initial revision", "entry", entry.ID, "error", err)
+	}
+
 	s.updateCrossRefs(ctx, entry)
 	s.updateExternalLinks(ctx, entry)
 	s.events.Notify(Event{Type: "entry.created", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
+}
+
+// validateSession refuses a session_id that does not belong to the entry's own
+// research.
+//
+// The field is caller-supplied on both create and update, and until revisions
+// existed nothing turned it into anything visible, so an id from someone else's
+// research was inert. It is not any more: a revision records the session it was
+// written under, and the history resolves that id to a code and a title. An
+// unvalidated field on a write is a leak waiting for a reader.
+//
+// Empty means "no session" and is always allowed — that is how an entry is
+// unlinked.
+func (s *EntryService) validateSession(ctx context.Context, researchID, sessionID string) error {
+	if sessionID == "" || s.sessions == nil {
+		return nil
+	}
+	sess, err := s.sessions.FindByID(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("find session: %w", err)
+	}
+	// Same reply for "no such session" and "not this research": a caller must not
+	// learn that a session exists somewhere they cannot see.
+	if sess == nil || sess.ResearchID != researchID {
+		return fmt.Errorf("session %s: %w", sessionID, ErrNotFound)
+	}
+	return nil
 }
 
 func (s *EntryService) Get(ctx context.Context, id string) (*domain.Entry, error) {
@@ -267,6 +332,13 @@ func (s *EntryService) ListByResearch(ctx context.Context, researchID string, fi
 }
 
 func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryRequest) (*domain.Entry, error) {
+	return s.update(ctx, id, req, revisionNote{summary: summarizeUpdate(req)})
+}
+
+// update is Update with the caller's say over how the revision is labelled.
+// Restore uses it to record its own author kind rather than masquerading as an
+// ordinary edit.
+func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryRequest, note revisionNote) (*domain.Entry, error) {
 	entry, err := s.entries.FindByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("find entry: %w", err)
@@ -323,6 +395,9 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		entry.Tags = req.Tags
 	}
 	if req.SessionID != nil {
+		if err := s.validateSession(ctx, entry.ResearchID, *req.SessionID); err != nil {
+			return nil, err
+		}
 		entry.SessionID = *req.SessionID
 	}
 
@@ -341,28 +416,40 @@ func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryReq
 		entry.Content = strings.Replace(entry.Content, req.TextReplace.From, req.TextReplace.To, 1)
 	}
 
+	// Everything the revision needs from the database is read here, before any
+	// transaction opens — see revisionNote.sessionID.
+	note = s.resolveSession(ctx, entry, note)
+
 	if entry.Type == domain.EntryBlocks {
 		// Rows are the document; entries.content is the projection written beside
-		// them in the same transaction. Both happen inside saveBlockDocument.
+		// them in the same transaction. Both happen inside saveBlockDocument,
+		// and so does the revision — a snapshot that survived a rolled-back
+		// write would describe a document that never existed.
 		doc, derr := NormalizeBlockDocument(entry.Content)
 		if derr != nil {
 			return nil, derr
 		}
-		report, serr := s.saveBlockDocument(ctx, entry, doc, stateFromAuthor)
+		report, serr := s.saveBlockDocument(ctx, entry, doc, stateFromAuthor, note)
 		if serr != nil {
 			return nil, serr
 		}
 		entry.BlockReport = &report
 	} else {
-		if err := s.entries.Update(ctx, entry); err != nil {
-			return nil, fmt.Errorf("update entry: %w", err)
-		}
-		if prevType == domain.EntryBlocks {
-			// It is markdown now, so the rows describe nothing. Leaving them would
-			// resurrect stale ticks if it ever became a block document again.
-			if derr := s.blocks.DeleteForEntry(ctx, nil, entry.ID); derr != nil {
-				return nil, derr
+		if terr := s.inTx(ctx, func(tx *sql.Tx) error {
+			if err := s.entries.UpdateTx(ctx, tx, entry); err != nil {
+				return fmt.Errorf("update entry: %w", err)
 			}
+			if prevType == domain.EntryBlocks {
+				// It is markdown now, so the rows describe nothing. Leaving them
+				// would resurrect stale ticks if it ever became a block document
+				// again.
+				if derr := s.blocks.DeleteForEntry(ctx, tx, entry.ID); derr != nil {
+					return derr
+				}
+			}
+			return s.recordRevision(ctx, tx, entry, note)
+		}); terr != nil {
+			return nil, terr
 		}
 	}
 

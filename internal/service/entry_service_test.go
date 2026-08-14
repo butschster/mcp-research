@@ -18,6 +18,7 @@ func newEntryService(db *sql.DB, n EventNotifier) *EntryService {
 		storage.NewResearchRepository(db),
 		storage.NewSessionRepository(db),
 		storage.NewBlockRepository(db),
+		storage.NewEntryRevisionRepository(db),
 		storage.NewCrossRefRepository(db),
 		storage.NewExternalLinkRepository(db),
 		n,
