@@ -53,6 +53,6 @@ func (s *Server) registerTools() {
 	tools.RegisterRoadmapRemoveNodes(s.server, s.roadmap, s.log)
 
 	// Import/Export tools
-	tools.RegisterResearchExport(s.server, s.export, s.log)
+	tools.RegisterResearchExport(s.server, s.export, s.research, func() string { return s.baseURL }, s.log)
 	tools.RegisterResearchImport(s.server, s.export, s.log)
 }

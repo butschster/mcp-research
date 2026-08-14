@@ -43,6 +43,7 @@ func NewServer(
 	taskSvc *service.TaskService,
 	roadmapSvc *service.RoadmapService,
 	exportSvc *service.ExportService,
+	obsidianSvc *service.ObsidianService,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
 	entryRepo *storage.EntryRepository,
@@ -156,6 +157,8 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/tags", wrapRead(rh.ListTags))
 	exportHandler := handlers.NewExportHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, log)
 	exportHandler.SetExportService(exportSvc)
+	exportHandler.SetObsidianService(obsidianSvc)
+	exportHandler.SetRoadmapService(roadmapSvc)
 	mux.Handle("GET /api/researches/{id}/export", wrapRead(exportHandler.Export))
 	mux.Handle("GET /api/researches/{id}/sessions/{sessionId}/export", wrapRead(exportHandler.ExportSession))
 	importHandler := handlers.NewImportHandler(exportSvc, log)
@@ -367,6 +370,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		// Without this a cross-origin download cannot read the filename the
+		// server chose — which is every request under `make frontend-dev`, where
+		// the SPA is served from :3000 and the API from :8088.
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

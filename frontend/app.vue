@@ -44,6 +44,10 @@ onMounted(() => {
 
 <template>
   <div>
+    <!-- One host for the whole app, outside the page chrome so a notification
+         survives navigation and shows on the auth pages too. -->
+    <ToastHost />
+
     <!-- Auth pages: no nav, no footer, no container -->
     <template v-if="isAuthPage">
       <NuxtPage />

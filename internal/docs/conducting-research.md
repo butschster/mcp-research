@@ -113,7 +113,10 @@ When the research has a natural progression, sequence, or decision tree, create 
 1. Mark all sections as completed with `section_update`
 2. Mark the research as completed with `research_update`
 3. The web UI shows the full research with all entries, questions, and tasks
-4. Hand the user a document if they want one: the research and per-session export pages produce markdown or PDF — see [Export](/llms/export.md)
+4. Hand the user a document if they want one — see [Export](/llms/export.md):
+   - the research and per-session export pages produce markdown or PDF
+   - `research_export` with `format: "obsidian"` returns a link to a zip shaped like an Obsidian vault (a folder per section, a note per entry, `[[E3]]` resolving as a link) — offer this when the user keeps notes in Obsidian or wants the research as files. The link needs their bearer token
+   - `research_export` with no `format` returns the portable JSON, which is for moving the research to another server, not for reading
 
 ## Short Codes
 

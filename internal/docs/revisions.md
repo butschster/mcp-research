@@ -152,4 +152,6 @@ what the entry looked like when it was created — but nothing switches it on.
 Deleting an entry deletes its history with it (the rows cascade), and so does
 deleting the research. History does not travel: a portable export carries no
 revisions, and every entry an import creates starts again at revision 1,
-attributed to `import`.
+attributed to `import`. The Obsidian vault export can write history out as a
+readable table per entry (`?format=obsidian&revisions=true`, one `_history/{code}.md`
+each), but nothing reads it back — see [Export](/llms/export.md).

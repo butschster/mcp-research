@@ -658,3 +658,128 @@ func TestAccessControl_Revisions(t *testing.T) {
 		}
 	})
 }
+
+func TestAccessControl_ObsidianVault(t *testing.T) {
+	db := setupTestDB(t)
+	notifier := &mockNotifier{}
+	log := slog.Default()
+
+	userRepo := storage.NewUserRepository(db)
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	blockRepo := storage.NewBlockRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	sessionRepo := storage.NewSessionRepository(db)
+	questionRepo := storage.NewQuestionRepository(db)
+	taskRepo := storage.NewTaskRepository(db)
+	roadmapRepo := storage.NewRoadmapRepository(db)
+	roadmapNodeRepo := storage.NewRoadmapNodeRepository(db)
+	roadmapEdgeRepo := storage.NewRoadmapEdgeRepository(db)
+	revisionRepo := storage.NewEntryRevisionRepository(db)
+
+	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
+	sectionSvc := NewSectionService(sectionRepo, entryRepo, researchRepo, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, revisionRepo, crossrefRepo, nil, notifier, log)
+	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, notifier, log)
+	taskSvc := NewTaskService(taskRepo, researchRepo, entrySvc, notifier, log)
+	roadmapSvc := NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, notifier, log)
+	obsidianSvc := NewObsidianService(researchSvc, sectionSvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, revisionRepo, log)
+
+	userA, userB := setupTwoUsers(t, userRepo)
+	ctxA, ctxB := userCtx(userA), userCtx(userB)
+
+	research, sections, _ := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Test",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	if _, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: research.ID,
+		SectionID:  sections[0].ID,
+		Title:      "Secret",
+		Content:    "This is private.",
+	}); err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+
+	t.Run("the owner gets a vault", func(t *testing.T) {
+		v, err := obsidianSvc.Vault(ctxA, research.ID, DefaultVaultOptions())
+		if err != nil {
+			t.Fatalf("owner cannot export: %v", err)
+		}
+		if len(v.Files) == 0 {
+			t.Fatal("owner's vault is empty")
+		}
+	})
+
+	// An export is the widest read in the product: one call returns every entry,
+	// session, question, task and roadmap at once. If ownership fails anywhere,
+	// it fails here first.
+	t.Run("another user gets nothing", func(t *testing.T) {
+		for _, id := range []string{research.ID, research.Code} {
+			v, err := obsidianSvc.Vault(ctxB, id, DefaultVaultOptions())
+			if err == nil {
+				t.Fatalf("exported another user's research by %q: %d files", id, len(v.Files))
+			}
+			if !errors.Is(err, ErrNotFound) {
+				t.Errorf("by %q: got %v, want ErrNotFound — a 403 would confirm the research exists", id, err)
+			}
+		}
+	})
+}
+
+// TestAccessControl_ListQuestions covers the read path that had no owner check:
+// question_list passes a caller-supplied session id straight to the service, so
+// anyone holding another user's session UUID could read its questions and their
+// answers.
+func TestAccessControl_ListQuestions(t *testing.T) {
+	db := setupTestDB(t)
+	notifier := &mockNotifier{}
+	log := slog.Default()
+
+	userRepo := storage.NewUserRepository(db)
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	blockRepo := storage.NewBlockRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	sessionRepo := storage.NewSessionRepository(db)
+	questionRepo := storage.NewQuestionRepository(db)
+
+	researchSvc := NewResearchService(researchRepo, sectionRepo, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, sessionRepo, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, notifier, log)
+	sessionSvc := NewSessionService(db, sessionRepo, questionRepo, researchRepo, entrySvc, notifier, log)
+
+	userA, userB := setupTwoUsers(t, userRepo)
+	ctxA, ctxB := userCtx(userA), userCtx(userB)
+
+	research, _, _ := researchSvc.Create(ctxA, CreateResearchRequest{Name: "Alice's Research", Goal: "Test"})
+	session, _, err := sessionSvc.Create(ctxA, CreateSessionRequest{
+		ResearchID: research.ID,
+		Title:      "Private session",
+		Questions:  []CreateQuestionRequest{{Text: "ALICE PRIVATE QUESTION", Priority: domain.PriorityHigh}},
+	})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	t.Run("the owner reads their questions", func(t *testing.T) {
+		qs, err := sessionSvc.ListQuestions(ctxA, session.ID, storage.QuestionFilter{})
+		if err != nil || len(qs) != 1 {
+			t.Fatalf("owner got %d questions, err %v", len(qs), err)
+		}
+	})
+
+	t.Run("another user holding the session id gets nothing", func(t *testing.T) {
+		qs, err := sessionSvc.ListQuestions(ctxB, session.ID, storage.QuestionFilter{})
+		if err == nil {
+			t.Fatalf("read another user's questions: %d returned", len(qs))
+		}
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("got %v, want ErrNotFound", err)
+		}
+		if len(qs) != 0 {
+			t.Errorf("a refused read still returned %d questions", len(qs))
+		}
+	})
+}
