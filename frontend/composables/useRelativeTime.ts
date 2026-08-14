@@ -43,3 +43,16 @@ export function absoluteTime(
   const d = parseTimestamp(iso)
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, opts)
 }
+
+/**
+ * Wall-clock time from a millisecond timestamp, for "last update 14:02".
+ *
+ * Separate from `absoluteTime` because that one takes an ISO string through
+ * `parseTimestamp`, and the realtime layer works in milliseconds throughout —
+ * the mismatch is what produced two copies of this expression in the first
+ * place, one in the tooltip and one in the toast, shown at the same moment.
+ */
+export function clockTime(ms: number | null | undefined): string {
+  if (!ms) return ''
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}

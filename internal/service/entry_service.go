@@ -244,7 +244,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 
 	s.updateCrossRefs(ctx, entry)
 	s.updateExternalLinks(ctx, entry)
-	s.events.Notify(Event{Type: "entry.created", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
+	emit(ctx, s.events, Event{Type: "entry.created", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
 
@@ -455,7 +455,7 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 
 	s.updateCrossRefs(ctx, entry)
 	s.updateExternalLinks(ctx, entry)
-	s.events.Notify(Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
+	emit(ctx, s.events, Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
 
@@ -482,7 +482,7 @@ func (s *EntryService) Delete(ctx context.Context, id string) error {
 	if err := s.entries.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete entry: %w", err)
 	}
-	s.events.Notify(Event{Type: "entry.deleted", ResearchID: entry.ResearchID, EntityID: id, Entity: "entry"})
+	emit(ctx, s.events, Event{Type: "entry.deleted", ResearchID: entry.ResearchID, EntityID: id, Entity: "entry"})
 	return nil
 }
 
@@ -505,6 +505,11 @@ func (s *EntryService) RebuildCrossRefs(ctx context.Context, researchID string) 
 		s.updateExternalLinks(ctx, entry)
 		count++
 	}
+
+	// The link tables this rewrites are what the graph and the mind map are
+	// drawn from, and nothing else announces the change — so both stayed on the
+	// previous link set until someone reloaded the page by hand.
+	emit(ctx, s.events, Event{Type: "crossrefs.rebuilt", ResearchID: researchID, EntityID: researchID, Entity: "crossref"})
 	return count, nil
 }
 
@@ -854,4 +859,3 @@ func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (st
 		return normalizeContent(raw), domain.EntryMarkdown, nil
 	}
 }
-

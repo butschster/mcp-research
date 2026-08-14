@@ -218,14 +218,29 @@ func (s *AuthService) ValidateToken(ctx context.Context, token string) (*domain.
 // does not accept. It is what the WebSocket handshake authenticates with —
 // the same JWT, API key or OAuth token every other route takes.
 func (s *AuthService) UserIDForToken(ctx context.Context, token string) string {
+	id, _ := s.ValidateCredential(ctx, token)
+	return id
+}
+
+// ValidateCredential is UserIDForToken with the two failures told apart.
+//
+// `ok` is false when the answer could not be determined — the lookup itself
+// failed. That is not a revocation, and treating it as one is expensive: the
+// WebSocket re-checks live connections on a timer, against a database that
+// permits one connection at a time, so a single busy moment would close a
+// perfectly good socket and tell its owner they had been signed out.
+func (s *AuthService) ValidateCredential(ctx context.Context, token string) (string, bool) {
 	if s == nil {
-		return ""
+		return "", false
 	}
 	user, err := s.ValidateToken(ctx, token)
-	if err != nil || user == nil {
-		return ""
+	if err != nil {
+		return "", false
 	}
-	return user.ID
+	if user == nil {
+		return "", true
+	}
+	return user.ID, true
 }
 
 // CreateAPIKey generates a new API key for the user.

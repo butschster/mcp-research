@@ -176,7 +176,6 @@ async function drawDiagrams() {
 onMounted(drawDiagrams)
 watch(() => props.blocks, drawDiagrams, { deep: true })
 
-const emit = defineEmits<{ (e: 'ticked'): void }>()
 
 const { authFetch } = useAuth()
 const config = useRuntimeConfig()
@@ -228,9 +227,6 @@ async function toggle(b: Block, item: CheckItem, checked: boolean) {
   // keyboard reader was thrown back to the top of the page on every tick.
   if (pending.value.has(item.token)) return
 
-  // Told before the request goes out: the WebSocket echo of this write usually
-  // arrives before its HTTP response, and a refetch mid-tick makes the box blink.
-  emit('ticked')
   optimistic.value = { ...optimistic.value, [item.token]: checked }
   pending.value = new Set(pending.value).add(item.token)
   const cleared = { ...failed.value }

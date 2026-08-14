@@ -4,7 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"sync"
+	"time"
+)
+
+const (
+	// broadcastQueue is deep enough that a burst of writes never reaches the
+	// caller. It is drained by one goroutine, so events keep their order.
+	broadcastQueue = 1024
+
+	// verdictTTL is a backstop, not the mechanism. Membership changes flush the
+	// cache outright (see forgetOn); the expiry only bounds how long a verdict
+	// could survive a change that somehow arrived without an event.
+	verdictTTL = time.Minute
+
+	// verdictCacheLimit bounds the memoized verdicts. It is a ceiling, not a
+	// working set: the live set is connections times researches touched.
+	verdictCacheLimit = 8192
 )
 
 // Event is broadcast to the WebSocket clients allowed to see it.
@@ -13,6 +30,33 @@ type Event struct {
 	ResearchID string `json:"research_id"` // scope
 	EntityID   string `json:"entity_id"`   // ID of the changed entity
 	Entity     string `json:"entity"`      // "research", "section", "entry", "session", "question", "task", "team"
+
+	// ResearchCode is the same scope said the other way. Every link in the web
+	// UI is built from the short code, so a page routed as /research/R7 has no
+	// UUID to compare against and dropped every event it was sent. Carrying
+	// both identities is what stops that from being rediscovered per page.
+	ResearchCode string `json:"research_code,omitempty"`
+
+	// ActorUserID is who caused the change; ActorClientID is which tab did. The
+	// second is the one a client compares against its own, because the first is
+	// empty with auth off and shared between a person's own tabs.
+	ActorUserID   string `json:"actor_user_id,omitempty"`
+	ActorClientID string `json:"actor_client_id,omitempty"`
+
+	// Reason and Name carry what the recipient of a revocation can no longer
+	// look up for themselves.
+	Reason string `json:"reason,omitempty"`
+	Name   string `json:"name,omitempty"`
+
+	// At is when the server sent it. Receipt time is not a substitute: a tab
+	// waking from sleep takes a queued backlog all at once and would date every
+	// one of them to the moment it woke.
+	At int64 `json:"at,omitempty"`
+
+	// TargetUserID addresses one person directly and never reaches the wire —
+	// a recipient learns nothing from it that the delivery itself did not
+	// already tell them.
+	TargetUserID string `json:"-"`
 }
 
 // Authorizer answers, for one connected reader, whether an event is theirs to
@@ -33,6 +77,12 @@ type Authorizer interface {
 // when a client subscribes — is what makes a revoked membership keep receiving
 // updates until the tab is closed, and "removing a member revokes access
 // immediately" is the property this whole feature rests on.
+//
+// The deciding happens on the hub's own goroutine rather than the caller's.
+// Each verdict is a database read, the database allows one connection at a
+// time, and Broadcast is called from the middle of a write handler — so doing
+// this inline charged every writer for every connected reader, and put a
+// deadlock one misplaced call inside a transaction away.
 type Hub struct {
 	mu      sync.RWMutex
 	clients map[*Client]struct{}
@@ -42,13 +92,29 @@ type Hub struct {
 	// sees everything — which is the behaviour that mode has always had.
 	authEnabled bool
 	log         *slog.Logger
+
+	validator TokenValidator
+	codes     CodeLookup
+	queue     chan Event
+	verdicts  *verdictCache
+}
+
+// CodeLookup resolves a research id to its short code. The hub asks for it on
+// its own goroutine, so a cache miss costs the reader a moment rather than
+// charging the writer that produced the event.
+type CodeLookup interface {
+	Code(ctx context.Context, researchID string) string
 }
 
 func NewHub(log *slog.Logger) *Hub {
-	return &Hub{
-		clients: make(map[*Client]struct{}),
-		log:     log,
+	h := &Hub{
+		clients:  make(map[*Client]struct{}),
+		log:      log,
+		queue:    make(chan Event, broadcastQueue),
+		verdicts: newVerdictCache(),
 	}
+	go h.run()
+	return h
 }
 
 // SetAuthorizer turns on per-client scoping. It is called after construction
@@ -62,6 +128,54 @@ func (h *Hub) SetAuthorizer(auth Authorizer, authEnabled bool) {
 	h.mu.Unlock()
 }
 
+// SetTokenValidator gives the hub the credential check used at the handshake
+// and again, periodically, for the life of each connection.
+func (h *Hub) SetTokenValidator(v TokenValidator) {
+	h.mu.Lock()
+	h.validator = v
+	h.mu.Unlock()
+}
+
+// TokenValidator returns the configured validator, or nil.
+func (h *Hub) TokenValidator() TokenValidator {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.validator
+}
+
+// credentialStillValid re-checks the token a connection was opened with, and
+// that it still belongs to the same person. A token that now resolves to
+// somebody else is not a renewal — it is a connection that should not survive.
+func (h *Hub) credentialStillValid(c *Client) bool {
+	h.mu.RLock()
+	validator, authEnabled := h.validator, h.authEnabled
+	h.mu.RUnlock()
+
+	if !authEnabled {
+		return true
+	}
+	if validator == nil || c.token == "" {
+		return false
+	}
+	userID, decided := validator.ValidateCredential(context.Background(), c.token)
+	if !decided {
+		// The lookup itself failed — a busy database, a shutdown race. Closing
+		// on that would tell somebody still signed in that their session ended,
+		// and the client treats that verdict as terminal and stops reconnecting.
+		return true
+	}
+	return userID == c.userID
+}
+
+// SetCodeLookup gives the hub a way to name a research the way the URLs do.
+// Without one, events still carry the id and nothing breaks — the client is
+// simply left with one way to match instead of two.
+func (h *Hub) SetCodeLookup(codes CodeLookup) {
+	h.mu.Lock()
+	h.codes = codes
+	h.mu.Unlock()
+}
+
 // AuthEnabled reports whether connections must carry a token.
 func (h *Hub) AuthEnabled() bool {
 	h.mu.RLock()
@@ -72,37 +186,76 @@ func (h *Hub) AuthEnabled() bool {
 func (h *Hub) Register(c *Client) {
 	h.mu.Lock()
 	h.clients[c] = struct{}{}
+	n := len(h.clients)
 	h.mu.Unlock()
-	h.log.Debug("ws client connected", "clients", h.count())
+	h.log.Debug("ws client connected", "clients", n)
 }
 
 func (h *Hub) Unregister(c *Client) {
 	h.mu.Lock()
 	delete(h.clients, c)
+	n := len(h.clients)
 	h.mu.Unlock()
-	h.log.Debug("ws client disconnected", "clients", h.count())
+	h.log.Debug("ws client disconnected", "clients", n)
 }
 
-// Broadcast sends an event to every client entitled to it.
+// Broadcast queues an event for delivery and returns immediately.
 func (h *Hub) Broadcast(event Event) {
-	data, err := json.Marshal(event)
-	if err != nil {
-		return
+	// Before the queue, not after it. Delivery is best-effort and a full queue
+	// drops events; if the flush travelled with them, dropping one membership
+	// change would leave a cached "may read" standing for a full TTL after the
+	// access it describes was taken away. Losing an update is a stale page.
+	// Losing this is a stale permission.
+	if forgetOn(event) {
+		h.verdicts.flush()
 	}
 
+	select {
+	case h.queue <- event:
+	default:
+		// Dropping is the least bad option left: blocking here stalls the write
+		// that produced the event, on the goroutine holding a database
+		// connection. It is logged because a client that misses this has no
+		// other way to find out.
+		h.log.Warn("ws broadcast queue full, event dropped",
+			"type", event.Type, "entity", event.Entity, "entity_id", event.EntityID)
+	}
+}
+
+// run drains the queue on one goroutine, and only one.
+//
+// That is not just simplicity. A verdict read before a membership change must
+// not be written back after the flush that change triggered — with a single
+// drainer the two cannot interleave, and a worker pool here would reintroduce
+// exactly that race, invisibly.
+func (h *Hub) run() {
+	for event := range h.queue {
+		h.deliver(event)
+	}
+}
+
+func (h *Hub) deliver(event Event) {
 	h.mu.RLock()
-	auth, authEnabled := h.auth, h.authEnabled
+	auth, authEnabled, codes := h.auth, h.authEnabled, h.codes
 	clients := make([]*Client, 0, len(h.clients))
 	for c := range h.clients {
 		clients = append(clients, c)
 	}
 	h.mu.RUnlock()
 
-	// Outside the lock: the check reads the database, and holding the hub
-	// lock across it would stall every other connection.
 	ctx := context.Background()
+	if codes != nil && event.ResearchID != "" && event.ResearchCode == "" {
+		event.ResearchCode = codes.Code(ctx, event.ResearchID)
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		h.log.Error("ws event marshal failed", "type", event.Type, "error", err)
+		return
+	}
+
 	for _, c := range clients {
-		if !visible(ctx, auth, authEnabled, c.userID, event) {
+		if !h.visibleTo(ctx, auth, authEnabled, c.userID, event) {
 			continue
 		}
 		select {
@@ -113,9 +266,33 @@ func (h *Hub) Broadcast(event Event) {
 	}
 }
 
+// visibleTo is visible() with the cache in front of it. The cache only ever
+// covers the research check: team membership and directed delivery are cheap
+// and rare enough that a stale answer would buy nothing.
+func (h *Hub) visibleTo(ctx context.Context, auth Authorizer, authEnabled bool, userID string, event Event) bool {
+	if !authEnabled || userID == "" || auth == nil ||
+		event.TargetUserID != "" || event.Entity == "team" || event.ResearchID == "" {
+		return visible(ctx, auth, authEnabled, userID, event)
+	}
+	if allowed, ok := h.verdicts.get(userID, event.ResearchID); ok {
+		return allowed
+	}
+	allowed := auth.CanReadResearch(ctx, userID, event.ResearchID)
+	h.verdicts.put(userID, event.ResearchID, allowed)
+	return allowed
+}
+
 // visible is the delivery rule, kept in one place so a new event type cannot
 // be added without deciding who it is for.
 func visible(ctx context.Context, auth Authorizer, authEnabled bool, userID string, event Event) bool {
+	// A directed event is checked before anything else, because the reason it
+	// exists is to reach someone the ordinary rule would now refuse: the
+	// message saying they have lost access. It is addressed by user id, so it
+	// can only ever reach the one person it names.
+	if event.TargetUserID != "" {
+		return userID != "" && userID == event.TargetUserID
+	}
+
 	if !authEnabled {
 		return true
 	}
@@ -138,6 +315,61 @@ func visible(ctx context.Context, auth Authorizer, authEnabled bool, userID stri
 	return auth.CanReadResearch(ctx, userID, event.ResearchID)
 }
 
-func (h *Hub) count() int {
-	return len(h.clients)
+// forgetOn reports whether an event could have changed who may read what. Only
+// these can: everything else edits content inside a research whose team is
+// unchanged.
+func forgetOn(event Event) bool {
+	return event.Entity == "team" ||
+		strings.HasPrefix(event.Type, "team.") ||
+		event.Type == "research.transferred" ||
+		event.Type == "access.revoked" ||
+		event.Type == "access.changed"
+}
+
+// verdictCache remembers "may this user read this research" for a moment.
+//
+// Without it, one entry update with twenty readers connected is twenty
+// serialized queries against a database that permits one connection. The
+// answers are dropped wholesale the instant anything touches a membership, so
+// the cache cannot be the reason someone keeps seeing what they lost.
+type verdictCache struct {
+	mu      sync.RWMutex
+	entries map[string]verdict
+}
+
+type verdict struct {
+	allowed bool
+	expires time.Time
+}
+
+func newVerdictCache() *verdictCache {
+	return &verdictCache{entries: make(map[string]verdict)}
+}
+
+func (c *verdictCache) get(userID, researchID string) (bool, bool) {
+	c.mu.RLock()
+	v, ok := c.entries[userID+"\x00"+researchID]
+	c.mu.RUnlock()
+	if !ok || time.Now().After(v.expires) {
+		return false, false
+	}
+	return v.allowed, true
+}
+
+func (c *verdictCache) put(userID, researchID string, allowed bool) {
+	c.mu.Lock()
+	// Negative verdicts are cached too, so this grows with connections times
+	// researches and nothing but a membership change shrinks it. Dropping the
+	// lot is always safe — it costs one lookup per live pair.
+	if len(c.entries) >= verdictCacheLimit {
+		c.entries = make(map[string]verdict, verdictCacheLimit)
+	}
+	c.entries[userID+"\x00"+researchID] = verdict{allowed: allowed, expires: time.Now().Add(verdictTTL)}
+	c.mu.Unlock()
+}
+
+func (c *verdictCache) flush() {
+	c.mu.Lock()
+	c.entries = make(map[string]verdict)
+	c.mu.Unlock()
 }

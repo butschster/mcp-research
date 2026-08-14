@@ -62,7 +62,7 @@ func (s *TaskService) Create(ctx context.Context, req CreateTaskRequest) (*domai
 		return nil, fmt.Errorf("create task: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "task.created", ResearchID: task.ResearchID, EntityID: task.ID, Entity: "task"})
+	emit(ctx, s.events, Event{Type: "task.created", ResearchID: task.ResearchID, EntityID: task.ID, Entity: "task"})
 	return task, nil
 }
 
@@ -132,7 +132,7 @@ func (s *TaskService) Update(ctx context.Context, id string, req UpdateTaskReque
 		s.crossrefs.ParseCrossRefs(ctx, "task", task.ID, task.ResearchID, text)
 	}
 
-	s.events.Notify(Event{Type: "task.updated", ResearchID: task.ResearchID, EntityID: task.ID, Entity: "task"})
+	emit(ctx, s.events, Event{Type: "task.updated", ResearchID: task.ResearchID, EntityID: task.ID, Entity: "task"})
 	return task, nil
 }
 
@@ -150,7 +150,7 @@ func (s *TaskService) Delete(ctx context.Context, id string) error {
 	if err := s.tasks.Delete(ctx, id); err != nil {
 		return err
 	}
-	s.events.Notify(Event{Type: "task.deleted", ResearchID: task.ResearchID, EntityID: id, Entity: "task"})
+	emit(ctx, s.events, Event{Type: "task.deleted", ResearchID: task.ResearchID, EntityID: id, Entity: "task"})
 	return nil
 }
 

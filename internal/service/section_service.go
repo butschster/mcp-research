@@ -89,7 +89,7 @@ func (s *SectionService) Update(ctx context.Context, id string, req UpdateSectio
 		return nil, fmt.Errorf("update section: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "section.updated", ResearchID: section.ResearchID, EntityID: section.ID, Entity: "section"})
+	emit(ctx, s.events, Event{Type: "section.updated", ResearchID: section.ResearchID, EntityID: section.ID, Entity: "section"})
 	return section, nil
 }
 

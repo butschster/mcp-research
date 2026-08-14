@@ -90,7 +90,12 @@ func NewServer(
 					kind = domain.AuthorAgent
 				}
 			}
-			h.ServeHTTP(w, r.WithContext(service.WithAuthor(r.Context(), kind)))
+			ctx := service.WithAuthor(r.Context(), kind)
+			// Which tab is writing, so the event this produces can be
+			// recognised by the tab that caused it and ignored there. Opaque to
+			// the server; absent for every non-browser caller.
+			ctx = service.WithClientID(ctx, r.Header.Get("X-Client-Id"))
+			h.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 
@@ -287,12 +292,13 @@ func NewServer(
 
 	// WebSocket
 	// The hub decides delivery per event, so this only has to establish who is
-	// on the other end. With auth off it takes anyone, as it always has.
-	var wsValidator ws.TokenValidator
+	// on the other end. With auth off it takes anyone, as it always has — but
+	// the origin is checked either way, because "auth off" is a single-user
+	// local run, not an invitation for any page in the browser to listen in.
 	if authSvc != nil {
-		wsValidator = authSvc
+		hub.SetTokenValidator(authSvc)
 	}
-	mux.HandleFunc("/ws", ws.HandleWebSocket(hub, wsValidator))
+	mux.HandleFunc("/ws", ws.HandleWebSocket(hub, cfg.BaseURL))
 
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +416,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		// X-Client-Id is not a simple header, so its presence alone makes every
+		// request preflight — the GETs included. Omitting it here blocks the whole
+		// cross-origin dev setup, not merely the writes.
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Client-Id")
 		// Without this a cross-origin download cannot read the filename the
 		// server chose — which is every request under `make frontend-dev`, where
 		// the SPA is served from :3000 and the API from :8088.

@@ -105,7 +105,7 @@ func (s *EntryService) PatchBlocks(ctx context.Context, entryID string, req Patc
 		s.updateCrossRefs(ctx, entry)
 		s.updateExternalLinks(ctx, entry)
 	}
-	s.events.Notify(Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
+	emit(ctx, s.events, Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
 

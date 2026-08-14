@@ -202,7 +202,7 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 	rm.Nodes = nodes
 	rm.Edges = edges
 
-	s.events.Notify(Event{Type: "roadmap.created", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
+	emit(ctx, s.events, Event{Type: "roadmap.created", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
 	return rm, nil
 }
 
@@ -504,7 +504,7 @@ func (s *RoadmapService) Update(ctx context.Context, id string, req UpdateRoadma
 		return nil, fmt.Errorf("update roadmap: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
+	emit(ctx, s.events, Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
 	return rm, nil
 }
 
@@ -525,7 +525,7 @@ func (s *RoadmapService) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("delete roadmap: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "roadmap.deleted", ResearchID: rm.ResearchID, EntityID: id, Entity: "roadmap"})
+	emit(ctx, s.events, Event{Type: "roadmap.deleted", ResearchID: rm.ResearchID, EntityID: id, Entity: "roadmap"})
 	return nil
 }
 
@@ -596,7 +596,7 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 		}
 	}
 
-	s.events.Notify(Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
+	emit(ctx, s.events, Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
 
 	// Return full roadmap
 	return s.Get(ctx, roadmapID)
@@ -659,7 +659,7 @@ func (s *RoadmapService) UpdateNode(ctx context.Context, nodeID string, req Upda
 		return nil, fmt.Errorf("update node: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
+	emit(ctx, s.events, Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
 	return node, nil
 }
 
@@ -682,6 +682,6 @@ func (s *RoadmapService) RemoveNodes(ctx context.Context, roadmapID string, node
 		}
 	}
 
-	s.events.Notify(Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
+	emit(ctx, s.events, Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
 	return nil
 }

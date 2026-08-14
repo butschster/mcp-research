@@ -189,12 +189,27 @@ async function createTask(data: { title: string; description: string; priority: 
 }
 
 // Real-time updates
-useRealtimeUpdates(async (event) => {
-  if (event.research_id && event.research_id !== id) return
-  if (event.entity === 'task') {
-    tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
+async function reloadTasks() {
+  tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
+  // The open modal holds an object out of the previous array. Replacing the
+  // array leaves it pointing at a snapshot, so an agent completing the task on
+  // screen changed nothing in the modal and the next action posted against the
+  // old state. The page already re-resolves it after its own writes; a remote
+  // write deserves the same.
+  if (detailTask.value) {
+    detailTask.value = tasks.value.find((t: any) => t.id === detailTask.value.id) ?? null
   }
-})
+  if (statusModal.task) {
+    statusModal.task = tasks.value.find((t: any) => t.id === statusModal.task.id) ?? null
+    if (!statusModal.task) statusModal.visible = false
+  }
+}
+
+useResearchRealtime(
+  () => id,
+  (event) => { if (event.entity === 'task') reloadTasks() },
+  { researchId: () => research.value?.id, onResync: reloadTasks },
+)
 </script>
 
 <style scoped>

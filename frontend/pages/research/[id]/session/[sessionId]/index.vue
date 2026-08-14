@@ -220,12 +220,18 @@ async function submitQuestion() {
 }
 
 // Real-time updates
-useRealtimeUpdates(async (event) => {
-  if (event.research_id && event.research_id !== id) return
-  if (['question', 'session'].includes(event.entity)) {
-    data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
-  }
-})
+async function reloadSession() {
+  data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
+}
+
+useResearchRealtime(
+  () => id,
+  (event) => { if (['question', 'session'].includes(event.entity)) reloadSession() },
+  {
+    researchId: () => researchData.value?.data?.research?.id,
+    onResync: reloadSession,
+  },
+)
 </script>
 
 <style scoped>

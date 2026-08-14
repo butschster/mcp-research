@@ -75,13 +75,15 @@ const config = useRuntimeConfig()
 const rtBase = config.public.apiBase || ''
 const { authFetch } = useAuth()
 
-useRealtimeUpdates(async (event) => {
-  if (event.research_id && event.research_id !== id) return
-  if (event.entity === 'roadmap') {
-    const res = await authFetch<{ data: any[] }>(`${rtBase}/api/researches/${id}/roadmaps`)
-    roadmapsData.value = res
-  }
-})
+async function reloadRoadmaps() {
+  roadmapsData.value = await authFetch<{ data: any[] }>(`${rtBase}/api/researches/${id}/roadmaps`)
+}
+
+useResearchRealtime(
+  () => id,
+  (event) => { if (event.entity === 'roadmap') reloadRoadmaps() },
+  { researchId: () => research.value?.id, onResync: reloadRoadmaps },
+)
 </script>
 
 <style scoped>

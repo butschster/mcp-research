@@ -273,9 +273,12 @@ onMounted(loadAll)
 // show.
 // The hub echoes the reader's own changes back to them; repainting into
 // skeletons would blink the page right after they used a control on it.
-useRealtimeUpdates((event) => {
-  if (event.entity === 'team' && event.entity_id === teamId.value) loadAll(false)
-})
+useRealtimeUpdates(
+  (event) => {
+    if (event.entity === 'team' && event.entity_id === teamId.value) loadAll(false)
+  },
+  { onResync: () => loadAll(false) },
+)
 
 async function changeRole(userId: string, role: TeamRole) {
   const previous = members.value.find((m) => m.user_id === userId)?.role

@@ -60,7 +60,7 @@ Who may do what. A team owns researches; membership in that team is the whole of
 - **Not a member of the owning team** → the research does not exist for you: `not found` from a tool, `404` from REST. Confirming that someone else's research exists is itself a leak, so this is deliberate.
 - **A member without the right** — a `viewer` writing — → `your role in this team does not allow this`, `403` from REST. Hiding a research from someone who can already read it would protect nothing.
 - With `auth_enabled: false` there is no caller and no check: everything lives in one local team and every operation is permitted, exactly as before teams existed.
-- The WebSocket at `/ws` needs the same credential as everything else when auth is on (`?token=…`, because a browser cannot set headers on a handshake), and the hub decides delivery **per event**: a research event reaches only those who may read it, a team event only its members. Membership is re-checked on each event, so removing someone stops their updates on the socket they already have open.
+- The WebSocket at `/ws` needs the same credential as everything else when auth is on, and delivery is decided **per event, per connection**: a research event reaches only those who may read it, a team event only its members, and losing access stops the updates on a socket already open. See [Real-time Events](#real-time-events) below.
 - That local team survives if auth is later turned on. It has no members, so its researches are **readable by every signed-in user and writable by none** until the first registration claims them — a deliberate compromise between stranding them behind a team nobody can join and letting the first caller take them for themselves.
 
 **Cross-references resolve for the reader, not the author.** `[[R2:E5]]` is stored resolved whatever the writer may see, and every read path strips the targets its reader cannot follow — so a reference into a colleague's research works for whoever is entitled to it, and reads back as plain text for whoever is not.
@@ -421,3 +421,65 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | Node | `N1`, `N2` | Per roadmap | — |
 
 A revision has no short code: it is a plain number, 1-based per entry.
+
+## Real-time Events
+
+`GET /ws` on the REST port (`:8088` by default) is a WebSocket that pushes one JSON message per mutation, whatever caused it — a browser write, a REST write, or an MCP tool call over stdio, SSE or Streamable HTTP, since all of them run in one process. An event is a notification, not a payload: it names what changed, and the client re-reads it over REST. There is nothing to send in the other direction: the server discards whatever a client writes (512-byte read limit) and expects only pong and close frames.
+
+### Connecting
+
+- With `auth_enabled` the handshake needs the same credential as every other endpoint — a JWT, an API key or an OAuth token — as `Authorization: Bearer …`, or as `?token=…` because a browser cannot set headers on a WebSocket handshake. Missing or unresolvable: `401`, no upgrade. With auth off no credential is asked for.
+- The credential is re-checked on the live connection roughly once a minute, on the keepalive. If it stops resolving to the same user — key deleted, token expired — the socket is closed with code **4401**, in the application range on purpose: `4401` means authenticate again, an ordinary drop means reconnect, and a client that cannot tell them apart retries the first forever.
+- `Origin` is checked whether or not auth is on. It must equal the request `Host`, be loopback (`localhost`, `127.0.0.1`, `::1`), or match the configured `base_url`; anything else is refused at the handshake (`403`). A client that sends no `Origin` — curl, a script, an MCP client — is allowed through: the check exists to stop a page the user happened to visit from opening a socket to their server, which with auth off would hand over the whole stream.
+
+### Envelope
+
+| Field | Type | Present |
+|-------|------|---------|
+| `type` | string | always — `entity.verb`, listed below |
+| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref` |
+| `entity_id` | string | always — the id of the thing that changed, not of its parent |
+| `research_id` | string | always present, empty for team-scoped events |
+| `research_code` | string | when the id resolves — the same scope as a short code (`R7`), so a page routed as `/research/R7` can match an event without resolving a UUID first |
+| `actor_user_id` | string | who caused it; absent with auth off and for anything an agent did over stdio |
+| `actor_client_id` | string | which tab caused it, when the writer sent `X-Client-Id` |
+| `reason` | string | `access.*` only |
+| `name` | string | `access.revoked` only — the name of the team or research that was lost |
+| `at` | int | server send time, milliseconds since the epoch. Use it instead of receipt time: a tab waking from sleep takes the whole queued backlog at once and would date every event to the moment it woke |
+
+`target_user_id` is not on the wire. Directed events exist (below), but the addressee learns nothing from being named that the delivery did not already tell them.
+
+### Types
+
+| `type` | `entity` | `entity_id` | Notes |
+|--------|----------|-------------|-------|
+| `research.created`, `research.updated` | `research` | research | |
+| `research.transferred` | `research` | research | the research now belongs to another team |
+| `section.created`, `section.updated` | `section` | section | |
+| `entry.created`, `entry.updated`, `entry.deleted` | `entry` | entry | `entry.updated` also covers `entry_patch` and a revision restore |
+| `crossrefs.rebuilt` | `crossref` | research | `POST /api/researches/{id}/crossrefs/rebuild` finished. Every link in the research may have moved, so the graph and mindmap views re-read wholesale rather than patching |
+| `session.created`, `session.updated` | `session` | session | |
+| `question.created` | `question` | question | **one event per question**, so a batch of twelve sends twelve. It used to fire once per batch carrying the *session* id; a client written against that will now see the session id nowhere |
+| `question.updated` | `question` | question | an answer or a status change |
+| `task.created`, `task.updated`, `task.deleted` | `task` | task | |
+| `roadmap.created`, `roadmap.updated`, `roadmap.deleted` | `roadmap` | roadmap | adding, changing or removing nodes and edges all report as `roadmap.updated` on the roadmap |
+| `team.created`, `team.updated`, `team.deleted`, `team.invited`, `team.invite_revoked`, `team.member_added`, `team.member_removed`, `team.member_role_changed` | `team` | team | no `research_id` |
+| `access.changed` | `team` | team | directed. `reason: role_changed`. The new role is deliberately not in the event — read it back from the API rather than trusting a value pushed at you |
+| `access.revoked` | `team` or `research` | team or research | directed. `reason: removed_from_team` (entity `team`) or `research_transferred` (entity `research`, with `research_id`) |
+
+There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps and teams can.
+
+### Who receives what
+
+Delivery is decided per event per connection, at send time — not once when the connection opens, which is what would let a revoked membership keep receiving updates until the tab was closed.
+
+- With `auth_enabled: false` there are no users and one local team: every connection receives everything.
+- With auth on, a research-scoped event goes to the users who may read that research — the same rule a REST read applies — and a team event to that team's members. An unidentified connection receives nothing.
+- A **directed** event (`access.revoked`, `access.changed`) is addressed to one user and skips the research check, which is the whole point: by the time somebody is told they lost access, the ordinary rule already refuses to deliver it. Directed events therefore only occur with auth on.
+- `access.revoked` carries `name` and `reason` because its recipient can no longer look either up — the moment it is sent, fetching what they lost answers 404.
+- Membership verdicts are cached for at most a minute and dropped outright whenever anything touches a team, so the cache is never the reason someone keeps seeing what they lost.
+- The broadcast queue is bounded. Under a burst the server drops events rather than stalling the write that produced them, so a client must be able to recover by re-reading, not by replaying.
+
+### Recognising your own writes
+
+A REST write may carry `X-Client-Id`: an opaque per-tab string, at most 64 characters (longer is truncated), invented by the client and never interpreted by the server. It comes back as `actor_client_id` on every event that write produced, so a tab can skip refetching what it already knows. `actor_user_id` cannot do this job — it is empty with auth off, and two tabs of one person share it, so one would suppress a change the other made and must display. MCP writes never carry a client id, so an agent's change always reads as somebody else's.

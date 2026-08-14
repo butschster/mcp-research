@@ -116,7 +116,7 @@ func (s *SessionService) Create(ctx context.Context, req CreateSessionRequest) (
 		return nil, nil, fmt.Errorf("commit: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "session.created", ResearchID: session.ResearchID, EntityID: session.ID, Entity: "session"})
+	emit(ctx, s.events, Event{Type: "session.created", ResearchID: session.ResearchID, EntityID: session.ID, Entity: "session"})
 	return session, questions, nil
 }
 
@@ -262,7 +262,7 @@ func (s *SessionService) Update(ctx context.Context, id string, req UpdateSessio
 		return nil, fmt.Errorf("update session: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "session.updated", ResearchID: session.ResearchID, EntityID: session.ID, Entity: "session"})
+	emit(ctx, s.events, Event{Type: "session.updated", ResearchID: session.ResearchID, EntityID: session.ID, Entity: "session"})
 	return session, nil
 }
 
@@ -327,7 +327,13 @@ func (s *SessionService) AddQuestions(ctx context.Context, sessionID string, req
 		return nil, fmt.Errorf("create questions: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "question.created", ResearchID: session.ResearchID, EntityID: sessionID, Entity: "question"})
+	// One event per question, each naming the question. This used to send a
+	// single event carrying the *session* id, which made twelve new questions
+	// indistinguishable from one and left no way to react to a particular one —
+	// every other event in the system names the thing that changed.
+	for _, q := range questions {
+		emit(ctx, s.events, Event{Type: "question.created", ResearchID: session.ResearchID, EntityID: q.ID, Entity: "question"})
+	}
 	return questions, nil
 }
 
@@ -376,7 +382,7 @@ func (s *SessionService) UpdateQuestion(ctx context.Context, id string, status *
 		s.crossrefs.ParseCrossRefs(ctx, "question", question.ID, session.ResearchID, question.Answer)
 	}
 
-	s.events.Notify(Event{Type: "question.updated", ResearchID: session.ResearchID, EntityID: question.ID, Entity: "question"})
+	emit(ctx, s.events, Event{Type: "question.updated", ResearchID: session.ResearchID, EntityID: question.ID, Entity: "question"})
 	return question, nil
 }
 

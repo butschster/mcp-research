@@ -80,6 +80,10 @@ func main() {
 	// membership taken away stops the updates on a socket already open.
 	hub.SetAuthorizer(access, cfg.AuthEnabled)
 
+	// Events name the research by id; every URL in the web UI names it by short
+	// code. The hub resolves one to the other so a page has both.
+	hub.SetCodeLookup(service.NewResearchCodes(researchRepo))
+
 	// Services
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, teamRepo, access, events, log)
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, access, events, log)
