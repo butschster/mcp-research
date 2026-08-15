@@ -77,7 +77,7 @@ async function handleSubmit() {
           <p class="auth-subtitle">Sign in to continue to your research</p>
 
           <form @submit.prevent="handleSubmit" class="auth-form">
-            <div v-if="error" class="auth-error">{{ error }}</div>
+            <div v-if="error" class="auth-error" role="alert">{{ error }}</div>
 
             <label class="auth-label">
               Email

@@ -114,7 +114,7 @@ onMounted(() => {
         <code class="key-value">{{ newKeyValue }}</code>
       </div>
 
-      <div v-if="keyError" class="auth-error">{{ keyError }}</div>
+      <div v-if="keyError" class="auth-error" role="alert">{{ keyError }}</div>
 
       <form @submit.prevent="createKey" class="key-form">
         <input v-model="newKeyName" type="text" placeholder="Key name (optional)" class="text-input" />

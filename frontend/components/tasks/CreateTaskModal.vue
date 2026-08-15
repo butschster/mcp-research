@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="modal-header">
       <h3 class="modal-title">New Task</h3>
-      <button class="modal-close" @click="$emit('cancel')">
+      <button class="modal-close" aria-label="Close" @click="$emit('cancel')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>

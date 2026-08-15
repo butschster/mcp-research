@@ -33,8 +33,14 @@
   /* Dimmer than muted, at full opacity. It exists to end the habit of reaching
      for `opacity` on text that is already muted: muted has 0.55 of headroom
      over 4.5:1 on a card, so any opacity under ~0.9 puts it under. The three
-     worst contrast measurements in the product were all opacity, not colour. */
-  --color-text-faint: #5b6b80;
+     worst contrast measurements in the product were all opacity, not colour.
+
+     The first value chosen for it, #5b6b80, measured 3.17:1 on the nav — 0.06
+     *worse* than the `opacity: 0.7` it replaced, which is the number the audit
+     had filed as the defect. On this palette there is no room below muted for a
+     compliant prose colour, so faint is lighter than muted, not darker: 4.55:1
+     on the worst surface it lands on. */
+  --color-text-faint: #7c92ae;
   --color-primary: #6cc5e0;
   --color-primary-hover: #7cd1ea;
   --color-primary-muted: rgba(108, 197, 224, 0.10);

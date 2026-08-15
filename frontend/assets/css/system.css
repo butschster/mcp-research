@@ -144,6 +144,17 @@
   color: var(--color-bg);
   border-color: transparent;
 }
+
+.btn-danger {
+  color: var(--color-error);
+  border-color: rgba(239, 107, 107, 0.25);
+}
+.btn-danger:hover {
+  background: rgba(239, 107, 107, 0.1);
+  border-color: rgba(239, 107, 107, 0.4);
+  color: var(--color-error);
+}
+
 /* The loud variant, for a confirmation dialog — where the destructive button
    should be the loudest thing on screen. `ConfirmModal` used to get this by
    redefining `.btn-danger` in its own scoped block, so one class name meant a
@@ -156,16 +167,6 @@
   color: var(--color-bg);
 }
 .btn-danger--solid:hover { background: var(--color-error); border-color: var(--color-error); filter: brightness(1.08); }
-
-.btn-danger {
-  color: var(--color-error, var(--color-error));
-  border-color: rgba(239, 107, 107, 0.25);
-}
-.btn-danger:hover {
-  background: rgba(239, 107, 107, 0.1);
-  border-color: rgba(239, 107, 107, 0.4);
-  color: var(--color-error, var(--color-error));
-}
 
 /* --- Status Badges ------------------------------------------------------ */
 
@@ -201,7 +202,6 @@
 
 /* A tag is sometimes a filter control, and a `<button>` brings a font family,
    a centred text alignment and a UA border with it. */
-button.tag { font: inherit; cursor: pointer; text-align: inherit; border: none; background: none; }
 
 .tag {
   display: inline-flex;
@@ -214,6 +214,20 @@ button.tag { font: inherit; cursor: pointer; text-align: inherit; border: none; 
   color: var(--color-text-muted);
   line-height: 1;
   transition: all var(--transition-fast);
+}
+/* A clickable tag is a <button>, which arrives with a UA border and its own
+   font. `font: inherit` was the first attempt and it is a shorthand — it reset
+   size, weight and line-height too, and `button.tag` outranks `.tag`, so the
+   control came out at body size and weight 400 beside an identical inert one. */
+button.tag {
+  font-family: inherit;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: inherit;
 }
 .tag-hue-0 { background: rgba(108, 197, 224, 0.08); color: var(--color-primary); }
 .tag-hue-1 { background: rgba(52, 211, 153, 0.08);  color: var(--color-success); }
