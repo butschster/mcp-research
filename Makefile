@@ -1,6 +1,11 @@
 .PHONY: build build-all run run-memory run-sse test clean frontend-install frontend-dev frontend-build frontend-embed storybook storybook-build
 
-VERSION ?= dev
+# A locally built binary should say which build it is, since the footer now
+# shows it. `git describe` gives `v1.4.0` on a tag, `v1.4.0-3-gabc1234` three
+# commits later, and `-dirty` with uncommitted work — which is exactly what you
+# want to read back when somebody says "it does this on my machine".
+# `?=` so CI, which passes VERSION explicitly, still wins.
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
