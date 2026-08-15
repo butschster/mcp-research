@@ -1,12 +1,7 @@
 <template>
   <ModalOverlay :labelledby="titleId" :visible="open" size="lg" flush @close="emit('update:open', false)">
     <!-- Header -->
-    <div class="modal-header">
-      <h3 :id="titleId" class="modal-title">Research Details</h3>
-      <button class="modal-close" aria-label="Close" @click="emit('update:open', false)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
+    <ModalHeader title="Research Details" :title-id="titleId" @close="emit('update:open', false)" />
 
     <div class="modal-body">
       <!-- Overview -->
@@ -178,30 +173,6 @@ function saveEdit(field: string) {
 
 <style scoped>
 /* Modal header */
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-}
-.modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.modal-close:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
 
 /* Body */
 .modal-body {

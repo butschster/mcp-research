@@ -2,15 +2,10 @@
   <ModalOverlay :labelledby="titleId" :visible="!!task" size="lg" flush @close="$emit('close')">
     <template v-if="task">
       <!-- Header -->
-      <div class="modal-header">
-        <h3 :id="titleId" class="modal-title">
-          <span class="header-code">{{ task.code }}</span>
-          Task Details
-        </h3>
-        <button class="modal-close" aria-label="Close" @click="$emit('close')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
+      <ModalHeader :title-id="titleId" @close="$emit('close')">
+        <span class="header-code">{{ task.code }}</span>
+                Task Details
+      </ModalHeader>
 
       <div class="modal-body">
         <!-- Title -->
@@ -286,13 +281,6 @@ function saveField(field: string) {
 .status-picker > button[aria-disabled='true'] { opacity: 0.6; cursor: default; }
 
 /* Header — same as DetailsPanel */
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-}
 .header-code {
   font-size: var(--type-xs);
   font-weight: var(--weight-bold);
@@ -303,23 +291,6 @@ function saveField(field: string) {
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: 0;
   text-transform: none;
-}
-.modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.modal-close:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
 }
 
 /* Body — same as DetailsPanel */
