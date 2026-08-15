@@ -31,18 +31,66 @@
       <div class="rationale-text markdown-content" v-html="linkRefs(parseMarkdownInline(normalizeContent(question.rationale)) as string, researchSlug)"></div>
     </div>
 
-    <!-- Answer -->
-    <div v-if="question.answer" class="card answer-card">
-      <h3 class="card-section-title">Answer</h3>
-      <div ref="answerEl" class="markdown-content" v-html="renderedAnswer"></div>
+    <!-- Answer.
+         The server has always accepted `PUT /api/questions/{id}` with a status
+         and an answer, and nothing in the frontend called it: a reviewer could
+         read a wrong answer and change nothing, while the session page offered
+         a form to *add* a question — the half only the agent needs. -->
+    <div v-if="question.answer || editing" class="card answer-card">
+      <div class="answer-head">
+        <h3 class="card-section-title">Answer</h3>
+        <button v-if="canWrite && !editing" class="btn btn-sm" @click="startEditing">
+          {{ question.answer ? 'Edit' : 'Answer' }}
+        </button>
+      </div>
+
+      <form v-if="editing" class="answer-form" @submit.prevent="save">
+        <label class="sr-only" :for="answerFieldId">Answer</label>
+        <textarea
+          :id="answerFieldId"
+          ref="answerField"
+          v-model="draft"
+          class="form-textarea answer-input"
+          rows="10"
+          placeholder="Markdown, and [[E3]] references, render the same here as anywhere else."
+        ></textarea>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-sm" :disabled="saving" @click="cancel">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary" :disabled="saving || !draft.trim()">
+            {{ saving ? 'Saving…' : 'Save answer' }}
+          </button>
+        </div>
+      </form>
+
+      <div v-else ref="answerEl" class="markdown-content" v-html="renderedAnswer"></div>
     </div>
 
     <EmptyState
-      v-else-if="question.status === 'pending'"
+      v-else-if="question.status === 'pending' || question.status === 'in_progress'"
       icon="&#x23F3;"
       title="Awaiting answer"
-      description="This question hasn't been answered yet."
-    />
+      description="The agent has not answered this yet."
+    >
+      <button v-if="canWrite" class="btn btn-sm btn-primary" @click="startEditing">Answer it yourself</button>
+    </EmptyState>
+
+    <!-- Status.
+         Not a radiogroup: each of these is a one-shot write that can be
+         refused, so `aria-pressed` states which is current without promising
+         arrow-key selection the component does not implement. -->
+    <div v-if="canWrite" class="card status-card no-print">
+      <h3 class="card-section-title">Status</h3>
+      <div class="segmented" role="group" aria-label="Question status">
+        <button
+          v-for="st in QUESTION_STATUSES"
+          :key="st"
+          type="button"
+          :aria-pressed="question.status === st"
+          :aria-disabled="saving || undefined"
+          @click="setStatus(st)"
+        >{{ QUESTION_STATUS_LABELS[st] }}</button>
+      </div>
+    </div>
 
     <!-- Cross-references from this answer -->
     <div v-if="hasRefs" class="crossrefs-block card no-print">
@@ -110,6 +158,78 @@ const allQuestions = computed(() => {
 const question = computed(() =>
   allQuestions.value.find((q: any) => q.id === questionId || q.code === questionId) ?? null
 )
+/* Writing an answer.
+   `PUT /api/questions/{id}` takes a status, an answer, or both, and has been
+   reachable from the API since the endpoint was written. The id is the UUID,
+   not the short code the URL may carry. */
+const { canWrite, setFromResearch } = useResearchRole()
+const { authFetch } = useAuth()
+const rtBase = useRuntimeConfig().public.apiBase || ''
+const answerFieldId = useId()
+
+const QUESTION_STATUSES = ['pending', 'in_progress', 'answered', 'deferred', 'skipped'] as const
+const QUESTION_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  in_progress: 'In Progress',
+  answered: 'Answered',
+  deferred: 'Deferred',
+  skipped: 'Skipped',
+}
+
+const editing = ref(false)
+const saving = ref(false)
+const draft = ref('')
+const answerField = ref<HTMLTextAreaElement | null>(null)
+
+function startEditing() {
+  draft.value = question.value?.answer ?? ''
+  editing.value = true
+  nextTick(() => answerField.value?.focus())
+}
+
+function cancel() {
+  editing.value = false
+  draft.value = ''
+}
+
+async function write(body: Record<string, unknown>) {
+  const qid = question.value?.id
+  if (!qid) return false
+  saving.value = true
+  try {
+    await authFetch(`${rtBase}/api/questions/${qid}`, { method: 'PUT', body })
+    data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
+    return true
+  } catch (e: any) {
+    // The draft stays on screen: the server refusing it is not a reason for the
+    // client to throw the text away on the reader's behalf.
+    useToasts().push({
+      variant: 'error',
+      title: 'Could not save',
+      message: e?.data?.error || e?.message || 'The server refused the change. Your text is still here.',
+      timeout: 0,
+    })
+    return false
+  } finally {
+    saving.value = false
+  }
+}
+
+async function save() {
+  // Answering moves the question along; a reviewer correcting an existing
+  // answer is not re-answering it, so the status is left where it is.
+  const body: Record<string, unknown> = { answer: draft.value }
+  if (question.value?.status !== 'answered') body.status = 'answered'
+  if (await write(body)) editing.value = false
+}
+
+async function setStatus(status: string) {
+  if (saving.value || question.value?.status === status) return
+  await write({ status })
+}
+
+watch(() => researchData.value?.data?.research, (r) => setFromResearch(r ?? null), { immediate: true })
+
 const questionIndex = computed(() =>
   allQuestions.value.findIndex((q: any) => q.id === questionId || q.code === questionId)
 )
@@ -155,6 +275,13 @@ function truncate(text: string, max: number): string {
 </script>
 
 <style scoped>
+.answer-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.answer-head .card-section-title { margin-bottom: 0; }
+.answer-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.answer-input { min-height: 12rem; resize: vertical; font-family: 'JetBrains Mono', monospace; font-size: var(--type-sm); }
+.status-card { margin-top: var(--space-4); }
+.status-card .segmented { flex-wrap: wrap; }
+
 .question-header {
   display: flex;
   justify-content: space-between;
