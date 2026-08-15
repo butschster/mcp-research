@@ -407,18 +407,12 @@ button.tag {
    not as a measure. It also produced two right edges in one column, prose at
    one and a table 184px beyond it, for no reason a reader could infer.
    With the card itself capped, every edge in the entry lines up. */
-/* Every page in this product is one container wide, and the entry page is not
-   an exception to that. Narrowing the whole column to the reading width made
-   this one screen visibly out of line with the six around it — the sidebar
-   pages, the task board, the roadmap list — and a page that is narrower than
-   its neighbours reads as a mistake before it reads as a measure.
-
-   So the page keeps the container. Only the text inside the card is held to a
-   readable line, centred, so the space left over sits evenly on both sides. An
-   h2's underline and an `hr` live inside that column too, which is what stops
-   them ending short of a card edge somewhere off to the right. */
-.entry-content .markdown-content,
-.entry-content .block-doc { max-width: var(--measure); margin-inline: auto; }
+/* Entry content runs the full width of its card, by decision.
+   A reading measure was tried here and taken back out: at the container's
+   width the text column left a wide empty gutter, and the page read as though
+   the layout had come apart rather than as though the line length had been
+   chosen. `--measure-prose` survives on short lead paragraphs, where a narrow
+   column is short enough to look deliberate. */
 
 /* Content that is read by scanning rather than by line scrolls instead of
    wrapping. This used to be a `@media (max-width: 768px)` rule, which meant a

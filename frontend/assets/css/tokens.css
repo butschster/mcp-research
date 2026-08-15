@@ -152,25 +152,20 @@
   --line-base: 1.55;
 
   /* --- Measure ----------------------------------------------------------
-     How wide a column of text is allowed to get.
-     The entry page has no sidebar, so a paragraph in `.entry-content` ran the
-     full container — about 130 characters a line, against a comfortable 45-75.
-     The comparison view had a measure (`DiffView`, 90ch) and a one-line page
-     lead had one (65ch); the surface whose whole purpose is reading did not.
+     How wide a short column of text is allowed to get.
 
-     Stated in `rem`, not `ch`, for two reasons. `ch` is the advance of `0`,
-     which in Outfit is 0.656em while its average lowercase letter is about
-     0.5em — so `72ch` is roughly 94 characters, not 72. And `ch` resolves
-     against each element's own font-size, so a single token became a
-     different width on every heading level: an h2 at `--type-xl` computed a
-     cap wider than the column it sat in and hung its underline 283px past the
-     text beneath it. One length, resolved once. */
-  --measure: 38rem;
-  /* Content that is read by scanning rather than by line: tables, code, diffs
-     and diagrams, which are worse wrapped than wide. */
-  --measure-wide: 52rem;
-  /* A lead paragraph or an empty-state sentence, short enough that a narrower
-     column reads as deliberate. */
+     There were three of these. `--measure` and `--measure-wide` held the entry
+     body and its tables to a reading line, and that was taken back out: at the
+     container's width the capped column left a wide empty gutter beside it,
+     which reads as a layout that has come apart rather than as a line length
+     somebody chose. Entry content runs the full width of its card now.
+
+     What is left applies to a lead paragraph or an empty-state sentence —
+     short enough that a narrow column looks deliberate instead of stranded.
+     Stated in `rem` rather than `ch`: `ch` is the advance of `0`, which in
+     Outfit is 0.656em against an average lowercase of about 0.5em, and it
+     resolves against each element's own font-size, so one token became a
+     different width at every heading level. */
   --measure-prose: 34rem;
 
   /* --- Z-Index Scale ---------------------------------------------------- */

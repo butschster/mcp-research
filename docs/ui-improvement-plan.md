@@ -472,7 +472,20 @@ stories — safe to delete (~20 lines):** `.grid-3` · `.flex-between` ·
 `.font-medium` · `.font-bold` · `.task-widget` · `.progress-card` · the empty
 `.markdown-content { }` at `:769`.
 
-### 4.3 The reading surface gets a measure
+### 4.3 The reading surface gets a measure — *reversed*
+
+> **Taken back out.** The cap was implemented three ways — on the block
+> children, on a narrower page column, and finally on the text inside a
+> full-width card — and none survived being looked at. At the container's width
+> a capped column leaves a wide empty gutter beside it, and that reads as a
+> layout which has come apart rather than as a line length somebody chose.
+> Entry content runs the full width of its card. `--measure` and
+> `--measure-wide` are deleted; `--measure-prose` survives on lead paragraphs,
+> which are short enough that a narrow column looks deliberate.
+>
+> The argument below about line length is still true. It is the remedy that did
+> not survive contact with the page.
+
 
 `main.css:588` gives `.entry-content` padding and no `max-width`. The entry page
 has no sidebar, so a paragraph runs about 1,090px at 17px — roughly **130
