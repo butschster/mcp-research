@@ -87,3 +87,12 @@
   background: rgba(108, 197, 224, 0.2);
   text-decoration: none;
 }
+
+/* Paper. This lives here rather than in system.css because markdown.css loads
+   after it, and at equal specificity the later declaration wins — the print
+   override for a code block was being beaten by the screen rule it was written
+   to replace, so a fenced block printed dark navy under black text. */
+@media print {
+  .markdown-content pre,
+  .markdown-content code { background: #f5f5f5 !important; color: #111 !important; }
+}

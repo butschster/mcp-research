@@ -66,7 +66,7 @@
                     role="radio"
                     :aria-checked="String(task.status === s)"
                     :disabled="busyStatus"
-                    @click="emit('updateStatus', s)"
+                    @click="busyStatus = true; emit('updateStatus', s)"
                   >{{ STATUS_LABELS[s] }}</button>
                 </div>
               </div>
@@ -202,15 +202,19 @@ const emit = defineEmits<{
 /* Every status the domain has, in the order the work moves through them.
    The board's four columns are a projection of this, not the whole of it. */
 const STATUSES = ['pending', 'in_progress', 'blocked', 'deferred', 'completed', 'failed'] as const
+/* The words the rest of the product uses. A picker that says "Doing" while the
+   confirmation says "In Progress" and the badge says in_progress is three names
+   for one state — the exact bug the "Rejected" column was renamed to fix. */
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Todo',
-  in_progress: 'Doing',
+  in_progress: 'In Progress',
   blocked: 'Blocked',
   deferred: 'Deferred',
-  completed: 'Done',
-  failed: 'Rejected',
+  completed: 'Completed',
+  failed: 'Failed',
 }
 const busyStatus = ref(false)
+watch(() => props.task?.status, () => { busyStatus.value = false })
 
 // A viewer reads the same fields; the pencils and the priority chips go, and
 // priority renders as the badge it already is elsewhere.

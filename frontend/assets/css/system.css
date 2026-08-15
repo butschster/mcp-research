@@ -201,7 +201,7 @@
 
 /* A tag is sometimes a filter control, and a `<button>` brings a font family,
    a centred text alignment and a UA border with it. */
-button.tag { font: inherit; cursor: pointer; text-align: inherit; }
+button.tag { font: inherit; cursor: pointer; text-align: inherit; border: none; background: none; }
 
 .tag {
   display: inline-flex;
@@ -799,7 +799,7 @@ button.tag { font: inherit; cursor: pointer; text-align: inherit; }
   line-height: 1;
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237f8ea3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;
 }

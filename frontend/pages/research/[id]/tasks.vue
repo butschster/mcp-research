@@ -94,12 +94,26 @@ const tasks = computed(() => tasksData.value?.data ?? [])
 const columns = [
   { status: 'pending', label: 'Todo' },
   { status: 'in_progress', label: 'In Progress' },
-  { status: 'completed', label: 'Done' },
+  { status: 'completed', label: 'Completed' },
   { status: 'failed', label: 'Failed' },
 ]
 
+/* Every status, not only the four the board has a column for. Looking the
+   label up in `columns` meant `blocked` and `deferred` — the two the detail
+   picker exists to offer — fell through to the raw enum, so the confirmation
+   asked about "blocked" and, if a comment was typed, wrote `**[blocked]**`
+   into the task result while every other status wrote a display label. */
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Todo',
+  in_progress: 'In Progress',
+  blocked: 'Blocked',
+  deferred: 'Deferred',
+  completed: 'Completed',
+  failed: 'Failed',
+}
+
 function statusLabel(status: string): string {
-  return columns.find(c => c.status === status)?.label ?? status
+  return STATUS_LABELS[status] ?? status
 }
 
 // Task detail modal

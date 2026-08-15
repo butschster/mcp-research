@@ -89,6 +89,13 @@ function trapFocus(event: KeyboardEvent) {
   }
 }
 
+/* The page behind a dialog scrolled under the wheel, which reads as the dialog
+   having lost its grip on the page. */
+function lockScroll(on: boolean) {
+  if (import.meta.server) return
+  document.body.style.overflow = on ? 'hidden' : ''
+}
+
 watch(
   () => props.visible,
   async (open) => {
