@@ -259,10 +259,18 @@ onMounted(() => {
 })
 
 // Real-time updates
-useRealtimeUpdates(async (event) => {
-  if (event.research_id && event.research_id !== id) return
+//
+// The refit is deliberately not repeated. Fitting the whole map on every event
+// discards the reader's pan and zoom, and an agent at work emits one every few
+// seconds — so the page fought whoever was reading it, precisely when it was
+// most worth reading.
+async function reloadMindmap() {
   await refresh()
-  nextTick(() => fitView({ padding: 0.15, duration: 300 }))
+}
+
+useResearchRealtime(() => id, reloadMindmap, {
+  researchId: () => researchData.value?.data?.research?.id,
+  onResync: reloadMindmap,
 })
 </script>
 

@@ -79,6 +79,8 @@ const {
 } = useResearchGraph(researchSlug)
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+// Whether the canvas has been centred once; see buildSimulation.
+let viewportPlaced = false
 const sidebarCollapsed = ref(false)
 const hideOrphans = ref(false)
 const showArrows = ref(false)
@@ -309,9 +311,14 @@ function buildSimulation() {
   // Update focus sets with new edges
   updateFocusSets()
 
+  // Only on the first build. A rebuild triggered by somebody else's edit used
+  // to re-centre at zoom 1, so a reader who had zoomed into a cluster to trace
+  // a reference lost their place every time the agent wrote anything — which
+  // is exactly when the graph is worth having open.
   const canvas = canvasRef.value
-  if (canvas) {
+  if (canvas && !viewportPlaced) {
     transform = { x: canvas.width / 2, y: canvas.height / 2, k: 1 }
+    viewportPlaced = true
   }
 }
 
@@ -659,11 +666,16 @@ onUnmounted(() => {
   if (animFrame) cancelAnimationFrame(animFrame)
 })
 
-useRealtimeUpdates((event: any) => {
-  if (event.research_id === researchSlug || event.entity_id === researchSlug) {
-    fetchGraph().then(() => buildSimulation())
-  }
-})
+async function reloadGraph() {
+  await fetchGraph()
+  buildSimulation()
+}
+
+// `researchSlug` here is the raw route param — a short code from a link, or a
+// UUID from a pasted address — and either matches. No `researchId` is passed
+// because this page loads a graph, not the research, so it has no second
+// identity to offer.
+useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
 </script>
 
 <style scoped>

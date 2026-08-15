@@ -84,6 +84,14 @@
 
       <!-- Edit mode header -->
       <template v-else>
+        <!-- Somebody else wrote to this entry while the editor was open. Saving
+             now replaces their version with a draft that never saw it. The
+             revision history keeps both, but finding out afterwards is not the
+             same as being told. -->
+        <div v-if="remoteChangedWhileEditing" class="edit-remote-change" role="status">
+          <span>Someone else changed this entry while you were editing. Saving will replace their version.</span>
+          <button class="btn btn-sm" @click="discardDraftForRemote">Discard mine and reload</button>
+        </div>
         <div class="edit-header-bar">
           <div class="edit-field">
             <label class="edit-label">Title</label>
@@ -129,7 +137,6 @@
           :research-slug="researchSlug"
           :bridge-data="blockBridgeData"
           :entry-id="entry?.id"
-          @ticked="onTicked"
         />
         <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
         <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
@@ -268,22 +275,32 @@ const { data, pending, refresh } = await useApi<{ data: any }>(`/api/researches/
 // A tick the reader just made is already on screen; refetching would only make
 // the checkbox flicker. Everything else — an agent rewriting the entry — has to
 // land, or the next save from this page overwrites it.
-let ownWriteAt = 0
-function onTicked() {
-  ownWriteAt = Date.now()
-}
-useRealtimeUpdates((event: any) => {
+//
+// Which of the two it is used to be guessed from a 1200 ms window armed before
+// the request went out. The event now names the tab that caused it, so the
+// question is answered rather than raced: a slow save no longer repainted over
+// the reader, and a genuine remote change arriving within the window is no
+// longer swallowed.
+useRealtimeUpdates((event: WsEvent) => {
+  if (event.entity !== 'entry') return
   // The event carries the entry's UUID; the route parameter is usually a short
   // code (every link in the app builds /entry/E3). Comparing the two meant the
   // page never refreshed for anyone who arrived by clicking a link.
-  if (event?.entity !== 'entry') return
   if (event.entity_id !== entry.value?.id && event.entity_id !== entryId) return
-  // A tick this page just made is already on screen; refetching would only make
-  // the checkbox flicker. The window is armed before the request goes out, since
-  // the event usually arrives before the response does.
-  if (Date.now() - ownWriteAt < 1200) return
+  if (isSelf(event)) return
+  if (editing.value) {
+    // Refetching would not reach the draft — `editForm` is a snapshot taken when
+    // editing began — so the only thing a silent refresh achieves is that Save
+    // still overwrites whoever just wrote. Say so instead; the history keeps
+    // their version either way, but the reader should not find out afterwards.
+    remoteChangedWhileEditing.value = true
+    return
+  }
   refresh()
-})
+}, { onResync: refresh })
+
+// Set when somebody else changed this entry while the editor was open.
+const remoteChangedWhileEditing = ref(false)
 const entry = computed(() => data.value?.data)
 
 const sectionName = computed(() => {
@@ -474,6 +491,7 @@ const editForm = reactive({
 })
 
 function startEditing() {
+  remoteChangedWhileEditing.value = false
   editForm.title = entry.value?.title ?? ''
   editForm.description = entry.value?.description ?? ''
   editForm.content = entry.value?.content ?? ''
@@ -483,7 +501,27 @@ function startEditing() {
 
 function cancelEditing() {
   editing.value = false
+  remoteChangedWhileEditing.value = false
 }
+
+async function discardDraftForRemote() {
+  editing.value = false
+  remoteChangedWhileEditing.value = false
+  await refresh()
+}
+
+// An open editor whose text differs from what was loaded is work that has not
+// been written down anywhere else. Losing access to this research must not take
+// it off the screen — the save will fail either way, but the reader can still
+// copy what they wrote.
+useUnsavedWork(() => {
+  if (!editing.value) return false
+  const e = entry.value
+  return editForm.title !== (e?.title ?? '')
+    || editForm.description !== (e?.description ?? '')
+    || editForm.content !== (e?.content ?? '')
+    || editForm.tagsRaw !== ((e?.tags ?? []) as string[]).join(', ')
+})
 
 async function saveEntry() {
   if (!entry.value || saving.value) return
@@ -504,6 +542,7 @@ async function saveEntry() {
       },
     })
     editing.value = false
+    remoteChangedWhileEditing.value = false
     await refresh()
   } catch (e: any) {
     console.error('Failed to save entry:', e)
@@ -645,6 +684,21 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 </script>
 
 <style scoped>
+.edit-remote-change {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--type-sm);
+}
+
 .entry-provenance {
   display: inline-flex;
   align-items: center;

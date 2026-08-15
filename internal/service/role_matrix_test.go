@@ -31,6 +31,9 @@ type roleKit struct {
 	roadmap  *RoadmapService
 	team     *TeamService
 	teamRepo *storage.TeamRepository
+	// events is what the WebSocket hub would have been handed. Delivery is
+	// decided from these fields, so what is in them is a correctness question.
+	events *mockNotifier
 }
 
 func newRoleKit(t *testing.T) *roleKit {
@@ -62,6 +65,7 @@ func newRoleKit(t *testing.T) *roleKit {
 			storage.NewRoadmapEdgeRepository(db), researchRepo, access, notifier, log),
 		team:     NewTeamService(teamRepo, storage.NewTeamInviteRepository(db), storage.NewUserRepository(db), researchRepo, notifier, log),
 		teamRepo: teamRepo,
+		events:   notifier,
 	}
 }
 

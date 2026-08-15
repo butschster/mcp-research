@@ -165,7 +165,30 @@ class of bug happens.
 
 ### Event System
 
-Services emit events after mutations via `EventNotifier` interface -> WebSocket Hub broadcasts to browser clients. This works regardless of MCP transport (stdio, SSE, or Streamable HTTP) because everything runs in one process.
+Services emit events after mutations via the `EventNotifier` interface -> the
+WebSocket Hub delivers them. This works regardless of MCP transport (stdio, SSE,
+or Streamable HTTP) because everything runs in one process.
+
+Four things about it are not guessable from the interface:
+
+- **Delivery is decided per event, per connection**, by the same `service.Access`
+  the HTTP layer uses. Deciding once, at subscribe time, is what lets a revoked
+  member keep receiving updates on a socket they already have open.
+- **An event may be directed** at one user via `TargetUserID`, which bypasses the
+  research check and is `json:"-"` so it never reaches the wire. It exists for
+  the one message the ordinary scope cannot carry: telling somebody they have
+  just lost access, when by definition they no longer qualify to be told. The
+  same reason `TeamService.Delete` reads its member list *before* deleting.
+- **`/ws` authenticates at the handshake and again about once a minute**, closing
+  with code `4401` when the credential stops being valid — a socket used to
+  outlive the API key that opened it. `Origin` is checked even with auth off.
+- **Events name a research twice**, as `research_id` and `research_code`, because
+  every URL in the web UI is built from the short code. Six pages once compared a
+  code against a UUID and silently dropped every event they were sent.
+
+Writes may carry `X-Client-Id`, echoed back as `actor_client_id`, so a tab can
+recognise its own change; MCP writes never carry one. Full envelope and the event
+type table: `internal/docs/domain-guide.md`, "Real-time Events".
 
 ## Configuration
 

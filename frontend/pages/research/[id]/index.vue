@@ -337,31 +337,56 @@ async function toggleArchive() {
 }
 
 // Real-time updates
-useRealtimeUpdates(async (event) => {
-  if (event.research_id && event.research_id !== id) return
+// Each of these is one screen's worth of data; the handler below picks the ones
+// an event can have invalidated, and the resync takes the lot. The resync has to
+// be the superset — it is the one path that exists to repair anything a dropped
+// connection missed, so a view it skips is a view that stays wrong forever.
+async function reloadResearch() {
+  researchData.value = await authFetch<any>(`${rtBase}/api/researches/${id}`)
+}
+async function reloadEntries() {
+  if (entriesUrl.value) entriesData.value = await authFetch<any>(`${rtBase}${entriesUrl.value}`)
+  if (isAllEntries.value) {
+    allEntriesData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/entries`)
+    tagsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tags`)
+  }
+}
+async function reloadLinks() {
+  if (isLinksView.value) researchLinksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/links`)
+}
+async function reloadSessions() {
+  sessionsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions`)
+}
+async function reloadRoadmaps() {
+  roadmapsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/roadmaps`)
+}
+async function reloadTasks() {
+  tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
+}
 
-  if (['research', 'section', 'session'].includes(event.entity)) {
-    researchData.value = await authFetch<any>(`${rtBase}/api/researches/${id}`)
-  }
+async function reloadEverything() {
+  await Promise.all([
+    reloadResearch(), reloadEntries(), reloadLinks(),
+    reloadSessions(), reloadRoadmaps(), reloadTasks(),
+  ])
+}
+
+useResearchRealtime(() => id, async (event) => {
+  if (['research', 'section', 'session'].includes(event.entity)) await reloadResearch()
   if (event.entity === 'entry') {
-    if (entriesUrl.value) {
-      entriesData.value = await authFetch<any>(`${rtBase}${entriesUrl.value}`)
-    }
-    if (isAllEntries.value) {
-      allEntriesData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/entries`)
-      tagsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tags`)
-    }
-    if (isLinksView.value) {
-      researchLinksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/links`)
-    }
+    // The sidebar's totals and per-section counts come off the research
+    // payload, not off the entry list — so refetching only the list left the
+    // count beside it disagreeing, and every later write widened the gap.
+    await Promise.all([reloadEntries(), reloadLinks(), reloadResearch()])
   }
-  if (['question', 'session'].includes(event.entity)) {
-    sessionsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions`)
-  }
-  if (event.entity === 'roadmap') {
-    roadmapsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/roadmaps`)
-  }
-})
+  if (['question', 'session'].includes(event.entity)) await reloadSessions()
+  if (event.entity === 'roadmap') await reloadRoadmaps()
+  // The badge is rendered from this list and nothing else refetched it, so it
+  // sat frozen at its page-load value for the life of the page.
+  if (event.entity === 'task') await reloadTasks()
+  // The link tables were rewritten wholesale; every view built on them is stale.
+  if (event.entity === 'crossref') await reloadLinks()
+}, { researchId: () => research.value?.id, onResync: reloadEverything })
 </script>
 
 <style scoped>

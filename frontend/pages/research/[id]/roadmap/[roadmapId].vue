@@ -159,7 +159,7 @@ const {
   autoLayout,
   layoutDirection,
   setLayoutDirection,
-  shouldSuppressRefresh,
+  isInteracting,
 } = useRoadmap(researchId, roadmapId)
 
 // Vue Flow instance
@@ -292,12 +292,38 @@ onMounted(() => {
   refresh()
 })
 
-// Real-time updates (skip refresh if we just made a local change)
-useRealtimeUpdates(async (event) => {
-  if (event.entity === 'roadmap' && !shouldSuppressRefresh()) {
-    await refresh(true)
+// A change this tab made is already on screen; anything else has to land. The
+// roadmap is scoped so a change to another research cannot reach in here.
+// A repaint landing mid-drag fights the pointer, so it waits — but it waits,
+// rather than being dropped. Two seconds of dragging used to swallow an agent's
+// roadmap edit until some unrelated event happened along.
+let deferredRefresh: ReturnType<typeof setTimeout> | null = null
+function refreshWhenIdle() {
+  if (deferredRefresh) return
+  if (!isInteracting()) {
+    refresh(true)
+    return
   }
+  deferredRefresh = setTimeout(() => {
+    deferredRefresh = null
+    refreshWhenIdle()
+  }, 500)
+}
+onUnmounted(() => {
+  if (deferredRefresh) clearTimeout(deferredRefresh)
 })
+
+useResearchRealtime(
+  () => researchId,
+  (event) => {
+    if (event.entity !== 'roadmap' || isSelf(event)) return
+    refreshWhenIdle()
+  },
+  {
+    researchId: () => researchData.value?.data?.research?.id,
+    onResync: () => refresh(true),
+  },
+)
 </script>
 
 <style scoped>

@@ -81,8 +81,11 @@ export function useRoadmap(researchId: string, roadmapId: string) {
   // Debounced position saves
   const pendingPositions = new Map<string, { x: number; y: number }>()
   let positionTimer: ReturnType<typeof setTimeout> | null = null
-  // Suppress refresh while we have local mutations in flight
-  let suppressRefreshUntil = 0
+  // A drag is a gesture, not a write, and a refetch landing in the middle of one
+  // yanks the node out from under the pointer. Our *own* writes no longer need
+  // suppressing — the event names the tab that caused it — but a remote change
+  // arriving mid-drag still has to wait for the hand to come off the mouse.
+  let interactingUntil = 0
 
   async function fetchRoadmap() {
     const res = await authFetch<{ data: RoadmapData }>(`${base}/api/researches/${researchId}/roadmaps/${roadmapId}`)
@@ -255,7 +258,6 @@ export function useRoadmap(researchId: string, roadmapId: string) {
 
   async function updateNodeStatus(nodeId: string, newStatus: string) {
     try {
-      suppressRefreshUntil = Date.now() + 2000
       await authFetch(`${base}/api/roadmap-nodes/${nodeId}`, {
         method: 'PUT',
         body: { status: newStatus },
@@ -281,8 +283,7 @@ export function useRoadmap(researchId: string, roadmapId: string) {
         node.position_y = y
       }
     }
-    // Suppress WebSocket-triggered refresh for 2s after drag
-    suppressRefreshUntil = Date.now() + 2000
+    interactingUntil = Date.now() + 2000
     if (positionTimer) clearTimeout(positionTimer)
     positionTimer = setTimeout(flushPositions, 500)
   }
@@ -357,8 +358,9 @@ export function useRoadmap(researchId: string, roadmapId: string) {
     return { total, completed, percent: total > 0 ? Math.round((completed / total) * 100) : 0 }
   })
 
-  function shouldSuppressRefresh(): boolean {
-    return Date.now() < suppressRefreshUntil
+  /** True while a drag is settling, when a repaint would fight the pointer. */
+  function isInteracting(): boolean {
+    return Date.now() < interactingUntil
   }
 
   return {
@@ -374,6 +376,6 @@ export function useRoadmap(researchId: string, roadmapId: string) {
     autoLayout,
     layoutDirection: readonly(layoutDirection),
     setLayoutDirection,
-    shouldSuppressRefresh,
+    isInteracting,
   }
 }

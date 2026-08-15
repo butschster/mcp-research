@@ -4,13 +4,28 @@ import { useKeyboardNav } from '~/composables/useKeyboardNav'
 const hasRecentUpdate = ref(false)
 let activityTimer: ReturnType<typeof setTimeout>
 
-useRealtimeUpdates(() => {
+// The blip means "somebody else changed something". It used to fire on your own
+// writes too, which made it noise: the one event you already know about was the
+// one it reported loudest.
+useRealtimeUpdates((event) => {
+  if (isSelf(event)) return
   hasRecentUpdate.value = true
   clearTimeout(activityTimer)
   activityTimer = setTimeout(() => {
     hasRecentUpdate.value = false
   }, 5000)
 })
+
+const { active: revoked } = useAccessRevoked()
+
+// The state machine — grace window, escalation, the toast — lives in the
+// composable; the footer indicator is handed its verdict and renders it.
+const {
+  display: connection,
+  reason: connectionReason,
+  lastSyncedAt,
+  retryNow,
+} = useConnectionBanner()
 
 useKeyboardNav()
 
@@ -97,14 +112,22 @@ onMounted(() => {
 
       <main class="container main-content">
         <WarningBanner />
-        <NuxtPage />
+        <!-- The page's subject was taken away while it was open. Rendering it
+             would show a research the next request will refuse. -->
+        <AccessRevokedNotice v-if="revoked" :revocation="revoked" />
+        <NuxtPage v-else />
       </main>
 
       <footer class="app-footer">
         <div class="container footer-inner">
           <span class="card-meta">Research</span>
           <div class="footer-right">
-            <ConnectionStatus />
+            <ConnectionStatus
+              :state="connection"
+              :reason="connectionReason"
+              :last-synced-at="lastSyncedAt"
+              @retry="retryNow"
+            />
           </div>
         </div>
       </footer>

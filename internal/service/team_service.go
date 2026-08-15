@@ -116,7 +116,7 @@ func (s *TeamService) Create(ctx context.Context, name string) (*domain.Team, er
 		return nil, err
 	}
 	team.MemberCount = 1
-	s.notify("team.created", team.ID)
+	s.notify(ctx, "team.created", team.ID)
 	return team, nil
 }
 
@@ -143,7 +143,7 @@ func (s *TeamService) Rename(ctx context.Context, teamID, name string) (*domain.
 	}
 	team.Name = name
 	team.Role = domain.TeamOwner
-	s.notify("team.updated", teamID)
+	s.notify(ctx, "team.updated", teamID)
 	return team, nil
 }
 
@@ -171,10 +171,27 @@ func (s *TeamService) Delete(ctx context.Context, teamID string) error {
 	if n > 0 {
 		return ErrTeamNotEmpty
 	}
+	// Read before the delete. Membership rows cascade away with the team, and
+	// a team event is delivered by asking who is in the team — so announcing
+	// this afterwards announces it to nobody, which is precisely the audience
+	// that needs it.
+	members, err := s.teams.ListMembers(ctx, teamID)
+	if err != nil {
+		return err
+	}
+
 	if err := s.teams.Delete(ctx, teamID); err != nil {
 		return err
 	}
-	s.notify("team.deleted", teamID)
+	s.notify(ctx, "team.deleted", teamID)
+	for _, m := range members {
+		s.revoked(ctx, Event{
+			Entity:   "team",
+			EntityID: teamID,
+			Name:     team.Name,
+			Reason:   "team_deleted",
+		}, m.UserID)
+	}
 	return nil
 }
 
@@ -224,7 +241,19 @@ func (s *TeamService) UpdateRole(ctx context.Context, teamID, userID string, rol
 		}
 		return err
 	}
-	s.notify("team.member_role_changed", teamID)
+	s.notify(ctx, "team.member_role_changed", teamID)
+	// The team event says the team changed; it does not say whose rights did.
+	// An owner demoted to viewer keeps Edit and Delete on screen until they
+	// press one and collect a 403, so the person affected is told directly and
+	// re-reads their role. The new role is deliberately not in the event: the
+	// client asks the API rather than trusting a value pushed at it.
+	emit(ctx, s.events, Event{
+		Type:         "access.changed",
+		Entity:       "team",
+		EntityID:     teamID,
+		Reason:       "role_changed",
+		TargetUserID: userID,
+	})
 	return nil
 }
 
@@ -276,7 +305,22 @@ func (s *TeamService) RemoveMember(ctx context.Context, teamID, userID string) e
 		}
 		return err
 	}
-	s.notify("team.member_removed", teamID)
+	s.notify(ctx, "team.member_removed", teamID)
+	if leaving {
+		// They chose this and have already been told so by the button they
+		// pressed. An eviction notice on top of their own confirmation reads as
+		// two contradictory accounts of one action.
+		return nil
+	}
+	// The team event above reaches the members who remain. It cannot reach the
+	// one person who most needs it, because they are no longer a member — so
+	// they get told directly.
+	s.revoked(ctx, Event{
+		Entity:   "team",
+		EntityID: teamID,
+		Name:     team.Name,
+		Reason:   "removed_from_team",
+	}, userID)
 	return nil
 }
 
@@ -366,7 +410,7 @@ func (s *TeamService) CreateInvite(ctx context.Context, teamID, email string, ro
 	if err := s.invites.Create(ctx, invite, auth.HashAPIKey(token)); err != nil {
 		return nil, err
 	}
-	s.notify("team.invited", teamID)
+	s.notify(ctx, "team.invited", teamID)
 	return &InviteResult{Invite: invite, Token: token}, nil
 }
 
@@ -387,7 +431,7 @@ func (s *TeamService) RevokeInvite(ctx context.Context, inviteID string) error {
 		}
 		return err
 	}
-	s.notify("team.invite_revoked", invite.TeamID)
+	s.notify(ctx, "team.invite_revoked", invite.TeamID)
 	return nil
 }
 
@@ -520,7 +564,7 @@ func (s *TeamService) AcceptInvite(ctx context.Context, token string) (*AcceptRe
 		return nil, err
 	}
 
-	s.notify("team.member_added", invite.TeamID)
+	s.notify(ctx, "team.member_added", invite.TeamID)
 	return &AcceptResult{TeamID: invite.TeamID, TeamName: invite.TeamName, Role: invite.Role}, nil
 }
 
@@ -569,11 +613,70 @@ func (s *TeamService) TransferResearch(ctx context.Context, researchID, targetTe
 	if target == nil {
 		return ErrNotFound
 	}
+	// Who is about to lose it, read before the move: afterwards the old team's
+	// claim on this research is gone and there is nothing left to ask.
+	losing := s.membersLosingAccess(ctx, research.TeamID, targetTeamID)
+
 	if err := s.researches.SetTeam(ctx, researchID, targetTeamID); err != nil {
 		return err
 	}
-	s.events.Notify(Event{Type: "research.transferred", ResearchID: researchID, EntityID: researchID, Entity: "research"})
+	emit(ctx, s.events, Event{Type: "research.transferred", ResearchID: researchID, EntityID: researchID, Entity: "research"})
+	for _, userID := range losing {
+		s.revoked(ctx, Event{
+			Entity:     "research",
+			EntityID:   researchID,
+			ResearchID: researchID,
+			Name:       research.Name,
+			Reason:     "research_transferred",
+		}, userID)
+	}
 	return nil
+}
+
+// membersLosingAccess is everyone in `from` who is not also in `to`. Someone in
+// both teams keeps the research and must not be told they lost it.
+func (s *TeamService) membersLosingAccess(ctx context.Context, from, to string) []string {
+	if from == "" || from == to {
+		return nil
+	}
+	oldMembers, err := s.teams.ListMembers(ctx, from)
+	if err != nil {
+		s.log.Warn("transfer: cannot list the old team's members", "team_id", from, "error", err)
+		return nil
+	}
+	newMembers, err := s.teams.ListMembers(ctx, to)
+	if err != nil {
+		s.log.Warn("transfer: cannot list the new team's members", "team_id", to, "error", err)
+		return nil
+	}
+	keeps := make(map[string]struct{}, len(newMembers))
+	for _, m := range newMembers {
+		keeps[m.UserID] = struct{}{}
+	}
+
+	var losing []string
+	for _, m := range oldMembers {
+		if _, ok := keeps[m.UserID]; !ok {
+			losing = append(losing, m.UserID)
+		}
+	}
+	return losing
+}
+
+// revoked tells one person, and only that person, that something they were
+// reading is no longer theirs to read.
+//
+// It has to be addressed by user id because by the time it is sent the ordinary
+// rule already refuses to deliver it — which is exactly why their open tab
+// would otherwise go on showing a research that no longer loads.
+// The name and the reason travel with it because the recipient cannot look
+// either one up any more: the moment this is sent, fetching the thing they lost
+// answers 404, and a notice that cannot say what was lost or why is barely
+// better than the silence it replaces.
+func (s *TeamService) revoked(ctx context.Context, ev Event, userID string) {
+	ev.Type = "access.revoked"
+	ev.TargetUserID = userID
+	emit(ctx, s.events, ev)
 }
 
 // requireRole is the team-level counterpart of Access: a non-member is told
@@ -603,6 +706,6 @@ func (s *TeamService) requireRole(ctx context.Context, teamID string, needed dom
 	return role, nil
 }
 
-func (s *TeamService) notify(eventType, teamID string) {
-	s.events.Notify(Event{Type: eventType, EntityID: teamID, Entity: "team"})
+func (s *TeamService) notify(ctx context.Context, eventType, teamID string) {
+	emit(ctx, s.events, Event{Type: eventType, EntityID: teamID, Entity: "team"})
 }

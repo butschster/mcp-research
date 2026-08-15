@@ -99,6 +99,11 @@ export function useAuth() {
     if (token.value) {
       headers['Authorization'] = `Bearer ${token.value}`
     }
+    // Which tab is writing. The event that comes back carries it, which is how
+    // this tab knows not to refetch a change already on its screen.
+    if (!import.meta.server) {
+      headers['X-Client-Id'] = realtimeClientId()
+    }
     return $fetch<T>(url, { ...opts, headers })
   }
 

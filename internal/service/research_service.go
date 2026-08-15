@@ -96,7 +96,7 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 	}
 
 	s.decorate(ctx, research)
-	s.events.Notify(Event{Type: "research.created", ResearchID: research.ID, EntityID: research.ID, Entity: "research"})
+	emit(ctx, s.events, Event{Type: "research.created", ResearchID: research.ID, EntityID: research.ID, Entity: "research"})
 	return research, sections, nil
 }
 
@@ -273,7 +273,7 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 		return nil, fmt.Errorf("update research: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "research.updated", ResearchID: research.ID, EntityID: research.ID, Entity: "research"})
+	emit(ctx, s.events, Event{Type: "research.updated", ResearchID: research.ID, EntityID: research.ID, Entity: "research"})
 	return research, nil
 }
 
@@ -305,6 +305,6 @@ func (s *ResearchService) AddSection(ctx context.Context, researchID string, req
 		return nil, fmt.Errorf("create section: %w", err)
 	}
 
-	s.events.Notify(Event{Type: "section.created", ResearchID: researchID, EntityID: section.ID, Entity: "section"})
+	emit(ctx, s.events, Event{Type: "section.created", ResearchID: researchID, EntityID: section.ID, Entity: "section"})
 	return section, nil
 }

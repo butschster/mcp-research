@@ -153,12 +153,18 @@ const filtered = computed(() =>
 )
 
 // Real-time updates
-useRealtimeUpdates(async (event) => {
-  if (event.entity === 'research') {
-    const res = await authFetch<{ data: any[] }>(`${base}${apiUrl.value}`)
-    data.value = res
-  }
-})
+async function reloadResearches() {
+  data.value = await authFetch<{ data: any[] }>(`${base}${apiUrl.value}`)
+}
+
+useRealtimeUpdates(
+  (event) => {
+    // A transfer can take a research out of this list as easily as a create
+    // puts one in, and access.revoked says a card here is no longer real.
+    if (event.entity === 'research' || event.type === 'access.revoked') reloadResearches()
+  },
+  { onResync: reloadResearches },
+)
 </script>
 
 <style scoped>
