@@ -234,6 +234,10 @@ function truncateAnswer(text: string, max: number): string {
 .question-card:hover {
   border-color: var(--color-border-strong);
 }
+/* A card that does not navigate must not offer a hover affordance saying it
+   might. There is no question page inside a shared view. */
+.question-inert { cursor: default; }
+.question-inert:hover { border-color: var(--color-border); }
 .question-answered {
   border-left: 2px solid var(--color-success);
 }
