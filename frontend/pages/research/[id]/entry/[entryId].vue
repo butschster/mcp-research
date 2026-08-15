@@ -16,12 +16,8 @@
 
       <!-- View mode header -->
       <template v-if="!editing">
-        <div class="entry-header">
-          <div class="title-with-code">
-            <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-            <h1 class="page-title">{{ entry.title }}</h1>
-          </div>
-          <div class="entry-actions no-print">
+        <PageHeader :code="entry.code" :title="entry.title">
+          <template #actions>
             <TeamViewerNotice v-if="isViewer" :team-name="research?.team_name" />
 
             <!-- Status: a picker for a writer, the badge alone for a reader -->
@@ -62,8 +58,8 @@
             <button v-if="canWrite" class="btn btn-sm btn-delete" aria-label="Delete entry" title="Delete entry" @click="showDeleteConfirm = true">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
-          </div>
-        </div>
+          </template>
+        </PageHeader>
         <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
         <div v-if="entry.tags?.length" class="entry-tags">
           <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
@@ -938,8 +934,6 @@ const nextEntry = computed(() =>
 
 /* Responsive */
 @media (max-width: 768px) {
-  .entry-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
-  .entry-actions { flex-wrap: wrap; }
   .title-with-code { flex-wrap: wrap; gap: var(--space-2); }
   .entry-content { padding: var(--space-4); }
 }

@@ -396,9 +396,6 @@ button.tag {
   line-height: 1.2;
 }
 
-/* Entry page header, shared by the owner's entry page and the shared view's */
-.entry-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); }
-.entry-actions { display: flex; gap: var(--space-2); align-items: center; flex-shrink: 0; }
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 .entry-content { padding: var(--space-8); border-radius: var(--radius-lg); }
 

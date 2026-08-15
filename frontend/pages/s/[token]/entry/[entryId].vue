@@ -28,15 +28,11 @@
         { label: entry.title },
       ]" />
 
-      <div class="entry-header">
-        <div class="title-with-code">
-          <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-          <h1 class="page-title">{{ entry.title }}</h1>
-        </div>
-        <div class="entry-actions no-print">
+      <PageHeader :code="entry.code" :title="entry.title">
+        <template #actions>
           <StatusBadge :status="entry.status" />
-        </div>
-      </div>
+        </template>
+      </PageHeader>
 
       <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, slug)"></p>
       <div v-if="entry.tags?.length" class="entry-tags">
