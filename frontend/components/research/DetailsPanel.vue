@@ -8,66 +8,39 @@
       <section class="section">
         <h4 class="section-title">Overview</h4>
         <div class="field-group">
-          <div class="field" @dblclick="startEdit('goal')">
-            <div class="field-header">
-              <label class="field-label">Goal</label>
-              <button v-if="canWrite && editingField !== 'goal'" class="field-edit-btn" @click="startEdit('goal')" title="Edit">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-            </div>
-            <div v-if="editingField !== 'goal'" class="field-value" :class="{ 'field-empty': !research.goal }">
-              {{ research.goal || 'Click the pencil to set a goal' }}
-            </div>
-            <div v-else class="field-edit">
-              <input v-model="editValue" class="field-input" placeholder="What is this research trying to achieve?" @keydown.enter="saveEdit('goal')" @keydown.escape="cancelEdit" ref="editInput" />
-              <div class="field-edit-actions">
-                <button class="btn btn-sm btn-primary" @click="saveEdit('goal')">Save</button>
-                <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-              </div>
-            </div>
-          </div>
+          <EditableField
+            label="Goal"
+            :value="research.goal"
+            :editable="canWrite"
+            :multiline="false"
+            placeholder="What is this research trying to achieve?"
+            empty-text="Click the pencil to set a goal"
+            @save="v => emit('save', 'goal', v)"
+          />
 
-          <div class="field" @dblclick="startEdit('description')">
-            <div class="field-header">
-              <label class="field-label">Description</label>
-              <button v-if="canWrite && editingField !== 'description'" class="field-edit-btn" @click="startEdit('description')" title="Edit">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-            </div>
-            <div v-if="editingField !== 'description'" class="field-value" :class="{ 'field-empty': !research.description }">
-              {{ research.description || 'Click the pencil to add a description' }}
-            </div>
-            <div v-else class="field-edit">
-              <textarea v-model="editValue" class="field-textarea" rows="3" placeholder="Describe what this research covers..." @keydown.escape="cancelEdit" ref="editInput"></textarea>
-              <div class="field-edit-actions">
-                <button class="btn btn-sm btn-primary" @click="saveEdit('description')">Save</button>
-                <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-              </div>
-            </div>
-          </div>
+          <EditableField
+            label="Description"
+            :value="research.description"
+            :editable="canWrite"
+            :multiline="true"
+            placeholder="Describe what this research covers..."
+            empty-text="Click the pencil to add a description"
+            @save="v => emit('save', 'description', v)"
+          />
 
-          <div class="field" @dblclick="startEdit('tags')">
-            <div class="field-header">
-              <label class="field-label">Tags</label>
-              <button v-if="canWrite && editingField !== 'tags'" class="field-edit-btn" @click="startEdit('tags')" title="Edit">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-            </div>
-            <div v-if="editingField !== 'tags'">
-              <div v-if="research.tags?.length" class="tags-row">
-                <span v-for="tag in research.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
-              </div>
-              <div v-else class="field-value field-empty">No tags yet</div>
-            </div>
-            <div v-else class="field-edit">
-              <input v-model="editValue" class="field-input" placeholder="tag1, tag2, tag3" @keydown.enter="saveEdit('tags')" @keydown.escape="cancelEdit" ref="editInput" />
-              <span class="field-hint">Comma-separated</span>
-              <div class="field-edit-actions">
-                <button class="btn btn-sm btn-primary" @click="saveEdit('tags')">Save</button>
-                <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-              </div>
-            </div>
-          </div>
+          <EditableField
+            label="Tags"
+            :value="(research.tags ?? []).join(', ')"
+            :editable="canWrite"
+            placeholder="tag1, tag2, tag3"
+            empty-text="No tags yet"
+            @save="v => emit('save', 'tags', v.split(',').map(t => t.trim()).filter(Boolean))"
+          >
+            <template #default>
+              <TagList v-if="research.tags?.length" :tags="research.tags" />
+              <span v-else class="field-empty">No tags yet</span>
+            </template>
+          </EditableField>
         </div>
       </section>
 
@@ -78,24 +51,16 @@
           AI Instruction
         </h4>
         <div class="field-group">
-          <div class="field" @dblclick="startEdit('instruction')">
-            <div class="field-header">
-              <label class="field-label">System prompt for the AI assistant</label>
-              <button v-if="canWrite && editingField !== 'instruction'" class="field-edit-btn" @click="startEdit('instruction')" title="Edit">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-            </div>
-            <div v-if="editingField !== 'instruction'" class="field-value field-value-pre" :class="{ 'field-empty': !research.instruction }">
-              {{ research.instruction || 'No instruction set. The AI will use default behavior.' }}
-            </div>
-            <div v-else class="field-edit">
-              <textarea v-model="editValue" class="field-textarea field-textarea-tall" rows="6" placeholder="e.g. Be concise and technical. Focus on practical examples..." @keydown.escape="cancelEdit" ref="editInput"></textarea>
-              <div class="field-edit-actions">
-                <button class="btn btn-sm btn-primary" @click="saveEdit('instruction')">Save</button>
-                <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
-              </div>
-            </div>
-          </div>
+          <EditableField
+            label="AI Instruction"
+            :value="research.instruction"
+            :editable="canWrite"
+            :multiline="true"
+            :rows="6"
+            placeholder="How should the agent work on this research?"
+            empty-text="No instruction set"
+            @save="v => emit('save', 'instruction', v)"
+          />
         </div>
       </section>
 
@@ -139,36 +104,6 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
 }>()
 
-const editingField = ref<string | null>(null)
-const editValue = ref('')
-const editInput = ref<HTMLElement | null>(null)
-
-function startEdit(field: string) {
-  if (field === 'tags') {
-    editValue.value = (props.research?.tags ?? []).join(', ')
-  } else {
-    editValue.value = props.research?.[field] ?? ''
-  }
-  editingField.value = field
-  nextTick(() => editInput.value?.focus?.())
-}
-
-function cancelEdit() {
-  editingField.value = null
-  editValue.value = ''
-}
-
-function saveEdit(field: string) {
-  let value: any
-  if (field === 'tags') {
-    value = editValue.value.split(',').map((t: string) => t.trim()).filter(Boolean)
-  } else {
-    value = editValue.value
-  }
-  emit('save', field, value)
-  editingField.value = null
-  editValue.value = ''
-}
 </script>
 
 <style scoped>
@@ -226,25 +161,7 @@ function saveEdit(field: string) {
   align-items: center;
   margin-bottom: var(--space-1);
 }
-.field-edit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
-}
 .field:hover .field-edit-btn { opacity: 1; }
-.field-edit-btn:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-primary);
-}
 
 /* Field values */
 .field-value {
@@ -260,26 +177,9 @@ function saveEdit(field: string) {
 }
 
 /* Field editing */
-.field-edit { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-input, .field-textarea {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--type-sm);
-  font-family: inherit;
-  line-height: 1.5;
-}
-.field-textarea { resize: vertical; min-height: 60px; }
-.field-textarea-tall { min-height: 120px; }
-.field-input:focus, .field-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
-.field-edit-actions { display: flex; gap: var(--space-2); }
 .field-hint { font-size: var(--type-xs); color: var(--color-text-muted); }
 
 /* Tags */
-.tags-row { display: flex; gap: var(--space-2); flex-wrap: wrap; padding-top: var(--space-1); }
 
 /* Memory */
 .memory-list {
