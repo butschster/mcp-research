@@ -763,6 +763,12 @@ button.tag {
   gap: var(--space-4);
   flex-wrap: wrap;
 }
+/* The title takes the room that is left and wraps inside it; the actions keep
+   their place at the end of the row. Without this the title claims the whole
+   first line — research names are sentences — and the controls drop underneath
+   it, left-aligned, which is not where anyone left them. */
+.page-bar > .title-with-code { flex: 1 1 20rem; min-width: 0; }
+.page-bar > .page-header-actions { flex: 0 0 auto; }
 @media (max-width: 768px) {
   .page-bar { flex-direction: column; align-items: stretch; }
 }

@@ -50,7 +50,31 @@ defineEmits<{ close: [] }>()
 </script>
 
 <style scoped>
-/* `.modal-header`, `.modal-title` and `.modal-close` stay global: the dialog
-   vocabulary is shared, and the file that owns it records why — nine
-   `.modal-title`s in two disagreeing designs was the state before it. */
+/* `.modal-title` is global — it is the shared dialog vocabulary. The bar and
+   its close button were not: five components each carried the only copy, and
+   removing them along with the markup left every dialog with an unstyled
+   header and a bare white close button. They live here now, once. */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.modal-close:hover { background: var(--color-surface-hover); color: var(--color-text); }
 </style>

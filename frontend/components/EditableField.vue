@@ -120,10 +120,40 @@ watch(() => props.value, () => { if (editing.value) cancel() })
 </script>
 
 <style scoped>
-/* `.field`, `.field-header`, `.field-label`, `.field-value`, `.field-empty`,
-   `.field-input` and `.field-textarea` stay global: they are the form and
-   dialog vocabulary, and the file that owns it records what happened the last
-   time each dialog kept its own copy. */
+/* None of this was global, which I learned by deleting it: an unstyled
+   textarea falls back to the browser's white box, in a dark theme, on the
+   panel that holds a research's instruction. */
+.field { padding: var(--space-3) var(--space-4); }
+.field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.field-label {
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+.field-value { font-size: var(--type-sm); color: var(--color-text); line-height: 1.6; }
+.field-empty { color: var(--color-text-faint); font-style: italic; }
+.field-input,
+.field-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--type-sm);
+  font-family: inherit;
+  line-height: 1.5;
+}
+.field-textarea { resize: vertical; min-height: 60px; }
+.field-input:focus,
+.field-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
 .field-edit { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-edit-actions { display: flex; gap: var(--space-2); }
 .field-edit-btn {
