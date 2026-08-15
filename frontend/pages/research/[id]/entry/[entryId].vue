@@ -59,7 +59,7 @@
               <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               {{ copied ? 'Copied' : 'Copy' }}
             </button>
-            <button v-if="canWrite" class="btn btn-sm btn-delete" @click="showDeleteConfirm = true">
+            <button v-if="canWrite" class="btn btn-sm btn-delete" aria-label="Delete entry" title="Delete entry" @click="showDeleteConfirm = true">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
@@ -552,7 +552,16 @@ async function saveEntry() {
     await refresh()
   } catch (e: any) {
     console.error('Failed to save entry:', e)
-    alert(e?.data?.error || e?.message || 'Failed to save')
+    // A native dialog over an editor full of unsaved work is the worst place
+    // in the product for one, and it blocks the render loop while it is up.
+    // The draft is still in `editForm`, so say so.
+    useToasts().push({
+      variant: 'error',
+      title: 'Could not save',
+      message: (e?.data?.error || e?.message || 'The server refused the change.')
+        + ' Your text is still here — try again, or copy it somewhere safe.',
+      timeout: 0,
+    })
   } finally {
     saving.value = false
   }
@@ -650,7 +659,7 @@ async function deleteEntry() {
     router.push(`/research/${researchSlug.value}?section=${entry.value.section_id}`)
   } catch (e: any) {
     console.error('Failed to delete entry:', e)
-    alert(e?.data?.error || e?.message || 'Failed to delete')
+    useToasts().push({ variant: 'error', title: 'Could not delete', message: e?.data?.error || e?.message || 'The server refused it.', timeout: 0 })
   } finally {
     deleting.value = false
   }

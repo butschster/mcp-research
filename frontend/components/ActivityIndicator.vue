@@ -1,5 +1,5 @@
 <template>
-  <div v-if="active" class="activity-indicator">
+  <div v-if="active" class="activity-indicator" role="status" aria-live="polite">
     <span class="activity-dot"></span>
     <span class="activity-label">{{ label }}</span>
   </div>

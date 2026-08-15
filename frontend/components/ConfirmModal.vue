@@ -10,7 +10,7 @@
       <div class="confirm-actions">
         <button class="btn btn-sm" @click="$emit('cancel')">Cancel</button>
         <button
-          :class="['btn btn-sm', variant === 'danger' ? 'btn-danger' : 'btn-primary']"
+          :class="['btn btn-sm', variant === 'danger' ? 'btn-danger btn-danger--solid' : 'btn-primary']"
           :disabled="loading"
           @click="$emit('confirm')"
         >
@@ -57,7 +57,7 @@ const titleId = `confirm-title-${useId()}`
   color: #ef4444;
 }
 .confirm-icon.info {
-  background: rgba(240, 184, 73, 0.12);
+  background: var(--color-primary-muted);
   color: var(--color-primary);
 }
 .confirm-title {
@@ -76,10 +76,4 @@ const titleId = `confirm-title-${useId()}`
   gap: var(--space-3);
   justify-content: center;
 }
-.btn-danger {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
-}
-.btn-danger:hover { background: #dc2626; border-color: #dc2626; }
 </style>

@@ -214,7 +214,16 @@ async function submitQuestion() {
     newQuestion.value = { text: '', area: '', priority: 'medium' }
     showAddQuestion.value = false
     data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
-  } catch { /* ignore */ }
+  } catch (e: any) {
+    // A refused write that says nothing leaves the form sitting there with the
+    // text still in it, indistinguishable from one that worked.
+    useToasts().push({
+      variant: 'error',
+      title: 'Could not add the question',
+      message: e?.data?.error || e?.message || 'The server refused it. Your text is still here.',
+      timeout: 0,
+    })
+  }
   addingQuestion.value = false
 }
 

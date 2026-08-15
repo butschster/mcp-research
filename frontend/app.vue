@@ -90,6 +90,7 @@ onMounted(() => {
     <!-- Normal pages: full chrome -->
     <template v-else>
       <div class="app-shell">
+        <a href="#main" class="skip-link">Skip to content</a>
         <nav class="app-nav">
           <div class="container nav-inner">
             <NuxtLink to="/" class="logo">Research</NuxtLink>
@@ -125,7 +126,7 @@ onMounted(() => {
           </div>
         </nav>
 
-        <main class="container main-content">
+        <main id="main" class="container main-content" tabindex="-1">
           <WarningBanner />
           <!-- The page's subject was taken away while it was open. Rendering it
                would show a research the next request will refuse. -->

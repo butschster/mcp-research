@@ -1,11 +1,18 @@
 <template>
   <div v-if="tags?.length" class="tag-list">
-    <span
+    <!-- A clickable tag is the primary filter on two surfaces, and it was a
+         `<span @click>`: no tab stop, no role, nothing announced, and no way to
+         reach it at all without a mouse. When it does nothing it stays a span,
+         because an inert button is its own kind of lie. -->
+    <component
+      :is="clickable ? 'button' : 'span'"
       v-for="tag in tags"
       :key="tag"
+      :type="clickable ? 'button' : undefined"
+      :aria-pressed="clickable ? String(activeTag === tag) : undefined"
       :class="['tag', `tag-hue-${tagHue(tag)}`, { 'tag-clickable': clickable, 'tag-active': activeTag === tag }]"
       @click="clickable ? $emit('tagClick', tag) : undefined"
-    >{{ tag }}<span v-if="clickable && counts?.[tag] && counts[tag] > 1" class="tag-count">{{ counts[tag] }}</span></span>
+    >{{ tag }}<span v-if="clickable && counts?.[tag] && counts[tag] > 1" class="tag-count">{{ counts[tag] }}</span></component>
   </div>
 </template>
 

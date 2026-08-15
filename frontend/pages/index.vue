@@ -120,7 +120,7 @@ async function handleImportFile(event: Event) {
     )
     await navigateTo(`/research/${result.code}`)
   } catch (e: any) {
-    alert('Import failed: ' + (e.message || e))
+    useToasts().push({ variant: 'error', title: 'Import failed', message: e?.message || String(e), timeout: 0 })
   } finally {
     importing.value = false
     input.value = '' // reset file input

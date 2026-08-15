@@ -446,7 +446,7 @@ async function downloadPortableJSON() {
     a.click()
     URL.revokeObjectURL(url)
   } catch (e: any) {
-    alert('Export failed: ' + (e.message || e))
+    useToasts().push({ variant: 'error', title: 'Export failed', message: e?.message || String(e), timeout: 0 })
   } finally {
     exporting.value = false
   }

@@ -92,6 +92,7 @@ function trapFocus(event: KeyboardEvent) {
 watch(
   () => props.visible,
   async (open) => {
+    lockScroll(open)
     if (open) {
       restoreTo = document.activeElement as HTMLElement | null
       await nextTick()
@@ -107,6 +108,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  lockScroll(false)
   restoreTo?.focus?.()
 })
 </script>
@@ -123,6 +125,11 @@ onBeforeUnmount(() => {
   z-index: var(--z-overlay);
 }
 .modal-card {
+  /* Only the lg and xl sizes carried these, and the overlay centres its child —
+     so a `sm` confirm with a long message, or a form on a 375x667 screen with
+     the keyboard up, was cut off at the *top*, where nothing can scroll to it. */
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
@@ -160,7 +167,12 @@ onBeforeUnmount(() => {
 /* Responsive */
 @media (max-width: 768px) {
   .modal-overlay { padding: var(--space-4); }
-  .modal-card { max-width: 100%; padding: var(--space-4); }
+  .modal-card {
+  /* Only the lg and xl sizes carried these, and the overlay centres its child —
+     so a `sm` confirm with a long message, or a form on a 375x667 screen with
+     the keyboard up, was cut off at the *top*, where nothing can scroll to it. */
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto; max-width: 100%; padding: var(--space-4); }
   .modal-lg { max-height: calc(100dvh - var(--space-8)); }
   .modal-xl {
     max-width: 100%;
