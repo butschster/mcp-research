@@ -8,20 +8,16 @@
 
   <div v-else-if="research" class="roadmaps-page">
     <!-- Header -->
-    <div class="page-header">
-      <Breadcrumbs :crumbs="[
+    <PageHeader
+      :crumbs="[
         { label: 'Research', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
-        { label: 'Roadmaps' }
-      ]" />
-      <div class="roadmaps-header">
-        <div class="title-with-code">
-          <span v-if="research.code" class="short-code">{{ research.code }}</span>
-          <h1 class="page-title">Roadmaps</h1>
-          <span v-if="roadmaps.length" class="task-counter">{{ roadmaps.length }}</span>
-        </div>
-      </div>
-    </div>
+        { label: 'Roadmaps' },
+      ]"
+      :code="research.code"
+      title="Roadmaps"
+      :count="roadmaps.length || undefined"
+    />
 
     <!-- Roadmaps Grid -->
     <div v-if="roadmaps.length" class="roadmaps-grid">
@@ -82,12 +78,6 @@ useResearchRealtime(
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
-}
-.roadmaps-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
 }
 .roadmaps-grid {
   display: grid;

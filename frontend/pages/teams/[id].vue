@@ -19,20 +19,15 @@
     </EmptyState>
 
     <template v-else>
-      <div class="page-header">
-        <div class="page-header-row">
-          <h1 class="page-title">{{ team.name }}</h1>
-          <div class="page-header-actions">
-            <button v-if="canInvite" class="btn btn-sm btn-primary" @click="openInvite()">+ Invite</button>
+      <PageHeader :title="team.name">
+        <template #actions>
+          <button v-if="canInvite" class="btn btn-sm btn-primary" @click="openInvite()">+ Invite</button>
             <ActionMenu v-if="canInvite">
               <button class="action-menu-item" @click="renaming = true">Rename team</button>
             </ActionMenu>
-          </div>
-        </div>
-        <p class="page-lead">
-          {{ members.length }} {{ members.length === 1 ? 'member' : 'members' }} · You are {{ article(team.role) }} {{ team.role }}
-        </p>
-      </div>
+        </template>
+        <template #lead>{{ members.length }} {{ members.length === 1 ? 'member' : 'members' }} · You are {{ article(team.role) }} {{ team.role }}</template>
+      </PageHeader>
 
       <h2 ref="membersHeading" tabindex="-1" class="section-heading">Members</h2>
       <TeamMemberList
@@ -464,7 +459,6 @@ watch(renaming, (open) => {
 </script>
 
 <style scoped>
-.page-lead { font-size: var(--type-sm); color: var(--color-text-muted); margin-top: var(--space-2); }
 .section-heading { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin: var(--space-8) 0 var(--space-3); }
 .team-work { margin-top: var(--space-6); font-size: var(--type-sm); }
 .text-link { color: var(--color-primary); }

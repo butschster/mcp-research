@@ -2,13 +2,9 @@
   <div>
     <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: 'Teams' }]" />
 
-    <div class="page-header">
-      <div class="page-header-row">
-        <h1 class="page-title">Teams</h1>
-        <button v-if="showNewButton" class="btn btn-sm btn-primary" @click="creating = true">+ New team</button>
-      </div>
-      <p class="page-lead">Teams own researches. Everyone in a team sees its researches.</p>
-    </div>
+    <PageHeader title="Teams" lead="Teams own researches. Everyone in a team sees its researches.">
+      <template #actions><button v-if="showNewButton" class="btn btn-sm btn-primary" @click="creating = true">+ New team</button></template>
+    </PageHeader>
 
     <div v-if="!loaded && !failed" class="skeleton-list">
       <div v-for="i in 3" :key="i" class="skeleton-card team-skeleton"></div>
@@ -107,6 +103,5 @@ async function submit() {
 </script>
 
 <style scoped>
-.page-lead { font-size: var(--type-sm); color: var(--color-text-muted); max-width: 65ch; margin-top: var(--space-2); }
 .team-skeleton { height: 56px; }
 </style>

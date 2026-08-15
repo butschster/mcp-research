@@ -8,27 +8,24 @@
 
   <div v-else-if="research" class="tasks-page">
     <!-- Header -->
-    <div class="page-header">
-      <Breadcrumbs :crumbs="[
+    <PageHeader
+      :crumbs="[
         { label: 'Research', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
-        { label: 'Tasks' }
-      ]" />
-      <div class="tasks-header">
-        <div class="title-with-code">
-          <span v-if="research.code" class="short-code">{{ research.code }}</span>
-          <h1 class="page-title">Tasks</h1>
-          <span class="task-counter">{{ tasks.length }}</span>
-        </div>
-        <div class="tasks-actions">
-          <TeamViewerNotice v-if="isViewer" :team-name="research?.team_name" />
-          <button v-if="canWrite" class="btn btn-sm btn-primary" @click="showCreateModal = true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New task
-          </button>
-        </div>
-      </div>
-    </div>
+        { label: 'Tasks' },
+      ]"
+      :code="research.code"
+      title="Tasks"
+      :count="tasks.length"
+    >
+      <template #actions>
+        <TeamViewerNotice v-if="isViewer" :team-name="research?.team_name" />
+            <button v-if="canWrite" class="btn btn-sm btn-primary" @click="showCreateModal = true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New task
+            </button>
+      </template>
+    </PageHeader>
 
     <!-- Kanban Board -->
     <TasksKanbanBoard
@@ -244,8 +241,6 @@ useResearchRealtime(
 }
 
 /* Header */
-.tasks-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
-.tasks-actions { display: flex; align-items: center; gap: var(--space-3); }
 
 /* Skeleton */
 .kanban-skeleton {
@@ -257,7 +252,6 @@ useResearchRealtime(
 
 /* Responsive */
 @media (max-width: 768px) {
-  .tasks-header { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
   .kanban-skeleton { grid-template-columns: 1fr; }
 }
 </style>

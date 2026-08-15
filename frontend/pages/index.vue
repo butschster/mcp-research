@@ -1,17 +1,14 @@
 <template>
   <div>
-    <div class="page-header">
-      <div class="page-header-row">
-        <h1 class="page-title">Research Projects</h1>
-        <div class="page-header-actions">
-          <button class="btn btn-sm" @click="triggerImport" :disabled="importing">
+    <PageHeader title="Research Projects">
+      <template #actions>
+        <button class="btn btn-sm" @click="triggerImport" :disabled="importing">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><polyline points="9 15 12 12 15 15"/></svg>
             {{ importing ? 'Importing...' : 'Import JSON' }}
           </button>
           <input ref="fileInput" type="file" accept=".json" style="display:none" @change="handleImportFile" />
-        </div>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <div class="filter-bar">
@@ -178,18 +175,6 @@ useRealtimeUpdates(
 }
   @media (max-width: 768px) {
   .filter-bar { flex-wrap: wrap; }
-}
-
-.page-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-}
-.page-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 }
 .skeleton-list {
   /* This page's skeletons stand in for cards in a grid, not for rows. */
