@@ -761,19 +761,12 @@ button.tag {
   min-width: 0;
 }
 
-/* --- Page bar -------------------------------------------------------------
-   Seven names existed for this one layout — a title beside its controls:
-   `.page-header-row` (declared twice), `.research-header`, `.entry-header`,
-   `.session-header`, `.tasks-header`, `.roadmaps-header`, `.export-toolbar`.
-   Two of them had already been dragged into the global file twice, the second
-   time because a page-scoped copy broke the shared views. */
-.page-bar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
+/* `.page-bar` — the title-beside-its-controls layout that exists under seven
+   names — is deliberately absent. It was written, shipped with no adopter, and
+   removed again: adopting it means a find-and-replace across fourteen pages,
+   four of which are owner/share twins that must stay identical, and that is a
+   diff nobody can review. It arrives as the internals of `PageHeader.vue`,
+   where the pages lose a header block instead of gaining a renamed class. */
 
 /* --- Rule list ------------------------------------------------------------
    The row chrome shared by the member list, the invite list, the share list

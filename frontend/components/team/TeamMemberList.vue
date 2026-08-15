@@ -1,10 +1,10 @@
 <template>
-  <div class="member-rows">
+  <div class="data-rows member-rows">
     <div
       v-for="member in members"
       :key="member.user_id"
-      class="member-row"
-      :class="{ busy: busyUserId === member.user_id }"
+      class="data-row member-row"
+      :class="{ 'data-row--busy': busyUserId === member.user_id }"
     >
       <span class="user-avatar" aria-hidden="true">{{ initial(member) }}</span>
 
@@ -85,19 +85,13 @@ function joined(iso: string) {
 </script>
 
 <style scoped>
-.member-rows { display: flex; flex-direction: column; border-top: 1px solid var(--color-border); }
 /* Bigger than the nav's, which is a 22px afterthought beside a name. */
 .member-row .user-avatar { --avatar-size: 28px; }
 .member-row {
-  display: grid;
   grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1.4fr) auto auto;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-1);
-  border-bottom: 1px solid var(--color-border);
   transition: opacity var(--transition-fast);
 }
-.member-row.busy { opacity: 0.6; }
 .member-identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .member-name { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 .member-note { font-size: var(--type-xs); color: var(--color-text-muted); }

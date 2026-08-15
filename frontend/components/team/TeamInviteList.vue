@@ -1,10 +1,10 @@
 <template>
-  <div class="invite-rows">
+  <div class="data-rows invite-rows">
     <div
       v-for="invite in invites"
       :key="invite.id"
-      class="invite-row"
-      :class="{ expired: isExpired(invite), busy: busyId === invite.id }"
+      class="data-row invite-row"
+      :class="{ 'data-row--dead': isExpired(invite), 'data-row--busy': busyId === invite.id }"
     >
       <span class="invite-email">{{ invite.email || 'Anyone with the link' }}</span>
       <span class="invite-role">{{ ROLE_LABELS[invite.role] }}</span>
@@ -81,17 +81,10 @@ function status(invite: TeamInvite) {
 </script>
 
 <style scoped>
-.invite-rows { display: flex; flex-direction: column; border-top: 1px solid var(--color-border); }
 .invite-row {
-  display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-1);
-  border-bottom: 1px solid var(--color-border);
 }
-.invite-row.expired { color: var(--color-text-muted); }
-.invite-row.busy { opacity: 0.6; }
 .invite-email { overflow-wrap: anywhere; }
 .invite-role, .invite-status { font-size: var(--type-xs); color: var(--color-text-muted); white-space: nowrap; }
 .invite-actions { display: flex; gap: var(--space-3); }

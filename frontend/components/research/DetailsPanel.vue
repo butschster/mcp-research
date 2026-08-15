@@ -1,8 +1,8 @@
 <template>
-  <ModalOverlay :visible="open" size="lg" flush @close="emit('update:open', false)">
+  <ModalOverlay :labelledby="titleId" :visible="open" size="lg" flush @close="emit('update:open', false)">
     <!-- Header -->
     <div class="modal-header">
-      <h3 class="modal-title">Research Details</h3>
+      <h3 :id="titleId" class="modal-title">Research Details</h3>
       <button class="modal-close" aria-label="Close" @click="emit('update:open', false)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -127,6 +127,7 @@
 </template>
 
 <script setup lang="ts">
+const titleId = useId()
 import { tagHue } from '~/composables/useTagHue'
 
 const props = defineProps<{

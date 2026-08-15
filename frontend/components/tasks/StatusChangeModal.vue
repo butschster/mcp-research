@@ -1,8 +1,8 @@
 <template>
-  <ModalOverlay :visible="visible" size="lg" flush @close="$emit('cancel')">
+  <ModalOverlay :labelledby="titleId" :visible="visible" size="lg" flush @close="$emit('cancel')">
     <!-- Header -->
     <div class="modal-header">
-      <h3 class="modal-title">
+      <h3 :id="titleId" class="modal-title">
         Move to
         <span :class="['kanban-dot', `dot-${targetStatus}`]"></span>
         {{ statusLabel }}
@@ -39,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+const titleId = useId()
 const props = defineProps<{
   visible: boolean
   task: any | null

@@ -1,9 +1,9 @@
 <template>
-  <ModalOverlay :visible="!!task" size="lg" flush @close="$emit('close')">
+  <ModalOverlay :labelledby="titleId" :visible="!!task" size="lg" flush @close="$emit('close')">
     <template v-if="task">
       <!-- Header -->
       <div class="modal-header">
-        <h3 class="modal-title">
+        <h3 :id="titleId" class="modal-title">
           <span class="header-code">{{ task.code }}</span>
           Task Details
         </h3>
@@ -58,15 +58,24 @@
                      the agent's work. `blocked` and `deferred` are here too:
                      the board folds both into Todo and offers neither. -->
                 <StatusBadge v-if="!canWrite" :status="task.status" />
-                <div v-else class="segmented status-picker" role="radiogroup" aria-label="Task status">
+                <!-- `role="group"`, not `radiogroup`. A radio group models a
+                     pending selection committed later and promises arrow-key
+                     navigation that changes it; these are six one-shot
+                     commands — each click opens the confirmation immediately
+                     and can be refused. `aria-pressed` says which one is
+                     current without making a promise the component does not
+                     keep, and native buttons already answer Enter and Space.
+                     `aria-disabled` rather than `disabled`, so a busy control
+                     keeps its place in the tab order instead of dropping
+                     focus to the body. -->
+                <div v-else class="segmented status-picker" role="group" aria-label="Task status">
                   <button
                     v-for="s in STATUSES"
                     :key="s"
                     type="button"
-                    role="radio"
-                    :aria-checked="String(task.status === s)"
-                    :disabled="busyStatus"
-                    @click="busyStatus = true; emit('updateStatus', s)"
+                    :aria-pressed="task.status === s"
+                    :aria-disabled="busyStatus || undefined"
+                    @click="onPick(s)"
                   >{{ STATUS_LABELS[s] }}</button>
                 </div>
               </div>
@@ -181,6 +190,7 @@
 </template>
 
 <script setup lang="ts">
+const titleId = useId()
 import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { renderRefs, linkRefs } from '~/composables/useCrossRefs'
 import { absoluteTime } from '~/composables/useRelativeTime'
@@ -215,6 +225,12 @@ const STATUS_LABELS: Record<string, string> = {
 }
 const busyStatus = ref(false)
 watch(() => props.task?.status, () => { busyStatus.value = false })
+
+function onPick(status: string) {
+  if (busyStatus.value || props.task?.status === status) return
+  busyStatus.value = true
+  emit('updateStatus', status)
+}
 
 // A viewer reads the same fields; the pencils and the priority chips go, and
 // priority renders as the badge it already is elsewhere.
@@ -267,7 +283,7 @@ function saveField(field: string) {
 
 <style scoped>
 .status-picker { flex-wrap: wrap; }
-.status-picker > button:disabled { opacity: 0.6; cursor: default; }
+.status-picker > button[aria-disabled='true'] { opacity: 0.6; cursor: default; }
 
 /* Header — same as DetailsPanel */
 .modal-header {

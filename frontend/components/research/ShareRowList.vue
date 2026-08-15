@@ -1,10 +1,10 @@
 <template>
-  <div class="share-rows">
+  <div class="data-rows share-rows">
     <div
       v-for="share in shares"
       :key="share.id"
-      class="share-row"
-      :class="{ 'share-row--dead': !isLive(share), 'share-row--busy': busyId === share.id }"
+      class="data-row share-row"
+      :class="{ 'data-row--dead': !isLive(share), 'data-row--busy': busyId === share.id }"
     >
       <div class="share-cell share-cell--label">
         <span class="share-label">{{ share.label || 'Untitled link' }}</span>
@@ -109,15 +109,9 @@ function formatDate(value: string) {
 
 <style scoped>
 .share-row {
-  display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
-  gap: var(--space-3);
   align-items: start;
-  padding: var(--space-3) var(--space-1);
-  border-bottom: 1px solid var(--color-border);
 }
-.share-row--dead { opacity: 0.55; }
-.share-row--busy { opacity: 0.6; pointer-events: none; }
 .share-cell { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .share-cell--actions { flex-direction: row; align-items: center; gap: var(--space-3); justify-content: flex-end; }
 /* A truncated label is not a label, and this list exists to be recognised by

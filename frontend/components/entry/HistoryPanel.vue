@@ -1,10 +1,10 @@
 <template>
-  <ModalOverlay :visible="visible" size="xl" @close="$emit('close')">
+  <ModalOverlay :labelledby="titleId" :visible="visible" size="xl" @close="$emit('close')">
     <header class="history-head">
       <div class="history-title-row">
         <span class="history-eyebrow">History</span>
         <ShortCode v-if="entryCode" :code="entryCode" />
-        <h2 class="history-title">{{ entryTitle }}</h2>
+        <h2 :id="titleId" class="history-title">{{ entryTitle }}</h2>
       </div>
       <button class="btn btn-sm" @click="$emit('close')">Close</button>
     </header>
@@ -112,6 +112,7 @@
 </template>
 
 <script setup lang="ts">
+const titleId = useId()
 /**
  * The revision history of one entry: the rail navigates, the pane holds the
  * comparison.
