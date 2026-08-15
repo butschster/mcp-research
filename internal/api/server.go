@@ -32,6 +32,10 @@ type ServerConfig struct {
 	OAuthSvc       *service.OAuthService
 	AutoLoginToken string       // JWT for default user auto-login (empty = disabled)
 	MCPHandler     http.Handler // Streamable HTTP MCP handler (mounted at /mcp)
+	// Version is what the binary was built as. It reaches the web UI through
+	// /api/health, which is the one endpoint every page can already call
+	// without a credential.
+	Version string
 }
 
 func NewServer(
@@ -327,6 +331,7 @@ func NewServer(
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":       "ok",
+			"version":      cfg.Version,
 			"in_memory":    cfg.IsInMemory,
 			"write_api":    cfg.APIToken != "" || cfg.AuthEnabled,
 			"auth_enabled": cfg.AuthEnabled,

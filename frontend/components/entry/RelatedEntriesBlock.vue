@@ -1,9 +1,6 @@
 <template>
-  <div v-if="entries.length" class="crossrefs-block card no-print">
-    <h3 class="crossrefs-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-      Related by tags
-    </h3>
+  <EntryFoldable v-if="entries.length" title="Related by tags" :count="entries.length" remember-as="related">
+    <template #icon><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></template>
     <div class="crossrefs-list">
       <component
         :is="relatedPath(rel) ? NuxtLink : 'div'"
@@ -24,7 +21,7 @@
         </div>
       </component>
     </div>
-  </div>
+  </EntryFoldable>
 </template>
 
 <script setup lang="ts">

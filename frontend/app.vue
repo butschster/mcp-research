@@ -30,6 +30,7 @@ const {
 useKeyboardNav()
 
 const { user, isAuthenticated, authEnabled, logout } = useAuth()
+const { version } = useServerInfo()
 
 const route = useRoute()
 // Pages that render without nav or footer. The invitation page joins them
@@ -126,7 +127,10 @@ onMounted(() => {
 
         <footer class="app-footer">
           <div class="container footer-inner">
-            <span class="card-meta">Research</span>
+            <!-- The word "Research" said nothing the logo two lines up does not
+                 already say. The build is the one fact worth a permanent slot:
+                 it is what somebody reporting a problem is asked for first. -->
+            <span class="card-meta app-version" :title="version ? `Running build ${version}` : ''">{{ version }}</span>
             <div class="footer-right">
               <ConnectionStatus
                 :state="connection"
@@ -161,6 +165,7 @@ onMounted(() => {
   margin-top: var(--space-4);
 }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; }
+.app-version { font-family: 'JetBrains Mono', monospace; font-size: var(--type-xs); }
 .footer-right { display: flex; align-items: center; gap: var(--space-4); }
 .footer-link  { text-decoration: none; transition: color var(--transition-fast); }
 .footer-link:hover { color: var(--color-primary); text-decoration: none; }

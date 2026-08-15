@@ -174,6 +174,7 @@ func main() {
 		OAuthSvc:       oauthSvc,
 		AutoLoginToken: autoLoginToken,
 		MCPHandler:     srv.StreamableHTTPHandler(),
+		Version:        version,
 	}
 	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
