@@ -10,6 +10,9 @@ export function useKeyboardNav() {
     switch (e.key) {
       case 'G':
         if (e.shiftKey) {
+          // "Go home" means the research list, which a share visitor has no
+          // account to see. One keystroke to the login wall is not a shortcut.
+          if (shareActive()) return
           e.preventDefault()
           router.push('/')
         }

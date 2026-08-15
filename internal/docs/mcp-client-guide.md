@@ -110,6 +110,8 @@ A research is owned by a **team**, and your role in that team decides what you m
 
 A new research created with `research_create` always lands in your own personal team, so a research you created this session is always writable. `research_import` takes an optional `team_id` to put an imported research somewhere else; you must be an editor or owner of that team.
 
+**Share links are not yours to issue.** A research can be published as a revocable, read-only link that someone opens without an account, but there is no MCP tool that creates, lists or revokes one — it is done in the web UI or over REST (`POST /api/researches/{id}/shares`), by a person deciding to give something away. If a user asks for one, point them at the share dialog on the research page rather than looking for a tool. Nothing you do over MCP is affected by a link existing, and a share token never authenticates an MCP call. [Domain Guide → Share](/llms/domain-guide.md#share).
+
 Full model — roles, invitations, transfer and the team REST routes: [Domain Guide](/llms/domain-guide.md#team).
 
 ## Nullable and Optional Fields

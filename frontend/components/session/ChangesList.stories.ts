@@ -9,6 +9,7 @@ import {
   mockChangeCreatedSmall,
   type SessionEntryChange,
 } from '../../__mocks__/revision'
+import { withShare, withoutShare } from '../../__mocks__/share'
 
 /**
  * What a session did to the research's entries — the ones it created, the ones
@@ -17,11 +18,19 @@ import {
  * The component fetches `GET /api/sessions/{id}/changes` itself on mount, so
  * these stories render the real component against a mocked `authFetch` (see
  * `__mocks__/api.ts`). Diffs are collapsed until "Show changes" is clicked.
+ *
+ * Each card's title links through `entryPath()`, so it resolves to
+ * `/s/{token}/entry/…` when the session page is being read through a share
+ * link.
  */
 const meta: Meta<typeof ChangesList> = {
   title: 'Session/ChangesList',
   component: ChangesList,
   tags: ['autodocs'],
+  // Share state is module state; this gives the ordinary stories a known
+  // starting point rather than whatever the last story left behind. The
+  // trade-offs are in __mocks__/share.ts.
+  decorators: [withoutShare()],
   argTypes: {
     sessionId: { control: 'text' },
     researchSlug: { control: 'text' },
@@ -112,4 +121,11 @@ export const Empty: Story = {
 /** Waiting on `GET /api/sessions/{id}/changes`. */
 export const Loading: Story = {
   render: changes({ changes: [], pending: true }),
+}
+
+/** The same list on a shared session page: every entry title points at
+ *  `/s/{token}/entry/…` instead of `/research/R1/entry/…`. */
+export const InsideAShare: Story = {
+  decorators: [withShare()],
+  render: changes({ changes: mockSessionChanges }),
 }

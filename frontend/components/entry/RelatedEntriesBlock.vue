@@ -1,15 +1,13 @@
 <template>
-  <div v-if="entries.length" class="crossrefs-block card no-print">
-    <h3 class="crossrefs-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-      Related by tags
-    </h3>
+  <EntryFoldable v-if="entries.length" title="Related by tags" :count="entries.length" remember-as="related">
+    <template #icon><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></template>
     <div class="crossrefs-list">
-      <NuxtLink
+      <component
+        :is="relatedPath(rel) ? NuxtLink : 'div'"
         v-for="rel in entries"
         :key="rel.id"
-        :to="`/research/${rel.research_id === researchId ? researchSlug : rel.research_id}/entry/${rel.code || rel.id}`"
-        class="crossref-item"
+        :to="relatedPath(rel) || undefined"
+        :class="['crossref-item', { 'crossref-item--inert': !relatedPath(rel) }]"
       >
         <span class="crossref-code">{{ rel.code }}</span>
         <span class="crossref-entry-title">{{ rel.title }}</span>
@@ -21,12 +19,13 @@
             :title="tag"
           ></span>
         </div>
-      </NuxtLink>
+      </component>
     </div>
-  </div>
+  </EntryFoldable>
 </template>
 
 <script setup lang="ts">
+import { NuxtLink } from '#components'
 import { tagHue } from '~/composables/useTagHue'
 
 const props = defineProps<{
@@ -36,6 +35,20 @@ const props = defineProps<{
   researchId: string
 }>()
 
+/**
+ * Where a related entry points, or '' when it must not be a link.
+ *
+ * The related-by-tags query is scoped to the shared research server-side, so
+ * under a share the foreign branch should be unreachable. It renders inert
+ * rather than linking anyway: an endpoint that starts returning more than it
+ * should must not turn into navigation here.
+ */
+function relatedPath(rel: any): string {
+  const own = rel.research_id === props.researchId
+  if (shareActive() && !own) return ''
+  return entryPath(own ? props.researchSlug : rel.research_id, rel.code || rel.id)
+}
+
 function sharedTags(rel: any): string[] {
   if (!props.currentTags?.length || !rel.tags) return []
   const mine = new Set(props.currentTags)
@@ -44,6 +57,7 @@ function sharedTags(rel: any): string[] {
 </script>
 
 <style scoped>
+.crossref-item--inert { cursor: default; }
 .crossrefs-block {
   margin-top: var(--space-6);
   padding: var(--space-6);

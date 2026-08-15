@@ -732,36 +732,6 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 }
 .entry-session-link:hover { border-color: rgba(240, 184, 73, 0.3); color: var(--color-text); }
 .entry-session-link svg { opacity: 0.6; }
-.title-with-code { display: flex; align-items: center; gap: var(--space-3); }
-.short-code {
-  font-size: var(--type-xs);
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-muted);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.entry-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
-.entry-actions {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  flex-shrink: 0;
-}
-.entry-tags {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-top: var(--space-3);
-}
 
 /* Delete button */
 .btn-delete {
@@ -895,10 +865,6 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 }
 
 /* Content */
-.entry-content {
-  padding: var(--space-8);
-  border-radius: var(--radius-lg);
-}
 .source-view {
   background: none;
   padding: 0;
@@ -930,7 +896,6 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 
 /* Skeleton */
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
-.skeleton-content { height: 500px; }
 
 /* Responsive */
 @media (max-width: 768px) {

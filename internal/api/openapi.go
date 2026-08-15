@@ -46,7 +46,7 @@ func openAPISpec(_ bool) map[string]any {
 
 	paths["/api/researches/{id}"] = map[string]any{
 		"get": endpoint("Get research", "Returns research with sections (including entry counts) and active session.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			response200(obj(
 				field("data", "object", "Contains: research (object), sections (array with entries_count), active_session (object or null)"),
 			)),
@@ -55,7 +55,7 @@ func openAPISpec(_ bool) map[string]any {
 
 	paths["/api/researches/{id}/sections/{sectionId}/entries"] = map[string]any{
 		"get": endpoint("List entries in section", "Returns entries WITHOUT content for efficiency. Use GET /api/entries/{id} for full content.",
-			[]param{path("id", "Research UUID"), path("sectionId", "Section UUID")},
+			[]param{pathParam("id", "Research UUID"), pathParam("sectionId", "Section UUID")},
 			response200(obj(
 				field("data", "array", "Array of entry objects (id, code, title, description, status, tags, created_at)"),
 				field("count", "integer", "Total count"),
@@ -65,21 +65,21 @@ func openAPISpec(_ bool) map[string]any {
 
 	paths["/api/entries/{id}"] = map[string]any{
 		"get": endpoint("Get entry", "Returns full entry including markdown content.",
-			[]param{path("id", "Entry UUID")},
+			[]param{pathParam("id", "Entry UUID")},
 			response200(obj(field("data", "object", "Entry with id, code, research_id, section_id, title, content, description, status, tags, created_at, updated_at"))),
 		),
 	}
 
 	paths["/api/entries/{id}/revisions"] = map[string]any{
 		"get": endpoint("List entry revisions", "Every write to an entry appends a revision. Newest first, WITHOUT content — use /api/entries/{id}/revisions/{revision} for one revision's content.",
-			[]param{path("id", "Entry UUID")},
+			[]param{pathParam("id", "Entry UUID")},
 			response200(obj(field("data", "object", "Contains: entry_id, entry_code, title, current (newest revision number), revisions (array of revision, author_kind, session_code, summary, created_at, title, status, tags)"))),
 		),
 	}
 
 	paths["/api/entries/{id}/revisions/{revision}"] = map[string]any{
 		"get": endpoint("Get one revision", "Returns a single revision including the content the entry had at that point.",
-			[]param{path("id", "Entry UUID"), path("revision", "Revision number, 1-based")},
+			[]param{pathParam("id", "Entry UUID"), pathParam("revision", "Revision number, 1-based")},
 			response200(obj(field("data", "object", "Revision with content, title, description, entry_type, status, tags, author_kind, session_id, summary, created_at"))),
 		),
 	}
@@ -87,7 +87,7 @@ func openAPISpec(_ bool) map[string]any {
 	paths["/api/entries/{id}/diff"] = map[string]any{
 		"get": endpoint("Diff two revisions", "Compares two revisions. Both bounds are optional: 'to' defaults to the newest revision and 'from' to the one before it, so the bare URL answers 'what changed last'. Block documents are compared as rendered markdown, not as stored JSON.",
 			[]param{
-				path("id", "Entry UUID"),
+				pathParam("id", "Entry UUID"),
 				query("from", "Revision to compare from (default: the one before 'to')", false),
 				query("to", "Revision to compare to (default: newest)", false),
 			},
@@ -97,28 +97,28 @@ func openAPISpec(_ bool) map[string]any {
 
 	paths["/api/sessions/{id}/changes"] = map[string]any{
 		"get": endpoint("What a session changed", "Every entry the session created or edited, with the revision range and a diff. Broader than the session's entry list, which covers only entries it created.",
-			[]param{path("id", "Session UUID")},
+			[]param{pathParam("id", "Session UUID")},
 			response200(obj(field("data", "object", "Contains: session_id, session_code, created, modified, changes (array of entry_id, entry_code, title, created, deleted, from_revision, to_revision, summary, diff)"))),
 		),
 	}
 
 	paths["/api/researches/{id}/entries/by-code/{code}"] = map[string]any{
 		"get": endpoint("Resolve entry by code", "Find entry by short code (e.g. E1, E2) within a research.",
-			[]param{path("id", "Research UUID"), path("code", "Entry short code (e.g. E1)")},
+			[]param{pathParam("id", "Research UUID"), pathParam("code", "Entry short code (e.g. E1)")},
 			response200(obj(field("data", "object", "Full entry object"))),
 		),
 	}
 
 	paths["/api/resolve/research/{code}"] = map[string]any{
 		"get": endpoint("Resolve research by code", "Find research by short code (e.g. R1, R2).",
-			[]param{path("code", "Research short code (e.g. R1)")},
+			[]param{pathParam("code", "Research short code (e.g. R1)")},
 			response200(obj(field("data", "object", "Contains: id, code, name"))),
 		),
 	}
 
 	paths["/api/researches/{id}/crossrefs"] = map[string]any{
 		"get": endpoint("List cross-references", "Returns all cross-references for a research, extracted from [[...]] patterns in entry content.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			response200(obj(
 				field("data", "array", "Array of crossref objects (source_entry_id, target_entry_id, target_ref, resolved)"),
 				field("count", "integer", "Total count"),
@@ -128,35 +128,35 @@ func openAPISpec(_ bool) map[string]any {
 
 	paths["/api/researches/{id}/tasks"] = map[string]any{
 		"get": endpoint("List tasks", "Returns all tasks for a research.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			response200(obj(field("data", "array", "Array of task objects"))),
 		),
 	}
 
 	paths["/api/researches/{id}/sessions"] = map[string]any{
 		"get": endpoint("List sessions", "Returns all sessions for a research.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			response200(obj(field("data", "array", "Array of session objects"))),
 		),
 	}
 
 	paths["/api/researches/{id}/sessions/{sessionId}"] = map[string]any{
 		"get": endpoint("Get session", "Returns session with questions grouped by status and progress counters. Resolves session by UUID or short code (e.g. SS1) within the given research.",
-			[]param{path("id", "Research UUID or short code"), path("sessionId", "Session UUID or short code (e.g. SS1)")},
+			[]param{pathParam("id", "Research UUID or short code"), pathParam("sessionId", "Session UUID or short code (e.g. SS1)")},
 			response200(obj(field("data", "object", "Contains: session, questions (grouped by status), progress (total, answered, pending, deferred, skipped)"))),
 		),
 	}
 
 	paths["/api/researches/{id}/entries/{entryId}"] = map[string]any{
 		"get": endpoint("Get entry by research", "Returns full entry including markdown content. Resolves entry by UUID or short code (e.g. E1) within the given research.",
-			[]param{path("id", "Research UUID or short code"), path("entryId", "Entry UUID or short code (e.g. E1)")},
+			[]param{pathParam("id", "Research UUID or short code"), pathParam("entryId", "Entry UUID or short code (e.g. E1)")},
 			response200(obj(field("data", "object", "Entry with id, code, research_id, section_id, title, content, description, status, tags, created_at, updated_at"))),
 		),
 	}
 
 	paths["/api/researches/{id}/roadmaps"] = map[string]any{
 		"get": endpoint("List roadmaps", "Returns all roadmaps for a research (without nodes/edges). Use GET /api/roadmaps/{id} for the full graph.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			response200(obj(
 				field("data", "array", "Array of roadmap objects (id, code, title, description, status, statuses)"),
 				field("count", "integer", "Total count"),
@@ -166,7 +166,7 @@ func openAPISpec(_ bool) map[string]any {
 
 	paths["/api/roadmaps/{id}"] = map[string]any{
 		"get": endpoint("Get roadmap", "Returns a roadmap with all nodes and edges.",
-			[]param{path("id", "Roadmap UUID")},
+			[]param{pathParam("id", "Roadmap UUID")},
 			response200(obj(field("data", "object", "Roadmap with id, code, research_id, title, description, status, statuses, nodes (array), edges (array)"))),
 		),
 	}
@@ -192,7 +192,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/researches/{id}", "put", writeEndpoint(
 			"Update research",
 			"Partial update. Only provided fields are changed. memory and add_memory are mutually exclusive.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			body(obj(
 				field("name", "string", "New name"),
 				field("description", "string", "New description"),
@@ -209,7 +209,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/researches/{id}/sections", "post", writeEndpoint(
 			"Add section",
 			"Adds a new section to a research. Name must be a lowercase slug.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			body(obj(
 				field("name", "string", "Section slug name (required, lowercase)"),
 				field("display_name", "string", "Human-readable name"),
@@ -222,7 +222,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/sections/{sectionId}", "put", writeEndpoint(
 			"Update section",
 			"Partial update. Setting status to 'completed' requires at least one entry.",
-			[]param{path("sectionId", "Section UUID")},
+			[]param{pathParam("sectionId", "Section UUID")},
 			body(obj(
 				field("display_name", "string", "New display name"),
 				field("description", "string", "New description"),
@@ -252,7 +252,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/entries/{id}", "put", writeEndpoint(
 			"Update entry",
 			"Partial update. Supports text_replace for surgical content edits. Cross-references re-parsed on update.",
-			[]param{path("id", "Entry UUID")},
+			[]param{pathParam("id", "Entry UUID")},
 			body(obj(
 				field("title", "string", "New title"),
 				field("content", "string", "Replace entire content"),
@@ -281,7 +281,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/tasks/{id}", "put", writeEndpoint(
 			"Update task",
 			"Partial update of task status, priority, or result.",
-			[]param{path("id", "Task UUID")},
+			[]param{pathParam("id", "Task UUID")},
 			body(obj(
 				field("title", "string", "New title"),
 				field("status", "string", "New status: pending, in_progress, blocked, completed, failed, deferred"),
@@ -294,7 +294,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/tasks/{id}", "delete", writeEndpoint(
 			"Delete task",
 			"Removes a task from the todo list.",
-			[]param{path("id", "Task UUID")},
+			[]param{pathParam("id", "Task UUID")},
 			nil,
 			response200(obj(field("deleted", "boolean", "Always true"))),
 		))
@@ -315,7 +315,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/researches/{id}/crossrefs/rebuild", "post", writeEndpoint(
 			"Rebuild cross-references",
 			"Re-scans all entry content in the research and rebuilds the crossrefs table. Use when references become stale.",
-			[]param{path("id", "Research UUID")},
+			[]param{pathParam("id", "Research UUID")},
 			nil,
 			response200(obj(
 				field("rebuilt", "integer", "Number of entries scanned"),
@@ -341,7 +341,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/roadmaps/{id}", "put", writeEndpoint(
 			"Update roadmap",
 			"Partial update of roadmap metadata (title, description, statuses, status).",
-			[]param{path("id", "Roadmap UUID")},
+			[]param{pathParam("id", "Roadmap UUID")},
 			body(obj(
 				field("title", "string", "New title"),
 				field("description", "string", "New description"),
@@ -354,7 +354,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/roadmaps/{id}", "delete", writeEndpoint(
 			"Delete roadmap",
 			"Deletes a roadmap and all its nodes and edges. Irreversible.",
-			[]param{path("id", "Roadmap UUID")},
+			[]param{pathParam("id", "Roadmap UUID")},
 			nil,
 			response200(obj(field("deleted", "boolean", "Always true"))),
 		))
@@ -362,7 +362,7 @@ func openAPISpec(_ bool) map[string]any {
 		addMethod(paths, "/api/roadmap-nodes/{nodeId}", "put", writeEndpoint(
 			"Update roadmap node",
 			"Partial update of a roadmap node (title, description, node_type, status, position, parent).",
-			[]param{path("nodeId", "Node UUID")},
+			[]param{pathParam("nodeId", "Node UUID")},
 			body(obj(
 				field("title", "string", "New title"),
 				field("description", "string", "New description"),
@@ -374,6 +374,61 @@ func openAPISpec(_ bool) map[string]any {
 			)),
 			response200(obj(field("data", "object", "Updated node object"))),
 		))
+	}
+
+	// --- Share links ---
+	//
+	// The `/api/shared/…` prefix is the only surface in this API that answers
+	// without a credential, which is exactly why it is documented rather than
+	// left to the reader of server.go: a client hitting it needs to know that
+	// the token in the URL *is* the authentication, and that revoked, expired
+	// and never-existed are one indistinguishable 404.
+	paths["/api/researches/{id}/shares"] = map[string]any{
+		"get": endpoint("List share links", "Returns every share ever made for the research, revoked and expired ones included. Never returns a token. Requires write access to the research.",
+			[]param{pathParam("id", "Research UUID or short code")},
+			response200(obj(
+				field("data", "array", "Share objects: id, label, include flags, has_password, expires_at, revoked_at, last_seen_at, view_count, created_at, created_by_name"),
+				field("count", "integer", "Total count"),
+			)),
+		),
+		"post": writeEndpoint("Create a share link", "Issues a read-only link to the research and returns the URL exactly once. The token is stored hashed and cannot be recovered afterwards. Requires write access.",
+			[]param{pathParam("id", "Research UUID or short code")},
+			body(obj(
+				field("label", "string", "A name only the owner sees, for recognising the link later"),
+				field("include", "object", "Optional parts: sessions, tasks, roadmaps, export. Roadmaps default to true, the rest to false"),
+				field("expires_in_days", "integer", "Days until the link stops working. Omit or null for a link with no end date; clamped to 1–3650"),
+				field("password", "string", "Optional, minimum 6 characters. Visitors exchange it at /api/shared/{token}/unlock"),
+			)),
+			response201(obj(
+				field("share", "object", "The stored share, without its token"),
+				field("token", "string", "The plaintext token. This response is the only place it ever appears"),
+				field("url", "string", "The full link to send, e.g. https://host/s/mrs_…"),
+			)),
+		),
+	}
+
+	paths["/api/shares/{id}"] = map[string]any{
+		"delete": writeEndpoint("Revoke a share link", "Kills the link immediately, over HTTP and on any WebSocket it opened. The row stays in the list so the owner keeps a record. Requires write access to the research.",
+			[]param{pathParam("id", "Share UUID")},
+			nil,
+			response200(obj(field("status", "string", "'revoked'"))),
+		),
+	}
+
+	paths["/api/shared/{token}"] = map[string]any{
+		"get": endpoint("Open a share link", "The visitor's first request: what the link is and the research it opens on. No credential other than the token. Answers 401 with reason 'password_required' for a protected link, and 404 — identically — for a revoked, expired or unknown one.",
+			[]param{pathParam("token", "The share token from the URL")},
+			response200(obj(
+				field("data", "object", "share (label, include, research_id, research_code, owner_name, expires_at), research (redacted: no instruction, memory, team or user fields) and sections"),
+			)),
+		),
+	}
+
+	paths["/api/shared/{token}/unlock"] = map[string]any{
+		"post": endpoint("Unlock a password-protected link", "Exchanges the password for a value to send as X-Share-Unlock (or ?unlock= for the WebSocket) on every later request. 401 with reason 'invalid_password' for a wrong password; 429 with Retry-After when attempts are throttled.",
+			[]param{pathParam("token", "The share token from the URL")},
+			response200(obj(field("data", "object", "unlock: the value to present on subsequent requests"))),
+		),
 	}
 
 	spec["paths"] = paths
@@ -408,7 +463,7 @@ type param struct {
 	Required    bool
 }
 
-func path(name, desc string) param                 { return param{name, "path", desc, true} }
+func pathParam(name, desc string) param            { return param{name, "path", desc, true} }
 func query(name, desc string, required bool) param { return param{name, "query", desc, required} }
 
 func endpoint(summary, desc string, params []param, resp map[string]any) map[string]any {

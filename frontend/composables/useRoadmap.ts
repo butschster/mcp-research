@@ -87,7 +87,16 @@ export function useRoadmap(researchId: string, roadmapId: string) {
   // arriving mid-drag still has to wait for the hand to come off the mouse.
   let interactingUntil = 0
 
+  // A share visitor reads the same roadmap over the public prefix, with no
+  // Authorization header. The writes below are unreachable for them — the read-
+  // only lock turns off every control that calls one, and the server refuses a
+  // share on a write route — so only the read needs a second path.
   async function fetchRoadmap() {
+    if (shareActive()) {
+      const { shareFetch } = useShare()
+      const res = await shareFetch<{ data: RoadmapData }>(`/researches/${researchId}/roadmaps/${roadmapId}`)
+      return res.data
+    }
     const res = await authFetch<{ data: RoadmapData }>(`${base}/api/researches/${researchId}/roadmaps/${roadmapId}`)
     return res.data
   }

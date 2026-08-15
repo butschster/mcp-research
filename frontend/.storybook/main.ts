@@ -49,6 +49,30 @@ const config: StorybookConfig = {
               // Module-scoped role state. The stories set it through the real
               // composable so a viewer story renders the viewer's card.
               [path.resolve(__dirname, '../composables/useResearchRole')]: ['useResearchRole'],
+              // Where a link inside a research points. Real, not stubbed: half
+              // the catalogue is components whose only job is to link, and a
+              // stub would let a wrong href through the one place that checks.
+              [path.resolve(__dirname, '../composables/useResearchPaths')]: [
+                'researchPath',
+                'entryPath',
+                'sessionPath',
+                'roadmapPath',
+                'roadmapsPath',
+                'tasksPath',
+                'exportPath',
+                'foreignResearchPath',
+              ],
+              // Module-scoped share state, read by the path helpers above, by
+              // `renderRefs`, and by three components that render a target
+              // outside the share as inert text. Stories set it through
+              // `withShare()` in __mocks__/share.ts.
+              [path.resolve(__dirname, '../composables/useShare')]: [
+                'useShare',
+                'shareActive',
+                'shareToken',
+                'shareInclude',
+                'shareResearchCode',
+              ],
               // Real composable, not a stub: it is module-scoped state plus
               // vue refs, so a component that raises a toast raises a real one.
               [path.resolve(__dirname, '../composables/useToasts')]: ['useToasts'],

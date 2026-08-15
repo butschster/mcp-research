@@ -75,9 +75,11 @@ func (h *CrossRefHandler) GetForEntry(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	// Incoming too: an entry someone else linked to from a research this
-	// reader cannot open should not name that research back at them.
-	incoming = h.access.VisibleCrossRefs(r.Context(), incoming)
+	// Incoming is filtered, not blanked. A reference from a research this
+	// reader cannot open is not theirs to know about at all: the stripped row
+	// would still say "something you cannot see cites this", which for a share
+	// visitor is the shape of the workspace behind the link.
+	incoming = h.access.VisibleIncomingCrossRefs(r.Context(), incoming)
 
 	// Enrich with metadata
 	type enrichedRef struct {

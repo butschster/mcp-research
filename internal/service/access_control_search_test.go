@@ -278,7 +278,7 @@ func TestAccessControl_RelatedAndRefs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create entry: %v", err)
 		}
-		related, err := entryRepo.FindRelatedByTags(ctxM, mine.ID, []string{"security"}, mallory.ID)
+		related, err := entryRepo.FindRelatedByTags(ctxM, mine.ID, []string{"security"}, mallory.ID, "")
 		if err != nil {
 			t.Fatalf("related: %v", err)
 		}

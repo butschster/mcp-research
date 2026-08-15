@@ -22,20 +22,7 @@ import (
 // prevent — writing [[R1:E1]], [[R1:E2]], … now reads back exactly as
 // unresolved as it looked going in.
 func (a *Access) VisibleCrossRefs(ctx context.Context, refs []domain.CrossRef) []domain.CrossRef {
-	// One decision per research, not per reference: an entry that points at a
-	// colleague's research twenty times asks once.
-	readable := make(map[string]bool, 4)
-	mayRead := func(researchID string) bool {
-		if researchID == "" {
-			return false
-		}
-		if seen, ok := readable[researchID]; ok {
-			return seen
-		}
-		ok := a.Read(ctx, researchID) == nil
-		readable[researchID] = ok
-		return ok
-	}
+	mayRead := a.readMemo(ctx)
 
 	out := make([]domain.CrossRef, 0, len(refs))
 	for _, ref := range refs {
@@ -58,4 +45,44 @@ func (a *Access) VisibleCrossRefs(ctx context.Context, refs []domain.CrossRef) [
 		out = append(out, ref)
 	}
 	return out
+}
+
+// VisibleIncomingCrossRefs drops the references *into* something the reader can
+// see that come *from* something they cannot.
+//
+// Blanking is the wrong treatment here, which is why this is a second function
+// rather than a flag on the first. An outgoing reference is text the reader is
+// already holding — `[[R2:E5]]` is in the entry they are looking at, and
+// rendering it inert is the honest answer. An incoming one is nothing they
+// possess: the row exists only because somebody else wrote it, and even the
+// stripped version announces that an unseen research cites this entry. For a
+// share visitor that is the whole shape of the workspace behind the link.
+func (a *Access) VisibleIncomingCrossRefs(ctx context.Context, refs []domain.CrossRef) []domain.CrossRef {
+	mayRead := a.readMemo(ctx)
+
+	out := make([]domain.CrossRef, 0, len(refs))
+	for _, ref := range refs {
+		if ref.SourceResearchID == "" || !mayRead(ref.SourceResearchID) {
+			continue
+		}
+		out = append(out, ref)
+	}
+	return out
+}
+
+// readMemo answers "may this reader open that research" once per research. An
+// entry that points at a colleague's research twenty times asks once.
+func (a *Access) readMemo(ctx context.Context) func(string) bool {
+	readable := make(map[string]bool, 4)
+	return func(researchID string) bool {
+		if researchID == "" {
+			return false
+		}
+		if seen, ok := readable[researchID]; ok {
+			return seen
+		}
+		ok := a.Read(ctx, researchID) == nil
+		readable[researchID] = ok
+		return ok
+	}
 }

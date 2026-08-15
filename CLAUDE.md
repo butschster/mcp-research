@@ -151,6 +151,43 @@ class of bug happens.
   `membership_test.go` (invites, last-owner guard, transfer) and
   `access_control_test.go` (cross-user isolation).
 
+### Share Links
+
+**A share link is a capability over one research, not an account.** It is the
+only way to read a research without a role in the team that owns it.
+
+- `auth.UserFromContext` stays **empty** for a visitor; `auth.ShareFromContext`
+  carries the scope. That is deliberate: every handler in this product decides
+  by reading the user, and a handler that reads the user and finds nobody
+  already refuses — so an unmodified handler is safe when a share reaches it.
+  Fabricating a synthetic user would have inverted that, silently.
+- `service.Access` resolves a share to **viewer on exactly one research**, and
+  it decides that **before** the "nobody in the context means no check" rule
+  that exists for `auth_enabled: false`. Reaching that rule with a share would
+  hand a stranger the whole database.
+- The public surface is a **separate sub-mux** mounted at `/api/shared/{token}/`
+  (`internal/api/share_routes.go`). What a link exposes is that file's route
+  list and nothing else. Do not teach an existing route to also accept a share.
+- **A route that serves an optional part must gate itself.** The `include` flags
+  (`sessions`, `tasks`, `roadmaps`, `export`) gate routes via `needs(...)`, but
+  three payloads carry optional content on ungated routes and check the flags
+  themselves: `active_session` on the research route, sessions/tasks/roadmap
+  count in the export, and roadmap node `ref_data` (a task node inlines the
+  task's result, a question node its answer).
+- `redactForShare` in `research_service.go` strips `instruction`, `memory` and
+  the team fields. It is called from `ResearchService.Get`, which every read of
+  a research goes through — the page, both exports, the portable dump.
+- **Refusals must be identical.** Revoked, expired, unknown and "belongs to
+  someone else" are one 404 with one body. Two different messages in the entry
+  handlers turned the prefix into an oracle for which research ids are real.
+- Entry **provenance and revision history are never shared** — who edited what,
+  when, and from which session is working process, like `instruction`.
+- Tokens are SHA-256 at rest and returned exactly once, from `POST
+  /api/researches/{id}/shares`. There is no route that recovers one.
+- Tested in `internal/service/share_test.go` and
+  `internal/api/share_routes_test.go`; the second drives the real mux, because
+  the routing *is* the boundary.
+
 ### Short Codes
 
 - Researches get global codes: `R1`, `R2`, `R3` (auto-assigned on creation)

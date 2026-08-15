@@ -55,6 +55,14 @@ export function useConnectionBanner() {
     toastFor = kind
 
     if (kind === 'auth') {
+      // A share visitor has no session to have ended and no account to sign
+      // back into. Offering them "Sign in again" — which logs out and lands on
+      // /login with the share token in the query string — is precisely the wall
+      // this whole feature exists to remove, arriving at the moment the product
+      // is trying to be graceful about a revoked link. The shell has already
+      // painted the right screen; this says nothing on top of it.
+      if (shareActive()) return
+
       toastId = toasts.push({
         variant: 'error',
         title: 'Your session ended',

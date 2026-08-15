@@ -4,6 +4,10 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { INITIAL_VIEWPORTS } from '@storybook/addon-viewport'
 import ModalOverlay from '../components/ModalOverlay.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ActivityIndicator from '../components/ActivityIndicator.vue'
+import BlocksBlockRenderer from '../components/blocks/BlockRenderer.vue'
+import CopyableSecret from '../components/CopyableSecret.vue'
+import ResearchShareRowList from '../components/research/ShareRowList.vue'
 import EntryDiffView from '../components/entry/DiffView.vue'
 import EntryAuthorBadge from '../components/entry/AuthorBadge.vue'
 import EntryFieldChanges from '../components/entry/FieldChanges.vue'
@@ -54,6 +58,10 @@ setup((app) => {
   app.component('TeamRoleSelect', TeamRoleSelect)
   app.component('StatusBadge', StatusBadge)
   app.component('TagList', TagList)
+  app.component('ActivityIndicator', ActivityIndicator)
+  app.component('BlocksBlockRenderer', BlocksBlockRenderer)
+  app.component('CopyableSecret', CopyableSecret)
+  app.component('ResearchShareRowList', ResearchShareRowList)
 })
 
 const preview: Preview = {

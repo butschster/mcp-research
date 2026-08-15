@@ -234,6 +234,7 @@ async function copyInviter() {
 .invite-role-desc {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
+  width: 100%;
   max-width: 40ch;
   margin: var(--space-2) auto 0;
 }

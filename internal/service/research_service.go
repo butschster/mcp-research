@@ -176,7 +176,36 @@ func (s *ResearchService) Get(ctx context.Context, id string) (*domain.Research,
 		return nil, err
 	}
 	s.decorate(ctx, research)
+	redactForShare(ctx, research)
 	return research, nil
+}
+
+// redactForShare strips the fields a share visitor must never see.
+//
+// It lives here, on the one function every reader of a research goes through —
+// the page, both exports and the portable dump all call Get — rather than in
+// each of them. `instruction` and `memory` are the agent's working notes about
+// how to conduct the research; they are not a result, and their author did not
+// choose to publish them by sending someone a link to the findings.
+//
+// The team fields go too. They are not secret to a member, but they name people
+// and workspaces to somebody who is neither, and a share is about one research
+// rather than about the organisation behind it.
+func redactForShare(ctx context.Context, research *domain.Research) {
+	if research == nil || auth.ShareFromContext(ctx) == nil {
+		return
+	}
+	research.Instruction = ""
+	// An empty slice, not nil: `"memory": null` is not a list, and the frontend
+	// renders one either way.
+	research.Memory = []string{}
+	research.UserID = ""
+	research.TeamID = ""
+	research.TeamName = ""
+	research.TeamPersonal = false
+	// The role survives, and is a viewer's. It is what the UI reads to decide
+	// whether to draw an editing control at all.
+	research.Role = domain.TeamViewer
 }
 
 // ResolveID resolves a UUID or short code to a research UUID.
@@ -192,6 +221,13 @@ func (s *ResearchService) ResolveID(ctx context.Context, idOrCode string) (strin
 // by creator instead would hide a colleague's work in a shared team, which is
 // the whole point of having one.
 func (s *ResearchService) List(ctx context.Context, filter storage.ResearchFilter) ([]*domain.Research, error) {
+	// A share reaches one research and has no list. Without this the filter
+	// below would be left unset — there is no user to scope by — and the answer
+	// would be every research on the server.
+	if auth.ShareFromContext(ctx) != nil {
+		return []*domain.Research{}, nil
+	}
+
 	uid := auth.UserIDFromContext(ctx)
 	if uid != "" {
 		filter.MemberOf = &uid

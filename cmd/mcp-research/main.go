@@ -70,6 +70,7 @@ func main() {
 	roadmapEdgeRepo := storage.NewRoadmapEdgeRepository(db)
 	teamRepo := storage.NewTeamRepository(db)
 	teamInviteRepo := storage.NewTeamInviteRepository(db)
+	shareRepo := storage.NewShareRepository(db)
 	userRepo := storage.NewUserRepository(db)
 
 	// Every service asks the same guard what the caller may do, so there is one
@@ -97,6 +98,13 @@ func main() {
 	exportSvc := service.NewExportService(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, log)
 	obsidianSvc := service.NewObsidianService(researchSvc, sectionSvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, revisionRepo, log)
 	teamSvc := service.NewTeamService(teamRepo, teamInviteRepo, userRepo, researchRepo, events, log)
+	shareSvc := service.NewShareService(shareRepo, access, events, log)
+
+	// A shared page watches the research update live, which is the single most
+	// compelling thing this product does — a share that is a frozen snapshot
+	// throws that away. The hub re-resolves the link on its own timer, so
+	// revoking one closes the sockets it opened.
+	hub.SetShareValidator(shareSvc)
 
 	// Auth (optional)
 	var authSvc *service.AuthService
@@ -166,8 +174,9 @@ func main() {
 		OAuthSvc:       oauthSvc,
 		AutoLoginToken: autoLoginToken,
 		MCPHandler:     srv.StreamableHTTPHandler(),
+		Version:        version,
 	}
-	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

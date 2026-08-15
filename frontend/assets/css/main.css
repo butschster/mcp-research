@@ -30,6 +30,15 @@
   --type-4xl:  3.5rem;
 
   /* --- Spacing Scale (4px base) ----------------------------------------- */
+  /* Control height.
+     A button's height used to be whatever its padding plus its content added up
+     to — and the content differs: 15px of text in a .btn, a 16px icon in a
+     .btn-icon. Three controls in one header row came out 29.8, 29.2 and 26.6px
+     tall, which is exactly the kind of difference that is visible and hard to
+     name. Height is now stated, not derived. */
+  --control-h: 30px;
+  --control-h-sm: 26px;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -123,6 +132,16 @@ body::after {
 /* --- Container ---------------------------------------------------------- */
 
 .container {
+  /* `width: 100%` looks redundant on a block — it is exactly what `auto` gives
+     with border-box sizing — and it is load-bearing the moment a .container
+     becomes a flex item.
+     A flex item is stretched across the cross axis only when neither cross-axis
+     margin is `auto`. This rule sets `margin: 0 auto`, so inside a column flex
+     container the stretch is suppressed and the element shrinks to fit its
+     content: the page's whole text column narrowed to whatever happened to be
+     in it. Stating the width makes .container behave the same wherever it is
+     put. */
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 var(--space-6);
@@ -245,6 +264,7 @@ body::after {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  min-height: var(--control-h);
   padding: 0.4rem 0.875rem;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
@@ -273,6 +293,7 @@ body::after {
   transition-duration: 0.05s;
 }
 .btn-sm {
+  min-height: var(--control-h-sm);
   padding: 0.3rem 0.625rem;
   font-size: var(--type-sm);
 }
@@ -487,6 +508,94 @@ body::after {
    them — /teams, /teams/{id}, /settings — got the class name and none of the
    layout: buttons dropped below their title and skeleton lists rendered as one
    slab. */
+
+/* The same thing happened again, and worse, when the shared view was built:
+   `/s/{token}` renders the research the owner's pages render, so it reached for
+   their class names — and every one of these lived in a page's own scoped
+   block. A visitor got the markup and none of the layout, on a page whose whole
+   job is to be shown to somebody outside the team.
+
+   Anything below is used by two or more pages. A rule that belongs to one page
+   stays in that page. */
+.research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
+.research-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.title-with-code { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.short-code {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.task-counter {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); letter-spacing: -0.01em; }
+
+/* Icon buttons */
+/* NOTE: `.btn-icon` is also the name of two unrelated scoped rules, in
+   ResearchCard.vue and team/TeamMemberList.vue. Their scoped selectors carry a
+   [data-v] attribute and therefore win; this one is the page-header icon
+   button. The collision is worth knowing about before renaming either. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  /* Square, and the same height as a text button beside it. */
+  min-height: var(--control-h);
+  min-width: var(--control-h);
+  padding: 0.35rem;
+  /* The same border as .btn: a fainter one made the icon buttons read as a
+     different, weaker kind of control than the labelled button next to them. */
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+  text-decoration: none;
+  line-height: 1;
+}
+.btn-icon:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+.btn-count {
+  font-size: 0.65rem;
+  background: var(--color-surface-hover);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Entry page header, shared by the owner's entry page and the shared view's */
+.entry-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); }
+.entry-actions { display: flex; gap: var(--space-2); align-items: center; flex-shrink: 0; }
+.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
+.entry-content { padding: var(--space-8); border-radius: var(--radius-lg); }
+
+/* Session progress figures */
+.stat-answered { color: var(--color-success); font-weight: 500; }
+.stat-pending  { color: var(--color-warning); font-weight: 500; }
+
+/* Skeletons */
+.skeleton-header { height: 60px; margin-bottom: var(--space-6); }
+.skeleton-sidebar { height: 300px; }
+.skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
+.skeleton-content { height: 400px; }
 .page-header-row {
   display: flex;
   justify-content: space-between;

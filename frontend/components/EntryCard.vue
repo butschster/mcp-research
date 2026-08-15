@@ -1,5 +1,5 @@
 <template>
-  <NuxtLink :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`" class="card entry-card">
+  <NuxtLink :to="entryPath(researchSlug, entry.code || entry.id)" class="card entry-card">
     <div class="entry-card-header">
       <div class="entry-title-row">
         <ShortCode v-if="entry.code" :code="entry.code" />
@@ -18,6 +18,7 @@
 
 <script setup lang="ts">
 import { renderRefs } from '~/composables/useCrossRefs'
+import { entryPath } from '~/composables/useResearchPaths'
 
 defineProps<{
   entry: {

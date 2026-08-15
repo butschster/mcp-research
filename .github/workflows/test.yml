@@ -24,3 +24,35 @@ jobs:
 
       - name: Run tests
         run: go test ./cmd/... ./internal/... -v -count=1
+
+  # The frontend was only ever compiled on a tag, by the release workflow — so a
+  # template that does not build, or a stylesheet mistake, was found when
+  # somebody cut a release rather than when they opened the pull request. Every
+  # UI bug of the last few days was in this half of the repository.
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # `npm install`, not `npm ci`, and no cache key: frontend/package-lock.json
+      # is gitignored, so there is no lockfile to install from or to hash. Same
+      # as the release workflow does.
+      - name: Install
+        run: npm install
+        working-directory: frontend
+
+      # Two CSS mistakes that are invisible in a diff and obvious on screen: a
+      # page-height calc() against a chrome that has since grown, and a control
+      # whose height is left to emerge from its padding. Both shipped.
+      - name: CSS consistency
+        run: node scripts/css-consistency.mjs
+        working-directory: frontend
+
+      - name: Build
+        run: NUXT_PUBLIC_API_BASE= npm run generate
+        working-directory: frontend

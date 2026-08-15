@@ -39,6 +39,15 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5"/><path d="M15.5 8.5 8.5 15.5"/><path d="M6 9v6"/><path d="M18 9v6"/></svg>
           </NuxtLink>
 
+          <!-- Share: a labelled button rather than a fifth icon, and it carries
+               the live-link count — an owner should be able to see that a
+               research is exposed without clicking anything. -->
+          <button v-if="canWrite" class="btn" @click="openShares()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+            <span v-if="activeShareCount" class="btn-count">{{ activeShareCount }}</span>
+          </button>
+
           <!-- More menu -->
           <ActionMenu>
             <button class="action-menu-item" @click="detailsOpen = !detailsOpen">
@@ -150,6 +159,31 @@
   </div>
 
   <EmptyState v-else icon="&#x1F50D;" title="Research not found" />
+    <ResearchShareDialog
+      :visible="sharesOpen"
+      :research-name="research?.name || ''"
+      :shares="shares"
+      :loading="sharesLoading"
+      :creating="creatingShare"
+      :error="shareError"
+      :issued-url="issuedShareUrl"
+      :busy-id="revokingShareId"
+      :recoverable-links="recoverableShareLinks"
+      @create="createShare"
+      @revoke="askRevokeShare"
+      @dismiss-reveal="issuedShareUrl = ''"
+      @close="sharesOpen = false"
+    />
+    <ConfirmModal
+      :visible="!!shareToRevoke"
+      title="Revoke this link?"
+      message="Anyone holding it stops being able to open this research. A page someone already has open goes blank within a minute. This cannot be undone — you can always make a new link."
+      confirm-label="Revoke"
+      variant="danger"
+      :loading="!!revokingShareId"
+      @confirm="confirmRevokeShare"
+      @cancel="shareToRevoke = null"
+    />
     <ResearchTransferModal
       :visible="transferOpen"
       :research="{ code: research?.code, name: research?.name || '' }"
@@ -292,6 +326,98 @@ const researchLinksTotal = computed(() => researchLinksData.value?.total ?? 0)
 const { authFetch } = useAuth()
 const rtBase = useRuntimeConfig().public.apiBase || ''
 
+// --- Share links ---
+//
+// The management surface lives with the action that creates it rather than in
+// the details panel: that panel is the research's content and is open to
+// viewers, and shares are an access-control surface.
+const sharesOpen = ref(false)
+const shares = ref<any[]>([])
+const sharesLoading = ref(false)
+const creatingShare = ref(false)
+const shareError = ref('')
+const issuedShareUrl = ref('')
+const revokingShareId = ref('')
+const shareToRevoke = ref<any | null>(null)
+// The URL of a link this tab issued, kept for the life of the tab and never
+// persisted. The server holds only a hash, so after a reload it is gone — which
+// is what "shown once" means.
+const recoverableShareLinks = ref<Record<string, string>>({})
+
+const activeShareCount = computed(() => {
+  const fromList = shares.value.filter(isShareLive).length
+  // Before the dialog has ever been opened the list is empty and the count on
+  // the research payload is the only source.
+  return shares.value.length ? fromList : (researchData.value?.data?.active_share_count ?? 0)
+})
+
+async function loadShares() {
+  sharesLoading.value = true
+  try {
+    const res = await authFetch<{ data: any[] }>(`${rtBase}/api/researches/${id}/shares`)
+    shares.value = res.data ?? []
+  } catch {
+    shares.value = []
+  } finally {
+    sharesLoading.value = false
+  }
+}
+
+async function openShares() {
+  shareError.value = ''
+  issuedShareUrl.value = ''
+  sharesOpen.value = true
+  await loadShares()
+}
+
+async function createShare(payload: any) {
+  creatingShare.value = true
+  shareError.value = ''
+  try {
+    const res = await authFetch<{ data: { share: any; url: string } }>(
+      `${rtBase}/api/researches/${id}/shares`,
+      { method: 'POST', body: payload },
+    )
+    recoverableShareLinks.value = { ...recoverableShareLinks.value, [res.data.share.id]: res.data.url }
+    issuedShareUrl.value = res.data.url
+    await loadShares()
+  } catch (e: any) {
+    shareError.value = e?.data?.error || 'Couldn\'t create the link. Try again.'
+  } finally {
+    creatingShare.value = false
+  }
+}
+
+function askRevokeShare(share: any) {
+  shareToRevoke.value = share
+}
+
+/**
+ * Revoking is not optimistic.
+ *
+ * A row that flips to "Revoked" before the server agrees tells an owner that
+ * access is closed when it may not be, which is the one lie this dialog must
+ * never tell.
+ */
+async function confirmRevokeShare() {
+  const share = shareToRevoke.value
+  if (!share) return
+  revokingShareId.value = share.id
+  try {
+    await authFetch(`${rtBase}/api/shares/${share.id}`, { method: 'DELETE' })
+    shareToRevoke.value = null
+    await loadShares()
+  } catch {
+    // The modal closes on failure too. Leaving it up with the spinner gone is
+    // indistinguishable from "nothing happened", and the toast is what carries
+    // the news.
+    shareToRevoke.value = null
+    useToasts().error('Couldn\'t revoke that link. It is still active.')
+  } finally {
+    revokingShareId.value = ''
+  }
+}
+
 // Details panel
 const detailsOpen = ref(false)
 
@@ -386,60 +512,18 @@ useResearchRealtime(() => id, async (event) => {
   if (event.entity === 'task') await reloadTasks()
   // The link tables were rewritten wholesale; every view built on them is stale.
   if (event.entity === 'crossref') await reloadLinks()
+  // A share created or revoked in another tab, or by a colleague. The badge is
+  // a security signal — "this research is exposed to N links" — and a security
+  // signal that quietly stops being true is worse than none. The open dialog
+  // reads from the same list.
+  if (event.entity === 'share') {
+    await reloadResearch()
+    if (sharesOpen.value) await loadShares()
+  }
 }, { researchId: () => research.value?.id, onResync: reloadEverything })
 </script>
 
 <style scoped>
-/* Header */
-.research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
-.research-actions { display: flex; align-items: center; gap: var(--space-2); }
-.title-with-code { display: flex; align-items: center; gap: var(--space-3); }
-.short-code {
-  font-size: var(--type-xs);
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-muted);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-/* Icon buttons */
-.btn-icon {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.35rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
-  text-decoration: none;
-  line-height: 1;
-}
-.btn-icon:hover {
-  color: var(--color-text);
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-hover);
-}
-.btn-count {
-  font-size: 0.65rem;
-  background: var(--color-surface-hover);
-  padding: 0.05rem 0.3rem;
-  border-radius: 3px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-/* Skeleton */
-.skeleton-header { height: 60px; margin-bottom: var(--space-6); }
-.skeleton-sidebar { height: 300px; }
-.skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
 
 /* Responsive */
 @media (max-width: 768px) {

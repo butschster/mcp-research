@@ -283,7 +283,14 @@ func (r *EntryRepository) FindTagsByResearch(ctx context.Context, researchID str
 // had to stop scoping by creator: a teammate saw none of a colleague's related
 // entries, while someone removed from a team went on seeing every entry they
 // had created there.
-func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string, userID string) ([]*domain.Entry, error) {
+// FindRelatedByTags finds entries sharing tags with one the caller is holding.
+//
+// researchID confines the answer to a single research. It is empty for an
+// ordinary reader, whose membership does the scoping — and it is not empty for
+// a share visitor, who has no membership at all: the `? = ”` clause below
+// disables the team filter for a caller with no user id, which for a share
+// would have made this endpoint return every tagged entry on the server.
+func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string, tags []string, userID, researchID string) ([]*domain.Entry, error) {
 	if len(tags) == 0 {
 		return nil, nil
 	}
@@ -298,13 +305,14 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 		placeholders += "?"
 		args = append(args, t)
 	}
-	args = append(args, entryID, userID, userID)
+	args = append(args, entryID, researchID, researchID, userID, userID)
 
 	query := fmt.Sprintf(
 		`SELECT e.id, e.code, e.research_id, e.section_id, e.session_id, e.entry_type, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at,
 		        COUNT(*) as shared
 		 FROM entries e, json_each(e.tags) jt
 		 WHERE jt.value IN (%s) AND e.id != ?
+		   AND (? = '' OR e.research_id = ?)
 		   AND (? = '' OR EXISTS (
 		         SELECT 1 FROM researches res
 		          WHERE res.id = e.research_id

@@ -35,7 +35,7 @@
           <div class="change-title-row">
             <ShortCode v-if="change.entry_code" :code="change.entry_code" />
             <NuxtLink
-              :to="`/research/${researchSlug}/entry/${change.entry_code || change.entry_id}`"
+              :to="entryPath(researchSlug, change.entry_code || change.entry_id)"
               class="change-title"
             >{{ change.title }}</NuxtLink>
           </div>
@@ -72,6 +72,8 @@
 </template>
 
 <script setup lang="ts">
+import { entryPath } from '~/composables/useResearchPaths'
+
 /**
  * What a session did to the research's entries: the ones it created, the ones it
  * edited, and the diff for each.

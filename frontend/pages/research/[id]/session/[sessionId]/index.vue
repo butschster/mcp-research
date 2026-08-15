@@ -238,7 +238,6 @@ useResearchRealtime(
 .session-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
 .session-header .page-title { min-width: 0; overflow-wrap: anywhere; }
 .session-header-actions { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
-.card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); letter-spacing: -0.01em; }
 .notes-card { margin-bottom: var(--space-6); }
 .notes-text { white-space: pre-wrap; color: var(--color-text-muted); font-size: var(--type-sm); line-height: 1.6; }
 
@@ -248,8 +247,6 @@ useResearchRealtime(
   display: flex; gap: var(--space-4); font-size: var(--type-xs);
   margin-top: var(--space-2); color: var(--color-text-muted);
 }
-.stat-answered { color: var(--color-success); font-weight: 500; }
-.stat-pending  { color: var(--color-warning); font-weight: 500; }
 .stat-skipped  { color: var(--color-error); font-weight: 500; }
 .stat-muted    { color: var(--color-text-muted); }
 
@@ -300,15 +297,8 @@ useResearchRealtime(
 .entry-card { display: block; text-decoration: none; color: inherit; }
 .entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
 .entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.short-code {
-  font-size: var(--type-xs); font-weight: 600; color: var(--color-primary);
-  background: var(--color-primary-muted); padding: 0.15rem 0.4rem;
-  border-radius: 4px; font-family: 'JetBrains Mono', monospace; flex-shrink: 0; line-height: 1;
-}
-.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
-.skeleton-content { height: 400px; }
 
 /* Responsive */
 @media (max-width: 768px) {

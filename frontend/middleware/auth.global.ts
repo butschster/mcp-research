@@ -23,6 +23,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
+  // A share link is read by somebody with no account, and the token in the URL
+  // is the whole credential. Sending them to /login would be exactly the wall
+  // this feature exists to remove.
+  if (to.path.startsWith('/s/')) {
+    return
+  }
+
   if (to.path === '/login' || to.path === '/register') {
     // Already signed in: go where they were headed, or home.
     if (isAuthenticated.value) {

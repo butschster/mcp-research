@@ -12,6 +12,11 @@ observation you could not have made: report only what is visible in markup,
 styles and stories. When a conclusion needs a running app, say so and give the
 command that would settle it (`make storybook` → :6006, `make run-sse` → :8088).
 
+That said, **a great deal that looks like it needs a browser is arithmetic.** A
+button's height, a row's alignment, whether a page exceeds the viewport — all of
+it follows from the tokens and the box model, and computing it is not guessing.
+Do that before you defer anything to a human.
+
 ## Surface
 
 - Pages: `frontend/pages/**` (Nuxt file-based routes)
@@ -53,6 +58,55 @@ must scroll inside their own container.
 **Cross-references.** `[[E3]]` is rendered through `renderRefs()` in entry text,
 questions, answers, task results and session notes. Any place that prints user
 markdown without `renderRefs` leaves a link as raw text.
+
+**Dimensional consistency — do the arithmetic, do not eyeball it.**
+
+This is the check that keeps being skipped, and it is the one users notice
+first. A row of controls that are 29.8, 29.2 and 26.6 pixels tall looks *wrong*
+in a way nobody can name, and it shipped because every one of those numbers was
+correct on its own.
+
+You have `Bash`. Compute, and show your working:
+
+```
+height = content + padding-top + padding-bottom + border-top + border-bottom
+```
+
+with `--type-sm: 0.9375rem` and `line-height: 1` meaning 15px of text, an icon
+being whatever its `width`/`height` attribute says, and 1rem = 16px.
+
+Run `node frontend/scripts/css-consistency.mjs` first. It catches three things
+mechanically — a class defined both globally and in a `<style scoped>` block, a
+`height: calc(100dvh - <number>)`, and a button-family class whose height is
+left to emerge from its padding. What it cannot do is judge a *row*, which is
+where you come in:
+
+- **Every control in one row must be the same height.** List them, compute each,
+  and report any that differ — including by two pixels. Header rows, toolbars,
+  form action rows, table row actions.
+- **A new control must be measured against the family it joins.** When the diff
+  adds a button, a chip or a badge, find what it will stand next to and say
+  whether it matches. "It uses `.btn-sm`" is not an answer; `.btn-sm` is 26px
+  and the icon buttons beside it are 30px.
+- **Borders, radii and weights are part of the match.** `.btn-icon` once carried
+  `--color-border` while `.btn` carried `--color-border-strong`, so the icon
+  buttons read as a weaker class of control than the labelled one next to them.
+- **Auto margins suppress flex stretch.** A rule with `max-width` and
+  `margin: 0 auto` and no `width` is correct in normal flow and collapses to its
+  content the moment its parent becomes a flex container — which is a change
+  made three files away, in a layout nobody thought was related. Any new
+  `display: flex` on a wrapper is a reason to look at what its children are.
+- **A component must not depend on a page's scoped CSS.** Scoped rules reach a
+  child component's *root element only*. `.btn-icon` was defined in the research
+  page's scoped block, so `ActionMenu`'s trigger — a button inside a child
+  component — never received it and rendered full-size on that page and on every
+  other. If a component's look comes from a class it does not define, say so.
+
+**Page height.** A page with three cards on it must not scroll. Add up the
+chrome — nav padding + content + border, main padding, footer margin + padding +
+border — and compare it against whatever the layout reserves. `min-height:
+calc(100dvh - 120px)` against 154px of real chrome is 34px of scrollbar with
+nothing to scroll, on every page.
 
 **Consistency.** The same action is named the same way on every screen; statuses
 use the same tokens; spacing comes from `--space-*` rather than hard numbers.

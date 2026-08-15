@@ -3,7 +3,7 @@
     <NuxtLink
       v-for="sess in sessions"
       :key="sess.id"
-      :to="`/research/${researchSlug}/session/${sess.code || sess.id}`"
+      :to="sessionPath(researchSlug, sess.code || sess.id)"
       class="card session-widget session-active"
     >
       <div class="session-widget-header">
@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import { sessionPath } from '~/composables/useResearchPaths'
+
 defineProps<{
   sessions: any[]
   researchSlug: string

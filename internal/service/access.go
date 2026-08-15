@@ -48,6 +48,13 @@ func (a *Access) Read(ctx context.Context, researchID string) error {
 
 // Write allows an editor or an owner to change content.
 func (a *Access) Write(ctx context.Context, researchID string) error {
+	// A share link is read-only, and says so here rather than relying on the
+	// viewer role it resolves to. The rule "a share can never write" is the one
+	// this feature rests on, and it should be one greppable line, not a
+	// consequence of a role lookup two functions away.
+	if auth.ShareFromContext(ctx) != nil {
+		return ErrForbidden
+	}
 	role, err := a.Role(ctx, researchID)
 	if err != nil {
 		return err
@@ -68,7 +75,26 @@ func (a *Access) Write(ctx context.Context, researchID string) error {
 // whether the thing is there: without this, a bad id in local mode would slip
 // past every service and surface as a foreign-key error from the database.
 func (a *Access) Role(ctx context.Context, researchID string) (domain.TeamRole, error) {
+	// A share is decided before anything else, and before the no-authenticated-
+	// caller rule in particular. That rule exists for the local single-binary
+	// case and lets every read through; a share visitor is the opposite
+	// situation — a stranger on a public URL — and reaching that rule would
+	// hand them the whole database.
+	if sh := auth.ShareFromContext(ctx); sh != nil {
+		return a.shareRole(sh, researchID)
+	}
 	return a.roleFor(ctx, auth.UserIDFromContext(ctx), researchID)
+}
+
+// shareRole is the whole of what a share link may do: read one research, as a
+// viewer, and nothing else. Anything outside that research is ErrNotFound —
+// confirming that another research exists is the information a share must not
+// carry, and it is what makes a `[[R2:E5]]` reference render as inert text.
+func (a *Access) shareRole(sh *auth.Share, researchID string) (domain.TeamRole, error) {
+	if researchID == "" || researchID != sh.ResearchID {
+		return "", ErrNotFound
+	}
+	return domain.TeamViewer, nil
 }
 
 // CanReadResearch answers for a user who is not in the context.

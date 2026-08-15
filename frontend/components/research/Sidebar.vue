@@ -1,9 +1,24 @@
 <template>
-  <nav class="sidebar">
+  <!--
+    role="tablist" and focusable items.
+
+    These were <div>s with @click: not reachable by keyboard, not announced.
+    On the owner page that is an annoyance with workarounds — the search box,
+    the mindmap, a typed URL. On a shared view it is terminal: the sidebar is
+    the only navigation there is, the chrome is gone, and "All entries" and
+    "External links" have no other entry point at all. A keyboard-only visitor
+    could reach the first section and nothing else.
+  -->
+  <nav class="sidebar" role="tablist" aria-label="Sections">
     <!-- All entries -->
     <div
+      role="tab"
+      tabindex="0"
+      :aria-selected="activeSection === '__all__'"
       :class="['sidebar-item', { active: activeSection === '__all__' }]"
       @click="$emit('update:activeSection', '__all__')"
+      @keydown.enter.prevent="$emit('update:activeSection', '__all__')"
+      @keydown.space.prevent="$emit('update:activeSection', '__all__')"
     >
       <div class="sidebar-item-content">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -18,8 +33,13 @@
     <div
       v-for="section in sections"
       :key="section.id"
+      role="tab"
+      tabindex="0"
+      :aria-selected="activeSection === section.id"
       :class="['sidebar-item', { active: activeSection === section.id }]"
       @click="$emit('update:activeSection', section.id)"
+      @keydown.enter.prevent="$emit('update:activeSection', section.id)"
+      @keydown.space.prevent="$emit('update:activeSection', section.id)"
     >
       <div class="sidebar-item-content">
         <span class="sidebar-item-name">{{ section.display_name || section.name }}</span>
@@ -34,8 +54,13 @@
 
     <!-- External links -->
     <div
+      role="tab"
+      tabindex="0"
+      :aria-selected="activeSection === '__links__'"
       :class="['sidebar-item', { active: activeSection === '__links__' }]"
       @click="$emit('update:activeSection', '__links__')"
+      @keydown.enter.prevent="$emit('update:activeSection', '__links__')"
+      @keydown.space.prevent="$emit('update:activeSection', '__links__')"
     >
       <div class="sidebar-item-content">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -67,6 +92,12 @@ function sectionProgressWidth(section: any): string {
 </script>
 
 <style scoped>
+/* There was no focus style, because nothing here was focusable. */
+.sidebar-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
 .sidebar-item-content {
   display: flex;
   align-items: center;

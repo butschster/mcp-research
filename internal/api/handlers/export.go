@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
@@ -60,9 +61,19 @@ func (h *ExportHandler) SetRoadmapService(svc *service.RoadmapService) {
 func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	idOrCode := r.PathValue("id")
 
-	// The vault export reads the research itself and does its own ownership
-	// check, so it branches before this handler fetches anything.
+	// A share visitor gets markdown and the JSON this page renders from, and
+	// nothing else. The vault export builds its own payload from the repository
+	// rather than from ResearchService.Get, so the redaction that keeps
+	// `instruction` and `memory` out of a share does not cover it — and a format
+	// whose safety has to be argued separately is one a share should not have.
+	share := auth.ShareFromContext(r.Context())
 	if r.URL.Query().Get("format") == "obsidian" {
+		if share != nil {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		// The vault export reads the research itself and does its own ownership
+		// check, so it branches before this handler fetches anything.
 		h.ExportObsidian(w, r)
 		return
 	}
@@ -93,23 +104,30 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 		entriesBySection[e.SectionID] = append(entriesBySection[e.SectionID], e)
 	}
 
-	sessions, err := h.session.ListByResearch(r.Context(), researchID)
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
-
-	// Fetch questions for each session
+	// The include flags gate the routes that serve sessions and tasks, and they
+	// have to gate this too: an export that carried the interview transcript
+	// would hand over in one file exactly what the creator chose to leave out
+	// of the pages.
 	var sessionExports []sessionWithQuestions
-	for _, sess := range sessions {
-		qs, _ := h.session.ListQuestions(r.Context(), sess.ID, storage.QuestionFilter{})
-		sessionExports = append(sessionExports, sessionWithQuestions{Session: sess, Questions: qs})
+	if share == nil || share.Include.Sessions {
+		sessions, err := h.session.ListByResearch(r.Context(), researchID)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		for _, sess := range sessions {
+			qs, _ := h.session.ListQuestions(r.Context(), sess.ID, storage.QuestionFilter{})
+			sessionExports = append(sessionExports, sessionWithQuestions{Session: sess, Questions: qs})
+		}
 	}
 
-	tasks, err := h.task.List(r.Context(), researchID, storage.TaskFilter{})
-	if err != nil {
-		writeServiceError(w, err)
-		return
+	var tasks []*domain.Task
+	if share == nil || share.Include.Tasks {
+		tasks, err = h.task.List(r.Context(), researchID, storage.TaskFilter{})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
 	}
 
 	// Build markdown
@@ -140,8 +158,11 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	// A count rather than the roadmaps themselves: this payload is already the
 	// whole research, and the only caller that needs roadmaps here is a dialog
 	// asking whether the option applies at all.
+	//
+	// It obeys the include flag too. "There is 1 roadmap" is exactly the fact a
+	// link created with roadmaps switched off exists to withhold.
 	roadmapCount := 0
-	if h.roadmap != nil {
+	if h.roadmap != nil && (share == nil || share.Include.Roadmaps) {
 		if rms, err := h.roadmap.List(r.Context(), researchID); err == nil {
 			roadmapCount = len(rms)
 		}

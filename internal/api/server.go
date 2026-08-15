@@ -32,6 +32,10 @@ type ServerConfig struct {
 	OAuthSvc       *service.OAuthService
 	AutoLoginToken string       // JWT for default user auto-login (empty = disabled)
 	MCPHandler     http.Handler // Streamable HTTP MCP handler (mounted at /mcp)
+	// Version is what the binary was built as. It reaches the web UI through
+	// /api/health, which is the one endpoint every page can already call
+	// without a credential.
+	Version string
 }
 
 func NewServer(
@@ -45,6 +49,7 @@ func NewServer(
 	exportSvc *service.ExportService,
 	obsidianSvc *service.ObsidianService,
 	teamSvc *service.TeamService,
+	shareSvc *service.ShareService,
 	access *service.Access,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
@@ -63,6 +68,8 @@ func NewServer(
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
 	tmh := handlers.NewTeamHandler(teamSvc, researchSvc, log)
+	shh := handlers.NewShareHandler(shareSvc, researchSvc, sectionSvc, log)
+	rh.SetShareService(shareSvc)
 
 	// Build auth middleware functions
 	var requireAuth func(http.Handler) http.Handler
@@ -272,6 +279,26 @@ func NewServer(
 	mux.Handle("POST /api/invites/{token}/accept", wrap(tmh.AcceptInvite))
 	mux.Handle("POST /api/researches/{id}/transfer", wrap(tmh.TransferResearch))
 
+	// --- Share links ---
+	//
+	// Both halves live in share_routes.go: the owner's management routes here on
+	// the authenticated API, and the visitor's read surface behind its own
+	// prefix and its own middleware. Keeping the public prefix in one file is
+	// the point — it is the only place in the product where data leaves the
+	// owner boundary, and it should be readable in one sitting.
+	registerShareRoutes(mux, shareDeps{
+		shares:   shareSvc,
+		research: rh,
+		entry:    eh,
+		session:  sh,
+		task:     th,
+		roadmap:  rmh,
+		crossref: crReadHandler,
+		links:    elHandler,
+		export:   exportHandler,
+		share:    shh,
+	}, wrap, wrapRead)
+
 	// Backfill short codes for all records missing them
 	mux.Handle("POST /api/admin/backfill-codes", wrap(func(w http.ResponseWriter, r *http.Request) {
 		count, err := storage.BackfillCodes(r.Context(), db)
@@ -304,6 +331,7 @@ func NewServer(
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":       "ok",
+			"version":      cfg.Version,
 			"in_memory":    cfg.IsInMemory,
 			"write_api":    cfg.APIToken != "" || cfg.AuthEnabled,
 			"auth_enabled": cfg.AuthEnabled,

@@ -1,11 +1,25 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import EntryCard from './EntryCard.vue'
 import { mockEntry, mockEntryDraft, mockEntryNoTags } from '../__mocks__/entry'
+import { withShare, withoutShare } from '../__mocks__/share'
 
+/**
+ * One entry, as a link.
+ *
+ * Where it points is no longer written into the template: it asks `entryPath()`,
+ * which answers `/research/{slug}/entry/{code}` normally and
+ * `/s/{token}/entry/{code}` under a share link. The card itself does not know
+ * which it is in, and should not — a component that has to be told where it is
+ * gets it wrong in the one place nobody checks.
+ */
 const meta: Meta<typeof EntryCard> = {
   title: 'Cards/EntryCard',
   component: EntryCard,
   tags: ['autodocs'],
+  // Share state is module state; this gives the ordinary stories a known
+  // starting point rather than whatever the last story left behind. The
+  // trade-offs are in __mocks__/share.ts.
+  decorators: [withoutShare()],
   argTypes: {
     researchSlug: { control: 'text' },
   },
@@ -81,6 +95,19 @@ export const AllStatuses: Story = {
       return { entries }
     },
   }),
+}
+
+/**
+ * The same card inside a share link. Nothing about it looks different — that is
+ * the point — but the href is now `/s/{token}/entry/E1`, which is the only route
+ * an anonymous visitor can follow. Hover the title to see it.
+ */
+export const InsideAShare: Story = {
+  decorators: [withShare()],
+  args: {
+    entry: mockEntry,
+    researchSlug: 'R7',
+  },
 }
 
 export const ArtifactEntry: Story = {

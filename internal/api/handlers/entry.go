@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -40,7 +41,7 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		if research != nil {
 			entry, err = h.entry.GetByIDOrCode(r.Context(), research.ID, idOrCode)
 		} else {
-			err = fmt.Errorf("research not found")
+			err = fmt.Errorf("not found")
 		}
 	} else {
 		entry, err = h.entry.Get(r.Context(), idOrCode)
@@ -51,7 +52,7 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry)))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context()))
 }
 
 func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +63,7 @@ func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
 		research, _ = h.research.FindByCode(r.Context(), researchIDOrCode)
 	}
 	if research == nil {
-		writeError(w, http.StatusNotFound, "research not found")
+		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
 
@@ -72,7 +73,7 @@ func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry)))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context()))
 }
 
 func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Request) {
@@ -83,17 +84,18 @@ func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Reque
 		research, _ = h.research.FindByCode(r.Context(), researchIDOrCode)
 	}
 	if research == nil {
-		writeError(w, http.StatusNotFound, "research not found")
+		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
 
 	entry, err := h.entry.GetByIDOrCode(r.Context(), research.ID, r.PathValue("entryId"))
 	if err != nil || entry == nil {
-		writeError(w, http.StatusNotFound, "entry not found")
+		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
 
-	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags, auth.UserIDFromContext(r.Context()))
+	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags,
+		auth.UserIDFromContext(r.Context()), shareResearchID(r.Context()))
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -117,14 +119,14 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 	entry, err := h.entry.GetByIDOrCode(r.Context(), researchID, entryCode)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "entry not found")
+			writeError(w, http.StatusNotFound, "not found")
 			return
 		}
 		writeServiceError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry)))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context()))
 }
 
 // ResolveResearchCode resolves a research short code to its ID and metadata.
@@ -136,7 +138,7 @@ func (h *EntryHandler) ResolveResearchCode(w http.ResponseWriter, r *http.Reques
 	// researches, ids and names included.
 	research, err := h.researchSvc.Get(r.Context(), code)
 	if err != nil || research == nil {
-		writeError(w, http.StatusNotFound, "research not found")
+		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
 
@@ -164,18 +166,19 @@ func (h *EntryHandler) GetRelated(w http.ResponseWriter, r *http.Request) {
 		if research != nil {
 			entry, err = h.entry.GetByIDOrCode(r.Context(), research.ID, idOrCode)
 		} else {
-			err = fmt.Errorf("research not found")
+			err = fmt.Errorf("not found")
 		}
 	} else {
 		entry, err = h.entry.Get(r.Context(), idOrCode)
 	}
 
 	if err != nil || entry == nil {
-		writeError(w, http.StatusNotFound, "entry not found")
+		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
 
-	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags, auth.UserIDFromContext(r.Context()))
+	related, err := h.entries.FindRelatedByTags(r.Context(), entry.ID, entry.Tags,
+		auth.UserIDFromContext(r.Context()), shareResearchID(r.Context()))
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -201,8 +204,19 @@ func entryPayload(entry *domain.Entry) map[string]any {
 // without opening the history. `rev` here is the document hash a blocks entry
 // carries; `revision` is the numbered snapshot — different things, and the two
 // names sit side by side in this payload precisely because clients confuse them.
-func withProvenance(payload map[string]any, rev *domain.EntryRevision) map[string]any {
+func withProvenance(payload map[string]any, rev *domain.EntryRevision, ctx context.Context) map[string]any {
 	if rev == nil {
+		return payload
+	}
+	// A share visitor gets none of it.
+	//
+	// Provenance is who edited what, when, from which interview session — the
+	// working process behind the result, of a piece with `instruction` and
+	// `memory`, and the shared view deliberately has no history panel to show
+	// it in. It also carried a concrete leak: `revision_session` names the
+	// session's code and title, so a link created with sessions switched off
+	// was still printing the interview's title on every entry page.
+	if auth.ShareFromContext(ctx) != nil {
 		return payload
 	}
 	payload["revision"] = rev.Revision
@@ -214,4 +228,15 @@ func withProvenance(payload map[string]any, rev *domain.EntryRevision) map[strin
 		}
 	}
 	return payload
+}
+
+// shareResearchID confines a query to the shared research, or returns "" for
+// an ordinary reader whose membership does the confining. Related-by-tags is
+// the one read in this file that is not routed through a service, so it is the
+// one that has to say this out loud.
+func shareResearchID(ctx context.Context) string {
+	if sc := auth.ShareFromContext(ctx); sc != nil {
+		return sc.ResearchID
+	}
+	return ""
 }
