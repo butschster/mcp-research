@@ -176,7 +176,9 @@ useRealtimeUpdates(
   gap: var(--space-2);
   margin-bottom: var(--space-6);
 }
+  @media (max-width: 768px) {
   .filter-bar { flex-wrap: wrap; }
+}
 
 .page-header-row {
   display: flex;

@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import { tagHue } from '~/composables/useTagHue'
 import { Handle, Position } from '@vue-flow/core'
 
 const props = defineProps<{
@@ -39,9 +40,6 @@ function truncate(text: string, len: number): string {
   return text.length > len ? text.slice(0, len) + '...' : text
 }
 
-function tagHue(tag: string): number {
-  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
-}
 
 function navigate() {
   window.open(`/research/${props.data.researchSlug}/entry/${props.data.entrySlug}`, '_blank')

@@ -136,6 +136,11 @@ function sectionProgressWidth(section: any): string {
   border-radius: 1px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* The mobile shape: a horizontal strip instead of a rail. Its `@media`
+   wrapper was lost when these rules were moved out of the global sheet, so
+   for one commit the desktop sidebar was a scroller inside a 240px grid
+   column with every progress bar hidden. */
+@media (max-width: 768px) {
   .sidebar {
     position: static;
     flex-direction: row;
@@ -162,6 +167,7 @@ function sectionProgressWidth(section: any): string {
     border-bottom-color: var(--color-primary);
   }
   .sidebar-progress { display: none; }
+}
 
 /* There was no focus style, because nothing here was focusable. */
 .sidebar-item:focus-visible {

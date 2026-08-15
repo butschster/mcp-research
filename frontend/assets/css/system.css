@@ -617,8 +617,8 @@ button.tag { font: inherit; cursor: pointer; text-align: inherit; }
 }
 
 .card,
-.session-widget,,
-.getting-started,,
+.session-widget,
+.getting-started,
 .notes-card {
   animation: fade-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }

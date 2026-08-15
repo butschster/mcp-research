@@ -68,12 +68,37 @@ def main():
         if sel in EXEMPT or DYNAMIC.match("." + sel):
             continue
         users = {p for p, s in files.items() if re.search(r"[\"'\s.]%s[\"'\s]" % re.escape(sel), s)}
-        if 0 < len(users) < 3:
+        if not users:
+            issues.append(
+                ".%s is in system.css and nothing uses it. Either adopt it or "
+                "delete it — a primitive with no adopter is the state this "
+                "check used to skip silently, which is how six of them shipped."
+                % sel
+            )
+            continue
+        if len(users) < 3:
             names = ", ".join(sorted(os.path.relpath(u, ROOT) for u in users))
             issues.append(
                 ".%s is in system.css but only %d file(s) use it (%s). Three "
                 "earn a place there; two means extract a component instead."
                 % (sel, len(users), names)
+            )
+
+    # A token defined as `var()` of itself is in a dependency cycle, so it
+    # computes to the guaranteed-invalid value and every var() reading it falls
+    # back to inherited or initial. A sweep that replaced token-duplicate hexes
+    # with var() ran over the file where the hex *is* the definition and took
+    # the background, the surface, the ink and the accent out in one pass —
+    # valid CSS throughout, and nothing here noticed.
+    tokens_path = os.path.join(FRONTEND, "assets", "css", "tokens.css")
+    if os.path.isfile(tokens_path):
+        with open(tokens_path, encoding="utf-8") as fh:
+            tok = fh.read()
+        for name in re.findall(r"(--[\w-]+):\s*var\(\s*\1\s*\)", tok):
+            issues.append(
+                "assets/css/tokens.css: %s is defined as var(%s) — a self-reference "
+                "puts it in a cycle, so it and everything reading it compute to "
+                "the invalid value." % (name, name)
             )
 
     for path, src in files.items():

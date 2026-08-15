@@ -13,12 +13,12 @@
 
 :root {
   /* --- Colors ----------------------------------------------------------- */
-  --color-bg: var(--color-bg);
+  --color-bg: #0c1220;
   /* Below the page: code wells, the graph canvas, the auth hero. Two components
      had independently invented "darker than the background" and disagreed. */
-  --color-bg-deep: var(--color-bg-deep);
-  --color-surface: var(--color-surface);
-  --color-surface-hover: var(--color-surface-hover);
+  --color-bg-deep: #080e1e;
+  --color-surface: #151d2e;
+  --color-surface-hover: #1e2940;
   /* A floating layer — dropdown, popover, dialog — so it separates from a card
      behind it instead of matching it. */
   --color-surface-raised: #1b2438;
@@ -28,24 +28,24 @@
      resolved to an invalid value and the colour simply inherited — every icon
      button in every page header had a hover state that did nothing. */
   --color-border-hover: var(--color-border-strong);
-  --color-text: var(--color-text);
-  --color-text-muted: var(--color-text-muted);
+  --color-text: #e2e8f0;
+  --color-text-muted: #7f8ea3;
   /* Dimmer than muted, at full opacity. It exists to end the habit of reaching
      for `opacity` on text that is already muted: muted has 0.55 of headroom
      over 4.5:1 on a card, so any opacity under ~0.9 puts it under. The three
      worst contrast measurements in the product were all opacity, not colour. */
   --color-text-faint: #5b6b80;
-  --color-primary: var(--color-primary);
+  --color-primary: #6cc5e0;
   --color-primary-hover: #7cd1ea;
   --color-primary-muted: rgba(108, 197, 224, 0.10);
   /* Ink on a primary-filled surface. White on this cyan is 1.9:1; the page
      background on it is 9.5:1. Stated as a token so no button has to remember. */
   --color-on-primary: var(--color-bg);
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-error: var(--color-error);
-  --color-info: var(--color-info);
-  /* One red for destruction. There were four — var(--color-error), #ef4444, #dc2626 and
+  --color-success: #34d399;
+  --color-warning: #f0b849;
+  --color-error: #ef6b6b;
+  --color-info: #6b9df0;
+  /* One red for destruction. There were four — #ef6b6b, #ef4444, #dc2626 and
      currentColor — and which one you got depended on the component you were
      inside. `app.vue` already referenced this name with a #dc2626 fallback. */
   --color-danger: var(--color-error);
@@ -59,7 +59,7 @@
   --hue-2: var(--color-success);   /* green  — done           */
   --hue-3: var(--color-warning);   /* amber  — sessions       */
   --hue-4: var(--color-error);   /* red    — blocked/failed */
-  --hue-5: var(--hue-5);   /* violet — sections, refs */
+  --hue-5: #a78bfa;   /* violet — sections, refs */
   --hue-6: #fb923c;   /* orange — questions      */
 
   /* --- Type Scale (9-step) ---------------------------------------------- */
