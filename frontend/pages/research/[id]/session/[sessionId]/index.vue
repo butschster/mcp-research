@@ -34,7 +34,7 @@
     <!-- Notes -->
     <div v-if="session.notes" class="card notes-card">
       <h3 class="card-section-title">Session notes</h3>
-      <div ref="notesEl" class="notes-text markdown-content" v-html="renderRefs(marked.parse(normalizeContent(session.notes)) as string, researchSlug)"></div>
+      <div ref="notesEl" class="notes-text markdown-content" v-html="linkRefs(parseMarkdown(normalizeContent(session.notes)) as string, researchSlug)"></div>
     </div>
 
     <!-- Tabs -->
@@ -137,9 +137,8 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-marked.setOptions({ gfm: true, breaks: true })
 const route = useRoute()
 const id = route.params.id as string
 const sessionId = route.params.sessionId as string

@@ -6,24 +6,18 @@
  * escape first, then apply a fixed set of replacements over the escaped string,
  * so a payload containing markup renders as text instead of executing.
  */
-import { renderRefs } from '~/composables/useCrossRefs'
+import { linkRefs } from '~/composables/useCrossRefs'
+import { escapeHtml } from '~/utils/escapeHtml'
+import { safeUrl } from '~/utils/safeUrl'
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-/** http(s) and domain-relative only — the same rule the server normalizer applies. */
-function safeHref(url: string): string | null {
-  const decoded = url.replace(/&amp;/g, '&')
-  if (/^https?:\/\//i.test(decoded)) return decoded
-  if (decoded.startsWith('/') && !decoded.startsWith('//')) return decoded
-  return null
-}
+/**
+ * The URL rule moved to `utils/safeUrl` when the markdown parser started
+ * needing it too. Block text and a full markdown document should not disagree
+ * about which links are allowed, and while the rule lived here they did: this
+ * copy had no case for `mailto:` or a `#fragment`, and did not strip the
+ * control characters that let `java\tscript:` past a check for `javascript:`.
+ */
+const safeHref = safeUrl
 
 /**
  * Renders one text field to HTML. Order matters: escaping happens before any
@@ -48,8 +42,10 @@ export function renderInline(text: string | null | undefined, researchSlug = '')
   out = out.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>')
 
   // Cross-references last, so [[E3]] inside a code span or a link label is left
-  // alone by the earlier rules and still becomes a link here.
-  return renderRefs(out, researchSlug)
+  // alone by the earlier rules and still becomes a link here. `linkRefs`, not
+  // `renderRefs`: `out` was escaped on the first line and escaping it a second
+  // time would print the entities rather than the characters.
+  return linkRefs(out, researchSlug)
 }
 
 /** Plain text of a field, for titles and attributes where markup has no place. */

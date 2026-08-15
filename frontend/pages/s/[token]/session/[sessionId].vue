@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 
 const route = useRoute()
 const sessionCode = computed(() => route.params.sessionId as string)
@@ -118,8 +118,8 @@ const progress = computed(() => {
 
 const renderedNotes = computed(() => {
   if (!session.value?.notes) return ''
-  const html = marked.parse(String(session.value.notes).replace(/\\n/g, '\n')) as string
-  return renderRefs(html, slug.value)
+  const html = parseMarkdown(String(session.value.notes).replace(/\\n/g, '\n')) as string
+  return linkRefs(html, slug.value)
 })
 
 useResearchRealtime(

@@ -39,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+import { shareContents, shareExpiryPhrase } from '~/composables/useShare'
 /**
  * The permanent strip across a shared view.
  *

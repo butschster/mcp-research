@@ -70,6 +70,14 @@ onMounted(() => {
 
 <template>
   <div>
+    <!-- Every page in this app awaits its data at the top level, which makes it
+         a Suspense boundary: the page you came from stays on screen until the
+         new one resolves, and each page's own `v-if="pending"` skeleton is
+         already false by the time its template first runs. So a navigation was
+         several sequential round trips of nothing happening at all. This is the
+         one feedback that does not require restructuring those awaits. -->
+    <NuxtLoadingIndicator :color="'var(--color-primary)'" />
+
     <!-- One host for the whole app, outside the page chrome so a notification
          survives navigation and shows on the auth pages too. -->
     <ToastHost />

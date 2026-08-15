@@ -110,11 +110,10 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-import { renderRefs } from '~/composables/useCrossRefs'
+import { renderRefs, linkRefs } from '~/composables/useCrossRefs'
 
-marked.setOptions({ gfm: true, breaks: true })
 
 const route = useRoute()
 const id = route.params.id as string
@@ -163,20 +162,16 @@ watch(() => exportData.value, drawDiagrams)
 
 function renderMarkdown(content: string): string {
   if (!content) return ''
-  const html = marked.parse(normalizeContent(content)) as string
-  return renderRefs(html, researchSlug.value)
+  const html = parseMarkdown(normalizeContent(content)) as string
+  return linkRefs(html, researchSlug.value)
 }
 
 // Plain-text fields still carry [[E3]] references, and they are rendered as
-// links everywhere else in the app. renderRefs does not escape, so escape first.
+// links everywhere else in the app. `renderRefs` escapes its input, so the
+// hand-rolled escape that used to stand here — which missed `'` — is gone.
 function renderInline(text: string): string {
   if (!text) return ''
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-  return renderRefs(escaped, researchSlug.value)
+  return renderRefs(text, researchSlug.value)
 }
 
 function humanStatus(status: string): string {

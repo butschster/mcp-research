@@ -23,6 +23,8 @@
 </template>
 
 <script setup lang="ts">
+import { clockTime } from '~/composables/useRelativeTime'
+import { useConnectionBanner } from '~/composables/useConnectionBanner'
 import type { BannerState } from '~/composables/useConnectionBanner'
 import type { RealtimeReason } from '~/composables/useRealtimeUpdates'
 

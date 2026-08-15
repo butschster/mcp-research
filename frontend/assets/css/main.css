@@ -10,14 +10,25 @@
   --color-surface-hover: #1e2940;
   --color-border: rgba(148, 163, 184, 0.12);
   --color-border-strong: rgba(148, 163, 184, 0.22);
+  /* `.btn-icon:hover` referenced this before it existed, so the hover border
+     resolved to an invalid value and the colour simply inherited — every icon
+     button in every page header had a hover state that did nothing. */
+  --color-border-hover: var(--color-border-strong);
   --color-text: #e2e8f0;
   --color-text-muted: #7f8ea3;
   --color-primary: #6cc5e0;
   --color-primary-muted: rgba(108, 197, 224, 0.10);
+  /* Ink on a primary-filled surface. White on this cyan is 1.9:1; the page
+     background on it is 9.5:1. Stated as a token so no button has to remember. */
+  --color-on-primary: var(--color-bg);
   --color-success: #34d399;
   --color-warning: #f0b849;
   --color-error: #ef6b6b;
   --color-info: #6b9df0;
+  /* One red for destruction. There were four — #ef6b6b, #ef4444, #dc2626 and
+     currentColor — and which one you got depended on the component you were
+     inside. `app.vue` already referenced this name with a #dc2626 fallback. */
+  --color-danger: var(--color-error);
 
   /* --- Type Scale (9-step) ---------------------------------------------- */
   --type-xs:   0.875rem;
@@ -59,6 +70,28 @@
   --transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   --line-tight: 1.15;
   --line-base: 1.55;
+
+  /* --- Measure ----------------------------------------------------------
+     How wide a column of text is allowed to get.
+     The entry page has no sidebar, so a paragraph in `.entry-content` ran the
+     full container — about 130 characters a line, against a comfortable 45-75.
+     The comparison view had a measure (`DiffView`, 90ch) and a one-line page
+     lead had one (65ch); the surface whose whole purpose is reading did not.
+
+     Stated in `rem`, not `ch`, for two reasons. `ch` is the advance of `0`,
+     which in Outfit is 0.656em while its average lowercase letter is about
+     0.5em — so `72ch` is roughly 94 characters, not 72. And `ch` resolves
+     against each element's own font-size, so a single token became a
+     different width on every heading level: an h2 at `--type-xl` computed a
+     cap wider than the column it sat in and hung its underline 283px past the
+     text beneath it. One length, resolved once. */
+  --measure: 38rem;
+  /* Content that is read by scanning rather than by line: tables, code, diffs
+     and diagrams, which are worse wrapped than wide. */
+  --measure-wide: 52rem;
+  /* A lead paragraph or an empty-state sentence, short enough that a narrower
+     column reads as deliberate. */
+  --measure-prose: 34rem;
 
   /* --- Z-Index Scale ---------------------------------------------------- */
   --z-base: 0;
@@ -586,6 +619,24 @@ body::after {
 .entry-actions { display: flex; gap: var(--space-2); align-items: center; flex-shrink: 0; }
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 .entry-content { padding: var(--space-8); border-radius: var(--radius-lg); }
+
+/* The measure is applied to the card, not to the blocks inside it.
+   Capping each block instead was the first attempt and it looked broken: the
+   `border-bottom` under an h2, an `hr` and a `.b-divider` are block children,
+   so they stopped two thirds of the way across a card whose own border ran the
+   full width — and a rule that ends short of its container reads as a mistake,
+   not as a measure. It also produced two right edges in one column, prose at
+   one and a table 184px beyond it, for no reason a reader could infer.
+   With the card itself capped, every edge in the entry lines up. */
+.entry-column { max-width: calc(var(--measure) + 2 * var(--space-8)); }
+
+/* Content that is read by scanning rather than by line scrolls instead of
+   wrapping. This used to be a `@media (max-width: 768px)` rule, which meant a
+   wide table overflowed silently at every width above it. */
+.entry-content .markdown-content table,
+.entry-content .block-doc .b-table-wrap { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.entry-content .markdown-content pre,
+.entry-content .block-doc .b-code-wrap { overflow-x: auto; }
 
 /* Session progress figures */
 .stat-answered { color: var(--color-success); font-weight: 500; }

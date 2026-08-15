@@ -44,6 +44,7 @@
 </template>
 
 <script setup lang="ts">
+import { shareContents, shareExpiryPhrase } from '~/composables/useShare'
 /**
  * The links a research has handed out — live, expired and revoked.
  *
@@ -78,7 +79,7 @@ const isLive = isShareLive
 
 function stateLabel(s: ShareRow) {
   if (s.revoked_at) return 'Revoked'
-  if (s.expires_at && new Date(s.expires_at).getTime() <= Date.now()) return 'Expired'
+  if (s.expires_at && parseTimestamp(s.expires_at).getTime() <= Date.now()) return 'Expired'
   if (s.expires_at) {
     const phrase = shareExpiryPhrase(s.expires_at)
     return phrase.startsWith('on ') ? `Expires ${phrase}` : `Expires ${phrase}`
@@ -97,9 +98,12 @@ function contents(s: ShareRow) {
   return shareContents(s.include)
 }
 
+// `new Date(value)` read the API's two timestamp shapes differently — SQLite's
+// space-separated form as local, the encoder's Z-suffixed form as UTC — so a
+// share's creation date could disagree by hours with the last-opened line
+// directly above it, which already went through the composable.
 function formatDate(value: string) {
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString()
+  return absoluteTime(value, { dateStyle: 'medium' })
 }
 </script>
 

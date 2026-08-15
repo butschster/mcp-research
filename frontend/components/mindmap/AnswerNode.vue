@@ -11,10 +11,10 @@
 
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
-import { marked } from 'marked'
-import { renderRefs } from '~/composables/useCrossRefs'
+import { parseMarkdownInline } from '~/composables/useSafeMarkdown'
+import { linkRefs } from '~/composables/useCrossRefs'
+import { normalizeContent } from '~/utils/normalizeContent'
 
-marked.setOptions({ gfm: true, breaks: true })
 
 const props = defineProps<{
   data: {
@@ -33,7 +33,7 @@ function truncate(text: string, len: number): string {
 
 function renderInline(text: string, len: number): string {
   const truncated = truncate(normalizeContent(text), len)
-  return renderRefs(marked.parseInline(truncated) as string, props.data.researchSlug)
+  return linkRefs(parseMarkdownInline(truncated) as string, props.data.researchSlug)
 }
 
 function navigate() {

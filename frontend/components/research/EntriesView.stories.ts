@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import EntriesView from './EntriesView.vue'
 import { mockEntry, mockEntryDraft } from '../../__mocks__/entry'
+import { markupDescription } from '../../__mocks__/markup'
 import { mockSections, mockSection, mockSectionCompleted } from '../../__mocks__/section'
 import { withShare, withoutShare } from '../../__mocks__/share'
 
@@ -104,6 +105,52 @@ export const Empty: Story = {
     researchSlug: 'R1',
     loading: false,
     mode: 'all',
+    tags: [],
+  },
+}
+
+const markupEntry = {
+  ...mockEntry,
+  id: 'ent_markup',
+  code: 'E9',
+  title: 'Author-supplied HTML in a description',
+  description: markupDescription,
+  section_id: 'sec_001',
+}
+
+/**
+ * A description with markup in it, in the **grouped** branch.
+ *
+ * This component writes the entry card three times — twice in its own template
+ * and once again in `EntryCard` — and each copy calls `renderRefs` into
+ * `v-html`. Duplicated markup is duplicated exposure: a fix applied to one copy
+ * leaves the other two, and nothing in the catalogue would have shown which was
+ * which. Hence a story per branch rather than one for the component.
+ *
+ * The markup must read as text and `[[E3]]` must still be a link. An executed
+ * payload prints `XSS EXECUTED` in place of the image tag.
+ */
+export const MarkupInDescription: Story = {
+  args: {
+    entries: [markupEntry, ...entriesWithSections],
+    sections: [mockSection, mockSectionCompleted],
+    researchSlug: 'R1',
+    loading: false,
+    mode: 'all',
+    tags,
+  },
+}
+
+/** The same description in the **section** branch — the second copy of the card,
+ *  reached by a different `v-if` and fixed separately from the one above. */
+export const MarkupInDescriptionSectionMode: Story = {
+  args: {
+    entries: [markupEntry, { ...mockEntryDraft, section_id: 'sec_001' }],
+    sections: mockSections,
+    researchSlug: 'R1',
+    loading: false,
+    mode: 'section',
+    sectionInfo: mockSection,
     tags: [],
   },
 }

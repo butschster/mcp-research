@@ -127,9 +127,10 @@
  * server decides what is in the payload, and under a share it has already left
  * out `instruction`, `memory`, and any section the link does not include.
  */
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
+import { linkRefs } from '~/composables/useCrossRefs'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-marked.setOptions({ gfm: true, breaks: true })
+import { normalizeContent } from '~/utils/normalizeContent'
 
 const props = defineProps<{
   data: any
@@ -161,8 +162,8 @@ function blocksOf(entry: any): any[] | null {
 
 function renderMarkdown(content: string): string {
   if (!content) return ''
-  const html = marked.parse(normalizeContent(content)) as string
-  return renderRefs(html, props.researchSlug)
+  const html = parseMarkdown(normalizeContent(content)) as string
+  return linkRefs(html, props.researchSlug)
 }
 
 // Markdown entries carry their diagrams as ```mermaid fences. Draw them, or the

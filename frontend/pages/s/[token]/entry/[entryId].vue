@@ -20,7 +20,7 @@
     <button class="btn btn-primary" @click="loadEntry()">Try again</button>
   </EmptyState>
 
-  <div v-else>
+  <div v-else class="entry-column">
     <div class="page-header">
       <Breadcrumbs :crumbs="[
         { label: researchName, to: researchPath(slug) },
@@ -90,7 +90,7 @@
  * purpose — who edited what and when is internal working process, of a piece
  * with `instruction` and `memory`.
  */
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { tagHue } from '~/composables/useTagHue'
 
 const route = useRoute()
@@ -116,6 +116,9 @@ const sectionName = computed(() => {
 
 async function loadEntry() {
   pending.value = true
+  // The previous entry's siblings are not this entry's siblings; leaving them
+  // in place renders a navigation bar belonging to the section just left.
+  siblings.value = []
   try {
     const res = await shareFetch<{ data: any }>(
       `/researches/${researchId.value}/entries/${entryCode.value}`,
@@ -181,8 +184,8 @@ const blocks = computed<any[]>(() => {
 const contentEl = ref<HTMLElement | null>(null)
 const renderedContent = computed(() => {
   if (!entry.value?.content) return ''
-  const html = marked.parse(String(entry.value.content).replace(/\\n/g, '\n')) as string
-  return renderRefs(html, slug.value)
+  const html = parseMarkdown(String(entry.value.content).replace(/\\n/g, '\n')) as string
+  return linkRefs(html, slug.value)
 })
 
 watch(renderedContent, () => {

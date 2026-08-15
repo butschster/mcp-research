@@ -16,6 +16,7 @@ import ShortCode from '../components/ShortCode.vue'
 import TeamRoleSelect from '../components/team/RoleSelect.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
+import { resetMockApiData } from '../__mocks__/api'
 import '../assets/css/main.css'
 
 const router = createRouter({
@@ -102,6 +103,12 @@ const preview: Preview = {
   decorators: [
     (story) => ({
       components: { story },
+      // A decorator's setup runs before the story's, and the story's before the
+      // component's — so this clears the `useApi` routing table in time for a
+      // story to install its own, and in time for a story that installs none to
+      // see nothing. Module state that outlives one story is how a catalogue
+      // starts depending on the order it was clicked through in.
+      setup: () => resetMockApiData(),
       template: `
         <div style="background: var(--color-bg); color: var(--color-text); padding: 1.5rem; font-family: 'Outfit', system-ui, sans-serif;">
           <story />

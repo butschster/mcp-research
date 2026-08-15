@@ -4,7 +4,7 @@
     <div class="skeleton-card skeleton-content"></div>
   </div>
 
-  <div v-else-if="entry">
+  <div v-else-if="entry" class="entry-column">
     <!-- Header -->
     <div class="page-header">
       <Breadcrumbs :crumbs="[
@@ -222,11 +222,18 @@
     />
   </div>
 
-  <EmptyState v-else icon="&#x1F50D;" title="Entry not found" />
+  <EmptyState
+    v-else
+    icon="&#x1F50D;"
+    title="Entry not found"
+    description="It may have been deleted, or the reference that brought you here may name an entry that never existed."
+  >
+    <NuxtLink :to="`/research/${researchSlug}`" class="btn btn-sm">Back to the research</NuxtLink>
+  </EmptyState>
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
@@ -239,7 +246,6 @@ const router = useRouter()
 const id = route.params.id as string
 const entryId = route.params.entryId as string
 
-marked.setOptions({ gfm: true, breaks: true })
 
 const statuses = ['draft', 'active', 'completed', 'archived']
 
@@ -353,8 +359,8 @@ const blockBridgeData = computed(() => {
 // Rendered markdown
 const renderedContent = computed(() => {
   if (!entry.value?.content) return ''
-  const html = marked.parse(normalizeContent(entry.value.content)) as string
-  return renderRefs(html, researchSlug.value)
+  const html = parseMarkdown(normalizeContent(entry.value.content)) as string
+  return linkRefs(html, researchSlug.value)
 })
 
 // Syntax-highlighted markdown source
@@ -678,9 +684,29 @@ const { data: siblingsData } = useApi<{ data: any[] }>(
   )
 )
 const siblings = computed(() => siblingsData.value?.data ?? [])
-const currIndex = computed(() => siblings.value.findIndex((e: any) => e.id === entryId))
+/**
+ * Where this entry sits among its section's entries.
+ *
+ * It used to compare `e.id` against `entryId` — the route param, which is a
+ * short code (`E3`) on every link the app builds, against a sibling's UUID. So
+ * the index was -1 for anyone who arrived by clicking, which is everyone:
+ * "Prev" required `> 0` and never rendered, and "Next" required
+ * `< length - 1`, which -1 satisfies, so it pointed at the section's first
+ * entry from every page — including from that entry, where it linked to itself.
+ *
+ * Matching on the loaded entry's own id sidesteps the question of which
+ * identity the URL happened to carry.
+ */
+const currIndex = computed(() => {
+  const id = entry.value?.id
+  return id ? siblings.value.findIndex((e: any) => e.id === id) : -1
+})
 const prevEntry = computed(() => currIndex.value > 0 ? siblings.value[currIndex.value - 1] : null)
-const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? siblings.value[currIndex.value + 1] : null)
+const nextEntry = computed(() =>
+  currIndex.value >= 0 && currIndex.value < siblings.value.length - 1
+    ? siblings.value[currIndex.value + 1]
+    : null,
+)
 </script>
 
 <style scoped>

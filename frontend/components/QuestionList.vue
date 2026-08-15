@@ -65,14 +65,19 @@
 import { NuxtLink } from '#components'
 
 import { renderRefs } from '~/composables/useCrossRefs'
+import { normalizeContent } from '~/utils/normalizeContent'
+
 interface Question {
   id: string
   code: string
   text: string
   area: string
   priority: string
-  answer: string
-  parent_id: string
+  // A pending question has no answer and a top-level one has no parent; both
+  // arrive as null. Declaring them as plain strings made the type disagree with
+  // every payload the component is actually handed.
+  answer?: string | null
+  parent_id?: string | null
   status: string
 }
 

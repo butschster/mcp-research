@@ -71,13 +71,13 @@
               <div class="field-header">
                 <label class="field-label">Created</label>
               </div>
-              <div class="field-value">{{ new Date(task.created_at).toLocaleDateString() }}</div>
+              <div class="field-value">{{ absoluteTime(task.created_at, { dateStyle: 'medium' }) }}</div>
             </div>
             <div v-if="task.completed_at" class="field">
               <div class="field-header">
                 <label class="field-label">Completed</label>
               </div>
-              <div class="field-value">{{ new Date(task.completed_at).toLocaleDateString() }}</div>
+              <div class="field-value">{{ absoluteTime(task.completed_at, { dateStyle: 'medium' }) }}</div>
             </div>
           </div>
         </section>
@@ -98,7 +98,7 @@
                   v-if="task.description"
                   ref="descContentEl"
                   class="field-value field-value-pre markdown-content"
-                  v-html="renderRefs(marked.parse(normalizeContent(task.description)) as string, researchSlug)"
+                  v-html="linkRefs(parseMarkdown(normalizeContent(task.description)) as string, researchSlug)"
                 ></div>
                 <div v-else class="field-value field-empty">Click the pencil to add a description</div>
               </div>
@@ -136,7 +136,7 @@
                   v-if="task.result"
                   ref="resultContentEl"
                   class="field-value field-value-pre markdown-content"
-                  v-html="renderRefs(marked.parse(normalizeContent(task.result)) as string, researchSlug)"
+                  v-html="linkRefs(parseMarkdown(normalizeContent(task.result)) as string, researchSlug)"
                 ></div>
                 <div v-else class="field-value field-empty">Click the pencil to add a result</div>
               </div>
@@ -163,10 +163,11 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
-import { renderRefs } from '~/composables/useCrossRefs'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
+import { renderRefs, linkRefs } from '~/composables/useCrossRefs'
+import { absoluteTime } from '~/composables/useRelativeTime'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-marked.setOptions({ gfm: true, breaks: true })
+import { normalizeContent } from '~/utils/normalizeContent'
 
 const props = defineProps<{
   task: any | null

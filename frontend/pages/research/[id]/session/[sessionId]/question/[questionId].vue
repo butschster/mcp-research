@@ -28,7 +28,7 @@
     <!-- Rationale -->
     <div v-if="question.rationale" class="card rationale-card">
       <h3 class="card-section-title">Rationale</h3>
-      <div class="rationale-text markdown-content" v-html="renderRefs(marked.parseInline(normalizeContent(question.rationale)) as string, researchSlug)"></div>
+      <div class="rationale-text markdown-content" v-html="linkRefs(parseMarkdownInline(normalizeContent(question.rationale)) as string, researchSlug)"></div>
     </div>
 
     <!-- Answer -->
@@ -80,9 +80,8 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
+import { parseMarkdown, parseMarkdownInline } from '~/composables/useSafeMarkdown'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-marked.setOptions({ gfm: true, breaks: true })
 
 const route = useRoute()
 const id = route.params.id as string
@@ -122,8 +121,8 @@ const nextQuestion = computed(() => questionIndex.value < allQuestions.value.len
 // Rendered answer
 const renderedAnswer = computed(() => {
   if (!question.value?.answer) return ''
-  const html = marked.parse(normalizeContent(question.value.answer)) as string
-  return renderRefs(html, researchSlug.value)
+  const html = parseMarkdown(normalizeContent(question.value.answer)) as string
+  return linkRefs(html, researchSlug.value)
 })
 
 // Mermaid rendering

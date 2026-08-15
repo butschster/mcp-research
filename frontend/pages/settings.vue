@@ -118,7 +118,7 @@ onMounted(() => {
 
       <form @submit.prevent="createKey" class="key-form">
         <input v-model="newKeyName" type="text" placeholder="Key name (optional)" class="text-input" />
-        <button type="submit" class="auth-button">Create key</button>
+        <button type="submit" class="btn btn-primary">Create key</button>
       </form>
 
       <table v-if="apiKeys.length" class="keys-table">
@@ -134,7 +134,7 @@ onMounted(() => {
           <tr v-for="key in apiKeys" :key="key.id">
             <td>{{ key.name || '—' }}</td>
             <td><code>{{ key.key_prefix }}</code></td>
-            <td class="card-meta">{{ key.last_used_at || 'Never' }}</td>
+            <td class="card-meta" :title="key.last_used_at ? absoluteTime(key.last_used_at) : ''">{{ key.last_used_at ? relativeTime(key.last_used_at) : 'Never' }}</td>
             <td><button class="delete-btn" @click="deleteKey(key.id)">Revoke</button></td>
           </tr>
         </tbody>
@@ -158,7 +158,6 @@ onMounted(() => {
 .settings-section h2 { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); }
 .key-form { display: flex; gap: var(--space-2); margin: var(--space-4) 0; flex-wrap: wrap; }
 .key-form .text-input { flex: 1; min-width: 200px; }
-.key-form .auth-button { white-space: nowrap; }
 .key-created {
   padding: var(--space-3);
   background: rgba(52, 211, 153, 0.10);
@@ -204,17 +203,12 @@ onMounted(() => {
   font-size: var(--type-sm);
   margin-bottom: var(--space-3);
 }
-.auth-button {
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--type-sm);
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-}
+/* `.auth-button` used to live here as a local copy of the primary button that
+   put white ink on the product's cyan — 1.9:1, a WCAG failure by a factor of
+   two, on the control that mints an API key. The shared `.btn-primary` has
+   always used the page background as its ink (9.5:1) and is now the only
+   definition. The name also collided with the auth pages' animated gradient
+   button, which is a different control entirely. */
 
 .section-note { margin-top: var(--space-4); }
 .team-skeleton { height: 48px; }

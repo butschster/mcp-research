@@ -81,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import { escapeHtml } from '~/utils/escapeHtml'
 const open = ref(false)
 const query = ref('')
 const cursor = ref(0)
@@ -141,10 +142,32 @@ function entryLink(e: any): string {
 // Total results for keyboard navigation
 const totalResults = computed(() => researchResults.value.length + entryResults.value.length)
 
+/**
+ * Wraps the matched run in a `<mark>`, for v-html.
+ *
+ * Both arguments are attacker-controlled — the text is a research name or an
+ * entry title somebody's agent wrote, and the query is whatever was typed — so
+ * both are escaped before any markup is introduced. The regex is built from the
+ * escaped query, because escaping afterwards would eat the `<mark>` too.
+ */
 function highlight(text: string, q: string): string {
   if (!text) return ''
-  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-  return text.replace(re, '<mark class="search-mark">$1</mark>')
+  if (!q) return escapeHtml(text)
+  // Match against the raw text and escape each piece as it is assembled.
+  // Escaping first and matching afterwards looked simpler and was wrong: the
+  // escape introduces entity names that were not in the source, so a search for
+  // `lt` matched inside the `&lt;` it had just produced and split it — a title
+  // reading `a < b` came back as the literal text `a &lt; b`.
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+  let out = ''
+  let last = 0
+  for (const m of text.matchAll(re)) {
+    if (!m[0]) break
+    out += escapeHtml(text.slice(last, m.index))
+      + `<mark class="search-mark">${escapeHtml(m[0])}</mark>`
+    last = m.index + m[0].length
+  }
+  return out + escapeHtml(text.slice(last))
 }
 
 function moveUp() { cursor.value = Math.max(0, cursor.value - 1) }
