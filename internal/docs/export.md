@@ -291,13 +291,30 @@ A [read-only share link](/llms/domain-guide.md#share) may carry the research exp
 ```
 GET /api/shared/{token}/researches/{id}/export
 GET /api/shared/{token}/researches/{id}/export?format=md
+GET /api/shared/{token}/researches/{id}/export?format=obsidian
 ```
 
 Same handler, same payload shape as the authenticated route above, with three differences that are the point of the feature:
 
 - `instruction` and `memory` are absent, along with `user_id` and every team field. They are stripped on the read path every export goes through, so there is no format that carries them out.
 - `sessions` is empty unless the link includes sessions, and `tasks` unless it includes tasks. An export that carried the interview transcript would hand over in one file exactly what the creator chose to leave out of the pages.
-- `?format=obsidian` is refused with `404`, and `/export/portable` is not mounted under the prefix at all. The vault builds its payload from the repository rather than from the redacted read path, and a format whose safety has to be argued separately is not one a share should have. **Session export is not shared either** — only the research-scoped route is mounted.
+- `/export/portable` is not mounted under the prefix at all: it is a re-importable copy of the record rather than a reading of it. **Session export is not shared either** — only the research-scoped route is mounted.
+
+### The vault through a share
+
+`?format=obsidian` works on a link that includes downloading, and the archive is narrowed to what that link publishes. The narrowing happens in `service.clampForShare`, next to the code that reads the options rather than in the handler — the vault's parts come from a query string the visitor can type, and the include flags gate *routes*, which is a check the vault never passes through.
+
+| Requested | What a visitor gets |
+|---|---|
+| `sessions=true` | only if the link includes sessions |
+| `tasks=true` | only if the link includes tasks |
+| `roadmaps=true` | only if the link includes roadmaps |
+| `revisions=true` | never — no flag publishes an entry's history |
+| — | the `session:` key in an entry's frontmatter is dropped, and the `Session:` footer link with it |
+
+Revisions and provenance are refused outright rather than gated, for the same reason the shared entry pages omit them: who edited what, when, and from which session is working process, like `instruction`.
+
+The research itself needs no special handling — the vault builds from `ResearchService.Get`, which is where `instruction` and `memory` are redacted, so it starts from the published research. This route was a `404` for a while on the belief that it did not; it is `internal/api/share_routes_test.go` that now settles the question, by unzipping the response and asserting against filenames.
 
 Without `include.export` the route answers the same `404 this link is no longer available` as a revoked token: a link that does not offer a download should look like a server that has none.
 

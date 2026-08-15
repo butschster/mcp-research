@@ -170,10 +170,13 @@ only way to read a research without a role in the team that owns it.
   list and nothing else. Do not teach an existing route to also accept a share.
 - **A route that serves an optional part must gate itself.** The `include` flags
   (`sessions`, `tasks`, `roadmaps`, `export`) gate routes via `needs(...)`, but
-  three payloads carry optional content on ungated routes and check the flags
+  four payloads carry optional content on ungated routes and check the flags
   themselves: `active_session` on the research route, sessions/tasks/roadmap
-  count in the export, and roadmap node `ref_data` (a task node inlines the
-  task's result, a question node its answer).
+  count in the export, roadmap node `ref_data` (a task node inlines the task's
+  result, a question node its answer), and the **Obsidian vault**, whose parts
+  are chosen by a query string the visitor writes — `service.clampForShare`
+  narrows them, in the service rather than the handler, so a second entry point
+  cannot forget.
 - `redactForShare` in `research_service.go` strips `instruction`, `memory` and
   the team fields. It is called from `ResearchService.Get`, which every read of
   a research goes through — the page, both exports, the portable dump.

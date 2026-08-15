@@ -11,6 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"gopkg.in/yaml.v3"
@@ -50,6 +51,15 @@ type VaultOptions struct {
 	Roadmaps  bool
 	HTML      bool
 	Revisions bool
+	// RedactProvenance drops the facts about *how* an entry came to exist —
+	// which session produced it, which revision it is on, who wrote that
+	// revision. They are working process rather than findings, and a share link
+	// publishes findings.
+	//
+	// It is phrased as a negative on purpose: the zero value has to be the
+	// owner's full vault, so a caller that builds this struct without knowing
+	// the field exists cannot silently strip an export.
+	RedactProvenance bool
 }
 
 // DefaultVaultOptions writes everything a research holds except the revision
@@ -103,12 +113,20 @@ func NewObsidianService(
 //
 // Ownership is settled by the first call: ResearchService.Get returns ErrNotFound
 // for a research belonging to someone else, and every read below is by that
-// research's id.
+// research's id. That call is also what redacts `instruction` and `memory` for
+// a share visitor, so the research this builds from is already the published
+// one.
+//
+// What Get cannot do is narrow the *options*, which arrive from a query string.
+// clampForShare does that, here rather than in the handler, for the same reason
+// redaction lives inside Get: a second entry point that forgot would be a leak
+// with no visible symptom.
 func (s *ObsidianService) Vault(ctx context.Context, idOrCode string, opts VaultOptions) (*Vault, error) {
 	research, err := s.research.Get(ctx, idOrCode)
 	if err != nil {
 		return nil, err
 	}
+	opts = clampForShare(ctx, opts)
 
 	b := &vaultBuilder{
 		opts:     opts,
@@ -130,19 +148,23 @@ func (s *ObsidianService) Vault(ctx context.Context, idOrCode string, opts Vault
 	questions := map[string][]*domain.Question{}
 	sessionByID := map[string]*domain.Session{}
 	// Sessions are read even when the folder is omitted: an entry's frontmatter
-	// names the session that produced it, and that needs the code.
-	sessions, err = s.session.ListByResearch(ctx, research.ID)
-	if err != nil {
-		return nil, fmt.Errorf("list sessions: %w", err)
-	}
-	for _, sess := range sessions {
-		sessionByID[sess.ID] = sess
-		if opts.Sessions {
-			qs, err := s.session.ListQuestions(ctx, sess.ID, storage.QuestionFilter{})
-			if err != nil {
-				return nil, fmt.Errorf("list questions of %s: %w", sess.Code, err)
+	// names the session that produced it, and that needs the code. When the
+	// provenance is redacted too there is nothing left to resolve, so the read
+	// is skipped rather than fetched and discarded.
+	if opts.Sessions || !opts.RedactProvenance {
+		sessions, err = s.session.ListByResearch(ctx, research.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list sessions: %w", err)
+		}
+		for _, sess := range sessions {
+			sessionByID[sess.ID] = sess
+			if opts.Sessions {
+				qs, err := s.session.ListQuestions(ctx, sess.ID, storage.QuestionFilter{})
+				if err != nil {
+					return nil, fmt.Errorf("list questions of %s: %w", sess.Code, err)
+				}
+				questions[sess.ID] = qs
 			}
-			questions[sess.ID] = qs
 		}
 	}
 
@@ -183,6 +205,30 @@ func (s *ObsidianService) Vault(ctx context.Context, idOrCode string, opts Vault
 	b.build(sections, entries, sessions, questions, sessionByID, tasks, roadmaps, revisions)
 
 	return &Vault{Root: b.rootName(), Files: b.files}, nil
+}
+
+// clampForShare narrows the requested vault to what the link actually publishes.
+//
+// The options come from a query string, and a share visitor can type one. The
+// include flags gate the *routes* that serve sessions, tasks and roadmaps, and
+// the vault is a fourth way to the same data that those flags never saw — so
+// without this, `?sessions=true` on a link created with sessions switched off
+// would hand over the interview transcript in a zip.
+//
+// Revisions and provenance are refused outright rather than gated: there is no
+// flag that publishes them, because who edited what, when, and from which
+// session is working process. It is the same rule the shared entry pages follow.
+func clampForShare(ctx context.Context, opts VaultOptions) VaultOptions {
+	share := auth.ShareFromContext(ctx)
+	if share == nil {
+		return opts
+	}
+	opts.Sessions = opts.Sessions && share.Include.Sessions
+	opts.Tasks = opts.Tasks && share.Include.Tasks
+	opts.Roadmaps = opts.Roadmaps && share.Include.Roadmaps
+	opts.Revisions = false
+	opts.RedactProvenance = true
+	return opts
 }
 
 // ── the builder ──
@@ -398,7 +444,10 @@ func (b *vaultBuilder) writeEntry(
 	fm.add("tags", e.Tags)
 	fm.add("created", stamp(e.CreatedAt))
 	fm.add("updated", stamp(e.UpdatedAt))
-	if sessCode != "" {
+	// Which session produced the entry is provenance, and a share does not carry
+	// it. `sessCode` is already empty in that case — the sessions are not read —
+	// but the guard is written out so the rule is visible where it applies.
+	if sessCode != "" && !b.opts.RedactProvenance {
 		fm.add("session", sessCode)
 	}
 	if len(revs) > 0 {
@@ -416,7 +465,7 @@ func (b *vaultBuilder) writeEntry(
 	// note → index means the file tree or the backlinks pane, which is the
 	// navigation a reader performs dozens of times.
 	footer := []string{"Research: " + mdLink(b.rootName(), "../"+indexNote+".md")}
-	if sessCode != "" && b.opts.Sessions {
+	if sessCode != "" && b.opts.Sessions && !b.opts.RedactProvenance {
 		footer = append(footer, "Session: "+b.wikilink(sessCode))
 	}
 	if len(revs) > 0 && b.opts.Revisions {

@@ -58,7 +58,19 @@ export function useDownload() {
     pending.value = false
   }
 
-  async function start(path: string, fallbackName: string): Promise<boolean> {
+  /**
+   * @param opts.headers Extra request headers — the share unlock, for a
+   *   password-protected link.
+   * @param opts.anonymous Sends no `Authorization` even when a session exists.
+   *   A share download must go out as a visitor's: an owner opening their own
+   *   link would otherwise be served the unredacted vault, and the one person
+   *   who most needs to check what the link exposes is the one who could not.
+   */
+  async function start(
+    path: string,
+    fallbackName: string,
+    opts: { headers?: Record<string, string>; anonymous?: boolean } = {},
+  ): Promise<boolean> {
     if (pending.value) return false
     reset()
     pending.value = true
@@ -76,7 +88,10 @@ export function useDownload() {
         baseURL: baseURL || undefined,
         responseType: 'blob',
         signal: controller.signal,
-        headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+        headers: {
+          ...(token.value && !opts.anonymous ? { Authorization: `Bearer ${token.value}` } : {}),
+          ...(opts.headers || {}),
+        },
       })
 
       const name = filenameFromDisposition(res.headers.get('content-disposition')) || fallbackName

@@ -25,6 +25,23 @@ export function obsidianExportPath(researchId: string, opts: ObsidianExportOptio
   return `/api/researches/${researchId}/export?${params.toString()}`
 }
 
+/**
+ * The same vault, through a share link.
+ *
+ * The options sent are still only a request: the server narrows them to what
+ * the link publishes and refuses revisions and provenance outright, so a
+ * visitor who edits the query string gets the same archive. They are sent
+ * honestly anyway — asking for less than the link allows is the visitor's to
+ * decide, and a URL that says what it will fetch is one an owner can check.
+ */
+export function sharedObsidianExportPath(
+  token: string,
+  researchId: string,
+  opts: ObsidianExportOptions,
+): string {
+  return `/api/shared/${token}${obsidianExportPath(researchId, opts).replace(/^\/api/, '')}`
+}
+
 /** What a filesystem refuses in a name, mirroring the Go side's own list. */
 const FORBIDDEN = /[/\\:*?"<>|]/g
 const CONTROL = /[\u0000-\u001f]/g
