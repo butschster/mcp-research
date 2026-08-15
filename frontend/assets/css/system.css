@@ -334,8 +334,6 @@ button.tag {
 
    Anything below is used by two or more pages. A rule that belongs to one page
    stays in that page. */
-.research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
-.research-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .title-with-code { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .short-code {
   font-size: var(--type-xs);
