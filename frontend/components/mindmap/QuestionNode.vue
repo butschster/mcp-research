@@ -15,6 +15,7 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { Handle, Position } from '@vue-flow/core'
 import { parseMarkdownInline } from '~/composables/useSafeMarkdown'
 import { renderRefs, linkRefs } from '~/composables/useCrossRefs'
@@ -36,10 +37,6 @@ const props = defineProps<{
   targetPosition?: Position
 }>()
 
-function truncate(text: string, len: number): string {
-  if (!text) return ''
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 
 function renderInline(text: string, len: number): string {
   const truncated = truncate(normalizeContent(text), len)

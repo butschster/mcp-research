@@ -24,6 +24,7 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { Handle, Position } from '@vue-flow/core'
 
 defineProps<{
@@ -38,10 +39,6 @@ defineProps<{
   targetPosition?: Position
 }>()
 
-function truncate(text: string, len: number): string {
-  if (!text) return ''
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 
 function statusSlug(s: string): string {
   return s.replace(/[^a-z0-9]/gi, '-').toLowerCase()

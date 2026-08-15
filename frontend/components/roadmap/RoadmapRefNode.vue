@@ -53,6 +53,7 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { Handle, Position } from '@vue-flow/core'
 
 const props = defineProps<{
@@ -106,10 +107,6 @@ const sessionProgress = computed(() => {
   return total > 0 ? Math.round((answered / total) * 100) : 0
 })
 
-function truncate(text: string, len: number): string {
-  if (!text) return ''
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 
 function statusSlug(s: string): string {
   return s.replace(/[^a-z0-9]/gi, '-').toLowerCase()

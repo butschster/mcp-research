@@ -62,6 +62,7 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { NuxtLink } from '#components'
 
 import { renderRefs } from '~/composables/useCrossRefs'
@@ -156,7 +157,8 @@ function truncateAnswer(text: string, max: number): string {
     .replace(/\|[^|]+\|/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-  return plain.length > max ? plain.slice(0, max) + '...' : plain
+  // The stripping is this function's own; the cutting is not.
+  return truncate(plain, max)
 }
 </script>
 

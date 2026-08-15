@@ -128,6 +128,7 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { parseMarkdown, parseMarkdownInline } from '~/composables/useSafeMarkdown'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
 
@@ -269,9 +270,6 @@ function refLink(ref: any): string {
   return `/research/${rCode}/entry/${eCode}`
 }
 
-function truncate(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max) + '...' : text
-}
 </script>
 
 <style scoped>

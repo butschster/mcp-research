@@ -15,6 +15,7 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { Handle, Position } from '@vue-flow/core'
 
 defineProps<{
@@ -31,9 +32,6 @@ defineProps<{
 
 defineEmits<{ toggle: [e: MouseEvent] }>()
 
-function truncate(text: string, len: number): string {
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 </script>
 
 <style scoped>
