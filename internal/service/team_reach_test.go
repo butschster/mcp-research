@@ -30,7 +30,7 @@ func TestReach_SearchFollowsTheTeam(t *testing.T) {
 	entries := storage.NewEntryRepository(k.db)
 	memberID := auth.UserIDFromContext(member)
 
-	found, err := entries.SearchEntries(member, "Zaphod", 20, memberID)
+	found, err := entries.SearchEntries(member, "Zaphod", 20, memberID, "")
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestReach_SearchFollowsTheTeam(t *testing.T) {
 			"main way into a shared research", len(found))
 	}
 
-	found, err = entries.SearchEntries(userCtx(stranger), "Zaphod", 20, stranger.ID)
+	found, err = entries.SearchEntries(userCtx(stranger), "Zaphod", 20, stranger.ID, "")
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}

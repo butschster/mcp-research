@@ -99,10 +99,14 @@
     />
 
     <!-- Active sessions -->
-    <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug" />
+    <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name" />
 
     <!-- Closed sessions (collapsed) -->
-    <ResearchPastSessionsList :sessions="closedSessions" :research-slug="researchSlug" />
+    <ResearchPastSessionsList :sessions="closedSessions" :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name" />
 
     <!-- Sidebar layout: sections + entries -->
     <div class="layout-sidebar">
@@ -123,6 +127,8 @@
           :entries="allEntries"
           :sections="sections"
           :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name"
           :loading="allEntriesPending"
           mode="all"
           :tags="globalTags"
@@ -134,6 +140,8 @@
           :entries="entries"
           :sections="sections"
           :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name"
           :loading="entriesPending"
           mode="section"
           :section-info="currentSection"

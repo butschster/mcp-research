@@ -213,10 +213,18 @@ func NewServer(
 			writeJSON(w, http.StatusOK, map[string]any{"entries": []any{}, "researches": []any{}})
 			return
 		}
-		entries, err := entryRepo.SearchEntries(r.Context(), q, 20, auth.UserIDFromContext(r.Context()))
+		// `research` scopes the search to one research, which is the only way
+		// to find anything in a large one: tags are the sole in-research filter
+		// and they exist only if the agent applied them.
+		entries, err := entryRepo.SearchEntries(r.Context(), q, 20, auth.UserIDFromContext(r.Context()), r.URL.Query().Get("research"))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 			return
+		}
+		// A nil slice encodes as `null`, and a client that reads `.length` off
+		// it crashes on the one case that is most likely: no matches.
+		if entries == nil {
+			entries = []*domain.Entry{}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
 	}))
