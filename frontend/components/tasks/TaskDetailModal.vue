@@ -50,7 +50,25 @@
                 <label class="field-label">Status</label>
               </div>
               <div class="field-value">
-                <StatusBadge :status="task.status" />
+                <!-- Read-only for a viewer, and the only status control there
+                     is for everyone else. Dragging a card was the sole way to
+                     move a task, and HTML5 drag events do not fire on touch —
+                     so the board was a viewer on a phone and unreachable from
+                     a keyboard, on the surface whose whole point is steering
+                     the agent's work. `blocked` and `deferred` are here too:
+                     the board folds both into Todo and offers neither. -->
+                <StatusBadge v-if="!canWrite" :status="task.status" />
+                <div v-else class="segmented status-picker" role="radiogroup" aria-label="Task status">
+                  <button
+                    v-for="s in STATUSES"
+                    :key="s"
+                    type="button"
+                    role="radio"
+                    :aria-checked="String(task.status === s)"
+                    :disabled="busyStatus"
+                    @click="emit('updateStatus', s)"
+                  >{{ STATUS_LABELS[s] }}</button>
+                </div>
               </div>
             </div>
             <div class="field">
@@ -178,7 +196,21 @@ const emit = defineEmits<{
   close: []
   save: [field: string, value: string]
   updatePriority: [priority: string]
+  updateStatus: [status: string]
 }>()
+
+/* Every status the domain has, in the order the work moves through them.
+   The board's four columns are a projection of this, not the whole of it. */
+const STATUSES = ['pending', 'in_progress', 'blocked', 'deferred', 'completed', 'failed'] as const
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Todo',
+  in_progress: 'Doing',
+  blocked: 'Blocked',
+  deferred: 'Deferred',
+  completed: 'Done',
+  failed: 'Rejected',
+}
+const busyStatus = ref(false)
 
 // A viewer reads the same fields; the pencils and the priority chips go, and
 // priority renders as the badge it already is elsewhere.
@@ -230,6 +262,9 @@ function saveField(field: string) {
 </script>
 
 <style scoped>
+.status-picker { flex-wrap: wrap; }
+.status-picker > button:disabled { opacity: 0.6; cursor: default; }
+
 /* Header — same as DetailsPanel */
 .modal-header {
   display: flex;

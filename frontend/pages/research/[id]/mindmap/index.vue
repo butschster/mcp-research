@@ -311,6 +311,7 @@ useResearchRealtime(() => id, reloadMindmap, {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 .toolbar-sep {
   width: 1px;

@@ -46,6 +46,7 @@
       @close="detailTask = null"
       @save="saveField"
       @update-priority="updatePriority"
+      @update-status="onDetailStatusChange"
     />
 
     <!-- Status Change Modal -->
@@ -94,7 +95,7 @@ const columns = [
   { status: 'pending', label: 'Todo' },
   { status: 'in_progress', label: 'In Progress' },
   { status: 'completed', label: 'Done' },
-  { status: 'failed', label: 'Rejected' },
+  { status: 'failed', label: 'Failed' },
 ]
 
 function statusLabel(status: string): string {
@@ -142,6 +143,15 @@ function onTaskDrop(task: any, targetStatus: string) {
   statusModal.visible = true
   statusModal.task = task
   statusModal.targetStatus = targetStatus
+}
+
+/* The status picker in the detail modal routes into the same confirmation the
+   board's drag does, so a keyboard user and a mouse user land in one place and
+   the comment prompt is not a privilege of the gesture. */
+function onDetailStatusChange(status: string) {
+  const task = detailTask.value
+  if (!task || task.status === status) return
+  onTaskDrop(task, status)
 }
 
 function cancelStatusChange() {

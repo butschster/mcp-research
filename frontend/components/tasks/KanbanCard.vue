@@ -14,11 +14,17 @@
       <span class="short-code">{{ task.code }}</span>
       <StatusBadge v-if="task.priority === 'high'" :status="task.priority" />
     </div>
+    <!-- The column already says the task is in Todo; this says which kind.
+         `blocked` carries a reason in the description by convention, so a card
+         that shows nothing is a request the reader never sees. -->
+    <StatusBadge v-if="OFF_COLUMN.has(task.status)" :status="task.status" />
     <div class="kanban-card-title" v-html="renderRefs(task.title, researchSlug)"></div>
   </div>
 </template>
 
 <script setup lang="ts">
+/* Statuses the board has no column for, and therefore has to name on the card. */
+const OFF_COLUMN = new Set(['blocked', 'deferred'])
 import { renderRefs } from '~/composables/useCrossRefs'
 
 // A card that lifts and snaps back is worse than a card that does not lift:
