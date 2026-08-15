@@ -1,5 +1,12 @@
 # UI improvement plan
 
+> **State, as of the last commit on `fix/ui-wave-0`.** Waves 0-4 are done. Wave 5
+> is partial — the task board works without a mouse and off-column statuses are
+> visible; the answer editor, the dead skeletons and the tab-state-in-URL are
+> not. Waves 6 and 7 are untouched. Three review passes ran over the result and
+> their findings are folded in; where the code went a different way from what is
+> written below, the text has been corrected rather than left standing.
+
 A working document, not a report to file. It is the result of a four-way review
 of the whole frontend — a UX/UI panel over every surface, a walk of twelve user
 journeys, a state/keyboard/contrast/responsive audit, and a component-library
@@ -327,9 +334,15 @@ together, so this list is the contract. Names and values, decided.
   --radius-lg:   16px;
 
   /* ── Measure ────────────────────────────────────────────────────── */
-  --measure:       72ch;   /* NEW. long-form reading — see 4.3            */
-  --measure-wide:  90ch;   /* NEW. diffs, tables, code                    */
-  --measure-prose: 65ch;   /* NEW. page leads, empty-state copy           */
+  /* Stated in rem, not ch — corrected during implementation. `ch` is the
+     advance of `0`, which in Outfit is 0.656em against an average lowercase
+     of about 0.5em, so 72ch is roughly 94 characters. Worse, `ch` resolves
+     against each element's own font-size, so one token became a different
+     width on every heading level and an h2 hung its underline past the text
+     beneath it. */
+  --measure:       38rem;  /* NEW. long-form reading — see 4.3            */
+  --measure-wide:  52rem;  /* NEW. diffs, tables, code                    */
+  --measure-prose: 34rem;  /* NEW. page leads, empty-state copy           */
 
   /* ── Chrome ─────────────────────────────────────────────────────── */
   --nav-h: 66px;           /* NEW. main.css:417 guesses 56px for this     */
@@ -382,7 +395,6 @@ assets/css/
   markdown.css   .markdown-content and descendants, .crossref-link,
                  .search-mark, .block-doc.                              (~70)
   mermaid.css    .mermaid-* and its @media print block.                 (~155)
-  vue-flow.css   The three :deep(.vue-flow__*) rule triples.            (~20)
 ```
 
 `main.css` at 1,189 lines becomes roughly 710 after ~480 lines leave, and then
@@ -477,8 +489,15 @@ one-line lead at `65ch`.
 .entry-content .mermaid-diagram { max-width: var(--measure-wide); }
 ```
 
-One rule, and it lands on both the owner's entry page and the shared one. Session
-notes and the printable export document inherit the same fix.
+One rule, and it lands on both the owner's entry page and the shared one.
+
+**As implemented it goes no further than that.** The selector is scoped to
+`.entry-content`, and session notes and the printable export document render
+`.markdown-content` outside any `.entry-content`, so they get no measure. That is
+a gap, not a decision: both are long-form reading surfaces and both should have
+one. Extending it means either giving those two containers the cap directly or
+promoting the rule off `.entry-content` — the second is cleaner and should wait
+until the export document stops being a fork of a component.
 
 ### 4.4 Dark-only stands; the graph joins the token system
 
@@ -544,7 +563,7 @@ that is currently written out by hand many times over.
 | Primitive | Replaces |
 |---|---|
 | `.cluster` / `.stack` | ~11 identical flex rows/columns: `.research-actions`, `.entry-actions`, `.title-with-code`, `.page-header-actions`, `.tasks-actions`, `.entry-tags`, `.q-badges`, `.skeleton-list`, `.group-body`, `.password-form`, `.rail-skeletons` |
-| `.page-bar` | **7 names for one layout**: `.page-header-row` (declared twice), `.research-header`, `.entry-header`, `.session-header`, `.tasks-header`, `.roadmaps-header`, `.export-toolbar` |
+| `.page-bar` | **7 names for one layout** — but see below: it was written, shipped unadopted and withdrawn. Adopting it across fourteen pages, four of them owner/share twins, is an unreviewable diff to buy a renamed class. It arrives as the internals of `PageHeader.vue` instead. |
 | `.data-rows` / `.data-row` / `--busy` / `--dead` | The row chrome shared by `TeamMemberList`, `TeamInviteList`, `ShareRowList`, `TeamRowList` — and `.share-rows` has **no rule at all**, so that list is missing its top border |
 | `.select` | Three byte-identical copies of a styled `<select>`, each re-encoding the same chevron SVG with `stroke='%237f8ea3'` hardcoded — which breaks the moment `--color-text-muted` changes |
 | `.tabs` / `.tab` | With `role="tablist"`/`aria-selected` baked in, so `session/[sessionId]/index.vue:41-65` stops shipping tabs a screen reader cannot see |
