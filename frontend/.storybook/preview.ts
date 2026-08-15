@@ -13,6 +13,8 @@ import EntryAuthorBadge from '../components/entry/AuthorBadge.vue'
 import EntryFieldChanges from '../components/entry/FieldChanges.vue'
 import EntryRevisionRow from '../components/entry/RevisionRow.vue'
 import ShortCode from '../components/ShortCode.vue'
+import ActionMenu from '../components/ActionMenu.vue'
+import ModalHeader from '../components/ModalHeader.vue'
 import TeamRoleSelect from '../components/team/RoleSelect.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
@@ -60,6 +62,8 @@ setup((app) => {
   app.component('EntryFieldChanges', EntryFieldChanges)
   app.component('EntryRevisionRow', EntryRevisionRow)
   app.component('ShortCode', ShortCode)
+  app.component('ActionMenu', ActionMenu)
+  app.component('ModalHeader', ModalHeader)
   app.component('TeamRoleSelect', TeamRoleSelect)
   app.component('StatusBadge', StatusBadge)
   app.component('TagList', TagList)

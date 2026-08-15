@@ -2,6 +2,7 @@
   <div class="role-select">
     <select
       :id="inputId"
+      class="select"
       :value="modelValue"
       :disabled="disabled"
       :aria-busy="busy || undefined"
@@ -66,21 +67,14 @@ function onChange(event: Event) {
 </script>
 
 <style scoped>
+/* The chrome is `.select` now — this was the fourth hand-written copy, and the
+   only one in the product with no chevron, so a role read as text that happened
+   to be boxed. The primitive needed a third unrelated consumer to earn its
+   place; this is it. */
 .role-select { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-select[aria-busy='true'] { opacity: 0.6; }
-select {
-  padding: 0.4rem 0.6rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--type-xs);
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-select:hover:not(:disabled) { border-color: rgba(108, 197, 224, 0.25); }
-select:disabled { cursor: not-allowed; opacity: 0.55; }
+.select { height: var(--control-h-sm); font-size: var(--type-xs); }
+.select[aria-busy='true'] { color: var(--color-text-faint); cursor: progress; }
+.select:disabled { cursor: not-allowed; color: var(--color-text-faint); border-color: var(--color-border); }
 .role-description {
   font-size: var(--type-xs);
   color: var(--color-text-muted);

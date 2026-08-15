@@ -4,7 +4,7 @@
 
     <div v-if="loading" class="skeleton-list">
       <div class="skeleton-card title-skeleton"></div>
-      <div v-for="i in 3" :key="i" class="skeleton-card member-skeleton"></div>
+      <div v-for="i in 3" :key="i" class="skeleton-card row-skeleton"></div>
     </div>
 
     <!-- 403 and 404 look the same on purpose: telling an outsider that a team
@@ -15,37 +15,114 @@
       title="Team not found"
       description="It may have been deleted, or you may no longer be a member."
     >
-      <NuxtLink class="btn btn-sm" to="/teams">All teams</NuxtLink>
+      <NuxtLink class="btn" to="/teams">All teams</NuxtLink>
     </EmptyState>
 
     <template v-else>
       <PageHeader :title="team.name">
         <template #actions>
-          <button v-if="canInvite" class="btn btn-sm btn-primary" @click="openInvite()">+ Invite</button>
-            <ActionMenu v-if="canInvite">
-              <button class="action-menu-item" @click="renaming = true">Rename team</button>
-            </ActionMenu>
+          <button v-if="canInvite" class="btn" @click="openInvite()">+ Invite</button>
+          <ActionMenu v-if="canManage">
+            <button v-if="!team.personal" class="action-menu-item" @click="renaming = true">Rename team</button>
+            <button class="action-menu-item" @click="addingResearch = true">Move researches here</button>
+          </ActionMenu>
         </template>
         <template #lead>{{ members.length }} {{ members.length === 1 ? 'member' : 'members' }} · You are {{ article(team.role) }} {{ team.role }}</template>
       </PageHeader>
 
-      <h2 ref="membersHeading" tabindex="-1" class="section-heading">Members</h2>
-      <TeamMemberList
-        :members="members"
-        :my-user-id="user?.id || ''"
-        :can-manage="canManage"
-        :busy-user-id="busyUserId"
-        @change-role="changeRole"
-        @remove="askRemove"
-      />
-      <p v-if="members.length === 1" class="alone-note">
-        Only you so far. Invite someone with a link — no email is sent, you pass the link along yourself.
-        <button v-if="canInvite" class="btn btn-sm invite-inline" @click="openInvite()">+ Invite</button>
-      </p>
+      <!-- Researches lead the page. The most consequential fact about a team is
+           what work is in it, and this was previously one conditional line at
+           the bottom that rendered nothing at all when the count was zero —
+           which is the exact moment the product has to explain itself. -->
+      <div class="section-bar">
+        <h2 class="section-title">Researches <span class="section-count">{{ researches.length }}</span></h2>
+        <NuxtLink v-if="researches.length" class="btn" :to="`/?team=${team.id}`">Open as a list</NuxtLink>
+      </div>
 
-      <template v-if="canManage && invites.length">
-        <h2 class="section-heading">Pending invites</h2>
+      <TeamResearchList v-if="researches.length" :researches="researches" />
+
+      <!-- The owner's version names the thing nobody tells them: their existing
+           researches did not come along. -->
+      <EmptyState
+        v-else-if="canManage"
+        class="section-empty"
+        icon="&#x1F4C1;"
+        title="Nothing to see in here yet"
+        :description="`Members of ${team.name} can only read researches that live in this team. Your other researches are still in your personal team — move one across and everyone here gets it.`"
+      >
+        <button class="btn btn-primary" @click="addingResearch = true">Move researches here</button>
+      </EmptyState>
+
+      <!-- A viewer cannot move anything, so the way out is a person, not a
+           button. Naming them beats "ask an owner". -->
+      <EmptyState
+        v-else
+        class="section-empty"
+        icon="&#x1F4C1;"
+        :title="`${team.name} has no researches yet`"
+        :description="`Researches added to this team will appear here for everyone in it.${ownerName ? ` ${ownerName} can move one across.` : ''}`"
+      >
+        <button v-if="ownerEmail" class="btn" @click="copyOwnerEmail">
+          {{ copiedOwner ? '✓ Copied' : `Copy ${ownerEmail}` }}
+        </button>
+        <NuxtLink class="btn" to="/">Your researches</NuxtLink>
+      </EmptyState>
+
+      <div class="section-bar">
+        <h2 ref="membersHeading" tabindex="-1" class="section-title">
+          Members <span class="section-count">{{ members.length }}</span>
+        </h2>
+        <input
+          v-if="members.length > 12"
+          v-model="memberFilter"
+          class="text-input member-filter"
+          type="search"
+          placeholder="Filter members"
+          aria-label="Filter members"
+        />
+      </div>
+
+      <!-- An empty member list is impossible — the reader is in the team. So an
+           empty one means the request failed, and saying "you are alone" would
+           be a lie about who has access. -->
+      <EmptyState
+        v-if="membersFailed"
+        class="section-empty"
+        icon="&#x26A0;"
+        title="Couldn't load the members"
+        description="Nobody has lost access — the list just didn't arrive."
+      >
+        <button class="btn" @click="loadMembers()">Try again</button>
+      </EmptyState>
+
+      <template v-else>
+        <div ref="memberListEl">
+          <TeamMemberList
+            :members="filteredMembers"
+            :my-user-id="user?.id || ''"
+            :can-manage="canManage"
+            :busy-user-id="busyUserId"
+            @change-role="changeRole"
+            @remove="askRemove"
+          />
+        </div>
+        <p v-if="memberFilter" class="list-note" aria-live="polite">
+          {{ filteredMembers.length }} of {{ members.length }} shown
+        </p>
+        <p v-else-if="members.length === 1" class="list-note">
+          Only you so far. Invite someone with a link — no email is sent, you pass the link along yourself.
+          <button v-if="canInvite" class="link-btn" @click="openInvite()">Invite someone</button>
+        </p>
+      </template>
+
+      <template v-if="canManage">
+        <div class="section-bar">
+          <h2 class="section-title">
+            Pending invites <span class="section-count">{{ invites.length }}</span>
+          </h2>
+        </div>
         <TeamInviteList
+          v-if="invites.length"
           :invites="invites"
           :busy-id="busyInviteId"
           :recoverable-links="recoverableLinks"
@@ -53,44 +130,52 @@
           @show-link="showLink"
           @reinvite="reinvite"
         />
+        <!-- One muted line rather than nothing: an owner who revokes the last
+             invitation used to watch the heading evaporate under the cursor. -->
+        <p v-else class="list-note">Nobody is waiting on an invitation.</p>
       </template>
 
-      <p v-if="team.research_count > 0" class="team-work">
-        <NuxtLink :to="`/?team=${team.id}`" class="text-link">
-          {{ team.research_count }} {{ team.research_count === 1 ? 'research' : 'researches' }} in this team →
-        </NuxtLink>
-      </p>
-
-      <div v-if="!team.personal" class="danger-zone">
-        <button
-          class="danger-row"
+      <DangerZone v-if="!team.personal">
+        <DangerRow
+          label="Leave team"
+          :note="team.research_count > 0
+            ? `Removes your access to ${team.research_count} ${team.research_count === 1 ? 'research' : 'researches'}.`
+            : undefined"
+          action-label="Leave"
           :disabled="leaveBlocked"
-          :title="leaveBlocked ? lastOwnerLeaveReason : undefined"
-          :aria-describedby="leaveBlocked ? 'leave-reason' : undefined"
-          @click="leaving = true"
+          :disabled-reason="leaveBlocked ? lastOwnerLeaveReason : undefined"
+          @action="leaving = true"
         >
-          <span>Leave team</span>
-          <span class="danger-note">Removes your access to {{ team.research_count }} {{ team.research_count === 1 ? 'research' : 'researches' }}.</span>
-        </button>
-        <!-- A disabled control's title never reaches a keyboard or screen
-             reader, and the reason is the whole point of refusing. -->
-        <p v-if="leaveBlocked" id="leave-reason" class="sr-only">{{ lastOwnerLeaveReason }}</p>
-        <button
+          <template #escape>
+            <button class="link-btn" @click="focusFirstRole">Choose a new owner</button>
+          </template>
+        </DangerRow>
+
+        <DangerRow
           v-if="canManage"
-          class="danger-row danger-strong"
+          label="Delete team"
+          :note="team.research_count > 0 ? undefined : 'The team is empty and can be deleted.'"
+          action-label="Delete"
           :disabled="team.research_count > 0"
-          :title="team.research_count > 0 ? emptyFirstReason : undefined"
-          :aria-describedby="team.research_count > 0 ? 'delete-reason' : undefined"
-          @click="deleting = true"
+          :disabled-reason="team.research_count > 0 ? emptyFirstReason : undefined"
+          @action="deleting = true"
         >
-          <span>Delete team</span>
-          <span class="danger-note">
-            {{ team.research_count > 0 ? emptyFirstReason : 'The team is empty and can be deleted.' }}
-          </span>
-        </button>
-        <p v-if="team.research_count > 0" id="delete-reason" class="sr-only">{{ emptyFirstReason }}</p>
-      </div>
+          <template #escape>
+            <NuxtLink class="link-btn" :to="`/?team=${team.id}`">Show them</NuxtLink>
+          </template>
+        </DangerRow>
+      </DangerZone>
     </template>
+
+    <TeamAddResearchDialog
+      :visible="addingResearch"
+      :team-name="team?.name || ''"
+      :candidates="candidates"
+      :busy="movingResearch"
+      :error="moveError"
+      @move="moveResearches"
+      @close="addingResearch = false"
+    />
 
     <TeamInviteDialog
       :visible="inviting"
@@ -162,6 +247,18 @@
 <script setup lang="ts">
 import type { TeamInvite, TeamMember, TeamRole } from '~/composables/useTeams'
 
+interface TeamResearch {
+  id: string
+  code?: string
+  name: string
+  goal?: string
+  status: string
+  updated_at?: string
+  team_id?: string
+  team_name?: string
+  role?: TeamRole
+}
+
 const route = useRoute()
 const teamId = computed(() => String(route.params.id))
 const config = useRuntimeConfig()
@@ -172,7 +269,11 @@ const { teams, load: loadTeams, refresh: refreshTeams, rename, remove: removeTea
 const { success, error: errorToast } = useToasts()
 
 const members = ref<TeamMember[]>([])
+const membersFailed = ref(false)
+const memberFilter = ref('')
 const invites = ref<TeamInvite[]>([])
+const researches = ref<TeamResearch[]>([])
+const candidates = ref<TeamResearch[]>([])
 const loading = ref(true)
 const busy = ref(false)
 const busyUserId = ref<string | null>(null)
@@ -184,6 +285,11 @@ const inviteError = ref('')
 const issuedLink = ref('')
 const prefillEmail = ref('')
 const prefillRole = ref<TeamRole>('viewer')
+
+const addingResearch = ref(false)
+const movingResearch = ref(false)
+const moveError = ref('')
+const copiedOwner = ref(false)
 
 /**
  * Links issued in this tab, by invite id.
@@ -205,6 +311,7 @@ const deleting = ref(false)
 const renaming = ref(false)
 const newName = ref('')
 const membersHeading = ref<HTMLElement | null>(null)
+const memberListEl = ref<HTMLElement | null>(null)
 
 /**
  * Puts focus somewhere real after a row is destroyed.
@@ -218,21 +325,59 @@ async function restoreFocus() {
   membersHeading.value?.focus()
 }
 
+/**
+ * The way out of "you are the only owner".
+ *
+ * A refusal that states only the rule leaves the reader to work out that the
+ * fix is somewhere else on the page, in a control they have not noticed.
+ */
+async function focusFirstRole() {
+  membersHeading.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  await nextTick()
+  const select = memberListEl.value?.querySelector<HTMLSelectElement>('select:not(:disabled)')
+  select?.focus()
+}
+
 const team = computed(() => teams.value.find((t) => t.id === teamId.value) ?? null)
 const canManage = computed(() => team.value?.role === 'owner')
 // A personal team admits nobody: it refuses every removal, so an invitation
 // into it would be a door that locks behind whoever walks through.
 const canInvite = computed(() => canManage.value && !team.value?.personal)
-const emptyFirstReason = computed(() =>
-  `Move its ${team.value?.research_count} ${team.value?.research_count === 1 ? 'research' : 'researches'} out first.`,
+const emptyFirstReason = computed(
+  () => `Move its ${team.value?.research_count} ${team.value?.research_count === 1 ? 'research' : 'researches'} out first.`,
 )
 const lastOwnerLeaveReason = 'You are the only owner. Make someone else an owner before leaving.'
 const leaveBlocked = computed(
   () => team.value?.role === 'owner' && members.value.filter((m) => m.role === 'owner').length <= 1,
 )
 
+// Whom a viewer should ask. The members endpoint needs only viewer rights, so
+// this is answerable for exactly the people who need the answer.
+const firstOwner = computed(() => members.value.find((m) => m.role === 'owner') ?? null)
+const ownerName = computed(() => firstOwner.value?.name || firstOwner.value?.email || '')
+const ownerEmail = computed(() => firstOwner.value?.email || '')
+
+const filteredMembers = computed(() => {
+  const needle = memberFilter.value.trim().toLowerCase()
+  if (!needle) return members.value
+  return members.value.filter(
+    (m) => m.name?.toLowerCase().includes(needle) || m.email?.toLowerCase().includes(needle),
+  )
+})
+
 function article(role: string) {
   return role === 'owner' || role === 'editor' ? 'an' : 'a'
+}
+
+async function copyOwnerEmail() {
+  if (!ownerEmail.value) return
+  try {
+    await navigator.clipboard.writeText(ownerEmail.value)
+    copiedOwner.value = true
+    setTimeout(() => { copiedOwner.value = false }, 2000)
+  } catch {
+    errorToast('Copy the address from the members list below', 'Clipboard refused')
+  }
 }
 
 async function loadAll(showSkeleton = true) {
@@ -242,14 +387,42 @@ async function loadAll(showSkeleton = true) {
     loading.value = false
     return
   }
+  await Promise.all([loadMembers(), loadResearches(), canManage.value ? loadInvites() : Promise.resolve()])
+  loading.value = false
+}
+
+async function loadMembers() {
   try {
     const res = await authFetch<{ data: TeamMember[] }>(`${base}/api/teams/${teamId.value}/members`)
     members.value = res.data ?? []
+    membersFailed.value = false
   } catch {
     members.value = []
+    membersFailed.value = true
   }
-  if (canManage.value) await loadInvites()
-  loading.value = false
+}
+
+// No `status` filter on purpose: a team holding eight archived researches is
+// not an empty team, and the list defaults to active everywhere else.
+async function loadResearches() {
+  try {
+    const res = await authFetch<{ data: TeamResearch[] }>(`${base}/api/researches?team=${teamId.value}`)
+    researches.value = res.data ?? []
+  } catch {
+    researches.value = []
+  }
+}
+
+// Everything the reader owns that is not already here. Owner rather than
+// editor, because moving a research out of a team is an owner's call in the
+// team it is leaving.
+async function loadCandidates() {
+  try {
+    const res = await authFetch<{ data: TeamResearch[] }>(`${base}/api/researches`)
+    candidates.value = (res.data ?? []).filter((r) => r.team_id !== teamId.value && r.role === 'owner')
+  } catch {
+    candidates.value = []
+  }
 }
 
 async function loadInvites() {
@@ -263,17 +436,49 @@ async function loadInvites() {
 
 onMounted(loadAll)
 
+// The candidate list is a second full read of the research list, so it waits
+// until somebody actually opens the dialog.
+watch(addingResearch, (open) => {
+  if (open) {
+    moveError.value = ''
+    void loadCandidates()
+  }
+})
+
 // A membership change from anywhere — another tab, another person — repaints
 // this screen, because a stale member list is the one thing this page must not
-// show.
+// show. A transfer moves work in or out of the team, which this page now shows.
 // The hub echoes the reader's own changes back to them; repainting into
 // skeletons would blink the page right after they used a control on it.
 useRealtimeUpdates(
   (event) => {
     if (event.entity === 'team' && event.entity_id === teamId.value) loadAll(false)
+    else if (event.entity === 'research') void loadResearches()
   },
   { onResync: () => loadAll(false) },
 )
+
+async function moveResearches(ids: string[]) {
+  movingResearch.value = true
+  moveError.value = ''
+  try {
+    const res = await authFetch<{ data: { moved: number } }>(`${base}/api/teams/${teamId.value}/researches`, {
+      method: 'POST',
+      body: { research_ids: ids },
+    })
+    addingResearch.value = false
+    const moved = res.data?.moved ?? ids.length
+    success(
+      `${moved} ${moved === 1 ? 'research is' : 'researches are'} now visible to everyone in ${team.value?.name}.`,
+      'Moved',
+    )
+    await Promise.all([loadResearches(), refreshTeams()])
+  } catch (e: any) {
+    moveError.value = e?.data?.error || 'The server refused the move'
+  } finally {
+    movingResearch.value = false
+  }
+}
 
 async function changeRole(userId: string, role: TeamRole) {
   const previous = members.value.find((m) => m.user_id === userId)?.role
@@ -459,52 +664,48 @@ watch(renaming, (open) => {
 </script>
 
 <style scoped>
-.section-heading { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin: var(--space-8) 0 var(--space-3); }
-.team-work { margin-top: var(--space-6); font-size: var(--type-sm); }
-.text-link { color: var(--color-primary); }
-.alone-note {
+/* The heading over a rule list, with its count and whatever that section lets
+   you do. Not promoted to system.css: two other components declare
+   `.section-heading` and both are a document heading with a rule under it —
+   the same name for a different design. Sharing the name and overriding the
+   rule is precisely the `.danger-zone` bug this page just lost. */
+.section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: var(--space-8) 0 var(--space-3);
+}
+.section-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--type-lg);
+  font-weight: var(--weight-semibold);
+  margin: 0;
+}
+.section-count {
+  font-size: var(--type-sm);
+  font-weight: var(--weight-normal);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.member-filter { max-width: 16rem; }
+/* An empty state between two lists, rather than instead of a page. The full
+   padding put the Members heading below the fold on a team that has no work in
+   it yet — which is the one team where the reader needs to see both. */
+.section-empty { padding: var(--space-8) var(--space-4); }
+.list-note {
   font-size: var(--type-sm);
   color: var(--color-text-muted);
-  padding: var(--space-4) var(--space-1);
+  padding: var(--space-3) var(--space-1);
   display: flex;
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
-.invite-inline { flex-shrink: 0; }
 .title-skeleton { height: 40px; }
-.member-skeleton { height: 52px; }
-
-.danger-zone {
-  margin-top: var(--space-12);
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-}
-/* Text rows rather than buttons: these should be reachable, not tempting. */
-.danger-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-1);
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--type-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.danger-row:hover:not(:disabled) { background: var(--color-surface-hover); }
-.danger-row:disabled { opacity: 0.45; cursor: not-allowed; }
-.danger-strong { color: var(--color-error); }
-.danger-note { font-size: var(--type-xs); color: var(--color-text-muted); text-align: right; }
-
-
-@media (max-width: 768px) {
-  .danger-row { flex-direction: column; gap: var(--space-1); }
-  .danger-note { text-align: left; }
-}
+/* The same height as the rows it stands in for, so the page does not
+   reassemble itself when the data lands. */
+.row-skeleton { height: 56px; }
 </style>

@@ -3,7 +3,10 @@
     <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: 'Teams' }]" />
 
     <PageHeader title="Teams" lead="Teams own researches. Everyone in a team sees its researches.">
-      <template #actions><button v-if="showNewButton" class="btn btn-sm btn-primary" @click="creating = true">+ New team</button></template>
+      <!-- Neutral, like every other page header in the product. A filled button
+           lived here and on the team page and nowhere else, so these two pages
+           read as imported from somewhere with a different design. -->
+      <template #actions><button v-if="showNewButton" class="btn" @click="creating = true">+ New team</button></template>
     </PageHeader>
 
     <div v-if="!loaded && !failed" class="skeleton-list">
@@ -16,7 +19,7 @@
       title="Couldn't load your teams"
       description="The server didn't answer. Your researches are unaffected."
     >
-      <button class="btn btn-sm" @click="refresh()">Try again</button>
+      <button class="btn" @click="refresh()">Try again</button>
     </EmptyState>
 
     <!-- One personal team is not a list; it is a user who has not met the
@@ -27,7 +30,9 @@
       title="You're working on your own"
       description="Teams let other people into your researches. Create one, invite a colleague with a link, and move a research into it."
     >
-      <button v-if="authEnabled" class="btn btn-sm btn-primary" @click="creating = true">+ New team</button>
+      <!-- The one filled button that survives on this surface: there is nothing
+           else on the screen, and it is the action the page exists for. -->
+      <button v-if="authEnabled" class="btn btn-primary" @click="creating = true">+ New team</button>
     </EmptyState>
 
     <TeamRowList v-else :teams="[...teams]" />
@@ -40,7 +45,7 @@
         ref="nameInput"
         v-model="name"
         class="text-input"
-        placeholder="Отдел интеграций"
+        placeholder="Integrations"
         @keydown.enter="submit"
       />
       <p v-if="error" class="inline-error" role="alert">{{ error }}</p>
@@ -92,7 +97,11 @@ async function submit() {
   try {
     const team = await create(name.value.trim())
     creating.value = false
-    success(`${team.name} is ready. Invite someone with a link.`, 'Team created')
+    // Move first, then invite. The old wording recommended inviting first,
+    // which is exactly how a colleague arrives to an empty list and concludes
+    // the invitation failed — the researches the owner already had stayed
+    // behind in their personal team, and nothing said so.
+    success(`${team.name} is ready. Move a research into it, then invite someone.`, 'Team created')
     navigateTo(`/teams/${team.id}`)
   } catch (e: any) {
     error.value = e?.data?.error || 'Could not create the team'

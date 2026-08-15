@@ -10,6 +10,11 @@ import type { TeamRole } from '~/composables/useTeams'
  * case the element exists for, and it brings keyboard, screen-reader and mobile
  * behaviour a custom menu would have to reimplement.
  *
+ * The chrome is the `.select` primitive. This was the fourth hand-written copy
+ * of it and the only select in the product with no chevron, so a role read as
+ * text that happened to be boxed. `.select` needed a third unrelated consumer
+ * to earn its place in the stylesheet; this is it.
+ *
  * It also owns the last-owner refusal. The reason has to reach the pointer
  * (`title`) and the screen reader (`aria-describedby`) both, and a caller that
  * remembers only one of them ships a control that is disabled for no stated

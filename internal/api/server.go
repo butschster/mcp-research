@@ -286,6 +286,7 @@ func NewServer(
 	mux.Handle("GET /api/invites/{token}", wrapOptional(tmh.PreviewInvite))
 	mux.Handle("POST /api/invites/{token}/accept", wrap(tmh.AcceptInvite))
 	mux.Handle("POST /api/researches/{id}/transfer", wrap(tmh.TransferResearch))
+	mux.Handle("POST /api/teams/{id}/researches", wrap(tmh.AddResearches))
 
 	// --- Share links ---
 	//

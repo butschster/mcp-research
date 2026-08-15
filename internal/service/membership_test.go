@@ -310,6 +310,83 @@ func TestTeam_TransferMovesTheAudience(t *testing.T) {
 	}
 }
 
+func TestTeam_BulkTransferMovesEveryOne(t *testing.T) {
+	k := newRoleKit(t)
+	ownerUser := createTestUser(t, k.db, "owner@test.com", "Owner")
+	colleagueUser := createTestUser(t, k.db, "colleague@test.com", "Colleague")
+	owner, colleague := userCtx(ownerUser), userCtx(colleagueUser)
+
+	shared, _ := k.team.Create(owner, "Acme")
+	addToTeam(t, k.db, shared.ID, colleagueUser.ID, domain.TeamViewer)
+
+	var ids []string
+	for _, name := range []string{"One", "Two", "Three"} {
+		research, _, err := k.research.Create(owner, CreateResearchRequest{Name: name, Goal: "G"})
+		if err != nil {
+			t.Fatalf("create %s: %v", name, err)
+		}
+		ids = append(ids, research.ID)
+	}
+
+	// The same id twice: a form can repeat one, and it must not be counted twice.
+	moved, err := k.team.TransferResearches(owner, shared.ID, append(ids, ids[0]))
+	if err != nil {
+		t.Fatalf("bulk transfer: %v", err)
+	}
+	if moved != 3 {
+		t.Fatalf("moved = %d, want 3", moved)
+	}
+	for _, id := range ids {
+		if _, err := k.research.Get(colleague, id); err != nil {
+			t.Fatalf("colleague should see %s after the move: %v", id, err)
+		}
+	}
+
+	// Asking again is a no-op, not a second move.
+	again, err := k.team.TransferResearches(owner, shared.ID, ids)
+	if err != nil {
+		t.Fatalf("repeat: %v", err)
+	}
+	if again != 0 {
+		t.Fatalf("repeat moved = %d, want 0", again)
+	}
+}
+
+// One research the caller may not move must stop the whole run before anything
+// moves — otherwise a rejected list half-applies and the reader is told only
+// about the refusal.
+func TestTeam_BulkTransferRefusesAllOrNothing(t *testing.T) {
+	k := newRoleKit(t)
+	ownerUser := createTestUser(t, k.db, "owner@test.com", "Owner")
+	strangerUser := createTestUser(t, k.db, "stranger@test.com", "Stranger")
+	owner, stranger := userCtx(ownerUser), userCtx(strangerUser)
+
+	shared, _ := k.team.Create(owner, "Acme")
+
+	mine, _, err := k.research.Create(owner, CreateResearchRequest{Name: "Mine", Goal: "G"})
+	if err != nil {
+		t.Fatalf("create mine: %v", err)
+	}
+	theirs, _, err := k.research.Create(stranger, CreateResearchRequest{Name: "Theirs", Goal: "G"})
+	if err != nil {
+		t.Fatalf("create theirs: %v", err)
+	}
+
+	// The stranger's research is second, so a run that moved as it went would
+	// already have moved the first one.
+	if _, err := k.team.TransferResearches(owner, shared.ID, []string{mine.ID, theirs.ID}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("bulk transfer with a foreign research = %v, want ErrNotFound", err)
+	}
+
+	got, err := k.research.Get(owner, mine.ID)
+	if err != nil {
+		t.Fatalf("get mine: %v", err)
+	}
+	if got.TeamID == shared.ID {
+		t.Fatal("the first research moved even though the run was refused")
+	}
+}
+
 func TestTeam_CreatingInSomeoneElsesTeamIsRefused(t *testing.T) {
 	k := newRoleKit(t)
 	owner := userCtx(createTestUser(t, k.db, "owner@test.com", "Owner"))

@@ -29,8 +29,10 @@
       </span>
     </div>
 
-    <!-- Onboarding -->
-    <GettingStartedBanner :has-researches="researches.length > 0" />
+    <!-- Onboarding, for the person this product was set up by. Someone who was
+         invited into a team has an agent's worth of advice they did not ask
+         for: "install an MCP server" is not why they followed a link. -->
+    <GettingStartedBanner v-if="!teamFilter && !invitedElsewhere" :has-researches="researches.length > 0" />
 
     <!-- Loading -->
     <div v-if="pending" class="skeleton-list">
@@ -48,14 +50,34 @@
       />
     </div>
 
-    <!-- Empty because of the team filter, not because there is nothing -->
+    <!-- Empty because of the team filter, not because there is nothing. What to
+         do about it depends entirely on whether the reader can move work into
+         the team: an owner has a control, a viewer has a colleague. -->
     <EmptyState
       v-else-if="teamFilter"
       icon="&#x1F4C1;"
-      title="No researches in this team yet"
-      description="Researches created in this team will appear here. An agent connected to your account can create one."
+      :title="`No researches in ${filteredTeamName} yet`"
+      :description="
+        filteredTeamOwned
+          ? 'Researches you move into this team appear here, and everyone in it can read them. Your own researches are still in your personal team.'
+          : 'Researches added to this team will appear here for everyone in it. An owner of the team can move one across.'
+      "
     >
-      <button class="btn btn-sm" @click="teamFilter = ''">Show all teams</button>
+      <NuxtLink v-if="filteredTeamOwned" class="btn" :to="`/teams/${teamFilter}`">Move researches here</NuxtLink>
+      <NuxtLink v-else class="btn" :to="`/teams/${teamFilter}`">Who is in this team</NuxtLink>
+      <button class="btn" @click="teamFilter = ''">Show all teams</button>
+    </EmptyState>
+
+    <!-- Empty, and the reader was invited here by somebody. Telling them to
+         connect an agent answers a question they did not ask, and reads as the
+         invitation having failed. -->
+    <EmptyState
+      v-else-if="invitedElsewhere"
+      icon="&#x1F91D;"
+      title="Nothing has been shared with you yet"
+      description="You are in a team, but no research has been moved into it. Whoever invited you can move one across — it will appear here the moment they do."
+    >
+      <NuxtLink class="btn" to="/teams">Your teams</NuxtLink>
     </EmptyState>
 
     <!-- Empty -->
@@ -93,6 +115,20 @@ const teamFilter = computed({
     router.replace({ query })
   },
 })
+
+const filteredTeam = computed(() => teams.value.find((t) => t.id === teamFilter.value) ?? null)
+const filteredTeamName = computed(() => filteredTeam.value?.name || 'this team')
+const filteredTeamOwned = computed(() => filteredTeam.value?.role === 'owner')
+
+/**
+ * True when somebody else brought this reader here.
+ *
+ * A team they are in but do not own is an invitation that was accepted, and it
+ * changes what an empty screen means: not "you have not started yet" but "the
+ * work has not arrived yet". The founder's onboarding is wrong in that case,
+ * and reads as the invitation having failed.
+ */
+const invitedElsewhere = computed(() => teams.value.some((t) => !t.personal && t.role !== 'owner'))
 
 onMounted(() => loadTeams())
 const importing = ref(false)

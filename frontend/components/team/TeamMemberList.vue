@@ -5,16 +5,21 @@
       :key="member.user_id"
       class="data-row member-row"
       :class="{ 'data-row--busy': busyUserId === member.user_id }"
+      :aria-busy="busyUserId === member.user_id || undefined"
+      :inert="busyUserId === member.user_id || undefined"
     >
       <span class="user-avatar" aria-hidden="true">{{ initial(member) }}</span>
 
       <div class="member-identity">
-        <span class="member-name">{{ member.name || member.email }}</span>
-        <span v-if="member.user_id === myUserId" class="member-note">you</span>
-        <span v-else-if="member.created_at" class="member-note">joined {{ joined(member.created_at) }}</span>
+        <span class="member-line">
+          <span class="member-name">{{ member.name || member.email }}</span>
+          <span v-if="member.user_id === myUserId" class="tag member-you">you</span>
+        </span>
+        <span class="member-sub">
+          <span class="member-email">{{ member.email }}</span>
+          <span v-if="member.created_at" class="member-joined">joined {{ joined(member.created_at) }}</span>
+        </span>
       </div>
-
-      <span class="member-email">{{ member.email }}</span>
 
       <TeamRoleSelect
         v-if="canManage"
@@ -27,17 +32,20 @@
       />
       <span v-else class="member-role-static">{{ ROLE_LABELS[member.role] }}</span>
 
-      <button
-        v-if="canManage"
-        class="btn-icon remove-btn"
-        :disabled="isLastOwner(member) || busyUserId === member.user_id"
-        :title="isLastOwner(member) ? lastOwnerReason : `Remove ${member.name || member.email}`"
-        :aria-label="`Remove ${member.name || member.email}`"
-        @click="emit('remove', member)"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-      </button>
-      <span v-else class="remove-placeholder"></span>
+      <!-- The removal lives behind the same `⋯` as every other row action in
+           the product. It used to be a 28px unlabelled × — the loudest control
+           in the row was also the only irreversible one. -->
+      <ActionMenu v-if="canManage" :title="`Actions for ${member.name || member.email}`">
+        <button
+          class="action-menu-item action-menu-item--danger"
+          :disabled="isLastOwner(member)"
+          :title="isLastOwner(member) ? lastOwnerReason : undefined"
+          @click="emit('remove', member)"
+        >
+          Remove from team
+        </button>
+      </ActionMenu>
+      <span v-else class="member-action-placeholder"></span>
     </div>
   </div>
 </template>
@@ -49,9 +57,14 @@ import { absoluteTime } from '~/composables/useRelativeTime'
 /**
  * The people in a team.
  *
- * Name and email each get their own column and both wrap rather than
- * truncating: a shortened email is not an email, and these are the two strings
- * a reader is here to check.
+ * Name and email were a column each, which made the row 72px against the
+ * invite list's 48px under two identical headings — one page, two lists about
+ * the same thing, half again the height. They are one identity block now: the
+ * name a reader scans for, and underneath the two facts that qualify it. That
+ * is 56px, the same rhythm as every other rule list on the page.
+ *
+ * Neither string truncates. A shortened email is not an email, and these are
+ * the two strings a reader is here to check.
  */
 const props = defineProps<{
   members: TeamMember[]
@@ -87,43 +100,24 @@ function joined(iso: string) {
 <style scoped>
 /* Bigger than the nav's, which is a 22px afterthought beside a name. */
 .member-row .user-avatar { --avatar-size: 28px; }
-.member-row {
-  grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1.4fr) auto auto;
-  align-items: center;
-  transition: opacity var(--transition-fast);
-}
-.member-identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.member-row { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.member-identity { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.member-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .member-name { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
-.member-note { font-size: var(--type-xs); color: var(--color-text-muted); }
-.member-email { font-size: var(--type-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.member-you { color: var(--color-text-muted); }
+.member-sub { display: flex; flex-wrap: wrap; gap: var(--space-1); font-size: var(--type-xs); color: var(--color-text-muted); }
+.member-email { overflow-wrap: anywhere; }
+.member-joined::before { content: '· '; }
 .member-role-static { font-size: var(--type-xs); color: var(--color-text-muted); white-space: nowrap; }
-.remove-placeholder { width: 0; }
-.btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-.btn-icon:hover:not(:disabled) { background: var(--color-surface-hover); color: var(--color-error); }
-.btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+/* The column has to keep its width for a viewer, or every row's role would sit
+   at a different distance from the edge depending on who is reading. */
+.member-action-placeholder { width: var(--control-h); }
 
 @media (max-width: 768px) {
-  .member-row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    row-gap: var(--space-2);
-  }
+  .member-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: var(--space-2); }
   .member-identity { grid-column: 2; }
-  /* The one destructive control stays top-right rather than sitting under a
-     wrapping email. */
-  .remove-btn, .remove-placeholder { grid-column: 3; grid-row: 1; }
-  .member-email { grid-column: 2 / -1; grid-row: 2; }
-  .member-role-static, :deep(.role-select) { grid-column: 2 / -1; grid-row: 3; justify-self: start; }
+  /* The menu stays top-right rather than sitting under a wrapping email. */
+  .action-menu, .member-action-placeholder { grid-column: 3; grid-row: 1; }
+  .member-role-static, :deep(.role-select) { grid-column: 2 / -1; grid-row: 2; justify-self: start; }
 }
 </style>

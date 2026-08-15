@@ -214,6 +214,46 @@ func (h *TeamHandler) TransferResearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": research})
 }
 
+// AddResearches pulls researches into a team — the inverse of TransferResearch,
+// which pushes one out of the team it is in. Same operation, opposite subject:
+// this one is asked from the team, about a list.
+func (h *TeamHandler) AddResearches(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		ResearchIDs []string `json:"research_ids"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if len(input.ResearchIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "research_ids is required")
+		return
+	}
+
+	// Short codes are what the UI holds, so they are resolved here rather than
+	// making every caller look up a uuid first.
+	ids := make([]string, 0, len(input.ResearchIDs))
+	for _, ref := range input.ResearchIDs {
+		id, err := h.research.ResolveID(r.Context(), ref)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		ids = append(ids, id)
+	}
+
+	moved, err := h.teams.TransferResearches(r.Context(), r.PathValue("id"), ids)
+	if err != nil {
+		// A partial run is reported as a failure with its count, not as a
+		// success: the reader asked for all of them.
+		if moved > 0 {
+			h.log.Warn("bulk transfer stopped part-way", "team_id", r.PathValue("id"), "moved", moved, "error", err)
+		}
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"moved": moved}})
+}
+
 // inviteURL builds the link an owner copies. It is derived from the request
 // rather than from configuration so the link works on whatever host the owner
 // is actually using — localhost during development, the real domain in

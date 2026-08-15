@@ -5,32 +5,47 @@
       :key="invite.id"
       class="data-row invite-row"
       :class="{ 'data-row--dead': isExpired(invite), 'data-row--busy': busyId === invite.id }"
+      :aria-busy="busyId === invite.id || undefined"
+      :inert="busyId === invite.id || undefined"
     >
-      <span class="invite-email">{{ invite.email || 'Anyone with the link' }}</span>
-      <span class="invite-role">{{ ROLE_LABELS[invite.role] }}</span>
-      <span class="invite-status">{{ status(invite) }}</span>
+      <span class="user-avatar invite-avatar" aria-hidden="true">✉</span>
 
-      <div class="invite-actions">
-        <template v-if="isExpired(invite)">
-          <button class="link-btn" @click="emit('reinvite', invite)">Re-invite</button>
-        </template>
-        <template v-else>
-          <button
-            v-if="recoverableLinks[invite.id]"
-            class="link-btn"
-            @click="emit('showLink', invite)"
-          >Show link</button>
-          <button
-            v-else
-            class="link-btn"
-            title="The link is shown only once, so a replacement means revoking this one."
-            @click="emit('reinvite', invite)"
-          >New link</button>
-          <button class="link-btn link-danger" :disabled="busyId === invite.id" @click="emit('revoke', invite)">
-            Revoke
-          </button>
-        </template>
+      <div class="invite-identity">
+        <span class="invite-email">{{ invite.email || 'Anyone with the link' }}</span>
+        <span class="invite-sub">
+          <span>{{ ROLE_LABELS[invite.role] }}</span>
+          <!-- Already on the wire and never shown. On a team with three owners
+               it is the only way to tell who is expecting this person. -->
+          <span v-if="invite.inviter_name || invite.inviter_email">
+            invited by {{ invite.inviter_name || invite.inviter_email }}
+          </span>
+        </span>
       </div>
+
+      <!-- Expiry is a badge rather than grey text, so "expired" is not a
+           difference in colour alone. -->
+      <span class="badge" :class="isExpired(invite) ? 'badge-dead' : 'badge-quiet'">{{ status(invite) }}</span>
+
+      <ActionMenu :title="`Actions for the invitation to ${invite.email || 'anyone with the link'}`">
+        <button
+          v-if="!isExpired(invite) && recoverableLinks[invite.id]"
+          class="action-menu-item"
+          @click="emit('showLink', invite)"
+        >
+          Show link
+        </button>
+        <button class="action-menu-item" @click="emit('reinvite', invite)">
+          {{ isExpired(invite) ? 'Re-invite' : 'Issue a new link' }}
+        </button>
+        <span class="action-menu-divider"></span>
+        <button
+          class="action-menu-item action-menu-item--danger"
+          :disabled="busyId === invite.id"
+          @click="emit('revoke', invite)"
+        >
+          Revoke
+        </button>
+      </ActionMenu>
     </div>
   </div>
 </template>
@@ -45,6 +60,11 @@ import { parseTimestamp } from '~/composables/useRelativeTime'
  * Lapsed ones stay in the list, dimmed. Filtering them away is how an owner
  * ends up asking why a colleague never joined while the colleague is looking at
  * a page that says "expired".
+ *
+ * The row is shaped like a member row on purpose — an avatar, an identity, a
+ * role, one `⋯`. An invitation is a person and their access, same as the row
+ * above it; it was previously an email, grey text and two bare text links with
+ * 21.7px targets, distinguishable from each other by colour alone.
  */
 defineProps<{
   invites: TeamInvite[]
@@ -52,7 +72,7 @@ defineProps<{
   /**
    * Tokens still held in memory from this tab's session. The server hashes
    * them, so after a reload the only route to a working link is a new
-   * invitation — which is what the button then offers.
+   * invitation — which is what the menu then offers instead.
    */
   recoverableLinks: Record<string, string>
 }>()
@@ -81,20 +101,24 @@ function status(invite: TeamInvite) {
 </script>
 
 <style scoped>
-.invite-row {
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  align-items: center;
+.invite-row { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.invite-avatar {
+  --avatar-size: 28px;
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
 }
+.invite-identity { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .invite-email { overflow-wrap: anywhere; }
-.invite-role, .invite-status { font-size: var(--type-xs); color: var(--color-text-muted); white-space: nowrap; }
-.invite-actions { display: flex; gap: var(--space-3); }
-.link-danger { color: var(--color-error); }
+.invite-sub { display: flex; flex-wrap: wrap; gap: var(--space-1); font-size: var(--type-xs); color: var(--color-text-muted); }
+.invite-sub > * + *::before { content: '· '; }
+.badge-quiet { background: var(--color-surface-hover); color: var(--color-text-muted); }
+.badge-dead { background: var(--color-surface-hover); color: var(--color-text-faint); }
 
 @media (max-width: 768px) {
-  .invite-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--space-2); }
-  .invite-email { grid-column: 1 / -1; }
-  .invite-role { grid-column: 1; }
-  .invite-status { grid-column: 2; justify-self: end; }
-  .invite-actions { grid-column: 1 / -1; }
+  .invite-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: var(--space-2); }
+  .invite-identity { grid-column: 2; }
+  .action-menu { grid-column: 3; grid-row: 1; }
+  .badge { grid-column: 2 / -1; grid-row: 2; justify-self: start; }
 }
 </style>

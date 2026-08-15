@@ -9,6 +9,40 @@ Written against the state of `fix/ui-wave-0`. It assumes the decisions in
 `ui-improvement-plan.md` §4 — the CSS split, the token contract, and the rule
 that a class earns a place in `system.css` at three unrelated consumers.
 
+> **State: built.** Everything below shipped on `fix/ui-wave-0` except where
+> this block says otherwise. Four deviations, each a decision rather than an
+> omission:
+>
+> - **`.section-heading` was not promoted** (§3). Its three consumers turned
+>   out to be three *designs* under one name: the two export views are a
+>   document heading with a rule under it, the team page is a section label.
+>   Promoting one would have forced the other two to override it — which is the
+>   exact `.danger-zone` bug this work removed. The team page's version stays
+>   scoped, next to a count and whatever that section lets you do.
+> - **No avatar hue from the user id** (§3). The `--hue-*` tokens are semantic
+>   — red means blocked, amber means session. Spending them on identity would
+>   make a red avatar read as a state.
+> - **The header `+ Invite` stays on a one-member team** (§4). What the review
+>   measured was a *filled* button duplicated by a neutral one; the header is
+>   neutral now and the inline prompt is a text link, so the two are ranked
+>   rather than competing. Hiding a header action at one member and revealing it
+>   at two would move the control as the team grows. The duplicate that did go
+>   is "Invite someone" in the empty-Researches state — three invitations on one
+>   screen was the original complaint wearing different clothes.
+> - **Bulk transfer validates first, then moves** (§5). `POST
+>   /api/teams/{id}/researches` checks every research before moving any, so a
+>   refusal moves nothing; it is not a database transaction, because these
+>   repositories share one connection and have no `Tx` plumbing. Per-research
+>   `research.transferred` and `access.revoked` events are kept rather than
+>   collapsed into a count — those are per-research facts, and dropping them
+>   would leave open tabs showing a research their reader can no longer load.
+>
+> One defect was found during the build that is not in this document and
+> affected every page in the product: `.page-bar > .title-with-code` carried
+> `flex: 1 1 20rem`, and `.page-bar` turns into a column below 768px — so the
+> basis was measured vertically and every page opened on a phone with 320px of
+> nothing between the breadcrumbs and its own title.
+
 ---
 
 ## 1. What is wrong
