@@ -91,6 +91,11 @@ where you come in:
 - **Borders, radii and weights are part of the match.** `.btn-icon` once carried
   `--color-border` while `.btn` carried `--color-border-strong`, so the icon
   buttons read as a weaker class of control than the labelled one next to them.
+- **Auto margins suppress flex stretch.** A rule with `max-width` and
+  `margin: 0 auto` and no `width` is correct in normal flow and collapses to its
+  content the moment its parent becomes a flex container — which is a change
+  made three files away, in a layout nobody thought was related. Any new
+  `display: flex` on a wrapper is a reason to look at what its children are.
 - **A component must not depend on a page's scoped CSS.** Scoped rules reach a
   child component's *root element only*. `.btn-icon` was defined in the research
   page's scoped block, so `ActionMenu`'s trigger — a button inside a child

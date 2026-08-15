@@ -132,6 +132,16 @@ body::after {
 /* --- Container ---------------------------------------------------------- */
 
 .container {
+  /* `width: 100%` looks redundant on a block — it is exactly what `auto` gives
+     with border-box sizing — and it is load-bearing the moment a .container
+     becomes a flex item.
+     A flex item is stretched across the cross axis only when neither cross-axis
+     margin is `auto`. This rule sets `margin: 0 auto`, so inside a column flex
+     container the stretch is suppressed and the element shrinks to fit its
+     content: the page's whole text column narrowed to whatever happened to be
+     in it. Stating the width makes .container behave the same wherever it is
+     put. */
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 var(--space-6);

@@ -76,6 +76,10 @@ useResearchRealtime(
 
 <style scoped>
 .roadmaps-page {
+  /* width, not auto: an auto horizontal margin suppresses flex stretch, so this
+     column would silently shrink to its content if it ever sat in a flex
+     container. */
+  width: 100%;
   max-width: 900px;
   margin: 0 auto;
 }

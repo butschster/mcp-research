@@ -17,7 +17,13 @@
  *     number does not, and the page ends up taller than the window with nothing
  *     to scroll. Measure with a flex column instead.
  *
- *  3. A control whose height is left to emerge from padding plus content.
+ *  3. `max-width` + `margin: 0 auto` with no `width`. Fine in normal flow, and
+ *     broken the moment the element becomes a flex item: auto cross-axis
+ *     margins suppress `align-items: stretch`, so the element shrinks to its
+ *     content. The page's whole text column narrowed to whatever was in it, and
+ *     the CSS that "caused" it was three files away.
+ *
+ *  4. A control whose height is left to emerge from padding plus content.
  *     15px of text in a `.btn` and a 16px icon in a `.btn-icon` came out 29.8
  *     and 29.2 tall, and `.btn-sm` 26.6 — three heights in one header row.
  *     A control states its height.
@@ -56,6 +62,20 @@ function classSelectors(css, offsetLine = 0) {
   return found
 }
 
+/** Splits a stylesheet into rule bodies, remembering where each one started. */
+function collectRules(css, file, offsetLine = 0) {
+  const re = /(^|\n)\s*(\.[^{}\n]*)\{([^{}]*)\}/g
+  let m
+  while ((m = re.exec(css))) {
+    allRules.push({
+      file,
+      selector: m[2].trim(),
+      css: m[3],
+      at: offsetLine + css.slice(0, m.index).split('\n').length,
+    })
+  }
+}
+
 function scopedBlocks(source) {
   const blocks = []
   const re = /<style[^>]*\bscoped\b[^>]*>([\s\S]*?)<\/style>/g
@@ -67,15 +87,19 @@ function scopedBlocks(source) {
 }
 
 const findings = []
+/** Every rule body in the project, so a check can look at all of them. */
+const allRules = []
 const globalCss = readFileSync(GLOBAL_CSS, 'utf8')
 const globalClasses = classSelectors(globalCss)
 const files = walk(join(ROOT, 'components')).concat(walk(join(ROOT, 'pages')), [join(ROOT, 'app.vue')])
+collectRules(globalCss, 'assets/css/main.css')
 
 for (const file of files) {
   const source = readFileSync(file, 'utf8')
   const rel = relative(ROOT, file)
 
   for (const { css, line } of scopedBlocks(source)) {
+    collectRules(css, rel, line)
     // 1. collisions with the global stylesheet
     for (const [sel, at] of classSelectors(css, line)) {
       if (globalClasses.has(sel)) {
@@ -105,7 +129,20 @@ for (const file of files) {
   })
 }
 
-// 3. control classes that set padding but never state a height
+// 3. centred boxes that will collapse if they are ever put in a flex container
+for (const { file, css, at } of allRules) {
+  const body = css
+  if (!/max-width:/.test(body)) continue
+  if (!/margin:[^;]*\bauto\b|margin-inline:[^;]*\bauto\b/.test(body)) continue
+  if (/(^|[\s;{])width:/.test(body)) continue
+  findings.push({
+    kind: 'collapsible-box',
+    where: `${file}:${at}`,
+    detail: `sets max-width and an auto horizontal margin but no width. In normal flow that is fine; as a flex item the auto margins suppress align-items: stretch and it shrinks to its content. Add width: 100%.`,
+  })
+}
+
+// 4. control classes that set padding but never state a height
 for (const block of globalCss.split(/\n(?=\.[a-zA-Z])/)) {
   const sel = block.match(/^(\.[a-zA-Z0-9_-]+)/)?.[1]
   if (!sel || !CONTROL.test(sel)) continue
@@ -134,7 +171,7 @@ const strict = process.argv.includes('--strict')
 const failing = findings.filter((f) => f.kind !== 'collision')
 const collisions = findings.filter((f) => f.kind === 'collision')
 
-for (const kind of ['magic-viewport', 'derived-height']) {
+for (const kind of ['magic-viewport', 'collapsible-box', 'derived-height']) {
   const group = findings.filter((f) => f.kind === kind)
   if (!group.length) continue
   console.log(`\n${kind} (${group.length})`)
