@@ -251,6 +251,11 @@ const editorToolbars: ToolbarNames[] = [
   'unorderedList', 'orderedList', 'task', '-',
   'codeRow', 'code', 'link', 'image', 'table', 'mermaid', '-',
   'revoke', 'next', '=',
+  // Reading an entry is one job and writing one is another. `pageFullscreen`
+  // fills the window without leaving the page, so Escape still belongs to the
+  // editor and the browser's own chrome stays put; `fullscreen` hands the
+  // screen over entirely for the case where even the browser is a distraction.
+  'pageFullscreen', 'fullscreen', '-',
   'preview', 'catalog',
 ]
 

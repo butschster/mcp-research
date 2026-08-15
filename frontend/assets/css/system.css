@@ -874,3 +874,12 @@ button.tag {
    graph sidebar. */
 .check-row { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-2) 0; cursor: pointer; }
 .check-row input { margin-top: 0.2rem; flex-shrink: 0; }
+
+
+/* --- Editor fullscreen ----------------------------------------------------
+   `md-editor-v3` puts its expanded state at `z-index: 10000`, which is above
+   everything this product owns — including the toast host. A save that fails
+   while the editor is expanded would then announce itself into a layer the
+   reader cannot see, on the one screen where the failure costs unsaved text.
+   Below the toasts, above the grain and the sticky nav. */
+.md-editor-fullscreen { z-index: 250 !important; }
