@@ -5,6 +5,8 @@
       :key="share.id"
       class="data-row share-row"
       :class="{ 'data-row--dead': !isLive(share), 'data-row--busy': busyId === share.id }"
+      :aria-busy="busyId === share.id || undefined"
+      :inert="busyId === share.id || undefined"
     >
       <div class="share-cell share-cell--label">
         <span class="share-label">{{ share.label || 'Untitled link' }}</span>
