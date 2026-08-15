@@ -15,14 +15,14 @@
 
     <!-- Filters -->
     <div class="filter-bar">
-      <select v-model="statusFilter">
+      <select v-model="statusFilter" class="select">
         <option value="">All statuses</option>
         <option value="active">Active</option>
         <option value="completed">Completed</option>
         <option value="archived">Archived</option>
       </select>
       <!-- Only when there is a choice to make. A solo user never sees this. -->
-      <select v-if="teams.length > 1" v-model="teamFilter" :disabled="teamsLoading" aria-label="Filter by team">
+      <select v-if="teams.length > 1" v-model="teamFilter" :disabled="teamsLoading" class="select" aria-label="Filter by team">
         <option value="">All teams</option>
         <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
       </select>
@@ -168,6 +168,16 @@ useRealtimeUpdates(
 </script>
 
 <style scoped>
+/* Moved out of the global stylesheet: these style this component and
+   nothing else, and they were a directory away from the markup they
+   describe. What stays global is what three unrelated components share. */
+.filter-bar {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+  .filter-bar { flex-wrap: wrap; }
+
 .page-header-row {
   display: flex;
   justify-content: space-between;

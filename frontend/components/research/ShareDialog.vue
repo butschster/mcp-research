@@ -337,7 +337,7 @@ async function showLink(share: ShareRow) {
 .share-fieldset { border: none; padding: 0; margin: var(--space-4) 0; }
 .check-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--type-sm); padding: var(--space-1) 0; }
 .share-skeletons { display: flex; flex-direction: column; gap: var(--space-2); }
-/* .warning-banner is the product's amber strip (main.css). Amber belongs here
+/* .warning-banner is the product's amber strip (system.css). Amber belongs here
    and nowhere else in this feature: this is the one moment where something is
    about to be lost. */
 .share-warning { margin: var(--space-3) 0; }

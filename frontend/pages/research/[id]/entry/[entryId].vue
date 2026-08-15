@@ -719,6 +719,10 @@ const nextEntry = computed(() =>
 </script>
 
 <style scoped>
+/* css-discipline: literal-ok — the source view uses the One Dark palette,
+   which is a palette in its own right rather than the product's. It is not
+   expressible in the design tokens and should not be: a syntax colour that
+   drifted with the brand would stop meaning "string" or "keyword". */
 .edit-remote-change {
   display: flex;
   align-items: center;
@@ -773,7 +777,7 @@ const nextEntry = computed(() =>
   color: var(--color-text-muted);
   padding: 0.35rem 0.5rem;
 }
-.btn-delete:hover { color: #ef4444; }
+.btn-delete:hover { color: var(--color-danger); }
 
 /* Status dropdown */
 .status-dropdown-wrap {

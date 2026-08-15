@@ -28,6 +28,16 @@ const fillClass = computed(() => {
 </script>
 
 <style scoped>
+/* Moved out of the global stylesheet: these style this component and
+   nothing else, and they were a directory away from the markup they
+   describe. What stays global is what three unrelated components share. */
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: var(--radius-hair);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .progress-wrap { display: flex; align-items: center; gap: var(--space-2); }
 .progress-bar {
   flex: 1;

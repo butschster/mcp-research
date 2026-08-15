@@ -1,0 +1,179 @@
+/* ==========================================================================
+   Design tokens — the whole vocabulary, and nothing else.
+
+   No selectors live here. After the split the tokens are the only thing
+   holding the look together, so this is the file a designer opens to answer
+   "what is the design system here?"
+   ========================================================================== */
+
+/* ==========================================================================
+   MCP Research - Premium Design System
+   Typographic precision, calibrated color, intentional motion
+   ========================================================================== */
+
+:root {
+  /* --- Colors ----------------------------------------------------------- */
+  --color-bg: var(--color-bg);
+  /* Below the page: code wells, the graph canvas, the auth hero. Two components
+     had independently invented "darker than the background" and disagreed. */
+  --color-bg-deep: var(--color-bg-deep);
+  --color-surface: var(--color-surface);
+  --color-surface-hover: var(--color-surface-hover);
+  /* A floating layer — dropdown, popover, dialog — so it separates from a card
+     behind it instead of matching it. */
+  --color-surface-raised: #1b2438;
+  --color-border: rgba(148, 163, 184, 0.12);
+  --color-border-strong: rgba(148, 163, 184, 0.22);
+  /* `.btn-icon:hover` referenced this before it existed, so the hover border
+     resolved to an invalid value and the colour simply inherited — every icon
+     button in every page header had a hover state that did nothing. */
+  --color-border-hover: var(--color-border-strong);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  /* Dimmer than muted, at full opacity. It exists to end the habit of reaching
+     for `opacity` on text that is already muted: muted has 0.55 of headroom
+     over 4.5:1 on a card, so any opacity under ~0.9 puts it under. The three
+     worst contrast measurements in the product were all opacity, not colour. */
+  --color-text-faint: #5b6b80;
+  --color-primary: var(--color-primary);
+  --color-primary-hover: #7cd1ea;
+  --color-primary-muted: rgba(108, 197, 224, 0.10);
+  /* Ink on a primary-filled surface. White on this cyan is 1.9:1; the page
+     background on it is 9.5:1. Stated as a token so no button has to remember. */
+  --color-on-primary: var(--color-bg);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-info: var(--color-info);
+  /* One red for destruction. There were four — var(--color-error), #ef4444, #dc2626 and
+     currentColor — and which one you got depended on the component you were
+     inside. `app.vue` already referenced this name with a #dc2626 fallback. */
+  --color-danger: var(--color-error);
+
+  /* --- Categorical --------------------------------------------------------
+     Tags, and the three node families — graph, mindmap, roadmap — which each
+     had a private palette. They disagreed: two ambers 4% apart distinguished
+     "question" from "session" on an unlabelled canvas, and "done" was
+     `--color-success` in one family and a different green in another. */
+  --hue-1: var(--color-primary);   /* cyan   — entries        */
+  --hue-2: var(--color-success);   /* green  — done           */
+  --hue-3: var(--color-warning);   /* amber  — sessions       */
+  --hue-4: var(--color-error);   /* red    — blocked/failed */
+  --hue-5: var(--hue-5);   /* violet — sections, refs */
+  --hue-6: #fb923c;   /* orange — questions      */
+
+  /* --- Type Scale (9-step) ---------------------------------------------- */
+  /* Canvas chrome only — a graph node's code, a status pip. Nothing at these
+     sizes carries a sentence, and nothing at them may use muted ink: at 11-12px
+     `--color-text-muted` is already under AA on a hovered surface. */
+  --type-3xs:  0.6875rem;
+  --type-2xs:  0.75rem;
+  /* Badges, short codes, meta lines. Never prose — `--color-text-muted` here
+     measures 4.36:1 on `--color-surface-hover`, which is a sentence a reader
+     has to work at. */
+  --type-xs:   0.875rem;
+  --type-sm:   0.9375rem;   /* the UI default */
+  --type-base: 1.0625rem;   /* body copy, reading */
+  /* Card titles and sub-headings. Without it `--type-lg` did double duty as
+     both, which is why two files disagreed about which one a section heading
+     was. */
+  --type-md:   1.1875rem;
+  --type-lg:   1.25rem;
+  --type-xl:   1.5rem;
+  --type-2xl:  2rem;
+  /* Retuned from 2.75rem, and `--type-4xl` deleted: both had zero uses, and the
+     one page that wanted a hero wrote `3.25rem` by hand rather than reach for
+     either — which says the values were wrong, not that the step was unwanted. */
+  --type-3xl:  2.5rem;
+
+  /* --- Weight ------------------------------------------------------------
+     176 numeric weights were in the tree, including five 650s and two 800s.
+     Only the static faces are loaded, so 650 was already rounding to 700 — it
+     was never a decision anybody could see the result of. */
+  --weight-normal:   400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* --- Spacing Scale (4px base) ----------------------------------------- */
+  /* Control height.
+     A button's height used to be whatever its padding plus its content added up
+     to — and the content differs: 15px of text in a .btn, a 16px icon in a
+     .btn-icon. Three controls in one header row came out 29.8, 29.2 and 26.6px
+     tall, which is exactly the kind of difference that is visible and hard to
+     name. Height is now stated, not derived. */
+  --control-h: 30px;
+  --control-h-sm: 26px;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* --- Shared ----------------------------------------------------------- */
+  /* Bar-shaped things only: a progress fill, a search highlight. */
+  --radius-hair: 2px;
+  /* Absorbs 84 raw radii that all sat under --radius-sm — 4px thirty-seven
+     times, 3px thirty-four, 2px thirteen. Nobody chose between them; every
+     badge, tag, chip and counter picked one. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+
+  /* --- Elevation ----------------------------------------------------------
+     Eighteen distinct shadows were doing three jobs. Four things at the same
+     conceptual altitude — a dropdown, a popover, a menu, a toast — each had
+     their own, and after the CSS split they would never have converged. */
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.18);      /* a card, a flow node   */
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.30);     /* menu, popover         */
+  --shadow-3: 0 16px 48px rgba(0, 0, 0, 0.40);    /* modal, toast          */
+  --shadow-glow: 0 4px 20px rgba(108, 197, 224, 0.20);
+  --shadow-focus: 0 0 0 3px rgba(108, 197, 224, 0.15);
+
+  /* The nav's real height. `.sidebar` guessed 56px for this and cleared the
+     actual 66px by six pixels — a number that works today by luck. */
+  --nav-h: 66px;
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --line-tight: 1.15;
+  --line-base: 1.55;
+
+  /* --- Measure ----------------------------------------------------------
+     How wide a column of text is allowed to get.
+     The entry page has no sidebar, so a paragraph in `.entry-content` ran the
+     full container — about 130 characters a line, against a comfortable 45-75.
+     The comparison view had a measure (`DiffView`, 90ch) and a one-line page
+     lead had one (65ch); the surface whose whole purpose is reading did not.
+
+     Stated in `rem`, not `ch`, for two reasons. `ch` is the advance of `0`,
+     which in Outfit is 0.656em while its average lowercase letter is about
+     0.5em — so `72ch` is roughly 94 characters, not 72. And `ch` resolves
+     against each element's own font-size, so a single token became a
+     different width on every heading level: an h2 at `--type-xl` computed a
+     cap wider than the column it sat in and hung its underline 283px past the
+     text beneath it. One length, resolved once. */
+  --measure: 38rem;
+  /* Content that is read by scanning rather than by line: tables, code, diffs
+     and diagrams, which are worse wrapped than wide. */
+  --measure-wide: 52rem;
+  /* A lead paragraph or an empty-state sentence, short enough that a narrower
+     column reads as deliberate. */
+  --measure-prose: 34rem;
+
+  /* --- Z-Index Scale ---------------------------------------------------- */
+  /* Above in-page cards, below the sticky nav — see .page-header. */
+  --z-in-page: 1;
+  --z-elevated: 10;
+  --z-overlay: 100;
+  --z-noise: 200;
+  /* Above the grain and above a dialog: a notification that a modal covers is a
+     notification nobody reads. */
+  --z-toast: 300;
+}

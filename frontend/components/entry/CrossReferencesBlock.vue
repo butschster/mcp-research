@@ -164,7 +164,7 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
 }
 .crossref-unresolved {
   font-size: var(--type-xs);
-  color: var(--color-warning, #d4a017);
+  color: var(--color-warning, var(--color-warning));
   font-style: italic;
   margin-left: auto;
 }

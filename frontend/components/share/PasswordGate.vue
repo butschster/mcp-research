@@ -1,5 +1,5 @@
 <template>
-  <div class="password-gate">
+  <div class="centered-gate password-gate">
     <div class="password-card">
       <div class="password-icon" aria-hidden="true">&#x1F512;</div>
       <h1 class="password-title">This link is password-protected</h1>
@@ -58,13 +58,6 @@ onMounted(() => field.value?.focus())
 </script>
 
 <style scoped>
-.password-gate {
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6);
-}
 .password-card {
   width: 100%;
   max-width: 380px;

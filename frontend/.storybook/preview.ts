@@ -17,7 +17,11 @@ import TeamRoleSelect from '../components/team/RoleSelect.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
 import { resetMockApiData } from '../__mocks__/api'
-import '../assets/css/main.css'
+import '../assets/css/tokens.css'
+import '../assets/css/base.css'
+import '../assets/css/system.css'
+import '../assets/css/markdown.css'
+import '../assets/css/mermaid.css'
 
 const router = createRouter({
   history: createMemoryHistory(),

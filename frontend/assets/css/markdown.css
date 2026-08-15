@@ -1,0 +1,89 @@
+/* ==========================================================================
+   Styling for HTML that arrives as a string.
+
+   `marked` output, `renderRefs` anchors and the search highlight carry no
+   scope attribute, so none of this can be `<style scoped>`. It cannot live in
+   one owning component either: eight components render markdown
+   independently, and a `:deep()` block in any one of them would leave the
+   other seven unstyled.
+
+   Loaded before mermaid.css, because `.markdown-content pre.mermaid-error`
+   depends on `.markdown-content pre` having been declared.
+   ========================================================================== */
+
+/* --- Search Highlight --------------------------------------------------- */
+
+.search-mark {
+  background: rgba(108, 197, 224, 0.2);
+  color: var(--color-primary);
+  border-radius: var(--radius-hair);
+}
+
+/* --- Markdown Content --------------------------------------------------- */
+
+.markdown-content { }
+.markdown-content h1 { font-size: var(--type-xl); font-weight: var(--weight-bold); margin: var(--space-8) 0 var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-border); letter-spacing: -0.02em; }
+.markdown-content h2 { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin: var(--space-6) 0 var(--space-3); padding-bottom: var(--space-1); border-bottom: 1px solid var(--color-border); letter-spacing: -0.015em; }
+.markdown-content h3 { font-size: var(--type-base); font-weight: var(--weight-semibold); margin: var(--space-6) 0 var(--space-2); }
+.markdown-content h4 { font-size: var(--type-sm); font-weight: var(--weight-semibold); margin: var(--space-4) 0 var(--space-2); }
+.markdown-content h1:first-child, .markdown-content h2:first-child, .markdown-content h3:first-child { margin-top: 0; }
+.markdown-content p { margin: var(--space-3) 0; }
+.markdown-content ul, .markdown-content ol { padding-left: var(--space-6); margin: var(--space-3) 0; }
+.markdown-content li { margin: var(--space-1) 0; }
+.markdown-content li > ul, .markdown-content li > ol { margin: var(--space-1) 0; }
+.markdown-content strong { font-weight: var(--weight-semibold); color: var(--color-text); }
+.markdown-content hr { border: none; border-top: 1px solid var(--color-border); margin: var(--space-6) 0; }
+.markdown-content code {
+  background: var(--color-surface-hover);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+  font-size: 0.85em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.markdown-content pre {
+  background: var(--color-surface-hover);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: var(--space-5) 0;
+  line-height: var(--line-base);
+  border: 1px solid var(--color-border);
+}
+.markdown-content pre code { background: none; padding: 0; font-size: var(--type-xs); }
+.markdown-content blockquote {
+  border-left: 2px solid var(--color-primary);
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-muted);
+  margin: var(--space-4) 0;
+}
+.markdown-content blockquote p { margin: var(--space-1) 0; }
+.markdown-content table { width: 100%; border-collapse: collapse; margin: var(--space-5) 0; font-size: var(--type-sm); }
+.markdown-content thead th { text-align: left; font-weight: var(--weight-semibold); padding: var(--space-2) var(--space-3); border-bottom: 2px solid var(--color-border-strong); color: var(--color-text); background: var(--color-surface-hover); }
+.markdown-content tbody td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.markdown-content tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+.markdown-content tbody tr:last-child td { border-bottom: none; }
+.markdown-content img { max-width: 100%; border-radius: var(--radius); margin: var(--space-4) 0; }
+/* A UUID chain or a bare URL used to push the whole page sideways on a phone. */
+.markdown-content,
+.block-doc { overflow-wrap: anywhere; }
+.markdown-content a { color: var(--color-primary); text-decoration: none; }
+.markdown-content a:hover { text-decoration: underline; }
+
+/* Mermaid diagrams — the viewer is assembled in composables/useMermaidViewer.ts,
+   so these rules are global: nodes built by hand carry no scoped-style attribute
+   and a `.markdown-content` prefix would leave the block renderer unstyled. */
+
+.crossref-link {
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-xs);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+.crossref-link:hover {
+  background: rgba(108, 197, 224, 0.2);
+  text-decoration: none;
+}

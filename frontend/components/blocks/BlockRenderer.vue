@@ -471,7 +471,7 @@ function bodyRows(b: Block): any[] {
   );
 }
 
-/* No `margin: 0` here: main.css already zeroes the figure's UA margins, and
+/* No `margin: 0` here: base.css already zeroes the figure's UA margins, and
    repeating it would beat `.block-doc > * + *` on source order at equal
    specificity — which is exactly how the figure lost its spacing from the block
    above it. */

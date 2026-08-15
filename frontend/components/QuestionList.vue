@@ -2,11 +2,11 @@
   <div>
     <!-- Filter bar -->
     <div v-if="hasFilters" class="question-filters">
-      <select v-model="filterArea" class="q-select">
+      <select v-model="filterArea" class="select">
         <option value="">All areas</option>
         <option v-for="a in areas" :key="a" :value="a">{{ a }}</option>
       </select>
-      <select v-model="filterPriority" class="q-select">
+      <select v-model="filterPriority" class="select">
         <option value="">All priorities</option>
         <option value="high">&uarr; High</option>
         <option value="medium">&bull; Medium</option>
@@ -167,23 +167,6 @@ function truncateAnswer(text: string, max: number): string {
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
-.q-select {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0.35rem 1.5rem 0.35rem 0.625rem;
-  color: var(--color-text-muted);
-  font-size: var(--type-sm);
-  font-weight: var(--weight-medium);
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237f8ea3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.625rem center;
-}
-.q-select:hover { border-color: rgba(108, 197, 224, 0.25); color: var(--color-text); }
 
 .question-group { margin-bottom: var(--space-3); }
 

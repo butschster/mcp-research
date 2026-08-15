@@ -90,7 +90,7 @@ export const OfflineAuth: Story = {
 }
 
 /**
- * At 768px and below, `main.css` hides `.ws-label` and the state would be
+ * At 768px and below, `system.css` hides `.ws-label` and the state would be
  * carried by the colour of a 6px dot and nothing else. The `sr-only` text and
  * the computed `aria-label` are what survive — inspect the DOM here, not the
  * pixels.

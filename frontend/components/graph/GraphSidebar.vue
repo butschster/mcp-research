@@ -288,7 +288,7 @@ defineEmits<{
   border-radius: 50%;
   background: var(--hue-5);
   cursor: pointer;
-  border: 2px solid #1a1a2e;
+  border: 2px solid var(--color-bg-deep);
 }
 
 .depth-slider::-moz-range-thumb {

@@ -133,7 +133,7 @@ function formatDate(value: string) {
   border-radius: var(--radius-sm);
   font-size: 0.65rem;
 }
-/* .link-btn itself is global (main.css). Only the destructive variant is
+/* .link-btn itself is global (system.css). Only the destructive variant is
    local, and it uses the product's own red — there is no --color-danger. */
 .link-btn--danger:hover { color: var(--color-error); }
 .link-btn:disabled { opacity: 0.5; cursor: default; }

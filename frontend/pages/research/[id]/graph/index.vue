@@ -683,7 +683,7 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
   position: fixed;
   inset: 0;
   display: flex;
-  background: #111;
+  background: var(--color-bg-deep);
   z-index: 100;
 }
 
