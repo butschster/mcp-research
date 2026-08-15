@@ -5,7 +5,7 @@
         <span v-if="roadmap.code" class="rm-card-code">{{ roadmap.code }}</span>
         <h3 class="rm-card-title">{{ roadmap.title }}</h3>
       </div>
-      <span :class="['badge', `badge-${roadmap.status}`]">{{ roadmap.status }}</span>
+      <StatusBadge :status="roadmap.status" />
     </div>
     <p v-if="roadmap.description" class="rm-card-desc">{{ roadmap.description }}</p>
     <div v-if="roadmap.statuses?.length" class="rm-card-statuses">
@@ -19,6 +19,14 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * A roadmap in a list.
+ *
+ * It had a story and no caller: both roadmap list pages inlined the same markup
+ * instead, and the copies had already diverged in grid width, title size and
+ * description clamping. Adopting it here is what stopped the shared view from
+ * becoming a third.
+ */
 defineProps<{
   roadmap: {
     code: string

@@ -35,8 +35,13 @@ const route = useRoute()
 // Pages that render without nav or footer. The invitation page joins them
 // because its reader may have no account at all, and a nav bar full of links
 // they cannot follow is a worse welcome than none.
+// A shared view joins them for the strongest version of the same reason: its
+// reader has no account at all, and the nav's search box, team menu and
+// research list are not merely unusable to them — every one of them reaches
+// past the single research the link was for.
 const isChromeless = computed(
-  () => route.path === '/login' || route.path === '/register' || route.path.startsWith('/invite/'),
+  () => route.path === '/login' || route.path === '/register'
+    || route.path.startsWith('/invite/') || route.path.startsWith('/s/'),
 )
 
 const userMenuOpen = ref(false)

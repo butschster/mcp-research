@@ -1,16 +1,18 @@
 <template>
   <div v-if="prev || next" class="entry-nav no-print">
-    <NuxtLink v-if="prev" :to="`/research/${researchSlug}/entry/${prev.code || prev.id}`" class="btn btn-sm entry-nav-btn">
+    <NuxtLink v-if="prev" :to="entryPath(researchSlug, prev.code || prev.id)" class="btn btn-sm entry-nav-btn">
       &larr; {{ prev.title }}
     </NuxtLink>
     <span v-else class="entry-nav-placeholder"></span>
-    <NuxtLink v-if="next" :to="`/research/${researchSlug}/entry/${next.code || next.id}`" class="btn btn-sm entry-nav-btn entry-nav-next">
+    <NuxtLink v-if="next" :to="entryPath(researchSlug, next.code || next.id)" class="btn btn-sm entry-nav-btn entry-nav-next">
       {{ next.title }} &rarr;
     </NuxtLink>
   </div>
 </template>
 
 <script setup lang="ts">
+import { entryPath } from '~/composables/useResearchPaths'
+
 defineProps<{
   prev?: { code?: string; id: string; title: string }
   next?: { code?: string; id: string; title: string }

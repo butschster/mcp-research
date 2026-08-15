@@ -20,6 +20,21 @@ const role = ref<TeamRole | null>(null)
 const researchId = ref<string | null>(null)
 const teamName = ref<string>('')
 
+/**
+ * A share link is being read, and nothing on the page may be written.
+ *
+ * This exists because `canWrite` returns true when auth is disabled — correct
+ * for the local single-binary mode, and catastrophic on a public share URL
+ * served by the same binary, where it would render Edit, Delete, the status
+ * dropdown and the block checkboxes to a stranger.
+ *
+ * It is the second of two defences. The first is that the share pages never
+ * import the edit machinery at all; this one protects the components they *do*
+ * reuse — BlockRenderer's checkboxes, RoadmapNodePopover's status chips,
+ * KanbanBoard's drag.
+ */
+const shareLocked = ref(false)
+
 export function useResearchRole() {
   const { authEnabled } = useAuth()
 
@@ -28,6 +43,17 @@ export function useResearchRole() {
     researchId.value = research.id ?? null
     role.value = (research.role || null) as TeamRole | null
     teamName.value = research.team_name ?? ''
+    // An owner navigating out of a shared view and back into the app publishes
+    // their real role here, which is the moment the lock should lift. Clearing
+    // it on unmount instead would race the incoming page, for the reason
+    // `clear()` documents.
+    shareLocked.value = false
+  }
+
+  /** Called by the shared-view shell, before its fetch resolves. */
+  function lockForShare() {
+    shareLocked.value = true
+    role.value = 'viewer' as TeamRole
   }
 
   /**
@@ -50,11 +76,13 @@ export function useResearchRole() {
   // With auth off there are no roles and everything is permitted — that is the
   // single-binary local mode, and it must not render a read-only interface.
   const canWrite = computed(() => {
+    if (shareLocked.value) return false
     if (!authEnabled.value) return true
     return role.value === 'editor' || role.value === 'owner'
   })
 
   const canAdmin = computed(() => {
+    if (shareLocked.value) return false
     if (!authEnabled.value) return true
     return role.value === 'owner'
   })
@@ -65,9 +93,15 @@ export function useResearchRole() {
     researchId: readonly(researchId),
     canWrite,
     canAdmin,
-    /** True only for a real viewer — drives the one badge that explains the missing controls. */
-    isViewer: computed(() => !!authEnabled.value && role.value === 'viewer'),
+    /**
+     * True only for a real viewer — drives the one badge that explains the
+     * missing controls. A share visitor is deliberately excluded: the banner
+     * across the top is the right explanation, and "your role in this team is
+     * viewer" would be a confusing thing to say to somebody with no account.
+     */
+    isViewer: computed(() => !shareLocked.value && !!authEnabled.value && role.value === 'viewer'),
     setFromResearch,
+    lockForShare,
     clear,
   }
 }

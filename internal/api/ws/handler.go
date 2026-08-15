@@ -41,6 +41,33 @@ func HandleWebSocket(hub *Hub, baseURL string) http.HandlerFunc {
 	upgrader := newUpgrader(baseURL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		// A share link is checked first and in both modes. It is a credential in
+		// its own right, and the branch below is about *users* — falling through
+		// to it with auth off would register the visitor as an ordinary local
+		// client, which sees every event on the server.
+		if token := r.URL.Query().Get("share"); token != "" {
+			validator := hub.ShareValidator()
+			if validator == nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			unlock := r.URL.Query().Get("unlock")
+			scope := validator.Scope(r.Context(), token, unlock)
+			if scope == nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			conn, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				return
+			}
+			client := NewShareClient(hub, conn, scope, token, unlock)
+			hub.Register(client)
+			go client.WritePump()
+			go client.ReadPump()
+			return
+		}
+
 		userID, token := "", ""
 		if hub.AuthEnabled() {
 			validator := hub.TokenValidator()

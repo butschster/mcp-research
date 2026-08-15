@@ -27,11 +27,12 @@
       </button>
 
       <div v-show="isOpen(group.status)" class="group-body">
-        <NuxtLink
+        <component
+          :is="questionLink(q) ? NuxtLink : 'div'"
           v-for="q in group.questions"
           :key="q.id"
-          :to="questionLink(q)"
-          :class="['question-card', { 'question-child': q.parent_id, 'question-answered': q.status === 'answered' }]"
+          :to="questionLink(q) || undefined"
+          :class="['question-card', { 'question-child': q.parent_id, 'question-answered': q.status === 'answered', 'question-inert': !questionLink(q) }]"
         >
           <div class="q-top">
             <span v-if="q.code" class="q-code">{{ q.code }}</span>
@@ -45,7 +46,7 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span>{{ truncateAnswer(q.answer, 120) }}</span>
           </div>
-        </NuxtLink>
+        </component>
 
         <EmptyState v-if="group.questions.length === 0" title="No questions match filters" />
       </div>
@@ -61,6 +62,8 @@
 </template>
 
 <script setup lang="ts">
+import { NuxtLink } from '#components'
+
 import { renderRefs } from '~/composables/useCrossRefs'
 interface Question {
   id: string
@@ -120,11 +123,20 @@ const visibleGroups = computed(() =>
     .filter(g => g.questions.length > 0 || isOpen(g.status))
 )
 
+/**
+ * Where a question card points, or '' when it must not be a link.
+ *
+ * A shared view has no per-question page: the question, its answer and its
+ * children are all on the session page already, and a route per question is one
+ * more payload to get the redaction right on. Under a share the card renders as
+ * a card and stays put.
+ */
 function questionLink(q: Question): string {
+  if (shareActive()) return ''
   if (props.sessionId && props.researchSlug) {
     return `/research/${props.researchSlug}/session/${props.sessionId}/question/${q.code || q.id}`
   }
-  return '#'
+  return ''
 }
 
 function truncateAnswer(text: string, max: number): string {

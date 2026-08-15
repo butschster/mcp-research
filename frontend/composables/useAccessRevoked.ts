@@ -142,6 +142,12 @@ export function useAccessRevoked() {
   }
 
   useRealtimeUpdates((event) => {
+    // A share visitor has no account to lose access to, and every branch below
+    // reaches for an authenticated endpoint. The check is here rather than in
+    // setup because app.vue's setup runs once at start-up, before a shared page
+    // has claimed its token — a guard up there is always false on a cold load.
+    if (shareActive()) return
+
     if (event.type === 'access.changed') {
       republishRole()
       return

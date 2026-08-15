@@ -5,11 +5,12 @@
       Related by tags
     </h3>
     <div class="crossrefs-list">
-      <NuxtLink
+      <component
+        :is="relatedPath(rel) ? NuxtLink : 'div'"
         v-for="rel in entries"
         :key="rel.id"
-        :to="`/research/${rel.research_id === researchId ? researchSlug : rel.research_id}/entry/${rel.code || rel.id}`"
-        class="crossref-item"
+        :to="relatedPath(rel) || undefined"
+        :class="['crossref-item', { 'crossref-item--inert': !relatedPath(rel) }]"
       >
         <span class="crossref-code">{{ rel.code }}</span>
         <span class="crossref-entry-title">{{ rel.title }}</span>
@@ -21,12 +22,13 @@
             :title="tag"
           ></span>
         </div>
-      </NuxtLink>
+      </component>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { NuxtLink } from '#components'
 import { tagHue } from '~/composables/useTagHue'
 
 const props = defineProps<{
@@ -36,6 +38,20 @@ const props = defineProps<{
   researchId: string
 }>()
 
+/**
+ * Where a related entry points, or '' when it must not be a link.
+ *
+ * The related-by-tags query is scoped to the shared research server-side, so
+ * under a share the foreign branch should be unreachable. It renders inert
+ * rather than linking anyway: an endpoint that starts returning more than it
+ * should must not turn into navigation here.
+ */
+function relatedPath(rel: any): string {
+  const own = rel.research_id === props.researchId
+  if (shareActive() && !own) return ''
+  return entryPath(own ? props.researchSlug : rel.research_id, rel.code || rel.id)
+}
+
 function sharedTags(rel: any): string[] {
   if (!props.currentTags?.length || !rel.tags) return []
   const mine = new Set(props.currentTags)
@@ -44,6 +60,7 @@ function sharedTags(rel: any): string[] {
 </script>
 
 <style scoped>
+.crossref-item--inert { cursor: default; }
 .crossrefs-block {
   margin-top: var(--space-6);
   padding: var(--space-6);

@@ -3,6 +3,7 @@ package ws
 import (
 	"time"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/gorilla/websocket"
 )
 
@@ -38,6 +39,21 @@ type Client struct {
 	send   chan []byte
 	userID string
 	token  string
+
+	// share is set instead of userID for a connection opened from a share link.
+	// The two are mutually exclusive by construction: a share visitor has no
+	// account, and a signed-in reader is scoped by membership rather than by a
+	// token in a URL.
+	//
+	// It is re-resolved on the same timer as a user's credential, so revoking a
+	// link closes the sockets it opened rather than waiting for the tab to be
+	// closed.
+	share      *auth.Share
+	shareToken string
+	// shareUnlock is what the visitor got back from the password exchange. It
+	// has to be kept for the re-check: without it a protected link would fail
+	// its first re-validation and close a connection that is perfectly valid.
+	shareUnlock string
 }
 
 func NewClient(hub *Hub, conn *websocket.Conn, userID, token string) *Client {
@@ -47,6 +63,19 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, token string) *Client {
 		send:   make(chan []byte, sendBufLen),
 		userID: userID,
 		token:  token,
+	}
+}
+
+// NewShareClient is the connection behind a shared page. It carries no user,
+// which is what keeps it out of every rule written in terms of one.
+func NewShareClient(hub *Hub, conn *websocket.Conn, share *auth.Share, token, unlock string) *Client {
+	return &Client{
+		hub:         hub,
+		conn:        conn,
+		send:        make(chan []byte, sendBufLen),
+		share:       share,
+		shareToken:  token,
+		shareUnlock: unlock,
 	}
 }
 

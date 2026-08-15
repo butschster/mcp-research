@@ -43,6 +43,15 @@ let attempt = 0
 let everConnected = false
 let started = false
 let openedWith: string | null = null
+/**
+ * The share link this tab is reading, if any.
+ *
+ * A share connection is a different credential in the same slot: it identifies
+ * a scope rather than a person, and the server refuses it on the `?token=`
+ * parameter. It is module state because `start()`'s watcher runs once for the
+ * life of the tab and has to see it however late the shared page mounts.
+ */
+let shareCredential: { token: string; unlock: string } | null = null
 
 /**
  * clientId identifies this tab, for the life of this tab.
@@ -68,11 +77,49 @@ function socketUrl(token: string | null) {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const config = useRuntimeConfig()
   const base = config.public.apiBase || `${protocol}//${window.location.host}`
+  const url = base.replace(/^http/, 'ws') + '/ws'
+  // A share link opens its own kind of connection, scoped to one research.
+  // `?share=` and `?token=` are different parameters on purpose: the server
+  // must never be able to mistake one credential for the other.
+  if (shareCredential) {
+    const unlock = shareCredential.unlock ? `&unlock=${encodeURIComponent(shareCredential.unlock)}` : ''
+    return `${url}?share=${encodeURIComponent(shareCredential.token)}${unlock}`
+  }
   // The token rides in the query string because a browser cannot set headers
   // on a WebSocket handshake — the same accommodation the SSE transport makes.
   // The hub decides what each connection may see from who it belongs to, so
   // without this an authenticated server sends nothing.
-  return base.replace(/^http/, 'ws') + '/ws' + (token ? `?token=${encodeURIComponent(token)}` : '')
+  return url + (token ? `?token=${encodeURIComponent(token)}` : '')
+}
+
+/**
+ * Point this tab's connection at a share link.
+ *
+ * Called by the shared-view shell. It reopens the socket, because a connection
+ * already carrying somebody's session must not keep feeding a page that is now
+ * showing an anonymous view of one research.
+ */
+export function useShareSocket(token: string, unlock: string) {
+  if (import.meta.server) return
+  const same = shareCredential?.token === token && shareCredential?.unlock === unlock
+  shareCredential = { token, unlock }
+  start()
+  if (same && socket) return
+  everConnected = false
+  attempt = 0
+  disconnect()
+  connect(null)
+}
+
+/** Give the socket back to whoever is signed in, if anybody is. */
+export function releaseShareSocket() {
+  if (import.meta.server || !shareCredential) return
+  shareCredential = null
+  everConnected = false
+  attempt = 0
+  disconnect()
+  const { authEnabled, token } = useAuth()
+  connect(authEnabled.value ? (token.value ?? null) : null)
 }
 
 function connect(token: string | null) {
@@ -142,6 +189,9 @@ function connect(token: string | null) {
 }
 
 async function classifyGiveUp() {
+  // A share connection has no account to ask about, and `/api/auth/me` would
+  // answer 401 for a link that is working perfectly well.
+  if (shareCredential) return
   const token = openedWith
   if (!token) return
   try {
@@ -223,6 +273,10 @@ function start() {
       // null means we have not asked the server yet; connecting now would only
       // guess at whether a credential is required.
       if (enabled === null) return
+
+      // A shared page owns the connection while it is open. Signing out in
+      // another tab must not close the socket a visitor is reading over.
+      if (shareCredential) return
 
       const wanted = enabled ? (tok ?? null) : null
       if (enabled && !wanted) {

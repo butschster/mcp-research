@@ -28,22 +28,10 @@
       <NuxtLink
         v-for="rm in roadmaps"
         :key="rm.id"
-        :to="`/research/${researchSlug}/roadmap/${rm.code || rm.id}`"
+        :to="roadmapPath(researchSlug, rm.code || rm.id)"
         class="roadmap-card-link"
       >
-        <div class="card roadmap-card">
-          <div class="rm-card-header">
-            <div class="rm-card-title-row">
-              <span v-if="rm.code" class="rm-card-code">{{ rm.code }}</span>
-              <h3 class="rm-card-title">{{ rm.title }}</h3>
-            </div>
-            <StatusBadge :status="rm.status" />
-          </div>
-          <p v-if="rm.description" class="rm-card-desc">{{ rm.description }}</p>
-          <div v-if="rm.statuses?.length" class="rm-card-statuses">
-            <span v-for="s in rm.statuses" :key="s" class="rm-card-status-chip">{{ s }}</span>
-          </div>
-        </div>
+        <RoadmapCard :roadmap="rm" />
       </NuxtLink>
     </div>
 
@@ -97,30 +85,6 @@ useResearchRealtime(
   justify-content: space-between;
   gap: var(--space-3);
 }
-.title-with-code {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-.short-code {
-  font-size: var(--type-xs);
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-muted);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.task-counter {
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  background: var(--color-surface-hover);
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-variant-numeric: tabular-nums;
-}
 .roadmaps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -136,69 +100,6 @@ useResearchRealtime(
 .roadmap-card-link {
   text-decoration: none;
   color: inherit;
-}
-.roadmap-card {
-  display: flex;
-  flex-direction: column;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-.roadmap-card:hover {
-  border-color: var(--color-border-strong);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-.rm-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.rm-card-title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.rm-card-code {
-  font-size: var(--type-xs);
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-muted);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.rm-card-title {
-  font-size: var(--type-sm);
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-  line-height: 1.3;
-}
-.rm-card-desc {
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  margin-top: var(--space-2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.rm-card-statuses {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-  margin-top: var(--space-3);
-}
-.rm-card-status-chip {
-  font-size: 0.625rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-  background: var(--color-surface-hover);
-  color: var(--color-text-muted);
-  line-height: 1;
 }
 .empty-state {
   display: flex;

@@ -29,7 +29,7 @@
             <NuxtLink
               v-for="entry in group.entries"
               :key="entry.id"
-              :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`"
+              :to="entryPath(researchSlug, entry.code || entry.id)"
               class="card entry-card"
             >
               <div class="entry-card-header">
@@ -53,7 +53,7 @@
         v-else
         icon="&#x1F4C4;"
         title="No entries yet"
-        description="Claude will populate this research with entries."
+        :description="emptyDescription('research')"
       />
     </template>
 
@@ -86,7 +86,7 @@
         <NuxtLink
           v-for="entry in filteredEntries"
           :key="entry.id"
-          :to="`/research/${researchSlug}/entry/${entry.code || entry.id}`"
+          :to="entryPath(researchSlug, entry.code || entry.id)"
           class="card entry-card"
         >
           <div class="entry-card-header">
@@ -107,8 +107,8 @@
       <EmptyState
         v-else
         icon="&#x1F4C4;"
-        title="No entries yet"
-        description="Claude will populate this section with research entries."
+        :title="shareActive() ? 'No entries in this section' : 'No entries yet'"
+        :description="emptyDescription('section')"
       />
     </template>
   </div>
@@ -117,6 +117,8 @@
 <script setup lang="ts">
 import { tagHue } from '~/composables/useTagHue'
 import { renderRefs } from '~/composables/useCrossRefs'
+import { entryPath } from '~/composables/useResearchPaths'
+import { shareActive } from '~/composables/useShare'
 
 const props = defineProps<{
   entries: any[]
@@ -127,6 +129,21 @@ const props = defineProps<{
   sectionInfo?: any
   tags: Array<{ tag: string; count: number }>
 }>()
+
+/**
+ * What to say about an empty list.
+ *
+ * "Claude will populate this section with research entries" is true and useful
+ * to the person running the research, and meaningless to a client reading a
+ * shared link — it describes a tool they have never heard of doing work they
+ * have no part in.
+ */
+function emptyDescription(scope: 'research' | 'section') {
+  if (shareActive()) return "There's nothing here yet."
+  return scope === 'research'
+    ? 'Claude will populate this research with entries.'
+    : 'Claude will populate this section with research entries.'
+}
 
 const activeTag = ref('')
 

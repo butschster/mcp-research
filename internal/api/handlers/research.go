@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
@@ -16,11 +17,19 @@ type ResearchHandler struct {
 	entry    *service.EntryService
 	entries  *storage.EntryRepository
 	session  *service.SessionService
+	shares   *service.ShareService
 	log      *slog.Logger
 }
 
 func NewResearchHandler(research *service.ResearchService, section *service.SectionService, entry *service.EntryService, entries *storage.EntryRepository, session *service.SessionService, log *slog.Logger) *ResearchHandler {
 	return &ResearchHandler{research: research, section: section, entry: entry, entries: entries, session: session, log: log}
+}
+
+// SetShareService adds the live-share count to the research payload. It is set
+// after construction so the handler keeps working without it — the count is a
+// badge, not the page.
+func (h *ResearchHandler) SetShareService(svc *service.ShareService) {
+	h.shares = svc
 }
 
 func (h *ResearchHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -78,16 +87,35 @@ func (h *ResearchHandler) Get(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// The newest session, unless the link that is asking excluded them.
+	//
+	// This route is not gated by the include flags — it is the research itself,
+	// which every link carries — so the one part of its payload that is optional
+	// has to gate itself. Without this a link created with sessions switched off
+	// still handed over the latest session's title, focus and free-form notes on
+	// the very first request the shared page makes.
 	var latestSession *domain.Session
 	if h.session != nil {
-		latestSession, _ = h.session.FindLatest(r.Context(), id)
+		sc := auth.ShareFromContext(r.Context())
+		if sc == nil || sc.Include.Sessions {
+			latestSession, _ = h.session.FindLatest(r.Context(), id)
+		}
+	}
+
+	// How many links are handing this research out right now. Zero for anyone
+	// who could not manage them anyway, which includes a share visitor reading
+	// the page through one of them.
+	activeShares := 0
+	if h.shares != nil {
+		activeShares = h.shares.ActiveCount(r.Context(), id)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": map[string]any{
-			"research":       research,
-			"sections":       sectionData,
-			"active_session": latestSession,
+			"research":           research,
+			"sections":           sectionData,
+			"active_session":     latestSession,
+			"active_share_count": activeShares,
 		},
 	})
 }

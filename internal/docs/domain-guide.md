@@ -63,6 +63,8 @@ Who may do what. A team owns researches; membership in that team is the whole of
 - The WebSocket at `/ws` needs the same credential as everything else when auth is on, and delivery is decided **per event, per connection**: a research event reaches only those who may read it, a team event only its members, and losing access stops the updates on a socket already open. See [Real-time Events](#real-time-events) below.
 - That local team survives if auth is later turned on. It has no members, so its researches are **readable by every signed-in user and writable by none** until the first registration claims them — a deliberate compromise between stranding them behind a team nobody can join and letting the first caller take them for themselves.
 
+**A [share link](#share) is the one way to read a research without a role.** It grants no membership and names no person: it is a capability over one research, resolved to `viewer` on that research and nothing else, and every write made through one is refused before any role is consulted.
+
 **Cross-references resolve for the reader, not the author.** `[[R2:E5]]` is stored resolved whatever the writer may see, and every read path strips the targets its reader cannot follow — so a reference into a colleague's research works for whoever is entitled to it, and reads back as plain text for whoever is not.
 
 **Invitations are links, never emails.** The server sends nothing; an owner creates an invitation and hands the link over themselves.
@@ -97,6 +99,78 @@ Who may do what. A team owns researches; membership in that team is the whole of
 Every `/api/teams` and `/api/invites` route except the public preview needs a session: with `auth_enabled: false` they answer `401 sign in to manage teams`, because there are no users to put in a team. The transfer route is the exception — with no caller there is nothing to check, and it moves the research.
 
 `GET /api/researches` lists every research across all your teams and takes `?team={id}` to narrow it to one, and each item carries `team_id`, `team_name`, `team_is_personal` and `role`.
+
+---
+
+### Share
+
+A revocable, read-only capability over **one** research, addressed by an unguessable token rather than by who is holding it. Not an account, not an invitation, not a role: nobody signs in, the link names no user, and a visitor holding one is never a member of anything.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Identifies the link — for the manage list and for revocation. Not the token |
+| `research_id` | string | The single research it reaches. Everything else is out of scope by construction |
+| `scope` | enum | `research` — the only value issued. `session` / `entry` / `roadmap` exist in the schema for narrower forms and are refused today |
+| `label` | string | Free text for the owner: "Client review, March" |
+| `include` | object | `sessions`, `tasks`, `roadmaps`, `export` — four booleans, described below |
+| `has_password` | bool | Whether a password is set. The hash is returned to nobody |
+| `expires_at` | string | `null` for a link that never expires on its own |
+| `revoked_at` | string | Once set, the link answers exactly as if it never existed |
+| `last_seen_at` | string | When it was last opened |
+| `view_count` | int | Counted once per page load, not once per fetch |
+| `created_by_name` | string | Read-only, resolved per request — who handed the link out |
+| `research_code` | string | Read-only, so a client can build the URL it already knows |
+
+**No short code.** A share is never referenced from content, so there is no `[[…]]` form for one; it is addressed by its token and by `id`.
+
+**The token** is 256 random bits behind an `mrs_` prefix, stored as SHA-256 alongside API keys and team invites. It appears in exactly one response — the one that created it — and no route can read it back. A leaked database hands out no working links.
+
+**Include flags.** The zero value is the safe one: a flag has to be set to reveal something, so nothing leaks by being forgotten. `roadmaps` defaults to true at creation because roadmaps are part of the research proper; `sessions`, `tasks` and `export` default to false, being working state rather than a result.
+
+**Owner routes.** Creating, listing and revoking all need **write** access — an editor or an owner. A viewer cannot republish what the team owns; an editor could already export the whole research to a file and send it, so a link is not a capability they lacked.
+
+| Method | Path | Returns |
+|--------|------|---------|
+| `POST` | `/api/researches/{id}/shares` | `201` with `share`, `token` (the only time it exists) and `url` — the page a visitor opens, `https://<host>/s/<token>` |
+| `GET` | `/api/researches/{id}/shares` | every share of that research, live and dead, metadata only |
+| `DELETE` | `/api/shares/{id}` | revokes it |
+
+The create body takes `label`, `include` (any subset of the four booleans), `expires_in_days` (omit for a link that never expires; clamped to 1–3650) and `password` (optional, at least 6 characters). `GET /api/researches/{id}` carries `active_share_count` beside the research — `0` for anyone who could not manage the links anyway, a share visitor reading through one of them included.
+
+**Visitor routes** live under their own prefix, `/api/shared/{token}/…`, behind their own middleware. The token is checked once, at the prefix; there is no path by which it reaches a route built for an owner. Inside the prefix the paths are the ones the authenticated API uses, so `/api/shared/{token}/researches/R1/entries` is served by the ordinary entries handler.
+
+| Under `/api/shared/{token}` | Method | Needs |
+|---|---|---|
+| (the prefix itself) | `GET` | — the share payload: what this link is, the research, its sections |
+| `/unlock` | `POST` | — exchanges a password for the unlock value |
+| `/researches/{id}`, `/researches/{id}/entries`, `/researches/{id}/sections/{sectionId}/entries`, `/researches/{id}/tags` | `GET` | — |
+| `/researches/{id}/entries/{entryId}`, `/researches/{id}/entries/by-code/{code}`, `/entries/{id}`, `/entries/{id}/related` | `GET` | — |
+| `/researches/{id}/crossrefs`, `/entries/{id}/crossrefs`, `/researches/{id}/links`, `/entries/{id}/links` | `GET` | — |
+| `/researches/{id}/roadmaps`, `/researches/{id}/roadmaps/{roadmapId}`, `/roadmaps/{id}` | `GET` | `include.roadmaps` |
+| `/researches/{id}/sessions`, `/researches/{id}/sessions/{sessionId}` | `GET` | `include.sessions` |
+| `/researches/{id}/tasks` | `GET` | `include.tasks` |
+| `/researches/{id}/export` | `GET` | `include.export` |
+
+That list is the whole surface. Anything else under the prefix — another method, another path, a route whose flag is off — answers the same `404 this link is no longer available` that a revoked, expired or invented token gets. A link without sessions is meant to look like a research that has none.
+
+**What a visitor never sees:**
+
+- `instruction` and `memory` — stripped from the research on every read path, the export included. They are the agent's working notes about how to conduct the research, not a result, and their author did not publish them by sending a link to the findings.
+- `user_id`, `team_id`, `team_name`, `team_is_personal` — a share is about one research, not about the organisation behind it. `role` survives and is always `viewer`.
+- Any other research. There is no list route under the prefix, and the listing service itself answers empty for a share rather than falling through to "no user in context, so no filter" — which would have returned every research on the server.
+- The Obsidian vault and the portable JSON. The vault builds its payload from the repository rather than from the redacted read path, so it is refused outright; the portable route is not mounted.
+- Revision history, the knowledge graph, the mindmap and search — none of those routes exist under the prefix.
+- Every write, without exception. `Access.Write` refuses a share context before it looks at any role, so this does not depend on the `viewer` it resolves to.
+
+**Cross-references** out of the shared research (`[[R2:E5]]`) render as inert text — not a link, not a 404, because a share must not confirm that R2 exists. An *incoming* reference from a research the visitor cannot open is dropped from the list rather than blanked: the stripped row would still announce that something unseen cites this entry.
+
+**Password.** Optional, bcrypt. `POST /api/shared/{token}/unlock` returns an `unlock` value, sent back on every later request as `X-Share-Unlock` — or as `?unlock=…` where a header cannot be set, which is the WebSocket and a download the browser navigates to. A locked link answers `401` with `reason: password_required`; a wrong password answers `401` with `reason: invalid_password`, the one place the distinction is made, since whoever is standing at the prompt already knows the link is real. The unlock value is derived from the share, not stored: it dies with the link and stops working the moment the password changes. It is not a session, and there is nobody to have one.
+
+**Rate limits.** Reads under the prefix: 600 per minute per address — one page load is many fetches. Unlock: 10 per minute counted against the link itself as well as the address, because spreading guesses across addresses must not spread the budget. Both answer `429` with `Retry-After: 60`.
+
+**Revocation** takes effect on the next request; every layer consults the share per request. The exception is an open WebSocket, which re-resolves the link on its own timer and closes within the minute — see [Real-time Events](#real-time-events).
+
+**No MCP tool creates, lists or revokes a share.** Handing out a public link is a human act; the tool list is unchanged. A share token is a REST credential only — it never reaches an MCP endpoint. Shares also work with `auth_enabled: false`, where the row simply records no creator.
 
 ---
 
@@ -420,7 +494,7 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | Roadmap | `RM1`, `RM2` | Per research | `/research/R2/roadmap/RM1` |
 | Node | `N1`, `N2` | Per roadmap | — |
 
-A revision has no short code: it is a plain number, 1-based per entry.
+A revision has no short code: it is a plain number, 1-based per entry. A [share](#share) has none either — it is addressed by its token and never referenced from content.
 
 ## Real-time Events
 
@@ -430,6 +504,7 @@ A revision has no short code: it is a plain number, 1-based per entry.
 
 - With `auth_enabled` the handshake needs the same credential as every other endpoint — a JWT, an API key or an OAuth token — as `Authorization: Bearer …`, or as `?token=…` because a browser cannot set headers on a WebSocket handshake. Missing or unresolvable: `401`, no upgrade. With auth off no credential is asked for.
 - The credential is re-checked on the live connection roughly once a minute, on the keepalive. If it stops resolving to the same user — key deleted, token expired — the socket is closed with code **4401**, in the application range on purpose: `4401` means authenticate again, an ordinary drop means reconnect, and a client that cannot tell them apart retries the first forever.
+- A [share link](#share) connects with `?share={token}` — plus `?unlock=…` for a password-protected one — and no user credential of any kind. It is checked before the user branch and in both modes, because with auth off falling through would register the visitor as an ordinary local client and hand them the whole server's stream. An unresolvable token is `401`, no upgrade. The link is re-resolved on the same keepalive timer, so revoking it or letting it expire closes that socket with **4401** within the minute.
 - `Origin` is checked whether or not auth is on. It must equal the request `Host`, be loopback (`localhost`, `127.0.0.1`, `::1`), or match the configured `base_url`; anything else is refused at the handshake (`403`). A client that sends no `Origin` — curl, a script, an MCP client — is allowed through: the check exists to stop a page the user happened to visit from opening a socket to their server, which with auth off would hand over the whole stream.
 
 ### Envelope
@@ -437,7 +512,7 @@ A revision has no short code: it is a plain number, 1-based per entry.
 | Field | Type | Present |
 |-------|------|---------|
 | `type` | string | always — `entity.verb`, listed below |
-| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref` |
+| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref`, `share` |
 | `entity_id` | string | always — the id of the thing that changed, not of its parent |
 | `research_id` | string | always present, empty for team-scoped events |
 | `research_code` | string | when the id resolves — the same scope as a short code (`R7`), so a page routed as `/research/R7` can match an event without resolving a UUID first |
@@ -466,8 +541,9 @@ A revision has no short code: it is a plain number, 1-based per entry.
 | `team.created`, `team.updated`, `team.deleted`, `team.invited`, `team.invite_revoked`, `team.member_added`, `team.member_removed`, `team.member_role_changed` | `team` | team | no `research_id` |
 | `access.changed` | `team` | team | directed. `reason: role_changed`. The new role is deliberately not in the event — read it back from the API rather than trusting a value pushed at you |
 | `access.revoked` | `team` or `research` | team or research | directed. `reason: removed_from_team` (entity `team`) or `research_transferred` (entity `research`, with `research_id`) |
+| `share.created`, `share.revoked` | `share` | share | a read-only link was handed out or taken back. Delivered by the ordinary research rule, so any member who may read the research learns a link exists — and never to a share visitor, who has no use for the news and, in the revoked case, is being disconnected by it |
 
-There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps and teams can.
+There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps and teams can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`.
 
 ### Who receives what
 
@@ -477,6 +553,7 @@ Delivery is decided per event per connection, at send time — not once when the
 - With auth on, a research-scoped event goes to the users who may read that research — the same rule a REST read applies — and a team event to that team's members. An unidentified connection receives nothing.
 - A **directed** event (`access.revoked`, `access.changed`) is addressed to one user and skips the research check, which is the whole point: by the time somebody is told they lost access, the ordinary rule already refuses to deliver it. Directed events therefore only occur with auth on.
 - `access.revoked` carries `name` and `reason` because its recipient can no longer look either up — the moment it is sent, fetching what they lost answers 404.
+- A **share** connection is scoped by the link, not by membership: events for its one research, filtered by the same `include` flags that gate its read routes — an event about a task on a link that excludes tasks is not harmless noise, it says a task exists and when somebody touched it. Team events, directed events and `share.*` events never reach it. `actor_user_id` and `actor_client_id` are stripped from what it receives: they name an account and a browser tab inside the owner's organisation, and there is no tab on the other side of a link to recognise its own writes.
 - Membership verdicts are cached for at most a minute and dropped outright whenever anything touches a team, so the cache is never the reason someone keeps seeing what they lost.
 - The broadcast queue is bounded. Under a burst the server drops events rather than stalling the write that produced them, so a client must be able to recover by re-reading, not by replaying.
 

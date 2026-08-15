@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/butschster/mcp-research/internal/auth"
 )
 
 const (
@@ -94,9 +96,19 @@ type Hub struct {
 	log         *slog.Logger
 
 	validator TokenValidator
+	shares    ShareValidator
 	codes     CodeLookup
 	queue     chan Event
 	verdicts  *verdictCache
+}
+
+// ShareValidator resolves a share token to the capability it carries, or nil.
+//
+// The hub holds one for the same reason it holds a TokenValidator: a link can
+// be revoked or expire while the socket it opened is still connected, and
+// "revoking a share takes effect immediately" has to mean the open sockets too.
+type ShareValidator interface {
+	Scope(ctx context.Context, token, unlock string) *auth.Share
 }
 
 // CodeLookup resolves a research id to its short code. The hub asks for it on
@@ -143,13 +155,42 @@ func (h *Hub) TokenValidator() TokenValidator {
 	return h.validator
 }
 
+// SetShareValidator lets share links open connections. Until one is set, the
+// handshake refuses every share token rather than falling back to letting it
+// through unscoped.
+func (h *Hub) SetShareValidator(v ShareValidator) {
+	h.mu.Lock()
+	h.shares = v
+	h.mu.Unlock()
+}
+
+// ShareValidator returns the configured share validator, or nil.
+func (h *Hub) ShareValidator() ShareValidator {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.shares
+}
+
 // credentialStillValid re-checks the token a connection was opened with, and
 // that it still belongs to the same person. A token that now resolves to
 // somebody else is not a renewal — it is a connection that should not survive.
 func (h *Hub) credentialStillValid(c *Client) bool {
 	h.mu.RLock()
-	validator, authEnabled := h.validator, h.authEnabled
+	validator, authEnabled, shares := h.validator, h.authEnabled, h.shares
 	h.mu.RUnlock()
+
+	// A share connection is re-checked whether or not auth is enabled: the link
+	// is the credential, and it can be revoked in either mode.
+	if c.share != nil {
+		if shares == nil {
+			return false
+		}
+		scope := shares.Scope(context.Background(), c.shareToken, c.shareUnlock)
+		// A link that now opens onto a different research is not a renewal. It
+		// cannot happen today — a share's research never changes — but the
+		// connection was authorized for one id and must not silently follow it.
+		return scope != nil && scope.ResearchID == c.share.ResearchID
+	}
 
 	if !authEnabled {
 		return true
@@ -236,7 +277,7 @@ func (h *Hub) run() {
 
 func (h *Hub) deliver(event Event) {
 	h.mu.RLock()
-	auth, authEnabled, codes := h.auth, h.authEnabled, h.codes
+	authz, authEnabled, codes := h.auth, h.authEnabled, h.codes
 	clients := make([]*Client, 0, len(h.clients))
 	for c := range h.clients {
 		clients = append(clients, c)
@@ -254,12 +295,35 @@ func (h *Hub) deliver(event Event) {
 		return
 	}
 
+	// A share visitor gets a different payload, not merely a different
+	// selection. The actor fields name a user account and a browser tab inside
+	// the owner's organisation; they exist so a member's own tab can recognise
+	// its own change, and there is no such tab on the other side of a link.
+	// Marshalled once and only if somebody needs it.
+	var shareData []byte
+
 	for _, c := range clients {
-		if !h.visibleTo(ctx, auth, authEnabled, c.userID, event) {
+		payload := data
+		if c.share != nil {
+			if !visibleToShare(c.share, event) {
+				continue
+			}
+			if shareData == nil {
+				scrubbed := event
+				scrubbed.ActorUserID = ""
+				scrubbed.ActorClientID = ""
+				b, err := json.Marshal(scrubbed)
+				if err != nil {
+					continue
+				}
+				shareData = b
+			}
+			payload = shareData
+		} else if !h.visibleTo(ctx, authz, authEnabled, c.userID, event) {
 			continue
 		}
 		select {
-		case c.send <- data:
+		case c.send <- payload:
 		default:
 			// Client buffer full, skip
 		}
@@ -269,22 +333,55 @@ func (h *Hub) deliver(event Event) {
 // visibleTo is visible() with the cache in front of it. The cache only ever
 // covers the research check: team membership and directed delivery are cheap
 // and rare enough that a stale answer would buy nothing.
-func (h *Hub) visibleTo(ctx context.Context, auth Authorizer, authEnabled bool, userID string, event Event) bool {
-	if !authEnabled || userID == "" || auth == nil ||
+func (h *Hub) visibleTo(ctx context.Context, authz Authorizer, authEnabled bool, userID string, event Event) bool {
+	if !authEnabled || userID == "" || authz == nil ||
 		event.TargetUserID != "" || event.Entity == "team" || event.ResearchID == "" {
-		return visible(ctx, auth, authEnabled, userID, event)
+		return visible(ctx, authz, authEnabled, userID, event)
 	}
 	if allowed, ok := h.verdicts.get(userID, event.ResearchID); ok {
 		return allowed
 	}
-	allowed := auth.CanReadResearch(ctx, userID, event.ResearchID)
+	allowed := authz.CanReadResearch(ctx, userID, event.ResearchID)
 	h.verdicts.put(userID, event.ResearchID, allowed)
 	return allowed
 }
 
+// visibleToShare is the delivery rule for a connection opened from a share
+// link. It is separate from visible() rather than a branch inside it, because
+// every clause in that function is written in terms of a user and a share
+// visitor is not one — the "auth disabled means everyone sees everything" rule
+// in particular would hand a stranger the whole event stream.
+//
+// The rule itself is short: one research, and only the parts of it the link
+// includes. A `task.updated` on a link that excludes tasks is not harmless
+// noise — it says a task exists and when somebody touched it.
+func visibleToShare(share *auth.Share, event Event) bool {
+	// Directed events address a user id. A share visitor has none, so none of
+	// them are ever theirs, including the access-revoked message.
+	if event.TargetUserID != "" {
+		return false
+	}
+	if event.Entity == "team" || event.ResearchID == "" || event.ResearchID != share.ResearchID {
+		return false
+	}
+	switch event.Entity {
+	case "session", "question":
+		return share.Include.Sessions
+	case "task":
+		return share.Include.Tasks
+	case "roadmap", "roadmap_node":
+		return share.Include.Roadmaps
+	case "share":
+		// A visitor does not need to be told that another link was made, and
+		// being told their own was revoked is what the closed socket says.
+		return false
+	}
+	return true
+}
+
 // visible is the delivery rule, kept in one place so a new event type cannot
 // be added without deciding who it is for.
-func visible(ctx context.Context, auth Authorizer, authEnabled bool, userID string, event Event) bool {
+func visible(ctx context.Context, authz Authorizer, authEnabled bool, userID string, event Event) bool {
 	// A directed event is checked before anything else, because the reason it
 	// exists is to reach someone the ordinary rule would now refuse: the
 	// message saying they have lost access. It is addressed by user id, so it
@@ -299,12 +396,12 @@ func visible(ctx context.Context, auth Authorizer, authEnabled bool, userID stri
 	// With auth on, an unidentified connection sees nothing. So does every
 	// connection if the hub was never given an authorizer — failing closed is
 	// the only safe direction for a broadcast.
-	if userID == "" || auth == nil {
+	if userID == "" || authz == nil {
 		return false
 	}
 
 	if event.Entity == "team" {
-		return auth.IsTeamMember(ctx, userID, event.EntityID)
+		return authz.IsTeamMember(ctx, userID, event.EntityID)
 	}
 	if event.ResearchID == "" {
 		// An event with no scope cannot be shown to anyone: there is nothing
@@ -312,7 +409,7 @@ func visible(ctx context.Context, auth Authorizer, authEnabled bool, userID stri
 		// became a public activity feed.
 		return false
 	}
-	return auth.CanReadResearch(ctx, userID, event.ResearchID)
+	return authz.CanReadResearch(ctx, userID, event.ResearchID)
 }
 
 // forgetOn reports whether an event could have changed who may read what. Only

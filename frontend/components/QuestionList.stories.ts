@@ -6,11 +6,26 @@ import {
   mockQuestionDeferred,
   mockQuestionsGrouped,
 } from '../__mocks__/question'
+import { withShare, withoutShare } from '../__mocks__/share'
 
+/**
+ * The questions of one session, grouped by status.
+ *
+ * A card is a link to the question page only when there is a question page to
+ * reach. Without a session and a research it is not, and under a share link
+ * there is none by design: the question, its answer and its children are all on
+ * the session page already, and a route per question is one more payload to get
+ * the redaction right on. An inert card keeps its shape and loses its
+ * affordance — no pointer, no hover — rather than linking to `#`.
+ */
 const meta: Meta<typeof QuestionList> = {
   title: 'Session/QuestionList',
   component: QuestionList,
   tags: ['autodocs'],
+  // Share state is module state; this gives the ordinary stories a known
+  // starting point rather than whatever the last story left behind. The
+  // trade-offs are in __mocks__/share.ts.
+  decorators: [withoutShare()],
   argTypes: {
     researchSlug: { control: 'text' },
     sessionId: { control: 'text' },
@@ -116,5 +131,30 @@ export const Empty: Story = {
     questions: {},
     researchSlug: 'R1',
     sessionId: 'SS1',
+  },
+}
+
+/**
+ * Inside a share link. The cards render exactly as they do above and go
+ * nowhere: there is no per-question route on a shared view, and a link that
+ * lands an anonymous visitor on a login wall is worse than no link.
+ */
+export const InsideAShare: Story = {
+  decorators: [withShare()],
+  args: {
+    questions: mockQuestionsGrouped,
+    researchSlug: 'R7',
+    sessionId: 'SS1',
+  },
+}
+
+/**
+ * Rendered without a session — the graph sidebar does this. There is nothing to
+ * link to, so the cards are inert here too. They used to point at `#`, which
+ * scrolled the page to the top.
+ */
+export const WithoutSession: Story = {
+  args: {
+    questions: mockQuestionsGrouped,
   },
 }

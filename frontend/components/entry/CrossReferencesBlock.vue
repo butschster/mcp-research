@@ -7,66 +7,92 @@
     <div v-if="outgoing.length" class="crossrefs-section">
       <h4 class="crossrefs-subtitle">References from this entry</h4>
       <div class="crossrefs-list">
-        <NuxtLink
+        <component
+          :is="refLink(ref, 'outgoing') ? NuxtLink : 'div'"
           v-for="ref in outgoing"
           :key="ref.target_entry_id || ref.target_roadmap_id || ref.target_ref"
-          :to="refLink(ref, 'outgoing')"
-          class="crossref-item"
+          :to="refLink(ref, 'outgoing') || undefined"
+          :class="['crossref-item', { 'crossref-item--inert': !refLink(ref, 'outgoing') }]"
         >
           <span class="crossref-code">{{ ref.entry_code || ref.roadmap_code || ref.target_ref }}</span>
           <span v-if="ref.entry_title" class="crossref-entry-title">{{ ref.entry_title }}</span>
           <span v-else-if="ref.roadmap_title" class="crossref-entry-title">{{ ref.roadmap_title }}</span>
           <span v-if="ref.research_code && ref.research_code !== researchSlug" class="crossref-research">{{ ref.research_name || ref.research_code }}</span>
-          <span v-if="!ref.resolved" class="crossref-unresolved">unresolved</span>
-        </NuxtLink>
+          <span v-if="!ref.resolved && !shared" class="crossref-unresolved">unresolved</span>
+        </component>
       </div>
     </div>
     <div v-if="incoming.length" class="crossrefs-section">
       <h4 class="crossrefs-subtitle">Referenced by</h4>
       <div class="crossrefs-list">
-        <NuxtLink
+        <component
+          :is="refLink(ref, 'incoming') ? NuxtLink : 'div'"
           v-for="ref in incoming"
           :key="ref.source_id"
-          :to="refLink(ref, 'incoming')"
-          class="crossref-item"
+          :to="refLink(ref, 'incoming') || undefined"
+          :class="['crossref-item', { 'crossref-item--inert': !refLink(ref, 'incoming') }]"
         >
           <span class="crossref-code">{{ ref.entry_code || ref.source_type }}</span>
           <span v-if="ref.entry_title" class="crossref-entry-title">{{ ref.entry_title }}</span>
           <span v-if="ref.research_code && ref.research_code !== researchSlug" class="crossref-research">{{ ref.research_name || ref.research_code }}</span>
-        </NuxtLink>
+        </component>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { NuxtLink } from '#components'
+
 const props = defineProps<{
   outgoing: any[]
   incoming: any[]
   researchSlug: string
 }>()
 
+const shared = computed(() => shareActive())
+
+/**
+ * Where a reference row points, or '' for a row that must not be a link.
+ *
+ * Under a share the second case is the important one. A reference out of the
+ * shared research comes back with its target ids blanked and `resolved` false,
+ * and the row still has to render — the author wrote it and the reader can see
+ * the bracketed code in the text above — but as inert markup that neither
+ * navigates nor hints that a destination exists.
+ */
 function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
+  const shared = shareActive()
   if (direction === 'outgoing') {
     const rCode = ref.research_code || props.researchSlug
     const targetRef = ref.target_ref || ''
     // Roadmap references: [[RM1]] or [[RM1:N3]]
     if (targetRef.startsWith('RM') || ref.target_roadmap_id) {
-      const rmCode = targetRef.split(':')[0]
-      return `/research/${rCode}/roadmap/${rmCode}`
+      if (shared && !shareInclude().roadmaps) return ''
+      return roadmapPath(rCode, targetRef.split(':')[0])
     }
+    // Inert because the target is outside the link — not because the stored
+    // reference happens to be stale. Inerting on `resolved` made the same
+    // `[[E2]]` a working link in the entry's prose and a dead row in the panel
+    // underneath it, and only the client saw the difference.
+    if (shared && ref.research_code && ref.research_code !== props.researchSlug) return ''
     const eCode = ref.entry_code || targetRef
-    return `/research/${rCode}/entry/${eCode}`
+    return entryPath(rCode, eCode)
   }
   if (ref.source_type === 'entry') {
     const rCode = ref.research_code || props.researchSlug
-    return `/research/${rCode}/entry/${ref.entry_code || ref.source_id}`
+    if (shared && ref.research_code && ref.research_code !== props.researchSlug) return ''
+    return entryPath(rCode, ref.entry_code || ref.source_id)
   }
-  return '#'
+  return ''
 }
 </script>
 
 <style scoped>
+/* An inert row keeps the layout and loses every affordance: no pointer, no
+   hover, no underline. A distinct treatment would itself say something is
+   there. */
+.crossref-item--inert { cursor: default; }
 .crossrefs-block {
   margin-top: var(--space-6);
   padding: var(--space-6);

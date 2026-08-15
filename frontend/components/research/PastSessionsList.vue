@@ -9,7 +9,7 @@
       <NuxtLink
         v-for="sess in sessions"
         :key="sess.id"
-        :to="`/research/${researchSlug}/session/${sess.code || sess.id}`"
+        :to="sessionPath(researchSlug, sess.code || sess.id)"
         class="past-session-item"
       >
         <span v-if="sess.code" class="short-code">{{ sess.code }}</span>
@@ -21,6 +21,8 @@
 </template>
 
 <script setup lang="ts">
+import { sessionPath } from '~/composables/useResearchPaths'
+
 defineProps<{
   sessions: any[]
   researchSlug: string

@@ -284,9 +284,28 @@ Import re-creates entities from scratch: new UUIDs, new short codes, cross-refer
 
 **No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server. The vault's `_history/` tables (`revisions=true`) are a readable record, not a transferable one — nothing imports them back.
 
+## Export Through a Share Link
+
+A [read-only share link](/llms/domain-guide.md#share) may carry the research export, and only if the link was created with `include.export`:
+
+```
+GET /api/shared/{token}/researches/{id}/export
+GET /api/shared/{token}/researches/{id}/export?format=md
+```
+
+Same handler, same payload shape as the authenticated route above, with three differences that are the point of the feature:
+
+- `instruction` and `memory` are absent, along with `user_id` and every team field. They are stripped on the read path every export goes through, so there is no format that carries them out.
+- `sessions` is empty unless the link includes sessions, and `tasks` unless it includes tasks. An export that carried the interview transcript would hand over in one file exactly what the creator chose to leave out of the pages.
+- `?format=obsidian` is refused with `404`, and `/export/portable` is not mounted under the prefix at all. The vault builds its payload from the repository rather than from the redacted read path, and a format whose safety has to be argued separately is not one a share should have. **Session export is not shared either** — only the research-scoped route is mounted.
+
+Without `include.export` the route answers the same `404 this link is no longer available` as a revoked token: a link that does not offer a download should look like a server that has none.
+
 ## Auth
 
 Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, or the Obsidian vault, exactly as an `editor` can. `POST /api/researches/import` is a write endpoint: it always requires the bearer token when `api_token` or `auth_enabled` is configured, and it needs editor or owner rights in whichever team it imports into.
+
+A share token is not a bearer token. It authenticates nothing on the routes above — it only opens the mirrored, redacted export under `/api/shared/{token}/…`, and only when the link includes it.
 
 ## Block Documents in Export
 

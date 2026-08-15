@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
@@ -302,7 +303,36 @@ func (s *RoadmapService) refAllowed(ctx context.Context, researchID string) bool
 	return s.access.Read(ctx, researchID) == nil
 }
 
+// refTypeShared reports whether a share link is allowed to be shown a ref of
+// this kind.
+//
+// A roadmap node is a pointer, and resolving it inlines the thing it points at:
+// a task node carries the task's `result`, a question node its `answer`, a
+// session node its title and progress. Those are exactly the fields the
+// `tasks` and `sessions` include flags exist to withhold — so a link that
+// switched sessions off but left roadmaps on was handing over the interview
+// through the graph, having refused it on the route built to serve it.
+//
+// The route gate in share_routes.go cannot catch this: it knows the request is
+// for a roadmap and nothing about what the roadmap points at.
+func refTypeShared(ctx context.Context, refType domain.RoadmapNodeRefType) bool {
+	sc := auth.ShareFromContext(ctx)
+	if sc == nil {
+		return true
+	}
+	switch refType {
+	case domain.RefTypeTask:
+		return sc.Include.Tasks
+	case domain.RefTypeSession, domain.RefTypeQuestion:
+		return sc.Include.Sessions
+	}
+	return true
+}
+
 func (s *RoadmapService) resolveRef(ctx context.Context, refType, refID string) *domain.RoadmapNodeRefData {
+	if !refTypeShared(ctx, domain.RoadmapNodeRefType(refType)) {
+		return nil
+	}
 	switch domain.RoadmapNodeRefType(refType) {
 	case domain.RefTypeEntry:
 		return s.resolveEntryRef(ctx, refID)

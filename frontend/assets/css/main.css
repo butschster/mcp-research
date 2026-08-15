@@ -487,6 +487,84 @@ body::after {
    them — /teams, /teams/{id}, /settings — got the class name and none of the
    layout: buttons dropped below their title and skeleton lists rendered as one
    slab. */
+
+/* The same thing happened again, and worse, when the shared view was built:
+   `/s/{token}` renders the research the owner's pages render, so it reached for
+   their class names — and every one of these lived in a page's own scoped
+   block. A visitor got the markup and none of the layout, on a page whose whole
+   job is to be shown to somebody outside the team.
+
+   Anything below is used by two or more pages. A rule that belongs to one page
+   stays in that page. */
+.research-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
+.research-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.title-with-code { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.short-code {
+  font-size: var(--type-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.task-counter {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); letter-spacing: -0.01em; }
+
+/* Icon buttons */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+  text-decoration: none;
+  line-height: 1;
+}
+.btn-icon:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+.btn-count {
+  font-size: 0.65rem;
+  background: var(--color-surface-hover);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Entry page header, shared by the owner's entry page and the shared view's */
+.entry-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); }
+.entry-actions { display: flex; gap: var(--space-2); align-items: center; flex-shrink: 0; }
+.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
+.entry-content { padding: var(--space-8); border-radius: var(--radius-lg); }
+
+/* Session progress figures */
+.stat-answered { color: var(--color-success); font-weight: 500; }
+.stat-pending  { color: var(--color-warning); font-weight: 500; }
+
+/* Skeletons */
+.skeleton-header { height: 60px; margin-bottom: var(--space-6); }
+.skeleton-sidebar { height: 300px; }
+.skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
+.skeleton-content { height: 400px; }
 .page-header-row {
   display: flex;
   justify-content: space-between;
