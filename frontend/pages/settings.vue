@@ -30,6 +30,27 @@ interface APIKey {
 const apiKeys = ref<APIKey[]>([])
 const newKeyName = ref('')
 const newKeyValue = ref('')
+
+/* The address the agent has to reach, and the shape a client config takes.
+   Built from the browser's own origin: this page is served by the server in
+   question, so whatever got the reader here is the answer — reverse proxy,
+   port and all. The strings `mcp`, `mcp-remote` and `claude_desktop_config`
+   appeared nowhere in the frontend before this, so the one thing a new user
+   needed was the one thing the product never said. */
+const mcpConfig = computed(() => {
+  const origin = import.meta.client ? window.location.origin : ''
+  return JSON.stringify({
+    mcpServers: {
+      research: {
+        command: 'npx',
+        args: [
+          '-y', 'mcp-remote', `${origin}/mcp`,
+          '--header', `Authorization: Bearer ${newKeyValue.value || '<your key>'}`,
+        ],
+      },
+    },
+  }, null, 2)
+})
 const keyError = ref('')
 
 async function loadKeys() {
@@ -107,11 +128,21 @@ onMounted(() => {
 
     <div class="settings-section">
       <h2>API Keys</h2>
-      <p class="card-meta">Use API keys to authenticate MCP SSE connections and REST API requests.</p>
+      <p class="card-meta">Use API keys to authenticate MCP connections and REST API requests.</p>
 
+      <!-- The key is shown exactly once, and it was a bare <code> under the
+           words "copy it now" — with no copy button, on the one screen in the
+           product that has a component for exactly this and was not using it. -->
       <div v-if="newKeyValue" class="key-created">
         <strong>New API key created. Copy it now — it won't be shown again:</strong>
-        <code class="key-value">{{ newKeyValue }}</code>
+        <CopyableSecret :value="newKeyValue" toast="API key copied" />
+
+        <p class="key-hint">Point your agent at this server with it:</p>
+        <CopyableSecret
+          :value="mcpConfig"
+          hint="Paste into your client's MCP config — Claude Desktop, Cursor or Claude Code."
+          toast="Configuration copied"
+        />
       </div>
 
       <div v-if="keyError" class="auth-error" role="alert">{{ keyError }}</div>
@@ -146,6 +177,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.key-hint { margin: var(--space-4) 0 var(--space-2); font-size: var(--type-sm); color: var(--color-text-muted); }
+
 .settings-page { max-width: 700px; }
 .page-title { font-size: var(--type-2xl); font-weight: var(--weight-semibold); margin-bottom: var(--space-8); }
 .settings-section {
