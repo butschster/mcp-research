@@ -147,7 +147,7 @@ onMounted(() => {
 
 <style scoped>
 .settings-page { max-width: 700px; }
-.page-title { font-size: var(--type-2xl); font-weight: 600; margin-bottom: var(--space-8); }
+.page-title { font-size: var(--type-2xl); font-weight: var(--weight-semibold); margin-bottom: var(--space-8); }
 .settings-section {
   margin-bottom: var(--space-8);
   padding: var(--space-6);
@@ -155,7 +155,7 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
-.settings-section h2 { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); }
+.settings-section h2 { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
 .key-form { display: flex; gap: var(--space-2); margin: var(--space-4) 0; flex-wrap: wrap; }
 .key-form .text-input { flex: 1; min-width: 200px; }
 .key-created {
@@ -185,7 +185,7 @@ onMounted(() => {
   text-align: left;
   border-bottom: 1px solid var(--color-border);
 }
-.keys-table th { font-weight: 500; color: var(--color-text-muted); }
+.keys-table th { font-weight: var(--weight-medium); color: var(--color-text-muted); }
 .delete-btn {
   background: none;
   border: none;

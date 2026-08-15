@@ -159,7 +159,7 @@ function onDrop(e: DragEvent, targetStatus: string) {
 
 .kanban-column-title {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   flex: 1;
 }
@@ -169,7 +169,7 @@ function onDrop(e: DragEvent, targetStatus: string) {
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
   padding: 0.1rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
 

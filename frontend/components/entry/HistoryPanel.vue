@@ -272,7 +272,7 @@ defineExpose({ reload: load })
 .history-title {
   margin: 0;
   font-size: var(--type-base, 1rem);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

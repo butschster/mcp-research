@@ -4,7 +4,7 @@
     <div class="skeleton-card skeleton-content"></div>
   </div>
 
-  <div v-else-if="entry" class="entry-column">
+  <div v-else-if="entry">
     <!-- Header -->
     <div class="page-header">
       <Breadcrumbs :crumbs="[
@@ -798,7 +798,7 @@ const nextEntry = computed(() =>
 }
 .edit-label {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -905,17 +905,17 @@ const nextEntry = computed(() =>
 .source-view code { background: none; padding: 0; font-size: inherit; }
 
 /* Markdown syntax highlighting */
-.source-view :deep(.md-heading-marker) { color: #e06c75; font-weight: 700; }
-.source-view :deep(.md-heading) { color: #e5c07b; font-weight: 600; }
-.source-view :deep(.md-bold) { color: #d19a66; font-weight: 600; }
+.source-view :deep(.md-heading-marker) { color: #e06c75; font-weight: var(--weight-bold); }
+.source-view :deep(.md-heading) { color: #e5c07b; font-weight: var(--weight-semibold); }
+.source-view :deep(.md-bold) { color: #d19a66; font-weight: var(--weight-semibold); }
 .source-view :deep(.md-italic) { color: #c678dd; font-style: italic; }
-.source-view :deep(.md-inline-code) { color: #98c379; background: rgba(152, 195, 121, 0.08); border-radius: 3px; padding: 0 0.15em; }
+.source-view :deep(.md-inline-code) { color: #98c379; background: rgba(152, 195, 121, 0.08); border-radius: var(--radius-xs); padding: 0 0.15em; }
 .source-view :deep(.md-link) { color: #61afef; }
 .source-view :deep(.md-url) { color: #56b6c2; opacity: 0.7; }
 .source-view :deep(.md-image) { color: #c678dd; }
-.source-view :deep(.md-crossref) { color: #6cc5e0; background: rgba(108, 197, 224, 0.1); border-radius: 3px; padding: 0 0.15em; }
+.source-view :deep(.md-crossref) { color: var(--color-primary); background: rgba(108, 197, 224, 0.1); border-radius: var(--radius-xs); padding: 0 0.15em; }
 .source-view :deep(.md-blockquote) { color: #5c6370; font-style: italic; border-left: 2px solid #5c6370; padding-left: 0.75em; display: inline-block; }
-.source-view :deep(.md-list-marker) { color: #e06c75; font-weight: 600; }
+.source-view :deep(.md-list-marker) { color: #e06c75; font-weight: var(--weight-semibold); }
 .source-view :deep(.md-hr) { color: #5c6370; }
 .source-view :deep(.md-fence) { color: #98c379; }
 .source-view :deep(.md-code-line) { color: #abb2bf; opacity: 0.85; }
@@ -950,7 +950,7 @@ const nextEntry = computed(() =>
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius);
   padding: var(--space-1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-2);
   min-width: 140px;
 }
 .status-option {

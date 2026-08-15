@@ -58,7 +58,7 @@ function splitTags(value: string): string[] {
 .fields-title {
   margin: 0 0 var(--space-3);
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;

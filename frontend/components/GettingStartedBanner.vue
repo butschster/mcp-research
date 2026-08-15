@@ -88,7 +88,7 @@ function copyInit() {
 }
 .gs-close:hover { color: var(--color-text); background: var(--color-surface-hover); }
 .gs-header { margin-bottom: var(--space-6); }
-.gs-title { font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-1); letter-spacing: -0.02em; }
+.gs-title { font-size: var(--type-xl); font-weight: var(--weight-bold); margin-bottom: var(--space-1); letter-spacing: -0.02em; }
 .gs-subtitle { color: var(--color-text-muted); font-size: var(--type-sm); }
 .gs-steps { display: flex; flex-direction: column; gap: var(--space-5); }
 .gs-step { display: flex; gap: var(--space-4); align-items: flex-start; }
@@ -96,9 +96,9 @@ function copyInit() {
   width: 32px; height: 32px; border-radius: var(--radius-sm);
   background: var(--color-primary-muted); color: var(--color-primary);
   display: flex; align-items: center; justify-content: center;
-  font-size: var(--type-sm); font-weight: 700; flex-shrink: 0;
+  font-size: var(--type-sm); font-weight: var(--weight-bold); flex-shrink: 0;
 }
-.gs-step-content strong { display: block; font-weight: 600; margin-bottom: var(--space-1); font-size: var(--type-base); }
+.gs-step-content strong { display: block; font-weight: var(--weight-semibold); margin-bottom: var(--space-1); font-size: var(--type-base); }
 .gs-step-content p { font-size: var(--type-sm); color: var(--color-text-muted); line-height: 1.5; }
 
 /* Responsive */

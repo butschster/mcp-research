@@ -68,7 +68,7 @@ function sharedTags(rel: any): string[] {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   margin: 0 0 var(--space-4) 0;
 }
@@ -93,11 +93,11 @@ function sharedTags(rel: any): string[] {
 .crossref-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 .crossref-entry-title {

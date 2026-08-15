@@ -33,12 +33,12 @@ const fillClass = computed(() => {
   flex: 1;
   height: 4px;
   background: var(--color-surface-hover);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   overflow: hidden;
 }
 .progress-bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   transition: width 0.3s;
 }
 .fill-complete { background: var(--color-success); }
@@ -47,7 +47,7 @@ const fillClass = computed(() => {
 .fill-low      { background: var(--color-error); }
 .progress-label {
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   min-width: 2.25rem;
   text-align: right;

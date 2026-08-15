@@ -46,11 +46,11 @@ defineProps<{
 
 <style scoped>
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
-.section-title { font-size: var(--type-xl); font-weight: 600; letter-spacing: -0.02em; }
+.section-title { font-size: var(--type-xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; }
 .links-domain-group { margin-bottom: var(--space-5); }
 .links-domain-title {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
@@ -72,7 +72,7 @@ defineProps<{
 }
 .link-title {
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -88,11 +88,11 @@ defineProps<{
 }
 .short-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;

@@ -74,7 +74,7 @@ defineExpose({ close: () => (open.value = false) })
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-2);
   /* The header this sits in is raised to --z-in-page, which is below the sticky
      nav on purpose. --z-overlay keeps the panel above in-page content without
      escaping that header. */

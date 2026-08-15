@@ -224,7 +224,7 @@ function printPage() {
 }
 .doc-title {
   font-size: var(--type-2xl);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.03em;
   line-height: var(--line-tight);
   text-wrap: balance;
@@ -248,7 +248,7 @@ function printPage() {
 .doc-section { margin-bottom: var(--space-6); }
 .section-heading {
   font-size: var(--type-lg);
-  font-weight: 650;
+  font-weight: var(--weight-bold);
   margin-bottom: var(--space-3);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border);
@@ -271,8 +271,8 @@ function printPage() {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-.q-label { color: var(--color-primary); font-weight: 700; }
-.q-text { font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.q-label { color: var(--color-primary); font-weight: var(--weight-bold); }
+.q-text { font-weight: var(--weight-semibold); flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .q-status {
   font-size: var(--type-xs);
   letter-spacing: 0.04em;
@@ -307,7 +307,7 @@ function printPage() {
 .doc-entry:last-child { border-bottom: none; }
 .entry-heading {
   font-size: var(--type-base);
-  font-weight: 650;
+  font-weight: var(--weight-bold);
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -331,7 +331,7 @@ function printPage() {
 .doc-tag {
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--color-border);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 .doc-tag-sm { font-size: var(--type-xs); }
 

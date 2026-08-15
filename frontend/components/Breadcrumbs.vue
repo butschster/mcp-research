@@ -41,6 +41,6 @@ defineProps<{
 }
 .breadcrumb-current {
   color: var(--color-text);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 </style>

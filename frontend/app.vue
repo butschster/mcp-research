@@ -224,7 +224,7 @@ onMounted(() => {
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius);
   padding: var(--space-1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-2);
   z-index: 100;
   animation: dropdown-in 0.12s ease both;
 }

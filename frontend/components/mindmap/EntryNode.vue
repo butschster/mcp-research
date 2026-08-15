@@ -61,7 +61,7 @@ function navigate() {
 }
 .entry-node:hover {
   border-color: var(--color-border-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-1);
 }
 .entry-header {
   display: flex;
@@ -78,7 +78,7 @@ function navigate() {
 }
 .entry-title {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   line-height: 1.3;
 }
@@ -96,7 +96,7 @@ function navigate() {
 .mm-tag {
   font-size: 0.625rem;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--color-surface-hover);
   color: var(--color-text-muted);
   line-height: 1;
@@ -104,11 +104,11 @@ function navigate() {
 .mm-tag-more { opacity: 0.6; }
 .mm-code {
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;

@@ -53,14 +53,14 @@ function truncate(text: string, len: number): string {
 }
 .t-title-row { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
 .mm-code {
-  font-size: 0.625rem; font-weight: 700; color: var(--color-primary);
+  font-size: 0.625rem; font-weight: var(--weight-bold); color: var(--color-primary);
   background: var(--color-primary-muted); padding: 0.1rem 0.3rem;
-  border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+  border-radius: var(--radius-xs); font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0; line-height: 1; margin-top: 2px;
 }
 .t-title {
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text);
   line-height: 1.35;
 }

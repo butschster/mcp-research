@@ -133,7 +133,7 @@ async function handleSubmit() {
   justify-content: space-between;
   width: 50%;
   padding: var(--space-12) var(--space-12);
-  background: #080e1e;
+  background: var(--color-bg-deep);
   overflow: hidden;
 }
 
@@ -215,7 +215,7 @@ async function handleSubmit() {
 
 .auth-hero__headline {
   font-family: 'Outfit', sans-serif;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   font-size: 3.25rem;
   line-height: 1.08;
   letter-spacing: -0.035em;
@@ -255,7 +255,7 @@ async function handleSubmit() {
 .auth-hero__cta {
   font-family: 'Outfit', sans-serif;
   font-size: var(--type-base);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: rgba(255, 255, 255, 0.5);
   margin-top: var(--space-12);
   opacity: 0;
@@ -291,7 +291,7 @@ async function handleSubmit() {
   color: var(--color-primary);
   display: flex; align-items: center; justify-content: center;
   font-family: 'Outfit', sans-serif;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   font-size: var(--type-sm);
 }
 
@@ -339,14 +339,14 @@ async function handleSubmit() {
   color: var(--color-primary);
   display: flex; align-items: center; justify-content: center;
   font-family: 'Outfit', sans-serif;
-  font-weight: 800;
+  font-weight: var(--weight-bold);
   font-size: var(--type-xl);
   margin-bottom: var(--space-8);
 }
 
 .auth-title {
   font-size: var(--type-xl);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   margin-bottom: var(--space-2);
   text-align: center;
@@ -371,7 +371,7 @@ async function handleSubmit() {
   flex-direction: column;
   gap: var(--space-1);
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
@@ -390,7 +390,7 @@ async function handleSubmit() {
 .auth-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(108, 197, 224, 0.15);
+  box-shadow: var(--shadow-focus);
 }
 .auth-input::placeholder {
   color: var(--color-text-muted);
@@ -407,7 +407,7 @@ async function handleSubmit() {
   border: none;
   border-radius: var(--radius);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   cursor: pointer;
   font-family: inherit;
   margin-top: var(--space-2);
@@ -452,7 +452,7 @@ async function handleSubmit() {
 .auth-link {
   color: var(--color-primary);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 .auth-link:hover {
   text-decoration: underline;

@@ -103,7 +103,7 @@ function onClick(event: MouseEvent) {
 }
 .rev-summary {
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -128,7 +128,7 @@ function onClick(event: MouseEvent) {
   text-align: right;
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
-  font-weight: 400;
+  font-weight: var(--weight-normal);
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   padding-top: 0.15em;

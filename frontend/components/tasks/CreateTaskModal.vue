@@ -128,9 +128,9 @@ function onCreate() {
 }
 .priority-chip {
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--color-border);
   background: none;
   color: var(--color-text-muted);
@@ -140,7 +140,7 @@ function onCreate() {
   font-family: inherit;
 }
 .priority-chip:hover { border-color: var(--color-border-strong); color: var(--color-text); }
-.priority-chip.active { color: var(--color-text); font-weight: 600; }
+.priority-chip.active { color: var(--color-text); font-weight: var(--weight-semibold); }
 .priority-low.active { background: rgba(108, 197, 224, 0.1); border-color: var(--color-primary); color: var(--color-primary); }
 .priority-medium.active { background: rgba(240, 184, 73, 0.1); border-color: var(--color-warning); color: var(--color-warning); }
 .priority-high.active { background: rgba(239, 107, 107, 0.1); border-color: var(--color-error); color: var(--color-error); }

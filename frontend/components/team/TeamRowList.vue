@@ -68,7 +68,7 @@ const visible = computed(() => {
   transition: background var(--transition-fast);
 }
 .team-row:not(.team-row-static):hover { background: var(--color-surface-hover); }
-.team-name { font-weight: 500; overflow-wrap: anywhere; }
+.team-name { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 .team-meta, .team-role { font-size: var(--type-xs); color: var(--color-text-muted); white-space: nowrap; }
 .team-action { font-size: var(--type-xs); color: var(--color-primary); white-space: nowrap; }
 .team-action-empty { width: 4rem; }

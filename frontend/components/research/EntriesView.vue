@@ -195,7 +195,7 @@ const groupedEntries = computed(() => {
 
 <style scoped>
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
-.section-title { font-size: var(--type-xl); font-weight: 600; letter-spacing: -0.02em; }
+.section-title { font-size: var(--type-xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; }
 .tags-panel { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .tag-active { background: var(--color-primary-muted); color: var(--color-primary); }
 .tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
@@ -207,7 +207,7 @@ const groupedEntries = computed(() => {
 }
 .group-section-title {
   font-size: var(--type-base);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
@@ -220,11 +220,11 @@ const groupedEntries = computed(() => {
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 .short-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
@@ -236,7 +236,7 @@ const groupedEntries = computed(() => {
   background: var(--color-primary-muted);
   color: var(--color-primary);
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.02em;
   flex-shrink: 0;
 }

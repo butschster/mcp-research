@@ -5,40 +5,87 @@
 
 :root {
   /* --- Colors ----------------------------------------------------------- */
-  --color-bg: #0c1220;
-  --color-surface: #151d2e;
-  --color-surface-hover: #1e2940;
+  --color-bg: var(--color-bg);
+  /* Below the page: code wells, the graph canvas, the auth hero. Two components
+     had independently invented "darker than the background" and disagreed. */
+  --color-bg-deep: var(--color-bg-deep);
+  --color-surface: var(--color-surface);
+  --color-surface-hover: var(--color-surface-hover);
+  /* A floating layer — dropdown, popover, dialog — so it separates from a card
+     behind it instead of matching it. */
+  --color-surface-raised: #1b2438;
   --color-border: rgba(148, 163, 184, 0.12);
   --color-border-strong: rgba(148, 163, 184, 0.22);
   /* `.btn-icon:hover` referenced this before it existed, so the hover border
      resolved to an invalid value and the colour simply inherited — every icon
      button in every page header had a hover state that did nothing. */
   --color-border-hover: var(--color-border-strong);
-  --color-text: #e2e8f0;
-  --color-text-muted: #7f8ea3;
-  --color-primary: #6cc5e0;
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  /* Dimmer than muted, at full opacity. It exists to end the habit of reaching
+     for `opacity` on text that is already muted: muted has 0.55 of headroom
+     over 4.5:1 on a card, so any opacity under ~0.9 puts it under. The three
+     worst contrast measurements in the product were all opacity, not colour. */
+  --color-text-faint: #5b6b80;
+  --color-primary: var(--color-primary);
+  --color-primary-hover: #7cd1ea;
   --color-primary-muted: rgba(108, 197, 224, 0.10);
   /* Ink on a primary-filled surface. White on this cyan is 1.9:1; the page
      background on it is 9.5:1. Stated as a token so no button has to remember. */
   --color-on-primary: var(--color-bg);
-  --color-success: #34d399;
-  --color-warning: #f0b849;
-  --color-error: #ef6b6b;
-  --color-info: #6b9df0;
-  /* One red for destruction. There were four — #ef6b6b, #ef4444, #dc2626 and
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-info: var(--color-info);
+  /* One red for destruction. There were four — var(--color-error), #ef4444, #dc2626 and
      currentColor — and which one you got depended on the component you were
      inside. `app.vue` already referenced this name with a #dc2626 fallback. */
   --color-danger: var(--color-error);
 
+  /* --- Categorical --------------------------------------------------------
+     Tags, and the three node families — graph, mindmap, roadmap — which each
+     had a private palette. They disagreed: two ambers 4% apart distinguished
+     "question" from "session" on an unlabelled canvas, and "done" was
+     `--color-success` in one family and a different green in another. */
+  --hue-1: var(--color-primary);   /* cyan   — entries        */
+  --hue-2: var(--color-success);   /* green  — done           */
+  --hue-3: var(--color-warning);   /* amber  — sessions       */
+  --hue-4: var(--color-error);   /* red    — blocked/failed */
+  --hue-5: var(--hue-5);   /* violet — sections, refs */
+  --hue-6: #fb923c;   /* orange — questions      */
+
   /* --- Type Scale (9-step) ---------------------------------------------- */
+  /* Canvas chrome only — a graph node's code, a status pip. Nothing at these
+     sizes carries a sentence, and nothing at them may use muted ink: at 11-12px
+     `--color-text-muted` is already under AA on a hovered surface. */
+  --type-3xs:  0.6875rem;
+  --type-2xs:  0.75rem;
+  /* Badges, short codes, meta lines. Never prose — `--color-text-muted` here
+     measures 4.36:1 on `--color-surface-hover`, which is a sentence a reader
+     has to work at. */
   --type-xs:   0.875rem;
-  --type-sm:   0.9375rem;
-  --type-base: 1.0625rem;
+  --type-sm:   0.9375rem;   /* the UI default */
+  --type-base: 1.0625rem;   /* body copy, reading */
+  /* Card titles and sub-headings. Without it `--type-lg` did double duty as
+     both, which is why two files disagreed about which one a section heading
+     was. */
+  --type-md:   1.1875rem;
   --type-lg:   1.25rem;
   --type-xl:   1.5rem;
   --type-2xl:  2rem;
-  --type-3xl:  2.75rem;
-  --type-4xl:  3.5rem;
+  /* Retuned from 2.75rem, and `--type-4xl` deleted: both had zero uses, and the
+     one page that wanted a hero wrote `3.25rem` by hand rather than reach for
+     either — which says the values were wrong, not that the step was unwanted. */
+  --type-3xl:  2.5rem;
+
+  /* --- Weight ------------------------------------------------------------
+     176 numeric weights were in the tree, including five 650s and two 800s.
+     Only the static faces are loaded, so 650 was already rounding to 700 — it
+     was never a decision anybody could see the result of. */
+  --weight-normal:   400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
 
   /* --- Spacing Scale (4px base) ----------------------------------------- */
   /* Control height.
@@ -62,12 +109,31 @@
   --space-16: 4rem;
 
   /* --- Shared ----------------------------------------------------------- */
+  /* Bar-shaped things only: a progress fill, a search highlight. */
+  --radius-hair: 2px;
+  /* Absorbs 84 raw radii that all sat under --radius-sm — 4px thirty-seven
+     times, 3px thirty-four, 2px thirteen. Nobody chose between them; every
+     badge, tag, chip and counter picked one. */
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 16px;
+
+  /* --- Elevation ----------------------------------------------------------
+     Eighteen distinct shadows were doing three jobs. Four things at the same
+     conceptual altitude — a dropdown, a popover, a menu, a toast — each had
+     their own, and after the CSS split they would never have converged. */
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.18);      /* a card, a flow node   */
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.30);     /* menu, popover         */
+  --shadow-3: 0 16px 48px rgba(0, 0, 0, 0.40);    /* modal, toast          */
+  --shadow-glow: 0 4px 20px rgba(108, 197, 224, 0.20);
+  --shadow-focus: 0 0 0 3px rgba(108, 197, 224, 0.15);
+
+  /* The nav's real height. `.sidebar` guessed 56px for this and cleared the
+     actual 66px by six pixels — a number that works today by luck. */
+  --nav-h: 66px;
   --transition-fast: 0.15s ease;
   --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   --line-tight: 1.15;
   --line-base: 1.55;
 
@@ -94,7 +160,6 @@
   --measure-prose: 34rem;
 
   /* --- Z-Index Scale ---------------------------------------------------- */
-  --z-base: 0;
   /* Above in-page cards, below the sticky nav — see .page-header. */
   --z-in-page: 1;
   --z-elevated: 10;
@@ -115,7 +180,7 @@ body {
   color: var(--color-text);
   font-size: var(--type-base);
   line-height: var(--line-base);
-  font-weight: 400;
+  font-weight: var(--weight-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-variant-numeric: tabular-nums;
@@ -199,7 +264,7 @@ body::after {
 }
 .app-nav .logo {
   font-size: var(--type-lg);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-text);
   letter-spacing: -0.025em;
   text-decoration: none;
@@ -231,7 +296,7 @@ body::after {
 .page-title {
   overflow-wrap: anywhere;
   font-size: var(--type-2xl);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   line-height: var(--line-tight);
   letter-spacing: -0.03em;
   text-wrap: balance;
@@ -271,7 +336,7 @@ body::after {
 
 .card-title {
   font-size: var(--type-lg);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   line-height: var(--line-tight);
   letter-spacing: -0.015em;
   margin-bottom: var(--space-2);
@@ -304,7 +369,7 @@ body::after {
   background: var(--color-surface);
   color: var(--color-text-muted);
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.01em;
   line-height: 1;
   cursor: pointer;
@@ -319,7 +384,7 @@ body::after {
   color: var(--color-text);
   text-decoration: none;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-1);
 }
 .btn:active {
   transform: translateY(0) scale(0.97);
@@ -334,22 +399,22 @@ body::after {
   background: var(--color-primary);
   border-color: transparent;
   color: var(--color-bg);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 .btn-primary:hover {
   background: #7cd1ea;
-  box-shadow: 0 4px 20px rgba(108, 197, 224, 0.2);
+  box-shadow: var(--shadow-glow);
   color: var(--color-bg);
   border-color: transparent;
 }
 .btn-danger {
-  color: var(--color-error, #ef6b6b);
+  color: var(--color-error, var(--color-error));
   border-color: rgba(239, 107, 107, 0.25);
 }
 .btn-danger:hover {
   background: rgba(239, 107, 107, 0.1);
   border-color: rgba(239, 107, 107, 0.4);
-  color: var(--color-error, #ef6b6b);
+  color: var(--color-error, var(--color-error));
 }
 
 /* --- Status Badges ------------------------------------------------------ */
@@ -359,9 +424,9 @@ body::after {
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem 0.625rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.02em;
   line-height: 1;
   white-space: nowrap;
@@ -389,18 +454,18 @@ body::after {
   align-items: center;
   padding: 0.25rem 0.625rem;
   background: var(--color-surface-hover);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   line-height: 1;
   transition: all var(--transition-fast);
 }
-.tag-hue-0 { background: rgba(108, 197, 224, 0.08); color: #6cc5e0; }
-.tag-hue-1 { background: rgba(52, 211, 153, 0.08);  color: #34d399; }
-.tag-hue-2 { background: rgba(240, 184, 73, 0.08);  color: #f0b849; }
-.tag-hue-3 { background: rgba(239, 107, 107, 0.08); color: #ef6b6b; }
-.tag-hue-4 { background: rgba(167, 139, 250, 0.08); color: #a78bfa; }
+.tag-hue-0 { background: rgba(108, 197, 224, 0.08); color: var(--color-primary); }
+.tag-hue-1 { background: rgba(52, 211, 153, 0.08);  color: var(--color-success); }
+.tag-hue-2 { background: rgba(240, 184, 73, 0.08);  color: var(--color-warning); }
+.tag-hue-3 { background: rgba(239, 107, 107, 0.08); color: var(--color-error); }
+.tag-hue-4 { background: rgba(167, 139, 250, 0.08); color: var(--hue-5); }
 .tag-hue-5 { background: rgba(251, 146, 60, 0.08);  color: #fb923c; }
 
 /* --- Read-only Badge ---------------------------------------------------- */
@@ -409,13 +474,13 @@ body::after {
   display: inline-flex;
   align-items: center;
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
   background: transparent;
   border: 1px solid var(--color-border-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 0.25rem 0.5rem;
   line-height: 1;
   opacity: 0.7;
@@ -427,13 +492,13 @@ body::after {
   width: 100%;
   height: 4px;
   background: var(--color-surface-hover);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   overflow: hidden;
 }
 .progress-bar-fill {
   height: 100%;
   background: var(--color-success);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -472,7 +537,7 @@ body::after {
   border-left-color: var(--color-primary);
 }
 .sidebar-item.active .sidebar-item-name {
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .sidebar-progress {
@@ -524,10 +589,10 @@ body::after {
   padding: 0.25rem 0.625rem;
   background: transparent;
   border: 1px solid var(--color-border-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--color-text-muted);
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   font-family: inherit;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -555,11 +620,11 @@ body::after {
 .title-with-code { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .short-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
@@ -569,10 +634,10 @@ body::after {
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
   padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
-.card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); letter-spacing: -0.01em; }
+.card-section-title { font-size: var(--type-base); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); letter-spacing: -0.01em; }
 
 /* Icon buttons */
 /* NOTE: `.btn-icon` is also the name of two unrelated scoped rules, in
@@ -608,9 +673,9 @@ body::after {
   font-size: 0.65rem;
   background: var(--color-surface-hover);
   padding: 0.05rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   line-height: 1.2;
 }
 
@@ -628,7 +693,18 @@ body::after {
    not as a measure. It also produced two right edges in one column, prose at
    one and a table 184px beyond it, for no reason a reader could infer.
    With the card itself capped, every edge in the entry lines up. */
-.entry-column { max-width: calc(var(--measure) + 2 * var(--space-8)); }
+/* Every page in this product is one container wide, and the entry page is not
+   an exception to that. Narrowing the whole column to the reading width made
+   this one screen visibly out of line with the six around it — the sidebar
+   pages, the task board, the roadmap list — and a page that is narrower than
+   its neighbours reads as a mistake before it reads as a measure.
+
+   So the page keeps the container. Only the text inside the card is held to a
+   readable line, centred, so the space left over sits evenly on both sides. An
+   h2's underline and an `hr` live inside that column too, which is what stops
+   them ending short of a card edge somewhere off to the right. */
+.entry-content .markdown-content,
+.entry-content .block-doc { max-width: var(--measure); margin-inline: auto; }
 
 /* Content that is read by scanning rather than by line scrolls instead of
    wrapping. This used to be a `@media (max-width: 768px)` rule, which meant a
@@ -639,8 +715,8 @@ body::after {
 .entry-content .block-doc .b-code-wrap { overflow-x: auto; }
 
 /* Session progress figures */
-.stat-answered { color: var(--color-success); font-weight: 500; }
-.stat-pending  { color: var(--color-warning); font-weight: 500; }
+.stat-answered { color: var(--color-success); font-weight: var(--weight-medium); }
+.stat-pending  { color: var(--color-warning); font-weight: var(--weight-medium); }
 
 /* Skeletons */
 .skeleton-header { height: 60px; margin-bottom: var(--space-6); }
@@ -676,7 +752,7 @@ body::after {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
@@ -690,7 +766,7 @@ body::after {
 .form-label {
   display: block;
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   margin-bottom: var(--space-1);
 }
@@ -761,7 +837,7 @@ body::after {
   align-items: center;
   justify-content: center;
   font-size: calc(var(--avatar-size, 22px) * 0.45);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   flex-shrink: 0;
 }
 
@@ -791,7 +867,7 @@ body::after {
   padding: 0.35rem 0.625rem;
   color: var(--color-text-muted);
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   font-family: inherit;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -812,22 +888,22 @@ body::after {
 .search-mark {
   background: rgba(108, 197, 224, 0.2);
   color: var(--color-primary);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
 }
 
 /* --- Markdown Content --------------------------------------------------- */
 
 .markdown-content { }
-.markdown-content h1 { font-size: var(--type-xl); font-weight: 700; margin: var(--space-8) 0 var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-border); letter-spacing: -0.02em; }
-.markdown-content h2 { font-size: var(--type-lg); font-weight: 600; margin: var(--space-6) 0 var(--space-3); padding-bottom: var(--space-1); border-bottom: 1px solid var(--color-border); letter-spacing: -0.015em; }
-.markdown-content h3 { font-size: var(--type-base); font-weight: 600; margin: var(--space-6) 0 var(--space-2); }
-.markdown-content h4 { font-size: var(--type-sm); font-weight: 600; margin: var(--space-4) 0 var(--space-2); }
+.markdown-content h1 { font-size: var(--type-xl); font-weight: var(--weight-bold); margin: var(--space-8) 0 var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-border); letter-spacing: -0.02em; }
+.markdown-content h2 { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin: var(--space-6) 0 var(--space-3); padding-bottom: var(--space-1); border-bottom: 1px solid var(--color-border); letter-spacing: -0.015em; }
+.markdown-content h3 { font-size: var(--type-base); font-weight: var(--weight-semibold); margin: var(--space-6) 0 var(--space-2); }
+.markdown-content h4 { font-size: var(--type-sm); font-weight: var(--weight-semibold); margin: var(--space-4) 0 var(--space-2); }
 .markdown-content h1:first-child, .markdown-content h2:first-child, .markdown-content h3:first-child { margin-top: 0; }
 .markdown-content p { margin: var(--space-3) 0; }
 .markdown-content ul, .markdown-content ol { padding-left: var(--space-6); margin: var(--space-3) 0; }
 .markdown-content li { margin: var(--space-1) 0; }
 .markdown-content li > ul, .markdown-content li > ol { margin: var(--space-1) 0; }
-.markdown-content strong { font-weight: 600; color: var(--color-text); }
+.markdown-content strong { font-weight: var(--weight-semibold); color: var(--color-text); }
 .markdown-content hr { border: none; border-top: 1px solid var(--color-border); margin: var(--space-6) 0; }
 .markdown-content code {
   background: var(--color-surface-hover);
@@ -854,7 +930,7 @@ body::after {
 }
 .markdown-content blockquote p { margin: var(--space-1) 0; }
 .markdown-content table { width: 100%; border-collapse: collapse; margin: var(--space-5) 0; font-size: var(--type-sm); }
-.markdown-content thead th { text-align: left; font-weight: 600; padding: var(--space-2) var(--space-3); border-bottom: 2px solid var(--color-border-strong); color: var(--color-text); background: var(--color-surface-hover); }
+.markdown-content thead th { text-align: left; font-weight: var(--weight-semibold); padding: var(--space-2) var(--space-3); border-bottom: 2px solid var(--color-border-strong); color: var(--color-text); background: var(--color-surface-hover); }
 .markdown-content tbody td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); vertical-align: top; }
 .markdown-content tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
 .markdown-content tbody tr:last-child td { border-bottom: none; }
@@ -938,7 +1014,7 @@ body::after {
   color: var(--color-text-muted);
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
 }
 .mermaid-btn:hover { color: var(--color-text); background: rgba(255, 255, 255, 0.08); }
@@ -986,7 +1062,7 @@ body::after {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   text-decoration: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 .mermaid-live-link::after { content: ' \2197'; }
 .mermaid-live-link:hover { color: var(--color-primary); background: rgba(255, 255, 255, 0.08); }
@@ -1024,10 +1100,10 @@ body::after {
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.35rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.9em;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-decoration: none;
 }
 .crossref-link:hover {
@@ -1153,8 +1229,8 @@ body::after {
 .text-muted  { color: var(--color-text-muted); }
 .text-sm     { font-size: var(--type-sm); }
 .text-xs     { font-size: var(--type-xs); }
-.font-medium { font-weight: 500; }
-.font-bold   { font-weight: 700; }
+.font-medium { font-weight: var(--weight-medium); }
+.font-bold   { font-weight: var(--weight-bold); }
 
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .w-full   { width: 100%; }

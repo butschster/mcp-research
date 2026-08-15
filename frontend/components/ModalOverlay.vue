@@ -129,7 +129,7 @@ onBeforeUnmount(() => {
   padding: var(--space-6);
   width: 100%;
   max-width: 460px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-3);
 }
 /* The dialog takes focus when it holds no controls; that is a programmatic
    focus, not a keyboard one, so it should not paint a ring. */

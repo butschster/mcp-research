@@ -170,7 +170,7 @@ defineEmits<{
   color: rgba(255,255,255,0.4);
   cursor: pointer;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   z-index: 2;
 }
 .sidebar-toggle:hover {
@@ -187,7 +187,7 @@ defineEmits<{
 
 .sidebar-title {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: rgba(255,255,255,0.85);
 }
 
@@ -198,7 +198,7 @@ defineEmits<{
 
 .sidebar-section-title {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: rgba(255,255,255,0.35);
@@ -230,7 +230,7 @@ defineEmits<{
   width: 14px;
   height: 14px;
   border: 1.5px solid rgba(255,255,255,0.2);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: transparent;
   cursor: pointer;
   position: relative;
@@ -276,7 +276,7 @@ defineEmits<{
   appearance: none;
   height: 4px;
   background: rgba(255,255,255,0.1);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   outline: none;
   margin: 4px 0 2px;
 }
@@ -286,7 +286,7 @@ defineEmits<{
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #a78bfa;
+  background: var(--hue-5);
   cursor: pointer;
   border: 2px solid #1a1a2e;
 }
@@ -295,7 +295,7 @@ defineEmits<{
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #a78bfa;
+  background: var(--hue-5);
   cursor: pointer;
   border: 2px solid #1a1a2e;
 }
@@ -309,8 +309,8 @@ defineEmits<{
 }
 
 .depth-value {
-  color: #a78bfa;
-  font-weight: 700;
+  color: var(--hue-5);
+  font-weight: var(--weight-bold);
   font-size: 12px;
 }
 
@@ -329,7 +329,7 @@ defineEmits<{
   background: rgba(167,139,250,0.1);
   border: 1px solid rgba(167,139,250,0.25);
   border-radius: 5px;
-  color: #a78bfa;
+  color: var(--hue-5);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.15s;

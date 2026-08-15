@@ -62,7 +62,7 @@ const titleId = `confirm-title-${useId()}`
 }
 .confirm-title {
   font-size: var(--type-base);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   margin: 0 0 var(--space-2);
 }
 .confirm-message {

@@ -465,7 +465,7 @@ watch(renaming, (open) => {
 
 <style scoped>
 .page-lead { font-size: var(--type-sm); color: var(--color-text-muted); margin-top: var(--space-2); }
-.section-heading { font-size: var(--type-lg); font-weight: 600; margin: var(--space-8) 0 var(--space-3); }
+.section-heading { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin: var(--space-8) 0 var(--space-3); }
 .team-work { margin-top: var(--space-6); font-size: var(--type-sm); }
 .text-link { color: var(--color-primary); }
 .alone-note {

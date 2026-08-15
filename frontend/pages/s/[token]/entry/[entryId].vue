@@ -20,7 +20,7 @@
     <button class="btn btn-primary" @click="loadEntry()">Try again</button>
   </EmptyState>
 
-  <div v-else class="entry-column">
+  <div v-else>
     <div class="page-header">
       <Breadcrumbs :crumbs="[
         { label: researchName, to: researchPath(slug) },

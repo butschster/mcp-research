@@ -61,7 +61,7 @@ function statusSlug(s: string): string {
 }
 .step-node:hover {
   border-color: var(--color-border-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-1);
 }
 
 /* Subtle background tint per type */
@@ -86,7 +86,7 @@ function statusSlug(s: string): string {
 }
 .step-title {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   line-height: 1.3;
 }
@@ -111,9 +111,9 @@ function statusSlug(s: string): string {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.15rem 0.4rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   line-height: 1;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 .badge-step {
   background: rgba(107, 203, 119, 0.12);
@@ -138,11 +138,11 @@ function statusSlug(s: string): string {
 
 .rm-code {
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
@@ -151,9 +151,9 @@ function statusSlug(s: string): string {
   font-size: 0.5625rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   padding: 0.15rem 0.4rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   line-height: 1;
   white-space: nowrap;
   flex-shrink: 0;

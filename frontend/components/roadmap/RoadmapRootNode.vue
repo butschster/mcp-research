@@ -55,7 +55,7 @@ function truncate(text: string, len: number): string {
   padding: var(--space-5) var(--space-6);
   min-width: 320px;
   max-width: 400px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-1);
 }
 .rm-root-header {
   display: flex;
@@ -72,18 +72,18 @@ function truncate(text: string, len: number): string {
 }
 .rm-root-code {
   font-size: var(--type-xs);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.2rem 0.45rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
 }
 .rm-root-name {
   font-size: var(--type-lg);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   color: var(--color-text);
 }
@@ -102,7 +102,7 @@ function truncate(text: string, len: number): string {
 .rm-root-status-chip {
   font-size: 0.625rem;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--color-surface-hover);
   color: var(--color-text-muted);
   line-height: 1;
@@ -120,7 +120,7 @@ function truncate(text: string, len: number): string {
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
 </style>

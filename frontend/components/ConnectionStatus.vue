@@ -108,7 +108,7 @@ function onClick() {
   align-items: center;
   gap: 0.375rem;
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   background: none;
   border: 1px solid transparent;

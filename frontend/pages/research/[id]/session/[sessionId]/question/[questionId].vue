@@ -176,12 +176,12 @@ function truncate(text: string, max: number): string {
   color: var(--color-text-muted);
   background: var(--color-surface);
   padding: 0.15rem 0.5rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--color-border);
 }
 .card-section-title {
   font-size: var(--type-base);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   margin-bottom: var(--space-3);
   letter-spacing: -0.01em;
 }
@@ -209,7 +209,7 @@ function truncate(text: string, max: number): string {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   margin: 0 0 var(--space-4) 0;
 }
 .crossrefs-list {
@@ -231,11 +231,11 @@ function truncate(text: string, max: number): string {
 .crossref-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 .crossref-entry-title {

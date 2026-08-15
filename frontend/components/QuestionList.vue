@@ -174,7 +174,7 @@ function truncateAnswer(text: string, max: number): string {
   padding: 0.35rem 1.5rem 0.35rem 0.625rem;
   color: var(--color-text-muted);
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   font-family: inherit;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -200,9 +200,9 @@ function truncateAnswer(text: string, max: number): string {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 0.15rem 0.375rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   min-width: 1.25rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -258,18 +258,18 @@ function truncateAnswer(text: string, max: number): string {
 .q-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
   margin-top: 2px;
 }
 .q-text {
   flex: 1;
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.4;
 }
 .q-badges {

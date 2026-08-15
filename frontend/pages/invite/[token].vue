@@ -225,7 +225,7 @@ async function copyInviter() {
 .inviter { color: var(--color-text); }
 .invite-team {
   font-size: var(--type-2xl);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.03em;
   line-height: var(--line-tight);
   overflow-wrap: anywhere;

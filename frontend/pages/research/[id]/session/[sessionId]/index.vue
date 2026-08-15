@@ -246,7 +246,7 @@ useResearchRealtime(
   display: flex; gap: var(--space-4); font-size: var(--type-xs);
   margin-top: var(--space-2); color: var(--color-text-muted);
 }
-.stat-skipped  { color: var(--color-error); font-weight: 500; }
+.stat-skipped  { color: var(--color-error); font-weight: var(--weight-medium); }
 .stat-muted    { color: var(--color-text-muted); }
 
 /* Tabs */
@@ -258,7 +258,7 @@ useResearchRealtime(
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   background: none; border: none; border-bottom: 2px solid transparent;
-  color: var(--color-text-muted); font-size: var(--type-sm); font-weight: 500;
+  color: var(--color-text-muted); font-size: var(--type-sm); font-weight: var(--weight-medium);
   font-family: inherit; cursor: pointer; transition: all var(--transition-fast);
   margin-bottom: -1px;
 }
@@ -266,7 +266,7 @@ useResearchRealtime(
 .content-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .tab-count {
   font-size: var(--type-xs); color: var(--color-text-muted);
-  background: var(--color-surface-hover); border-radius: 4px;
+  background: var(--color-surface-hover); border-radius: var(--radius-xs);
   padding: 0.15rem 0.4rem; font-variant-numeric: tabular-nums;
 }
 .content-tab.active .tab-count { background: var(--color-primary-muted); color: var(--color-primary); }

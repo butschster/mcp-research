@@ -122,7 +122,7 @@ function formatDate(value: string) {
 .share-cell--actions { flex-direction: row; align-items: center; gap: var(--space-3); justify-content: flex-end; }
 /* A truncated label is not a label, and this list exists to be recognised by
    one. */
-.share-label { font-weight: 600; overflow-wrap: anywhere; }
+.share-label { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
 .share-sub { font-size: var(--type-xs); overflow-wrap: anywhere; }
 .share-state { font-size: var(--type-sm); }
 .share-badge {

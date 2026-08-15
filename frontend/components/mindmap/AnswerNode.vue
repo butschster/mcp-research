@@ -56,7 +56,7 @@ function navigate() {
 }
 .answer-node:hover {
   border-color: rgba(52, 211, 153, 0.4);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-1);
 }
 .a-header {
   display: flex;
@@ -67,7 +67,7 @@ function navigate() {
 }
 .a-label {
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }

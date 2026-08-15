@@ -58,7 +58,7 @@ defineEmits<{
 }
 .kanban-card:hover {
   border-color: var(--color-border-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-1);
 }
 .kanban-card:deep(.dragging) {
   opacity: 0.4;
@@ -75,11 +75,11 @@ defineEmits<{
 
 .short-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
@@ -87,7 +87,7 @@ defineEmits<{
 
 .kanban-card-title {
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.4;
   word-break: break-word;
 }

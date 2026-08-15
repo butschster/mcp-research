@@ -99,7 +99,7 @@ function joined(iso: string) {
 }
 .member-row.busy { opacity: 0.6; }
 .member-identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.member-name { font-weight: 500; overflow-wrap: anywhere; }
+.member-name { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 .member-note { font-size: var(--type-xs); color: var(--color-text-muted); }
 .member-email { font-size: var(--type-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
 .member-role-static { font-size: var(--type-xs); color: var(--color-text-muted); white-space: nowrap; }

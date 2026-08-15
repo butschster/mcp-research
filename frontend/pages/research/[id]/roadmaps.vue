@@ -116,7 +116,7 @@ useResearchRealtime(
 .empty-state code {
   background: var(--color-surface-hover);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
 }
 </style>

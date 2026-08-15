@@ -303,7 +303,7 @@ useResearchRealtime(() => id, reloadMindmap, {
 .toolbar-back { gap: var(--space-1); }
 .toolbar-title {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   letter-spacing: -0.01em;
 }
@@ -329,7 +329,7 @@ useResearchRealtime(() => id, reloadMindmap, {
   background: var(--color-primary-muted);
 }
 .crossref-chip.active {
-  color: #a78bfa;
+  color: var(--hue-5);
   border-color: rgba(167, 139, 250, 0.3);
   background: rgba(167, 139, 250, 0.1);
 }
@@ -365,13 +365,13 @@ useResearchRealtime(() => id, reloadMindmap, {
   gap: var(--space-2);
   font-size: var(--type-xs);
   color: var(--color-text);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-2);
   pointer-events: none;
   white-space: nowrap;
 }
 .xref-tooltip svg { color: rgba(167, 139, 250, 0.6); flex-shrink: 0; }
 .xref-from, .xref-to {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -400,7 +400,7 @@ useResearchRealtime(() => id, reloadMindmap, {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-1);
 }
 .mindmap-flow :deep(.vue-flow__controls-button) {
   background: var(--color-surface);

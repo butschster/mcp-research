@@ -84,7 +84,7 @@ function run(toast: Toast) {
   border: 1px solid var(--color-border-strong);
   border-left: 3px solid var(--color-border-strong);
   border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-2);
 }
 /* The left edge carries the variant, so it survives a screenshot in greyscale
    and does not depend on the icon being noticed. */
@@ -105,7 +105,7 @@ function run(toast: Toast) {
 .toast-title {
   margin: 0;
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
 }
 .toast-message {

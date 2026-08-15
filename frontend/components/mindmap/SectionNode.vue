@@ -49,7 +49,7 @@ function truncate(text: string, len: number): string {
 }
 .section-node:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 2px 12px rgba(108, 197, 224, 0.1);
+  box-shadow: var(--shadow-glow);
 }
 .section-header {
   display: flex;
@@ -60,14 +60,14 @@ function truncate(text: string, len: number): string {
 }
 .section-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .mm-code {
-  font-size: 0.625rem; font-weight: 700; color: var(--color-primary);
+  font-size: 0.625rem; font-weight: var(--weight-bold); color: var(--color-primary);
   background: var(--color-primary-muted); padding: 0.1rem 0.3rem;
-  border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+  border-radius: var(--radius-xs); font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0; line-height: 1;
 }
 .section-name {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   letter-spacing: -0.01em;
 }

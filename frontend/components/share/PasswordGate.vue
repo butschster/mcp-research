@@ -73,7 +73,7 @@ onMounted(() => field.value?.focus())
 .password-icon { font-size: 2rem; margin-bottom: var(--space-4); opacity: 0.7; }
 .password-title {
   font-size: var(--type-lg);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   margin-bottom: var(--space-2);
   line-height: var(--line-tight);
 }

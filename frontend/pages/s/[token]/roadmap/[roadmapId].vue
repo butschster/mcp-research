@@ -188,7 +188,7 @@ useResearchRealtime(
   margin-bottom: var(--space-4);
 }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.toolbar-title { font-weight: 600; overflow-wrap: anywhere; }
+.toolbar-title { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
 .toolbar-code { font-family: 'JetBrains Mono', monospace; font-size: var(--type-xs); color: var(--color-text-muted); }
 .toolbar-progress { font-size: var(--type-xs); color: var(--color-text-muted); }
 .roadmap-canvas { flex: 1; min-height: 60vh; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
@@ -215,7 +215,7 @@ useResearchRealtime(
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-1);
 }
 .roadmap-flow :deep(.vue-flow__controls-button) {
   background: var(--color-surface);

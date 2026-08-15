@@ -298,7 +298,7 @@ function bodyRows(b: Block): any[] {
   border-radius: var(--radius-sm);
 }
 
-.b-heading { font-weight: 650; letter-spacing: -0.015em; line-height: var(--line-tight); }
+.b-heading { font-weight: var(--weight-bold); letter-spacing: -0.015em; line-height: var(--line-tight); }
 /* Only h2 gets a rule: it separates the document's top-level parts, and putting
    one on every level turns the page into a stack of boxes. */
 .b-h2 {
@@ -331,7 +331,7 @@ function bodyRows(b: Block): any[] {
 .b-table tr:last-child td { border-bottom: none; }
 .b-table th {
   font-size: var(--type-xs);
-  font-weight: 650;
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -400,7 +400,7 @@ function bodyRows(b: Block): any[] {
 .b-mermaid :deep(.mermaid-broken) { margin: 0; }
 
 .b-checklist { display: flex; flex-direction: column; gap: var(--space-1); }
-.b-checklist-title { font-weight: 600; margin-bottom: var(--space-1); }
+.b-checklist-title { font-weight: var(--weight-semibold); margin-bottom: var(--space-1); }
 .b-check {
   display: flex;
   align-items: flex-start;
@@ -430,7 +430,7 @@ function bodyRows(b: Block): any[] {
   line-height: var(--line-base);
 }
 .b-callout-title {
-  font-weight: 650;
+  font-weight: var(--weight-bold);
   margin-bottom: var(--space-1);
   font-size: var(--type-xs);
   text-transform: uppercase;

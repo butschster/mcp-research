@@ -216,7 +216,7 @@ function saveEdit(field: string) {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -226,7 +226,7 @@ function saveEdit(field: string) {
   font-size: 0.65rem;
   background: var(--color-surface-hover);
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
 .section-description {
@@ -327,7 +327,7 @@ function saveEdit(field: string) {
 }
 .memory-index {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   min-width: 1.4em;
   text-align: right;
