@@ -30,6 +30,15 @@
   --type-4xl:  3.5rem;
 
   /* --- Spacing Scale (4px base) ----------------------------------------- */
+  /* Control height.
+     A button's height used to be whatever its padding plus its content added up
+     to — and the content differs: 15px of text in a .btn, a 16px icon in a
+     .btn-icon. Three controls in one header row came out 29.8, 29.2 and 26.6px
+     tall, which is exactly the kind of difference that is visible and hard to
+     name. Height is now stated, not derived. */
+  --control-h: 30px;
+  --control-h-sm: 26px;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -245,6 +254,7 @@ body::after {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  min-height: var(--control-h);
   padding: 0.4rem 0.875rem;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
@@ -273,6 +283,7 @@ body::after {
   transition-duration: 0.05s;
 }
 .btn-sm {
+  min-height: var(--control-h-sm);
   padding: 0.3rem 0.625rem;
   font-size: var(--type-sm);
 }
@@ -521,12 +532,22 @@ body::after {
 .card-section-title { font-size: var(--type-base); font-weight: 600; margin-bottom: var(--space-3); letter-spacing: -0.01em; }
 
 /* Icon buttons */
+/* NOTE: `.btn-icon` is also the name of two unrelated scoped rules, in
+   ResearchCard.vue and team/TeamMemberList.vue. Their scoped selectors carry a
+   [data-v] attribute and therefore win; this one is the page-header icon
+   button. The collision is worth knowing about before renaming either. */
 .btn-icon {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
+  /* Square, and the same height as a text button beside it. */
+  min-height: var(--control-h);
+  min-width: var(--control-h);
   padding: 0.35rem;
-  border: 1px solid var(--color-border);
+  /* The same border as .btn: a fainter one made the icon buttons read as a
+     different, weaker kind of control than the labelled button next to them. */
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text-muted);

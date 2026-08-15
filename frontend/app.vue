@@ -80,62 +80,64 @@ onMounted(() => {
 
     <!-- Normal pages: full chrome -->
     <template v-else>
-      <nav class="app-nav">
-        <div class="container nav-inner">
-          <NuxtLink to="/" class="logo">Research</NuxtLink>
-          <div class="nav-right">
-            <SearchModal />
-            <ActivityIndicator :active="hasRecentUpdate" label="Updating" />
-            <template v-if="authEnabled && isAuthenticated">
-              <div class="user-menu">
-                <button class="user-menu-trigger" @click="toggleUserMenu">
-                  <span class="user-avatar">{{ (user?.name || user?.email || '?')[0].toUpperCase() }}</span>
-                  <span class="user-name">{{ user?.name || user?.email }}</span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div v-if="userMenuOpen" class="user-dropdown">
-                  <NuxtLink to="/teams" class="user-dropdown-item" @click="closeUserMenu">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    Teams
-                  </NuxtLink>
-                  <NuxtLink to="/settings" class="user-dropdown-item" @click="closeUserMenu">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    Settings
-                  </NuxtLink>
-                  <div class="user-dropdown-divider"></div>
-                  <button class="user-dropdown-item user-dropdown-danger" @click="handleLogout">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    Sign out
+      <div class="app-shell">
+        <nav class="app-nav">
+          <div class="container nav-inner">
+            <NuxtLink to="/" class="logo">Research</NuxtLink>
+            <div class="nav-right">
+              <SearchModal />
+              <ActivityIndicator :active="hasRecentUpdate" label="Updating" />
+              <template v-if="authEnabled && isAuthenticated">
+                <div class="user-menu">
+                  <button class="user-menu-trigger" @click="toggleUserMenu">
+                    <span class="user-avatar">{{ (user?.name || user?.email || '?')[0].toUpperCase() }}</span>
+                    <span class="user-name">{{ user?.name || user?.email }}</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                   </button>
+                  <div v-if="userMenuOpen" class="user-dropdown">
+                    <NuxtLink to="/teams" class="user-dropdown-item" @click="closeUserMenu">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      Teams
+                    </NuxtLink>
+                    <NuxtLink to="/settings" class="user-dropdown-item" @click="closeUserMenu">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                      Settings
+                    </NuxtLink>
+                    <div class="user-dropdown-divider"></div>
+                    <button class="user-dropdown-item user-dropdown-danger" @click="handleLogout">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                      Sign out
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </template>
-            <span v-else-if="!authEnabled" class="readonly-badge">Read-only</span>
+              </template>
+              <span v-else-if="!authEnabled" class="readonly-badge">Read-only</span>
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <main class="container main-content">
-        <WarningBanner />
-        <!-- The page's subject was taken away while it was open. Rendering it
-             would show a research the next request will refuse. -->
-        <AccessRevokedNotice v-if="revoked" :revocation="revoked" />
-        <NuxtPage v-else />
-      </main>
+        <main class="container main-content">
+          <WarningBanner />
+          <!-- The page's subject was taken away while it was open. Rendering it
+               would show a research the next request will refuse. -->
+          <AccessRevokedNotice v-if="revoked" :revocation="revoked" />
+          <NuxtPage v-else />
+        </main>
 
-      <footer class="app-footer">
-        <div class="container footer-inner">
-          <span class="card-meta">Research</span>
-          <div class="footer-right">
-            <ConnectionStatus
-              :state="connection"
-              :reason="connectionReason"
-              :last-synced-at="lastSyncedAt"
-              @retry="retryNow"
-            />
+        <footer class="app-footer">
+          <div class="container footer-inner">
+            <span class="card-meta">Research</span>
+            <div class="footer-right">
+              <ConnectionStatus
+                :state="connection"
+                :reason="connectionReason"
+                :last-synced-at="lastSyncedAt"
+                @retry="retryNow"
+              />
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </template>
   </div>
 </template>
@@ -143,7 +145,16 @@ onMounted(() => {
 <style>
 .nav-inner  { display: flex; align-items: center; justify-content: space-between; }
 .nav-right  { display: flex; align-items: center; gap: var(--space-3); }
-.main-content { padding-top: var(--space-4); padding-bottom: var(--space-4); min-height: calc(100dvh - 120px); }
+/* The footer sits at the bottom of a short page without the page being taller
+   than the window.
+   `min-height: calc(100dvh - 120px)` on the main column was a guess at how tall
+   the chrome is, and the chrome had outgrown it: nav 53px + main padding 32px +
+   footer 69px is 154px, so every page — including one with three cards on it —
+   was 34px taller than the viewport and carried a scrollbar that had nothing to
+   scroll. A flex column measures itself instead of being told. */
+.app-shell { display: flex; flex-direction: column; min-height: 100dvh; }
+.app-shell > .main-content { flex: 1; }
+.main-content { padding-top: var(--space-4); padding-bottom: var(--space-4); }
 .app-footer {
   border-top: 1px solid var(--color-border);
   padding: var(--space-4) 0;

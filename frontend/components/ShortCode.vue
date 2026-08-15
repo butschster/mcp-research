@@ -3,19 +3,13 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * A research's or entry's short code.
+ *
+ * The rule lives in main.css, not here. Ten pages inline the same span, so a
+ * scoped copy in this component meant two definitions of one look — and the
+ * scoped one silently won wherever this component was used, which is the
+ * failure mode that makes a badge look subtly different from screen to screen.
+ */
 defineProps<{ code: string }>()
 </script>
-
-<style scoped>
-.short-code {
-  font-size: var(--type-xs);
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-muted);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  flex-shrink: 0;
-  line-height: 1;
-}
-</style>

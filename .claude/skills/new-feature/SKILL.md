@@ -69,6 +69,13 @@ Before any agent looks at it:
 - `make test` — the whole suite, not the package you touched.
 - `npx nuxt typecheck` in `frontend/` when the frontend changed. Pre-existing
   errors are noise; filter to your own files.
+- `node frontend/scripts/css-consistency.mjs` when the frontend changed. It
+  fails on the two CSS mistakes that are invisible in a diff and obvious on
+  screen: a page-height `calc(100dvh - <number>)`, and a button whose height is
+  left to emerge from its padding. If you added a control, also compute its
+  height and the height of everything it will stand next to — a row of buttons
+  that are 30, 30 and 26 pixels tall is a bug users see immediately and nobody
+  writes down.
 - Run it for real. The `local-api-testing` skill drives the live API; use it to
   exercise the new paths, the error codes, and — when there is a migration — an
   upgrade of a database that already holds data.
