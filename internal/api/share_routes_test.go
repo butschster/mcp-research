@@ -40,6 +40,7 @@ type shareServer struct {
 	// is what the mindmap builds and what makes the include flags reachable
 	// through the graph.
 	roadmapID string
+	sessionID string
 }
 
 func newShareServer(t *testing.T) *shareServer {
@@ -157,6 +158,7 @@ func newShareServer(t *testing.T) *shareServer {
 	return &shareServer{
 		t: t, mux: srv.mux, db: db, research: research, entry: entry,
 		other: other, shares: shareSvc, ownerCtx: ctx, roadmapID: roadmap.ID,
+		sessionID: sess.ID,
 	}
 }
 
@@ -505,6 +507,13 @@ func TestShareRoutes_UnmountedRoutesAreNotReachable(t *testing.T) {
 		"/api/shared/" + token + "/researches/" + s.research.ID + "/graph",
 		"/api/shared/" + token + "/researches/" + s.research.ID + "/shares",
 		"/api/shared/" + token + "/entries/" + s.entry.ID + "/revisions",
+		// A session's change list is the same revision history in a different
+		// shape — who edited what, when — so it belongs beside the revisions
+		// above. It is listed separately because the component that reads it is
+		// now mounted with the session page rather than behind a tab click, so
+		// anything that ever mounted it on the share side would call this.
+		"/api/shared/" + token + "/sessions/" + s.sessionID + "/changes",
+		"/api/shared/" + token + "/sessions/" + s.sessionID + "/changes?summary=1",
 		"/api/shared/" + token + "/health",
 	} {
 		if code, body := s.get(path); code != http.StatusNotFound {

@@ -138,6 +138,27 @@ func (h *RevisionHandler) SessionChanges(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// ?summary=1 answers the tab badge — how many entries this session touched —
+	// without diffing any of them. The session page asks this on every load; the
+	// full list, which costs an LCS per touched entry, waits until somebody
+	// actually opens the tab.
+	if r.URL.Query().Get("summary") == "1" {
+		created, modified, err := h.entry.SessionChangeCounts(r.Context(), sess.Session.ResearchID, sess.Session.ID)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"data": map[string]any{
+				"session_id": sess.Session.ID,
+				"created":    created,
+				"modified":   modified,
+				"count":      created + modified,
+			},
+		})
+		return
+	}
+
 	changes, err := h.entry.SessionChanges(r.Context(), sess.Session.ResearchID, sess.Session.ID)
 	if err != nil {
 		writeServiceError(w, err)

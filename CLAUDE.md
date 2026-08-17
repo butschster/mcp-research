@@ -94,7 +94,7 @@ internal/
   storage/                         -- SQLite repos + embedded migrations (001-010)
   service/                         -- business logic, validation, event emission, access control
   mcp/                             -- MCP server wrapper, tool + prompt registration
-    tools/                         -- 32 tool files (one per tool)
+    tools/                         -- 36 tool files (one per tool)
     prompts_data/                  -- embedded markdown prompt templates
   api/                             -- REST handlers, WebSocket hub, OAuth, static embedding
     ws/                            -- WebSocket hub + client + event notifier bridge

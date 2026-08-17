@@ -21,7 +21,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `research_create` | Create research with sections, tags, and goal |
+| `research_create` | Create research with sections, tags, and goal. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team |
 | `research_get` | Load full research context (sections, entry counts, active session) |
 | `research_list` | List every research you can reach, with optional status filter. Marks a shared one with `team` and a read-only one with `access: "read-only"` |
 | `research_update` | Update name, goal, status, instruction, memory, tags |
@@ -108,7 +108,7 @@ A research is owned by a **team**, and your role in that team decides what you m
 | `your role in this team does not allow this` | You are in the team but only a `viewer` | Do not retry. Tell the user which research it was and that they need editor rights, or pick another research |
 | `not found` | Either no such id, **or** it belongs to a team you are not in — the two are deliberately indistinguishable | Re-run `research_list` and use an id from it |
 
-A new research created with `research_create` always lands in your own personal team, so a research you created this session is always writable. `research_import` takes an optional `team_id` to put an imported research somewhere else; you must be an editor or owner of that team.
+`research_create` and `research_import` both take an optional `team_id`. Omit it and the research lands in your own personal team, so a research you created this session is always writable. Name a team and it goes there instead — you must be an `editor` or `owner` of it: a team you are not in is `not found`, one where you are only a `viewer` is refused. Use `team_list` to get the id; `research_create` echoes back `team` with the team's name when the research did not land in your personal one.
 
 **Share links are not yours to issue.** A research can be published as a revocable, read-only link that someone opens without an account, but there is no MCP tool that creates, lists or revokes one — it is done in the web UI or over REST (`POST /api/researches/{id}/shares`), by a person deciding to give something away. If a user asks for one, point them at the share dialog on the research page rather than looking for a tool. Nothing you do over MCP is affected by a link existing, and a share token never authenticates an MCP call. [Domain Guide → Share](/llms/domain-guide.md#share).
 
@@ -127,7 +127,7 @@ Read this before composing any tool call. Input schemas are generated from Go st
 Consequences:
 
 - **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
-- **Four exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), `research_export` requires `research_id` alone (`format` may be omitted), and `research_import` requires `data` alone (`team_id` may be omitted). Sending `null` for those five properties works as well, so "send every property as `null`" is still a correct strategy everywhere.
+- **Five exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), `research_export` requires `research_id` alone (`format` may be omitted), `research_import` requires `data` alone (`team_id` may be omitted), and `research_create` requires everything except `team_id`. Sending `null` for those six properties works as well, so "send every property as `null`" is still a correct strategy everywhere.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
 - Unknown property names are rejected outright (`additionalProperties: false`).
@@ -146,7 +146,7 @@ Consequences:
 | `session_id` (entry) | The research's currently active session, if there is one |
 | `limit` (`entry_history`) | `20` newest revisions; the result says `truncated: true` when more exist |
 | `format` (`research_export`) | `portable` — the JSON `research_import` takes. `obsidian` returns a vault download link instead; `json` / `vault` / `zip` are accepted aliases, anything else is a validation error |
-| `team_id` (`research_import`) | Your personal team |
+| `team_id` (`research_create`, `research_import`) | Your personal team |
 | `to` (`entry_diff`) | The newest revision |
 | `from` (`entry_diff`) | The revision before `to` — so a call with neither shows the most recent change |
 
@@ -448,7 +448,7 @@ Every entity gets an auto-assigned short code on creation. These codes can be us
 Which tools hand codes back:
 
 - `research_create`, `research_import`, `research_get` — research code
-- `entry_create`, `entry_list` — entry codes
+- `entry_create`, `entry_list`, `entry_read`, `entry_patch` — entry codes (`entry_read` returns the whole entry record, so `code` is on it)
 - `roadmap_create`, `roadmap_list`, `roadmap_get`, `roadmap_update_node` — roadmap and node codes
 - `session_get` — session code (inside the `session` object)
 - Section, question, and task codes are **not** returned by any tool right now: `research_get`, `question_list`, `session_get` questions, `task_list` and `task_create` return UUIDs only. Use those UUIDs in subsequent tool calls, and the REST API (`GET /api/researches/{id}`, `/tasks`, `/sessions/{sessionId}`) if you need the codes themselves.

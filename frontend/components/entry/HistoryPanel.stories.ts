@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import { onMounted, ref } from 'vue'
 import HistoryPanel from './HistoryPanel.vue'
-import { mockApi, neverResolves, revisionParam } from '../../__mocks__/api'
+import { mockApi, neverResolves, fails, revisionParam } from '../../__mocks__/api'
 import {
   mockRevisions,
   mockRevisionsMany,
@@ -22,6 +22,11 @@ import {
  * copy of its markup. It also loads on the `visible` false → true transition,
  * which is why every story mounts closed and opens on the next tick — the same
  * path the entry page takes.
+ *
+ * It also exposes `reload()`, which the entry page calls on a realtime event
+ * while the panel is open, so a remote write does not leave a revision list
+ * presenting itself as complete. There is no story for it: it re-runs exactly
+ * the fetch `Populated` already shows.
  */
 const meta: Meta<typeof HistoryPanel> = {
   title: 'Entry/HistoryPanel',
@@ -31,6 +36,9 @@ const meta: Meta<typeof HistoryPanel> = {
   argTypes: {
     visible: { control: false },
     entryId: { control: 'text' },
+    entryTitle: { control: 'text' },
+    entryCode: { control: 'text' },
+    restoreError: { control: 'boolean' },
     onClose: { action: 'close' },
     onRestore: { action: 'restore' },
   },
@@ -45,6 +53,24 @@ type PanelSetup = {
   pending?: boolean
   /** Answers the first diff request and hangs on every later one. */
   slowSecondDiff?: boolean
+  /** The revision list itself fails: the rail has nothing and says so. */
+  listFails?: boolean
+  /** The list lands, the comparison for the selected revision does not. */
+  diffFails?: boolean
+  /** The page's restore attempt came back an error, and says so in the pane. */
+  restoreError?: boolean
+}
+
+/**
+ * The header's title and code are props, not part of the fetched payload — the
+ * entry page already holds them and passes them down, so the header is filled
+ * in before the revision list arrives. Every story passes them for that reason:
+ * a panel headed by an empty `<h2>` is not a state the product reaches.
+ */
+const ENTRY = {
+  id: 'ent_2f7c9a41',
+  code: 'E4',
+  title: 'Streaming Ingestion Trade-offs',
 }
 
 /** Waits for the panel's own fetches to land before a play function acts. */
@@ -69,11 +95,14 @@ function panel(state: PanelSetup): Story['render'] {
       let diffCalls = 0
       mockApi({
         '/revisions': () =>
-          state.pending
+          state.listFails
+            ? fails()
+            : state.pending
             ? neverResolves()
-            : { data: { entry_id: 'ent_2f7c9a41', entry_code: 'E4', title: 'Streaming Ingestion Trade-offs', revisions: state.revisions, current: state.current } },
+            : { data: { entry_id: ENTRY.id, entry_code: ENTRY.code, title: ENTRY.title, revisions: state.revisions, current: state.current } },
         '/diff': (url: string) => {
           diffCalls++
+          if (state.diffFails) return fails()
           if (state.slowSecondDiff && diffCalls > 1) return neverResolves()
           return { data: state.diff?.(revisionParam(url)) ?? null }
         },
@@ -83,12 +112,15 @@ function panel(state: PanelSetup): Story['render'] {
       onMounted(() => {
         visible.value = true
       })
-      return { args, visible }
+      return { args, visible, entry: ENTRY, restoreError: !!state.restoreError }
     },
     template: `
       <HistoryPanel
         :visible="visible"
-        entry-id="ent_2f7c9a41"
+        :entry-id="entry.id"
+        :entry-title="entry.title"
+        :entry-code="entry.code"
+        :restore-error="restoreError"
         @close="args.onClose"
         @restore="args.onRestore"
       />
@@ -131,6 +163,50 @@ export const SingleRevision: Story = {
   render: panel({ revisions: mockRevisionsSingle, current: 1, diff: () => mockEntryDiffSingle }),
 }
 
+/**
+ * `GET /api/entries/{id}/revisions` failed.
+ *
+ * The rail used to fall through to "No history yet" here, which is a claim the
+ * panel is in no position to make: migration 018 backfilled revision 1 for every
+ * pre-existing entry and one is written on create, so an entry with a genuinely
+ * empty history is essentially unreachable. Almost every appearance of that
+ * empty state was a 500 or an expired token wearing its clothes.
+ */
+export const ListFailed: Story = {
+  render: panel({ revisions: [], current: 0, listFails: true }),
+}
+
+/**
+ * The rail loaded, the comparison did not.
+ *
+ * The failure is confined to the pane: the revision stays selected and the list
+ * keeps working, so the retry re-requests one diff rather than the panel. What
+ * this replaces is worse than blank — it read "Pick a revision to see what
+ * changed" while a revision sat visibly selected.
+ */
+export const DiffFailed: Story = {
+  render: panel({ revisions: mockRevisions, current: 5, diffFails: true }),
+}
+
+/**
+ * The restore itself failed.
+ *
+ * `restore-error` is a prop, not internal state: the panel emits `restore` and
+ * the entry page owns the request, so this is the page telling the panel how it
+ * went. r3 is picked here because that is the shape of the incident — somebody
+ * chose an old revision, pressed Restore, and needs to be told the entry is
+ * still what it was, next to the button they pressed rather than behind a toast
+ * on the page underneath.
+ */
+export const RestoreFailed: Story = {
+  render: panel({ revisions: mockRevisions, current: 5, diff: diffByRevision, restoreError: true }),
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await waitFor(canvasElement, '.rev-main')
+    const rows = canvasElement.querySelectorAll('.rev-main')
+    ;(rows[2] as HTMLElement | undefined)?.click()
+  },
+}
+
 /** Twenty-four revisions: the list scrolls inside the modal, the diff does not. */
 export const ManyRevisions: Story = {
   render: panel({ revisions: mockRevisionsMany, current: 24, diff: diffByRevision }),
@@ -169,12 +245,19 @@ export const Closed: Story = {
     components: { HistoryPanel },
     setup() {
       mockApi({})
-      return { args }
+      return { args, entry: ENTRY }
     },
     template: `
       <div style="color: var(--color-text-muted); font-size: 0.875rem;">
         The panel is mounted with <code>visible: false</code> — no request is made.
-        <HistoryPanel :visible="false" entry-id="ent_2f7c9a41" @close="args.onClose" @restore="args.onRestore" />
+        <HistoryPanel
+          :visible="false"
+          :entry-id="entry.id"
+          :entry-title="entry.title"
+          :entry-code="entry.code"
+          @close="args.onClose"
+          @restore="args.onRestore"
+        />
       </div>
     `,
   }),

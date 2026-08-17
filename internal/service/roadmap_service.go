@@ -367,9 +367,10 @@ func (s *RoadmapService) resolveEntryRef(ctx context.Context, id string) *domain
 		Description: entry.Description,
 		ResearchID:  entry.ResearchID,
 	}
-	// Include content preview (first 200 chars)
-	if len(entry.Content) > 200 {
-		data.Content = entry.Content[:200] + "..."
+	// Include content preview (first 200 characters — by rune, so a preview that
+	// stops mid-character does not ship half of one).
+	if runes := []rune(entry.Content); len(runes) > 200 {
+		data.Content = string(runes[:200]) + "..."
 	} else {
 		data.Content = entry.Content
 	}

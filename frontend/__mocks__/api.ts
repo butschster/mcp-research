@@ -41,6 +41,18 @@ export function neverResolves(): Promise<never> {
   return new Promise<never>(() => {})
 }
 
+/**
+ * A request that fails — for documenting an error state.
+ *
+ * The components this harness serves treat a rejection as "the network or the
+ * server said no", and every one of them used to render that as an empty list
+ * saying nothing happened. Those error states have no stories precisely because
+ * there was no way to reach them from here.
+ */
+export function fails(message = 'Request failed'): Promise<never> {
+  return Promise.reject(new Error(message))
+}
+
 /** The function the `useAuth` stub delegates to. */
 export function runMockFetch(url: string, options?: unknown): Promise<any> {
   const key = Object.keys(routes)

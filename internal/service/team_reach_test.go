@@ -172,7 +172,6 @@ func TestReach_TransferRefusesAnUnknownTeam(t *testing.T) {
 	}
 }
 
-
 // The reference a colleague writes has to work for whoever may follow it, not
 // only for whoever wrote it. That is the whole point of a shared team, and it
 // is the case the old author-time check could not express.

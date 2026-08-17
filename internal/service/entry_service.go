@@ -734,8 +734,12 @@ func autoTitle(content string) string {
 		// Strip leading markdown heading markers
 		line = strings.TrimLeft(line, "# ")
 		line = strings.TrimSpace(line)
-		if len(line) > 100 {
-			line = line[:100]
+		// Cut by runes, not bytes. `line[:100]` splits a multi-byte character
+		// in half, and the broken tail is stored — every Cyrillic entry created
+		// without an explicit title ended up with U+FFFD on the end of it, shown
+		// in the entries list, the change cards and the history rail.
+		if runes := []rune(line); len(runes) > 100 {
+			line = string(runes[:100])
 		}
 		return line
 	}
@@ -767,8 +771,10 @@ func autoDescription(content string) string {
 		}
 	}
 	desc := strings.Join(descLines, " ")
-	if len(desc) > 200 {
-		desc = desc[:200]
+	// By runes, for the same reason as autoTitle: a byte cut lands inside a
+	// character and stores the half of it that is left.
+	if runes := []rune(desc); len(runes) > 200 {
+		desc = string(runes[:200])
 	}
 	return desc
 }
