@@ -304,12 +304,6 @@ function refLink(ref: any): string {
   border-radius: var(--radius-xs);
   border: 1px solid var(--color-border);
 }
-.card-section-title {
-  font-size: var(--type-base);
-  font-weight: var(--weight-semibold);
-  margin-bottom: var(--space-3);
-  letter-spacing: -0.01em;
-}
 .rationale-card {
   margin-bottom: var(--space-4);
 }

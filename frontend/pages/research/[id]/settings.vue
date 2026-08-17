@@ -343,7 +343,6 @@ async function save(field: string, value: any) {
 .card > .lead:last-child { margin-bottom: 0; }
 .footnote { margin-top: var(--space-5); margin-bottom: 0; font-size: var(--type-xs); }
 
-.card-section-title { margin-bottom: var(--space-2); }
 
 /* A stack of labelled fields, framed the way a list of rows is: the divider
    belongs between two fields, never around the stack. The class carried no

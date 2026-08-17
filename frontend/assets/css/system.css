@@ -354,7 +354,22 @@ button.tag {
   border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
-.card-section-title { font-size: var(--type-base); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); letter-spacing: -0.01em; }
+/* A heading inside a card, usually with a count or a note beside it — which is
+   why it is a baseline row rather than a block. Four files had scoped copies
+   adding exactly that, and a fifth had a byte-for-byte duplicate of the rule
+   below; each of them shadowed this one, so the heading looked different
+   depending on which page you were on. */
+.card-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--type-base);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.01em;
+}
+/* In a list head the sentence under the heading carries the gap instead. */
+.list-head .card-section-title { margin-bottom: var(--space-1); }
 
 /* Icon buttons */
 /* NOTE: `.btn-icon` is also the name of two unrelated scoped rules, in

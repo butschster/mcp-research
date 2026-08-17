@@ -50,14 +50,15 @@
       </div>
     </div>
 
-    <div class="sidebar-divider"></div>
-
-    <!-- External links -->
+    <!-- No divider above this one. The last section already ends in its own
+         progress bar, so a rule under it put two horizontal lines of different
+         widths within a few pixels of each other — which reads as a stray
+         border rather than as a boundary. Space separates the group instead. -->
     <div
       role="tab"
       tabindex="0"
       :aria-selected="activeSection === '__links__'"
-      :class="['sidebar-item', { active: activeSection === '__links__' }]"
+      :class="['sidebar-item', 'sidebar-tail', { active: activeSection === '__links__' }]"
       @click="$emit('update:activeSection', '__links__')"
       @keydown.enter.prevent="$emit('update:activeSection', '__links__')"
       @keydown.space.prevent="$emit('update:activeSection', '__links__')"
@@ -152,6 +153,9 @@ function sectionProgressWidth(section: any): string {
   }
   .sidebar::-webkit-scrollbar { display: none; }
   .sidebar .sidebar-divider { display: none; }
+  /* The rail becomes a horizontal strip, so the gap that separates the tail
+     from the sections vertically would separate nothing here. */
+  .sidebar-tail { margin-top: 0; }
   .sidebar-item {
     flex-shrink: 0;
     flex-direction: row;
@@ -205,4 +209,6 @@ function sectionProgressWidth(section: any): string {
   background: var(--color-border);
   margin: var(--space-1) var(--space-3);
 }
+/* The gap that used to be a rule. */
+.sidebar-tail { margin-top: var(--space-4); }
 </style>

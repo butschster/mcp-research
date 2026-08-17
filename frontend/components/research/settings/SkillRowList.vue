@@ -95,12 +95,6 @@ const emit = defineEmits<{
 </script>
 
 <style scoped>
-.card-section-title {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
 .heading-note {
   font-size: var(--type-xs);
   font-weight: var(--weight-normal);
