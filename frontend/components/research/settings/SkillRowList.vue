@@ -1,10 +1,16 @@
 <template>
   <div>
-    <h3 v-if="heading" class="card-section-title">
-      {{ heading }}
-      <span v-if="note" class="heading-note">{{ note }}</span>
-    </h3>
-    <p v-if="blurb" class="group-blurb">{{ blurb }}</p>
+    <!-- The head carries the rule the list is no longer allowed to draw: with a
+         heading above them, the first line in the card really is a header, and
+         a rule under a header means something. Without a heading there is no
+         head at all, so the rows meet the card's own edge. -->
+    <div v-if="heading || blurb" class="list-head">
+      <h3 v-if="heading" class="card-section-title">
+        {{ heading }}
+        <span v-if="note" class="heading-note">{{ note }}</span>
+      </h3>
+      <p v-if="blurb" class="group-blurb">{{ blurb }}</p>
+    </div>
 
     <div v-if="skills.length" class="data-rows">
       <div
@@ -57,7 +63,7 @@
       </div>
     </div>
 
-    <p v-else class="group-empty">{{ emptyText }}</p>
+    <p v-else class="list-empty">{{ emptyText }}</p>
   </div>
 </template>
 
@@ -105,12 +111,6 @@ const emit = defineEmits<{
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   max-width: var(--measure-prose);
-  margin-bottom: var(--space-3);
-}
-.group-empty {
-  font-size: var(--type-sm);
-  color: var(--color-text-muted);
-  padding: var(--space-4) 0;
 }
 
 .skill-row {

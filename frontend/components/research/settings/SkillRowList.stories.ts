@@ -16,6 +16,12 @@ import {
 const meta: Meta<typeof SkillRowList> = {
   title: 'Research/Settings/SkillRowList',
   component: SkillRowList,
+  /* The component ships inside a list card, and the card is what makes the
+     rules run edge to edge and the text sit at --row-inset. Rendered bare, the
+     catalog would show a version of this list that exists nowhere. */
+  decorators: [
+    () => ({ template: '<div class="card card--list" style="max-width: 760px"><story /></div>' }),
+  ],
 }
 export default meta
 type Story = StoryObj<typeof SkillRowList>
@@ -69,11 +75,32 @@ export const Busy: Story = {
   args: { skills: mockChosenSkills, canWrite: true, busySlug: 'evidence-grading' },
 }
 
+/** Empty and unheaded: nothing draws at all, not even a stray hairline where
+ *  the rows would have started. */
 export const Empty: Story = {
   args: {
     skills: [],
     canWrite: true,
-    heading: 'Chosen for this research',
     emptyText: 'Nothing chosen yet — the agent works from the built-in skills alone.',
+  },
+}
+
+/** No heading, so no head and no rule: the rows meet the card's own top edge
+ *  and take its corner. */
+export const InACardWithNoHeading: Story = {
+  args: { skills: mockChosenSkills, canWrite: true },
+}
+
+/** Empty, with a heading. The head and its rule stay — there really is a
+ *  heading — and the sentence stands where the rows would be, with no rules
+ *  around it. */
+export const EmptyWithHeading: Story = {
+  args: {
+    skills: [],
+    canWrite: true,
+    heading: 'Chosen for this research',
+    note: '0 of 6',
+    blurb: 'Methodology somebody picked. These are what the six-skill budget counts.',
+    emptyText: 'Nothing chosen yet — the agent works from the built-in skills below alone.',
   },
 }

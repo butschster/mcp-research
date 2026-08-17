@@ -94,7 +94,7 @@
       <div v-if="skillsPending" class="skeleton-card" style="height: 200px"></div>
 
       <template v-else>
-        <div class="card">
+        <div class="card card--list">
           <ResearchSettingsSkillRowList
             :skills="chosen"
             :can-write="canWrite"
@@ -108,7 +108,7 @@
           />
         </div>
 
-        <div class="card">
+        <div class="card card--list">
           <ResearchSettingsSkillRowList
             :skills="ambient"
             :can-write="canWrite"
@@ -119,7 +119,7 @@
           />
         </div>
 
-        <div v-if="canWrite" class="card">
+        <div v-if="canWrite" class="card card--list">
           <ResearchSettingsSkillRowList
             :skills="library"
             :actions="false"
@@ -141,14 +141,14 @@
         Notes the agent wrote for its future self. All of them are sent at the start of every
         session, so the list is a cost as well as a record.
       </p>
-      <div class="card">
+      <div class="card card--list">
         <div v-if="research.memory?.length" class="data-rows">
           <div v-for="(item, i) in (research.memory as string[])" :key="i" class="data-row memory-row">
             <span class="memory-index">{{ i + 1 }}</span>
             <span class="memory-text">{{ item }}</span>
           </div>
         </div>
-        <p v-else class="group-empty">
+        <p v-else class="list-empty">
           Nothing remembered yet. The agent adds a note when it learns something the next
           session should start with.
         </p>
@@ -355,10 +355,5 @@ async function save(field: string, value: any) {
   font-size: var(--type-sm);
   /* A memory note can be a pasted log line with no spaces in it. */
   overflow-wrap: anywhere;
-}
-.group-empty {
-  font-size: var(--type-sm);
-  color: var(--color-text-muted);
-  padding: var(--space-4) 0;
 }
 </style>

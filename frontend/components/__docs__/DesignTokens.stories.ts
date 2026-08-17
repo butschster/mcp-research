@@ -248,3 +248,76 @@ export const Radii: Story = {
     },
   }),
 }
+
+/**
+ * Rule lists — the three frames a list of rows can wear.
+ *
+ * `.card--list`, `.list-head` and `.list-empty` have no component of their own,
+ * so this is the only place they can be looked at. The principle: a rule
+ * between two rows is a divider and belongs to the rows; a rule at the top or
+ * bottom is an edge and belongs to whatever frames the list.
+ */
+export const RuleLists: Story = {
+  render: () => ({
+    template: `
+      <div style="display:flex;flex-direction:column;gap:var(--space-8);max-width:720px">
+
+        <div>
+          <p style="font-size:var(--type-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+            A list card <strong>with a heading</strong> — the head owns the rule, the rows own the dividers,
+            and the card's own border closes the bottom.
+          </p>
+          <div class="card card--list">
+            <div class="list-head">
+              <h3 class="card-section-title">Chosen for this research</h3>
+              <p style="font-size:var(--type-xs);color:var(--color-text-muted)">
+                Methodology somebody picked.
+              </p>
+            </div>
+            <div class="data-rows">
+              <div class="data-row">Systematic review</div>
+              <div class="data-row">Five whys</div>
+              <div class="data-row data-row--dead">Retired: bug triage</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p style="font-size:var(--type-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+            A list card that is <strong>only the list</strong> — no head, no rule at either end,
+            and the first and last rows take the card's corner.
+          </p>
+          <div class="card card--list">
+            <div class="data-rows">
+              <div class="data-row">Prefer the client's own words for a section title.</div>
+              <div class="data-row">The 2019 dataset is the only one with region codes.</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p style="font-size:var(--type-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+            <strong>Bounded</strong> — a list standing on a page with nothing framing it. Here the outer
+            rules are the only marks saying where it starts and stops, so the first and last row carry them.
+          </p>
+          <div class="data-rows data-rows--bounded">
+            <div class="data-row">Anna Kuznetsova</div>
+            <div class="data-row">Dmitri Orlov</div>
+          </div>
+        </div>
+
+        <div>
+          <p style="font-size:var(--type-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+            <strong>Empty</strong> — the sentence stands where the rows would be, and nothing draws around it.
+          </p>
+          <div class="card card--list">
+            <div class="list-head">
+              <h3 class="card-section-title">Available to attach</h3>
+            </div>
+            <p class="list-empty">Nothing left to attach — everything available is already on.</p>
+          </div>
+        </div>
+
+      </div>`,
+  }),
+}

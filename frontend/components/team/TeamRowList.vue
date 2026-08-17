@@ -1,5 +1,5 @@
 <template>
-  <div class="data-rows team-rows">
+  <div class="data-rows data-rows--bounded team-rows">
     <NuxtLink
       v-for="team in visible"
       :key="team.id"

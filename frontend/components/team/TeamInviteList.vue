@@ -1,5 +1,5 @@
 <template>
-  <div class="data-rows invite-rows">
+  <div class="data-rows data-rows--bounded invite-rows">
     <div
       v-for="invite in invites"
       :key="invite.id"
