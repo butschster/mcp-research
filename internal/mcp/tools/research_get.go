@@ -26,7 +26,11 @@ func RegisterResearchGet(srv *mcp.Server, researchSvc *service.ResearchService, 
 			return errorResult(err.Error())
 		}
 
-		sections, err := sectionSvc.List(ctx, input.ResearchID)
+		// Everything below uses the resolved id, never the caller's string.
+		// research_get accepts a short code — Get resolves one — but the calls
+		// after it did not, so `research_get("R1")` answered "not found" from
+		// the section lookup after the research had already been found.
+		sections, err := sectionSvc.List(ctx, research.ID)
 		if err != nil {
 			return errorResult(err.Error())
 		}
@@ -47,7 +51,7 @@ func RegisterResearchGet(srv *mcp.Server, researchSvc *service.ResearchService, 
 
 		var activeSession map[string]any
 		if sessionSvc != nil {
-			session, _ := sessionSvc.FindActive(ctx, input.ResearchID)
+			session, _ := sessionSvc.FindActive(ctx, research.ID)
 			if session != nil {
 				activeSession = map[string]any{
 					"id":     session.ID,

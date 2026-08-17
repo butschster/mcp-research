@@ -164,6 +164,14 @@ func TestSkill_AmbientSkillCannotBeDetached(t *testing.T) {
 	if _, err := k.skills.LoadBuiltinSkills(context.Background()); err != nil {
 		t.Fatalf("load builtins: %v", err)
 	}
+
+	// The usual case: it is in the list without ever having been attached, so
+	// the attachment lookup misses it. Answering "not found" about a row the
+	// caller is looking at is the wrong refusal.
+	if err := k.skills.Detach(owner, research.ID, "writing-entries"); !errors.Is(err, ErrSkillAmbient) {
+		t.Fatalf("detaching an always-on skill: want ErrSkillAmbient, got %v", err)
+	}
+
 	sk, err := k.skills.Attach(owner, research.ID, "managing-a-research", false)
 	if err != nil {
 		t.Fatalf("attach: %v", err)

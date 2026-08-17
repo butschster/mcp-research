@@ -217,6 +217,12 @@ func (s *SkillService) Detach(ctx context.Context, researchID, slug string) erro
 		return err
 	}
 	if sk == nil {
+		// A product skill is in the list without an attachment row, so the
+		// lookup above misses it. Answering "not found" about something the
+		// caller is looking at is the wrong refusal — say it is always on.
+		if inScope, scopeErr := s.skills.FindInResearchScope(ctx, researchID, slug); scopeErr == nil && inScope != nil && inScope.Ambient {
+			return ErrSkillAmbient
+		}
 		return ErrNotFound
 	}
 	if sk.Ambient {
