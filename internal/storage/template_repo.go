@@ -20,11 +20,11 @@ func NewTemplateRepository(db *sql.DB) *TemplateRepository {
 }
 
 // The body is never in this list. A template body is a whole methodology, and
-// four of them arriving in a kickoff that needs one is the cost this feature
-// exists to avoid. `body_words` gives a reader the size without the text.
+// the whole shipped set arriving in a kickoff that needs one of them is the cost
+// this feature exists to avoid. `body_words` gives a reader the size without the text.
 const templateColumns = `t.id, COALESCE(t.team_id,''), COALESCE(t.user_id,''), t.slug, t.name,
 	t.description, t.when_to_use, t.when_not_to_use, t.skills, COALESCE(t.forked_from,''),
-	t.version, t.created_at, t.updated_at,
+	t.source, t.version, t.created_at, t.updated_at,
 	(LENGTH(t.body) - LENGTH(REPLACE(REPLACE(t.body, char(10), ' '), ' ', '')) + 1)`
 
 func (r *TemplateRepository) Create(ctx context.Context, tp *domain.Template) error {
@@ -33,9 +33,14 @@ func (r *TemplateRepository) Create(ctx context.Context, tp *domain.Template) er
 	if err != nil {
 		return fmt.Errorf("marshal template skills: %w", err)
 	}
-	source := "user"
-	if tp.Tier == domain.TemplateGlobal {
-		source = "builtin"
+	// The caller says which. It used to be derived from the tier — global meant
+	// built-in — which was true only while the binary was the sole way a global
+	// row could appear. It no longer is: the operator can add one through the
+	// API, and deriving it would have marked that row as ours and let the next
+	// boot's refresh delete or overwrite it.
+	source := tp.Source
+	if source == "" {
+		source = domain.TemplateSourceUser
 	}
 	_, err = r.db.ExecContext(ctx,
 		`INSERT INTO research_templates (id, team_id, user_id, slug, name, description,
@@ -44,10 +49,11 @@ func (r *TemplateRepository) Create(ctx context.Context, tp *domain.Template) er
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		tp.ID, nullable(tp.TeamID), nullable(tp.UserID), tp.Slug, tp.Name, tp.Description,
 		tp.WhenToUse, tp.WhenNotToUse, tp.Body, string(skills),
-		source, nullable(tp.ForkedFrom), tp.Version, now, now)
+		string(source), nullable(tp.ForkedFrom), tp.Version, now, now)
 	if err != nil {
 		return fmt.Errorf("insert template: %w", err)
 	}
+	tp.Source = source
 	tp.CreatedAt, _ = time.Parse(time.DateTime, now)
 	tp.UpdatedAt = tp.CreatedAt
 	tp.BodyWords = countWords(tp.Body)
@@ -95,13 +101,29 @@ func (r *TemplateRepository) FindByID(ctx context.Context, id string) (*domain.T
 	return scanTemplate(row)
 }
 
-// FindGlobalBySlug is the boot-time lookup, and it deliberately cannot see a
-// team's fork of the same slug: an upgrade refreshes what we ship and must
-// never overwrite what somebody edited.
+// FindGlobalBySlug resolves a slug in the global tier, whatever wrote it. It
+// deliberately cannot see a team's fork of the same slug — Fork copies what we
+// publish, not what a team already edited.
 func (r *TemplateRepository) FindGlobalBySlug(ctx context.Context, slug string) (*domain.Template, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT `+templateColumns+` FROM research_templates t
 		  WHERE t.slug=? AND t.team_id IS NULL`, slug)
+	return scanTemplate(row)
+}
+
+// FindBuiltinBySlug is the boot-time lookup, and the narrower one on purpose.
+//
+// The refresh may only ever find a row it wrote itself. A global template the
+// operator added through the API sits in the same tier under the same unique
+// index, and matching on the tier alone would have let a later release quietly
+// overwrite their text with ours the moment a shipped file happened to take the
+// same slug. It cannot now: the insert collides with the index instead, and the
+// loader reports a name clash it cannot resolve rather than resolving it in our
+// favour.
+func (r *TemplateRepository) FindBuiltinBySlug(ctx context.Context, slug string) (*domain.Template, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT `+templateColumns+` FROM research_templates t
+		  WHERE t.slug=? AND t.team_id IS NULL AND t.source='builtin'`, slug)
 	return scanTemplate(row)
 }
 
@@ -283,10 +305,10 @@ func scanTemplate(s scanner) (*domain.Template, error) {
 
 func scanTemplateRow(s scanner) (*domain.Template, error) {
 	var tp domain.Template
-	var skills, createdAt, updatedAt string
+	var skills, source, createdAt, updatedAt string
 	err := s.Scan(&tp.ID, &tp.TeamID, &tp.UserID, &tp.Slug, &tp.Name, &tp.Description,
 		&tp.WhenToUse, &tp.WhenNotToUse, &skills, &tp.ForkedFrom,
-		&tp.Version, &createdAt, &updatedAt, &tp.BodyWords)
+		&source, &tp.Version, &createdAt, &updatedAt, &tp.BodyWords)
 	if err == sql.ErrNoRows {
 		return &domain.Template{}, nil
 	}
@@ -297,6 +319,7 @@ func scanTemplateRow(s scanner) (*domain.Template, error) {
 	if tp.TeamID == "" {
 		tp.Tier = domain.TemplateGlobal
 	}
+	tp.Source = domain.TemplateSource(source)
 	// A row whose skill list is unreadable falls back to none. Failing towards
 	// fewer attachments is the safe direction.
 	if err := json.Unmarshal([]byte(skills), &tp.Skills); err != nil || tp.Skills == nil {

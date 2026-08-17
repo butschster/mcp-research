@@ -161,8 +161,10 @@ appears when empty, and neither failure ever fails the creation.
 before the person has said what they are deciding anchors them to it. And nothing
 re-reads the body later: it steers the research only through the structure you
 design and the skills it attached. **You cannot write, fork or delete a
-template** — those are REST acts, like share links and skill management, and
-there is no web UI for them yet. [Templates](/llms/templates.md),
+template** — those are REST acts, like share links and skill management. The web
+UI reads them and never writes one: point a person at `/templates` to see what is
+available and `/templates/{id}` to read a body, not to edit one.
+[Templates](/llms/templates.md),
 [Domain Guide → Template](/llms/domain-guide.md#template).
 
 ## Skills: An Index You Are Given, A Body You Ask For

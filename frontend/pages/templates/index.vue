@@ -11,7 +11,13 @@
       the agent picks one at kickoff and follows it.
     </p>
 
-    <div v-if="pending" class="skeleton-card" style="height: 320px"></div>
+    <div v-if="pending" class="skeleton-groups">
+      <!-- One box per group the page is about to draw. A single 320px card for a
+           list that lands at four times that height made the whole page jump the
+           moment the data arrived. -->
+      <div class="skeleton-card skeleton-group"></div>
+      <div class="skeleton-card skeleton-group"></div>
+    </div>
 
     <EmptyState
       v-else-if="error"
@@ -39,22 +45,36 @@
           :team-name="teamName"
           heading="Your teams"
           :note="teamTemplates.length"
-          blurb="Written by a team you belong to, and theirs alone. A copy of a shipped methodology replaces the original everywhere that team looks."
+          blurb="Written by a team you belong to, and theirs alone. A copy of a global methodology replaces the original everywhere that team looks."
         />
       </div>
 
-      <div class="card">
+      <div v-if="houseTemplates.length" class="card">
         <TemplateRowList
-          :templates="globalTemplates"
-          heading="Ships with the app"
-          :note="globalTemplates.length"
-          blurb="Written by us and updated with the binary. Editing one makes a copy for your team; the original stays as it is for everybody else."
-          empty-text="None loaded. That is a fault on the server rather than a setting — the app ships with four."
+          :templates="houseTemplates"
+          heading="Added on this server"
+          :note="houseTemplates.length"
+          blurb="Written here by whoever runs this server, and visible to every team on it. Not part of the app, so an upgrade will not change them."
         />
       </div>
 
-      <p v-if="filter && !globalTemplates.length && !teamTemplates.length" class="no-match">
-        Nothing matches “{{ filter }}”.
+      <!-- Hidden while filtering, unlike the other two, which are hidden whenever
+           they are empty. Its empty text says the server is at fault, and a filter
+           that simply matches nothing here is not a fault — it used to print the
+           accusation directly above a healthy list of somebody's team templates. -->
+      <div v-if="!filter || shippedTemplates.length" class="card">
+        <TemplateRowList
+          :templates="shippedTemplates"
+          heading="Ships with the app"
+          :note="shippedTemplates.length"
+          blurb="Written by us and updated with the binary. Editing one makes a copy for your team; the original stays as it is for everybody else."
+          empty-text="None loaded. That is a fault on the server rather than a setting — the app ships with several."
+        />
+      </div>
+
+      <p v-if="filter" class="no-match" aria-live="polite">
+        <template v-if="matching.length">{{ matching.length }} of {{ all.length }} shown.</template>
+        <template v-else>Nothing matches “{{ filter }}”.</template>
       </p>
 
       <div class="card">
@@ -67,6 +87,10 @@
           text="Start a new research. Check template_list first and follow the methodology that fits."
           label="Paste this into your AI client"
         />
+        <p class="footnote">
+          Your team can write its own, and whoever runs this server can add one that every team
+          here sees. Both are written through the API — see <code>/llms/templates.md</code>.
+        </p>
       </div>
     </template>
   </div>
@@ -90,7 +114,14 @@ const matching = computed(() => {
 })
 
 const teamTemplates = computed(() => matching.value.filter(tp => tp.tier === 'team'))
+
+/* The global tier holds two different things and a reader needs them apart: what
+   we ship is rewritten on every upgrade and can only be forked, while what the
+   operator added here was written by somebody they can go and ask. Grouping them
+   together made the second look like an app feature. */
 const globalTemplates = computed(() => matching.value.filter(tp => tp.tier !== 'team'))
+const houseTemplates = computed(() => globalTemplates.value.filter(tp => tp.source === 'user'))
+const shippedTemplates = computed(() => globalTemplates.value.filter(tp => tp.source !== 'user'))
 
 const { teams } = useTeams()
 function teamName(id: string) {
@@ -122,4 +153,14 @@ function reload() {
   color: var(--color-text-muted);
   margin-top: var(--space-5);
 }
+
+.footnote {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  max-width: var(--measure-prose);
+  margin-top: var(--space-4);
+}
+
+.skeleton-groups { display: flex; flex-direction: column; gap: var(--space-6); }
+.skeleton-group { height: 22rem; }
 </style>

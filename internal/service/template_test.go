@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 )
@@ -553,5 +554,359 @@ func TestTemplate_ValidationRefusesWhatCannotBeMatchedOn(t *testing.T) {
 		Body:      "тело",
 	}); err != nil {
 		t.Errorf("a Cyrillic matching line within the rune cap was refused: %v", err)
+	}
+}
+
+// --- The server-wide library -------------------------------------------------
+//
+// A global template is the one write no role grants. These cover the two ways it
+// can go wrong: somebody who is not the operator getting one in, and the boot
+// refresh eating one that is already there.
+
+// operatorCtx is what the HTTP layer produces once the instance api_token has
+// been proved. The user is still there when there is one: an operator is also a
+// person, and the row records who wrote it.
+func operatorCtx(ctx context.Context) context.Context {
+	return auth.WithOperator(ctx, auth.OperatorByToken)
+}
+
+func TestTemplate_OnlyTheOperatorWritesAServerWideTemplate(t *testing.T) {
+	k := newTemplateKit(t)
+	owner, _, _, _, _ := k.sharedResearch(t, domain.TeamEditor)
+	k.loaded(t)
+
+	// A team owner is the most privileged role in the product and still cannot
+	// do this — the refusal is not about rank.
+	if _, err := k.templates.CreateGlobal(owner, templateInput("Everyone's playbook")); !errors.Is(err, ErrTemplateOperatorRequired) {
+		t.Fatalf("team owner: want ErrTemplateOperatorRequired, got %v", err)
+	}
+
+	tp, err := k.templates.CreateGlobal(operatorCtx(owner), templateInput("Operator's playbook"))
+	if err != nil {
+		t.Fatalf("operator create: %v", err)
+	}
+	if tp.Tier != domain.TemplateGlobal {
+		t.Errorf("tier: want global, got %q", tp.Tier)
+	}
+	// The field the boot refresh reads. Marked builtin, an upgrade would
+	// overwrite this row with whatever shipped under the same slug.
+	if tp.Source != domain.TemplateSourceUser {
+		t.Errorf("source: want %q, got %q", domain.TemplateSourceUser, tp.Source)
+	}
+
+	// Global means global: somebody in no shared team sees it.
+	stranger := userCtx(createTestUser(t, k.db, "stranger-global@test.com", "Stranger"))
+	if _, err := k.team.Create(stranger, "Their team"); err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	list, err := k.templates.List(stranger)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var seen bool
+	for _, row := range list {
+		if row.Slug == tp.Slug {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Error("a global template was invisible to a user outside the team that wrote it")
+	}
+}
+
+// The upgrade hazard this whole source split exists for.
+func TestTemplate_TheBootRefreshLeavesTheOperatorsTemplateAlone(t *testing.T) {
+	k := newTemplateKit(t)
+	ctx := context.Background()
+	k.loaded(t)
+
+	tp, err := k.templates.CreateGlobal(operatorCtx(ctx), TemplateInput{
+		Name:      "House methodology",
+		WhenToUse: "Use when this instance says so.",
+		Body:      "## Before you propose anything\n\nOurs, not theirs.",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	for i := 0; i < 3; i++ {
+		if _, err := k.templates.LoadBuiltinTemplates(ctx); err != nil {
+			t.Fatalf("boot %d: %v", i, err)
+		}
+	}
+
+	after, err := k.templates.Get(operatorCtx(ctx), tp.ID)
+	if err != nil {
+		t.Fatalf("after three boots: %v", err)
+	}
+	if !strings.Contains(after.Body, "Ours, not theirs") {
+		t.Fatal("the boot refresh overwrote a template it did not write")
+	}
+	// Version too: a research stamps the version it followed, so a bump that
+	// nobody asked for reads as "the methodology was rewritten".
+	if after.Version != tp.Version {
+		t.Errorf("version moved without an edit: %d then %d", tp.Version, after.Version)
+	}
+}
+
+// The reverse collision: the operator takes a slug, and a later release ships a
+// methodology under the same one. Ours must lose, loudly.
+func TestTemplate_AShippedSlugCannotDisplaceTheOperatorsTemplate(t *testing.T) {
+	k := newTemplateKit(t)
+	ctx := context.Background()
+	if _, err := k.skills.LoadBuiltinSkills(ctx); err != nil {
+		t.Fatalf("skills: %v", err)
+	}
+	// Named so it slugifies onto one we ship — the situation an operator lands
+	// in by accident, months before the release that causes it.
+	mine, err := k.templates.CreateGlobal(operatorCtx(ctx), TemplateInput{
+		Name:      "Literature review",
+		WhenToUse: "Use when this instance says so.",
+		Body:      "## Before you propose anything\n\nMine.",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if mine.Slug != "literature-review" {
+		t.Fatalf("the test needs the shipped slug, got %q", mine.Slug)
+	}
+
+	n, err := k.templates.LoadBuiltinTemplates(ctx)
+	if err == nil {
+		t.Fatal("a name clash with an operator's template loaded without complaint")
+	}
+	if n == 0 {
+		t.Fatal("one clash removed every other methodology")
+	}
+	after, err := k.templates.Get(operatorCtx(ctx), mine.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if !strings.Contains(after.Body, "Mine") {
+		t.Fatal("the boot refresh replaced the operator's template with ours")
+	}
+	// And the slug still belongs to them, so nothing offers two.
+	if _, err := k.templates.CreateGlobal(operatorCtx(ctx), TemplateInput{
+		Name: "Literature review", WhenToUse: "Again.", Body: "twice",
+	}); !errors.Is(err, ErrTemplateSlugTaken) {
+		t.Errorf("second global with the same slug: want ErrTemplateSlugTaken, got %v", err)
+	}
+}
+
+// Editing splits three ways, and the middle case is the new one.
+func TestTemplate_WhatShipsIsUneditableEvenByTheOperator(t *testing.T) {
+	k := newTemplateKit(t)
+	ctx := context.Background()
+	k.loaded(t)
+
+	shipped, err := k.repo.FindGlobalBySlug(ctx, "technology-comparison")
+	if err != nil || shipped == nil {
+		t.Fatalf("missing: %v", err)
+	}
+	// Not a privilege the operator lacks: the next boot rewrites this row from
+	// the binary, so permitting the edit would be permitting it to vanish.
+	if _, err := k.templates.Update(operatorCtx(ctx), shipped.ID, templateInput("Rewritten")); !errors.Is(err, ErrTemplateGlobalWrite) {
+		t.Errorf("update a shipped template: want ErrTemplateGlobalWrite, got %v", err)
+	}
+	if err := k.templates.Delete(operatorCtx(ctx), shipped.ID); !errors.Is(err, ErrTemplateGlobalWrite) {
+		t.Errorf("delete a shipped template: want ErrTemplateGlobalWrite, got %v", err)
+	}
+
+	mine, err := k.templates.CreateGlobal(operatorCtx(ctx), templateInput("House rules"))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// Their own is editable — and only by them.
+	owner, _, _, _, _ := k.sharedResearch(t, domain.TeamEditor)
+	if _, err := k.templates.Update(owner, mine.ID, templateInput("Not yours")); !errors.Is(err, ErrTemplateOperatorRequired) {
+		t.Errorf("a team owner edited a global: got %v", err)
+	}
+	if err := k.templates.Delete(owner, mine.ID); !errors.Is(err, ErrTemplateOperatorRequired) {
+		t.Errorf("a team owner deleted a global: got %v", err)
+	}
+	if _, err := k.templates.Update(operatorCtx(ctx), mine.ID, TemplateInput{
+		Name: "House rules", WhenToUse: "Use when.", Body: "## Rewritten\n\nBy the operator.",
+	}); err != nil {
+		t.Fatalf("the operator could not edit their own global: %v", err)
+	}
+	if err := k.templates.Delete(operatorCtx(ctx), mine.ID); err != nil {
+		t.Fatalf("the operator could not delete their own global: %v", err)
+	}
+}
+
+// A team can still fork what the operator publishes — the whole point of a
+// server-wide methodology is that teams start from it.
+func TestTemplate_ATeamCanForkTheOperatorsTemplate(t *testing.T) {
+	k := newTemplateKit(t)
+	owner, _, _, _, teamID := k.sharedResearch(t, domain.TeamEditor)
+	k.loaded(t)
+
+	if _, err := k.templates.CreateGlobal(operatorCtx(context.Background()), TemplateInput{
+		Name:      "House methodology",
+		WhenToUse: "Use when this instance says so.",
+		Body:      "## Before you propose anything\n\nThe house version.",
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	forked, err := k.templates.Fork(owner, teamID, "house-methodology", TemplateInput{
+		Body: "## Before you propose anything\n\nOur version.",
+	})
+	if err != nil {
+		t.Fatalf("fork: %v", err)
+	}
+	if forked.Tier != domain.TemplateTeam || forked.ForkedFrom != "house-methodology" {
+		t.Errorf("fork lost its parentage: tier %q, forked_from %q", forked.Tier, forked.ForkedFrom)
+	}
+	// A fork is the team's own from then on, whoever wrote the parent.
+	if forked.Source != domain.TemplateSourceUser {
+		t.Errorf("fork source: want %q, got %q", domain.TemplateSourceUser, forked.Source)
+	}
+	got, err := k.templates.Get(owner, "house-methodology")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if !strings.Contains(got.Body, "Our version") {
+		t.Error("the slug still resolves to the operator's body inside the team that forked it")
+	}
+}
+
+// A share visitor is never the operator, and a template is never in a share.
+func TestTemplate_AShareCannotReachTheGlobalLibrary(t *testing.T) {
+	k := newTemplateKit(t)
+	k.loaded(t)
+
+	visitor := auth.WithShare(context.Background(), &auth.Share{ID: "sh1", ResearchID: "whatever"})
+	if _, err := k.templates.CreateGlobal(visitor, templateInput("Visitor's")); err == nil {
+		t.Fatal("a share visitor wrote a server-wide template")
+	}
+	if _, err := k.templates.CreateGlobal(auth.WithOperator(visitor, auth.OperatorByToken), templateInput("Visitor's")); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a share carrying the marker: want ErrNotFound, got %v", err)
+	}
+}
+
+// The api_token proves who runs the server. It must not become a way to read
+// every team's private methodology through the API.
+func TestTemplate_TheOperatorTokenReadsGlobalsAndNotTeamLibraries(t *testing.T) {
+	k := newTemplateKit(t)
+	owner, _, _, _, teamID := k.sharedResearch(t, domain.TeamEditor)
+	k.loaded(t)
+
+	theirs, err := k.templates.CreateTeam(owner, teamID, templateInput("Their private playbook"))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	mine, err := k.templates.CreateGlobal(operatorCtx(context.Background()), templateInput("House methodology"))
+	if err != nil {
+		t.Fatalf("create global: %v", err)
+	}
+
+	opCtx := operatorCtx(context.Background())
+	list, err := k.templates.List(opCtx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var sawTheirs, sawMine bool
+	for _, row := range list {
+		switch row.ID {
+		case theirs.ID:
+			sawTheirs = true
+		case mine.ID:
+			sawMine = true
+		}
+	}
+	if sawTheirs {
+		t.Error("the api_token listed a team's own template")
+	}
+	if !sawMine {
+		t.Error("the operator cannot see the global they wrote — there is then no way to get its id")
+	}
+	// By id either, which is the usual way a scope gets bypassed.
+	if _, err := k.templates.Get(opCtx, theirs.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("get a team template by id as the operator: want ErrNotFound, got %v", err)
+	}
+	if _, err := k.templates.Get(opCtx, mine.ID); err != nil {
+		t.Errorf("the operator cannot read their own global: %v", err)
+	}
+}
+
+// Local mode is the other operator, and it must keep the visibility it had.
+func TestTemplate_LocalModeStillSeesEverything(t *testing.T) {
+	k := newTemplateKit(t)
+	owner, _, _, _, teamID := k.sharedResearch(t, domain.TeamEditor)
+	k.loaded(t)
+
+	theirs, err := k.templates.CreateTeam(owner, teamID, templateInput("A local team's"))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// No user in the context and no token presented: `auth_enabled: false`.
+	local := auth.WithOperator(context.Background(), auth.OperatorNoBoundary)
+	list, err := k.templates.List(local)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var seen bool
+	for _, row := range list {
+		if row.ID == theirs.ID {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Error("local mode stopped seeing a template written on the same instance")
+	}
+	// And it can still write a global, which is what the marker is for there.
+	if _, err := k.templates.CreateGlobal(local, templateInput("Local global")); err != nil {
+		t.Errorf("local mode cannot write a global: %v", err)
+	}
+}
+
+// The hole the read-side test missed, because it used a context shape the HTTP
+// layer never produces.
+//
+// `wrapOperator` recognises the api_token *before* user authentication, so the
+// context it builds has the operator marker and **no user at all**. `teamCheck`
+// reads an empty user id as "local mode, nobody to check" — a rule written when
+// nothing else could produce that shape — and returned nil. The token could edit
+// and delete any team's private methodology on an auth-enabled instance, and
+// because an empty Update body inherits every field from the stored row and
+// returns it, the edit was a read as well.
+func TestTemplate_TheOperatorTokenCannotTouchATeamTemplate(t *testing.T) {
+	k := newTemplateKit(t)
+	owner, _, _, _, teamID := k.sharedResearch(t, domain.TeamEditor)
+	k.loaded(t)
+
+	theirs, err := k.templates.CreateTeam(owner, teamID, TemplateInput{
+		Name:      "Their private playbook",
+		WhenToUse: "Use when this team does the thing this team does.",
+		Body:      "## Before you propose anything\n\nTheirs, and nobody else's.",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Exactly what the HTTP layer builds: the marker, and nobody.
+	token := operatorCtx(context.Background())
+
+	// ErrNotFound and not ErrForbidden — the token proves no membership, and a
+	// 403 would make this an existence oracle for team template ids.
+	if _, err := k.templates.Update(token, theirs.ID, templateInput("Mine now")); !errors.Is(err, ErrNotFound) {
+		t.Errorf("update a team template with the api_token: want ErrNotFound, got %v", err)
+	}
+	if err := k.templates.Delete(token, theirs.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("delete a team template with the api_token: want ErrNotFound, got %v", err)
+	}
+	// An empty body was the read primitive: inheritTemplate refills every field
+	// from the row and Update returns it.
+	if _, err := k.templates.Update(token, theirs.ID, TemplateInput{}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("empty-body update as a read: want ErrNotFound, got %v", err)
+	}
+	// And it survived.
+	after, err := k.templates.Get(owner, theirs.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if !strings.Contains(after.Body, "nobody else's") || after.Version != theirs.Version {
+		t.Errorf("the team's template was changed: v%d, body %q", after.Version, after.Body)
 	}
 }

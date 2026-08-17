@@ -20,7 +20,7 @@ research_create(..., template_slug: "technology-comparison")
 ```
 
 `template_list` takes **no arguments** — send `{}`. It never carries a body:
-four methodologies arriving in a kickoff that needs one is the cost this feature
+seven methodologies arriving in a kickoff that needs one is the cost this feature
 exists to avoid. `template_get` takes the slug you read there (an id works too,
 but you will not have one) and is the only call that returns a body.
 
@@ -57,7 +57,7 @@ research created over REST carries no provenance and no attached skills.
 
 ## What ships
 
-Four, refreshed from the binary at every boot.
+Seven, refreshed from the binary at every boot.
 
 | Slug | Ends in | Skills it attaches |
 |---|---|---|
@@ -65,9 +65,12 @@ Four, refreshed from the binary at every boot.
 | `competitive-landscape` | a recommendation with the two facts that would reverse it | `evidence-grading` |
 | `user-interview-study` | findings traceable to what real people said | `structured-interviewing`, `evidence-grading` |
 | `literature-review` | conclusions a reader could check, including what was excluded | `evidence-grading` |
+| `financial-position` | actions with an owner, a date and a cash effect that reach a stated target | `evidence-grading` |
+| `audience-definition` | one segment served first, at least two declined with the reason, and a trigger somebody could detect | `structured-interviewing`, `evidence-grading` |
+| `monetisation-readiness` | a metric, what stays free, a price per package, and three real accounts' new bills | `evidence-grading` |
 
-Each carries a correction to the obvious version of itself. A few worth knowing,
-because they are the difference between the template and a section list:
+Each carries a correction to the obvious version of itself. They are the
+difference between the template and a section list:
 
 - **Comparison:** criteria are fixed and weighted *before* candidates are named,
   or they get retrofitted around a favourite. "Keep what we have" is candidate
@@ -79,17 +82,48 @@ because they are the difference between the template and a section list:
   finding carries a verbatim quote and a participant id.
 - **Literature review:** what was excluded and why is the load-bearing artifact.
   A list of what you kept is unfalsifiable.
+- **Financial position:** never analyse an average while the underlying rows
+  exist — a 41% blended margin is work at 60% plus work that lost money, and only
+  the second is actionable. Dropping the loss-making customers shrinks the
+  business unless the costs leave with them.
+- **Audience:** a segment is a **trigger, not a type** — the event that puts
+  somebody into it, not what they are. And you will find the segment your
+  recruiting channel contains, so write down where every person came from before
+  believing one.
+- **Monetisation:** the billing metric is decided first, and it is not the
+  easiest thing to meter. A price set too low never announces itself — too high
+  produces objections and churn, too low produces cheerful customers and a
+  company that dies slowly.
 
-## Two tiers
+## Two tiers, and two kinds of global
 
-| Tier | Owner | Lifecycle |
-|---|---|---|
-| `global` | nobody | ships with the binary, refreshed at boot; editing one forks a team copy |
-| `team` | a team | written by that team, theirs alone |
+| Tier | `source` | Owner | Lifecycle |
+|---|---|---|---|
+| `global` | `builtin` | nobody | ships with the binary, refreshed at boot; **editable by no one**, including the operator — the next boot would undo the edit. Fork it |
+| `global` | `user` | the operator of the instance | written through `POST /api/templates`, never touched by the refresh, edited and deleted by the operator |
+| `team` | `user` | a team | written by that team, theirs alone |
 
-There is no third. A team cannot publish its own template server-wide: a template
-body steers a model, and lending one team's instructions to another team's
-kickoff needs a trust story this product does not have.
+**A team still cannot publish server-wide.** That refusal has not moved: a
+template body steers a model, and lending one team's instructions to another
+team's kickoff needs a trust story this product does not have. What exists is
+narrower — whoever *runs* the server can add to the shipped set without shipping
+a new binary, and they are outside that argument because they already own the
+binary and the database.
+
+The credential is the `api_token` from the config, and it is the only one that
+works. Not a role: no role in this product grants it, a team `owner` is refused
+with `operator_required`, and nobody can be promoted into it. With neither
+`api_token` nor `auth_enabled` there is no boundary to prove anything across and
+every caller is treated as the operator, exactly as every other write is in that
+mode.
+
+`source` is what keeps the two apart at boot, and it is load-bearing rather than
+informational. The refresh matches on **slug *and* `source='builtin'`**, so a
+global template written here is invisible to it; had it matched on the tier
+alone, the first release shipping a file under the same slug would have
+overwritten the operator's text with ours. As it is, the insert collides with the
+unique index instead, that one file is reported as a problem and skipped, the
+rest still load, and the operator's row survives untouched.
 
 A team's fork keeps its parent's slug — it is the same methodology, edited — and
 shadows the global one in every list that team sees, so the same slug is never
@@ -98,10 +132,22 @@ teams' libraries first and falls back to the global set, which is why forking ha
 any effect at all. What you can see is taken from your own memberships, never
 from anything you send, so a slug can never resolve into a team you are not in.
 With `auth_enabled: false` there is no caller to scope to and every template on
-the instance is visible. Writing one in that mode needs a team id, and
-`GET /api/teams` refuses without a signed-in user — so use the id the local
-instance actually uses: **`team-local`**. `POST /api/teams/team-local/templates`
-works and the template lands in the team tier, not the global one.
+the instance is visible. Writing a **team** one in that mode still needs a team
+id, and `GET /api/teams` refuses without a signed-in user — so use the id the
+local instance actually uses: **`team-local`**.
+`POST /api/teams/team-local/templates` works and the template lands in the team
+tier, not the global one. `POST /api/templates` works too and needs no
+credential there, because with no `api_token` either there is no boundary to
+prove anything across.
+
+With accounts on, the **operator's own view is narrower, not wider**. A caller
+presenting the `api_token` to `GET /api/templates` or `GET /api/templates/{slug}`
+sees the global tier and nothing else — a team's template is `404` even by id.
+The token proves who runs the server, never membership of a team, and it must not
+become a way to read every team's private methodologies. It is still enough for
+what it exists for: holding the id of a global, to edit or delete it. (The read
+routes are otherwise unchanged, so on an instance with no accounts everyone,
+operator included, still sees everything on it.)
 
 ## Writing one
 
@@ -121,9 +167,13 @@ structure to propose, the working rules, and when it is done.
 **`skills`** names the methodology [skills](/llms/skills.md) a research started
 this way should follow. Slugs only, resolved as the owning team's copy if there
 is one and the built-in otherwise. A *built-in* template naming a skill that does
-not exist fails the boot rather than quietly shipping broken; a team template is
-not checked that way, so a slug that resolves to nothing comes back on a single
-read as `skills_resolved[].missing` rather than being dropped from the list.
+not exist is **refused at boot** — that one file does not load, the rest do, and
+every problem in the set is logged together; the server still starts, so a
+missing methodology is a thing to look for in the startup log rather than a
+crash. A template written here is not checked that way: neither a team's nor a
+global one is refused for it. A slug that resolves to nothing comes back from the
+write as a `warnings` entry, and on a single read as `skills_resolved[].missing`
+rather than being dropped from the list.
 
 **`name` is required and derives the slug**; `description` is one line for a
 picker and is optional. An edit that restates only some fields inherits the rest
@@ -161,32 +211,48 @@ teach.
 
 | Method | Path | Does |
 |---|---|---|
-| `GET` | `/api/templates` | the global set plus your teams', forks shadowing their parents, **no bodies**. `{data: [...]}`, each with derived `research_count` and `body_words` |
-| `GET` | `/api/templates/{slug}` | one, **with its body**. The path value is tried as an **id first, then as a slug** — an id is not a way past team scoping, so a template of a team you are not in is `404` either way. Also carries `skills_resolved` |
+| `GET` | `/api/templates` | the global set plus your teams', forks shadowing their parents, **no bodies**. `{data: [...]}`, each with `source` and derived `research_count` and `body_words`. Called with the `api_token` it returns the global tier alone |
+| `GET` | `/api/templates/{slug}` | one, **with its body**. The path value is tried as an **id first, then as a slug** — an id is not a way past team scoping, so a template of a team you are not in is `404` either way. Also carries `skills_resolved`. Accepts the `api_token`, and then only a global one resolves |
+| `POST` | `/api/templates` | write a **global** one, visible to every team on the instance. **Operator only** — `Authorization: Bearer <api_token>`. A signed-in caller who is not the operator gets `403 operator_required`; no credential at all is the ordinary `401`. Takes no `team_id` — sending one is a `400` on that field rather than a global template somebody meant to write for their team. `201 {data}`, with `warnings` when it names a skill that resolves to nothing |
 | `GET` | `/api/teams/{id}/templates` | that team's own library, without the global set mixed in |
-| `POST` | `/api/teams/{id}/templates` | write one for a team. `201 {data}` |
-| `POST` | `/api/templates/{slug}/fork` | copy a **global** into a team and apply the edit; `team_id` goes in the body. `200 {data, forked: true}` — follow the slug to the new row. A slug that is not a global one is `404` |
-| `PUT` | `/api/templates/{templateId}` | edit a team template in place; bumps `version`. A global one is `not_allowed` — editing what ships is the fork route |
-| `DELETE` | `/api/templates/{templateId}` | delete a team template. `204`. A global one is `not_allowed` |
+| `POST` | `/api/teams/{id}/templates` | write one for a team. `201 {data}`, with the same `warnings` when it names a skill that resolves to nothing |
+| `POST` | `/api/templates/{slug}/fork` | copy a **global** into a team and apply the edit; `team_id` goes in the body. `200 {data, forked: true}` — follow the slug to the new row. Works on an operator-written global as well as a shipped one. A slug that is not a global one is `404` |
+| `PUT` | `/api/templates/{templateId}` | edit in place; bumps `version`. A team template needs `editor` in that team; a global one needs the `api_token`. One that **ships with the app** is `not_allowed` for everybody — editing what ships is the fork route |
+| `DELETE` | `/api/templates/{templateId}` | delete. `204`. Same three cases as `PUT` |
 | `GET` | `/api/researches/{id}/templates/draft` | the skeleton above. `{id}` accepts a research short code |
 
 Read by slug, write by id — the same split skills use, because a fork keeps its
 parent's slug and a slug is therefore an address only within one caller's scope.
 
-Every write asks the owning **team** for `editor` or better, since there is no
-research to ask about: a non-member gets `404`, a member who is only a `viewer`
-gets `403`. With `auth_enabled: false` there is nobody to check and every route
-is permitted.
+A write to a **team's** template asks that team for `editor` or better, since
+there is no research to ask about: a non-member gets `404`, a member who is only
+a `viewer` gets `403`. A write to a **global** one asks for the `api_token`
+instead — no team is consulted, because the operator is in nobody's member list.
+Fork is the exception that reads one and writes the other: it needs `editor` in
+the team named by `team_id`, so with accounts on the `api_token` is not a
+credential for it and gets the ordinary `401`. With `auth_enabled: false` there
+is nobody to check and every route is permitted.
 
 | `code` | Status | Means |
 |---|---|---|
-| `slug_taken` | 409 | a template of that name already exists in the same tier — including forking a global twice into one team |
-| `not_allowed` | 403 | writing to or deleting a template that ships with the app |
+| `slug_taken` | 409 | a template of that name already exists in the same tier — including forking a global twice into one team, and a global name already taken by one we ship |
+| `not_allowed` | 403 | writing to or deleting a template that ships with the app. **Fork it instead** |
+| `operator_required` | 403 | writing to the server-wide library without the instance `api_token`. There is no role that would fix this — create it in a team, or authenticate as the operator |
+
+The two 403s are deliberately different codes. `not_allowed` means *fork it*;
+`operator_required` means *you are not the person who may do this at all*, and a
+client that cannot tell them apart offers the wrong next step.
 
 Validation failures are `400` and carry a `field`: `name` (empty), `body` (empty,
 or over 24000 runes), `when_to_use` (empty, or either criterion over 240 runes —
 the error is reported against `when_to_use` even when `when_not_to_use` is the
-long one).
+long one), and `team_id` — required by fork, refused by `POST /api/templates`,
+which writes for the whole instance and would otherwise answer `201` with a
+server-wide template to somebody who plainly meant to write one for a team.
 
-There is **no web UI for templates yet.** Everything above is MCP and REST; do
-not send a user to a screen.
+The web UI is **read-only**. `/templates` lists every methodology the reader can
+see, grouped by where it came from — their teams', added on this server, ships
+with the app — and `/templates/{id}` shows one with its body and the skills it
+attaches. Nothing there writes, and no MCP tool does either: every create, fork,
+edit and delete above is REST. Send a person to `/templates` to read one; send
+them to a client or a terminal to write one.

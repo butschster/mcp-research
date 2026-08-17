@@ -10,7 +10,7 @@
       <div v-for="tp in templates" :key="tp.id" class="data-row template-row">
         <div class="row-head">
           <NuxtLink :to="`/templates/${tp.id}`" class="template-name">{{ tp.name }}</NuxtLink>
-          <TemplateOriginBadge :tier="tp.tier" :forked-from="tp.forked_from" :team-name="teamName?.(tp.team_id)" />
+          <TemplateOriginBadge :tier="tp.tier" :source="tp.source" :forked-from="tp.forked_from" :team-name="teamName?.(tp.team_id)" />
         </div>
 
         <TemplateCriteria :when-to-use="tp.when_to_use" :when-not-to-use="tp.when_not_to_use" dense />
@@ -18,7 +18,6 @@
         <p class="row-meta">
           <span>{{ tp.body_words }} words</span>
           <span v-if="tp.skills?.length"> · attaches {{ tp.skills.length }} skill{{ tp.skills.length === 1 ? '' : 's' }}</span>
-          <span v-if="tp.research_count"> · started {{ tp.research_count }} research{{ tp.research_count === 1 ? '' : 'es' }}</span>
         </p>
       </div>
     </div>

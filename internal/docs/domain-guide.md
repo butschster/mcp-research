@@ -497,7 +497,7 @@ A methodology document — how to run an interview, how to grade a source, how t
 
 **No short code.** A skill is never referenced from content, so there is no `[[…]]` form for one.
 
-**One MCP tool, `skill_load`.** The index — slug, name, tier, description, no bodies — rides in `research_get`, and only when the research follows at least one skill. Everything else (attach, detach, write, fork, copy, promote) is REST or the web UI: eleven routes under `/api/researches/{id}/skills…`, `/api/teams/{id}/skills` and `/api/skills/{skillId}`.
+**One MCP tool, `skill_load`.** The index — slug, name, tier, description, no bodies — rides in `research_get`, and only when the research follows at least one skill. Everything else (attach, detach, write, fork, copy, promote) is REST or the web UI: thirteen routes under `/api/researches/{id}/skills…`, `/api/teams/{id}/skills` and `/api/skills/{skillId}`.
 
 **A share link never exposes a skill** — not the index, not a body. Which methodology a team follows is working process, the same class as `instruction` and `memory`. There are no skills routes under `/api/shared/{token}/`, `SkillService.Load` refuses a share context before it resolves the slug, and the index is empty for one — so a route added later still fails closed.
 
@@ -515,6 +515,7 @@ A **kickoff methodology**, read once before a research exists. It carries no sec
 | `slug` | string | Derived from `name`. How a template is addressed at kickoff, and what `research_create` stamps |
 | `name` | string | Required |
 | `tier` | enum | `global` / `team` — ownership, not precedence: exactly one template is chosen and then it is done |
+| `source` | enum | `builtin` / `user`. Splits the global tier: `builtin` ships in the binary and is rewritten at every boot, `user` was written on this instance and the refresh never touches it |
 | `description` | string | One line for a picker |
 | `when_to_use` | string | **Required.** What an agent matches on before it has read anything else. Max 240 characters (runes) |
 | `when_not_to_use` | string | Same cap. Knowing when a methodology is wrong is what stops it being applied to everything |
@@ -527,13 +528,13 @@ A **kickoff methodology**, read once before a research exists. It carries no sec
 | `body_words` | int | Size hint, derived at read time, never stored |
 | `version` | int | Bumped on every edit. What `research_create` stamps alongside the slug |
 
-**Two tiers, and there is no third.** `global` ships with the binary and is refreshed at every boot; `team` belongs to one team and is theirs alone. A team cannot publish a template server-wide: a body steers a model, and lending one team's instructions to another team's kickoff needs a trust story this product does not have.
+**Two tiers, and there is no third — but the global tier holds two kinds.** `team` belongs to one team and is theirs alone. `global` is visible to every team on the instance and is either `source: builtin`, shipped with the binary and refreshed at every boot, or `source: user`, added here through `POST /api/templates`. **A team still cannot publish server-wide**: a body steers a model, and lending one team's instructions to another team's kickoff needs a trust story this product does not have. Only the **operator** can, proved by the instance `api_token` — not a role, since no role grants it and a team `owner` is refused with `operator_required`.
 
-**Editing a global one forks it.** `PUT` on a global template is `not_allowed`; the fork route copies it into a team with the edit applied. The fork **keeps its parent's slug** — it is the same methodology, edited — and **shadows** the global in every list that team sees, so the same slug is never offered twice and resolution finds the team's copy first. Boot-time refresh only ever touches rows with no team, so an upgrade cannot overwrite what somebody edited.
+**Editing what ships forks it.** `PUT` on a `source: builtin` template is `not_allowed` for everybody, the operator included — the next boot would rewrite the row, so permitting the edit would be permitting it to vanish. The fork route copies it into a team with the edit applied. A `source: user` global *is* editable, by the operator alone. The fork **keeps its parent's slug** — it is the same methodology, edited — and **shadows** the global in every list that team sees, so the same slug is never offered twice and resolution finds the team's copy first. Boot-time refresh only ever touches rows with no team **and `source: builtin`**, so an upgrade can overwrite neither a team's fork nor a global the operator wrote — if a shipped file ever takes a slug the operator already used, that one file is reported as a problem and skipped while the rest still load.
 
-**Visibility is your memberships, never your request.** The list is the global set plus the libraries of the teams you belong to; a slug can never resolve into a team you are not in, and a lookup by id obeys the same rule rather than bypassing it. With `auth_enabled: false` there is nobody to scope to and everything on the instance is visible.
+**Visibility is your memberships, never your request.** The list is the global set plus the libraries of the teams you belong to; a slug can never resolve into a team you are not in, and a lookup by id obeys the same rule rather than bypassing it. With `auth_enabled: false` there is nobody to scope to and everything on the instance is visible. The **operator reads less, not more**: a caller holding the `api_token` sees the global tier alone on `GET /api/templates` and `GET /api/templates/{slug}`, because the token proves who runs the server and never membership of a team — enough to hold the id of a global and edit or delete it, and no route into anybody's private library.
 
-**Two MCP tools, `template_list` and `template_get`** — criteria for all, body for one. Everything else (write, fork, edit, delete, draft) is REST: eight routes under `/api/templates…`, `/api/teams/{id}/templates` and `/api/researches/{id}/templates/draft`. **There is no web UI for templates yet.**
+**Two MCP tools, `template_list` and `template_get`** — criteria for all, body for one. Everything else (write, fork, edit, delete, draft) is REST: nine routes under `/api/templates…`, `/api/teams/{id}/templates` and `/api/researches/{id}/templates/draft`. The web UI is **read-only**: `/templates` lists them grouped by origin and `/templates/{id}` shows one with its body. No MCP tool writes a template and no screen does either — every write is REST.
 
 **No short code.** A template is never referenced from content, so there is no `[[…]]` form for one; at kickoff it is addressed by slug and everywhere else by id.
 

@@ -15,6 +15,22 @@ const (
 	TemplateTeam TemplateTier = "team"
 )
 
+// TemplateSource splits the global tier in two, and the split is what stops an
+// upgrade eating somebody's work. Both kinds are global — visible to every team
+// on the instance, owned by no team — but only one of them is refreshed from the
+// binary at boot.
+type TemplateSource string
+
+const (
+	// TemplateSourceBuiltin ships in the binary. The boot-time loader owns this
+	// row: it rewrites the body on upgrade, and nothing else may edit it.
+	TemplateSourceBuiltin TemplateSource = "builtin"
+	// TemplateSourceUser was written on this instance — a team template, or a
+	// global one added by the operator through the API. The loader never
+	// touches it.
+	TemplateSourceUser TemplateSource = "user"
+)
+
 // Limits the service enforces. The two matching fields are capped because they
 // are what `template_list` returns to every kickoff — the body is not, so it is
 // allowed to be a real document.
@@ -49,14 +65,19 @@ type Template struct {
 	Slug   string       `json:"slug"`
 	Name   string       `json:"name"`
 	Tier   TemplateTier `json:"tier"`
+	// Source says whether this row came out of the binary or was written here.
+	// A client needs it because the two are different products to a reader: one
+	// is refreshed on upgrade and can only be forked, the other was written by
+	// somebody on this server and can be edited by whoever may edit it.
+	Source TemplateSource `json:"source"`
 	// Description is one line for a picker. WhenToUse and WhenNotToUse are what
 	// an agent actually matches on.
 	Description  string `json:"description"`
 	WhenToUse    string `json:"when_to_use"`
 	WhenNotToUse string `json:"when_not_to_use"`
 	// Body is omitted from every list response: it is the document, and
-	// shipping it in a list would put four methodologies into a kickoff that
-	// needs one.
+	// shipping it in a list would put every methodology on the instance into a
+	// kickoff that needs one.
 	Body string `json:"body,omitempty"`
 	// Skills are slugs attached to the research this template starts.
 	Skills []string `json:"skills"`

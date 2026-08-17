@@ -20,9 +20,14 @@ var (
 	ErrTemplateWhenEmpty     = errors.New("when_to_use is required: it is what an agent matches on before it has read anything else")
 	ErrTemplateCriterionLong = fmt.Errorf("when_to_use and when_not_to_use must be %d characters or fewer", domain.TemplateCriterionMax)
 	ErrTemplateBodyLong      = fmt.Errorf("body must be %d characters or fewer", domain.TemplateBodyMax)
-	ErrTemplateSlugTaken     = errors.New("a template with that name already exists here")
+	ErrTemplateSlugTaken     = errors.New("a template with that name already exists here: a name derives the slug, so pick a different name — and if the clash is with one that ships with the app, what you want is to fork it")
 	ErrTemplateGlobalWrite   = errors.New("templates that ship with the app cannot be changed; editing one makes a copy for your team")
-	ErrTemplateUnknownSkill  = errors.New("template names a skill that does not exist")
+	// ErrTemplateOperatorRequired is the refusal a team gets when it reaches for
+	// the server-wide library. Deliberately not ErrForbidden's generic text: the
+	// caller is not lacking a role they could be given, they are asking for
+	// something no role in this product grants.
+	ErrTemplateOperatorRequired = errors.New("only the operator of this server can write a template every team sees: authenticate with the instance api_token, or create it in a team")
+	ErrTemplateUnknownSkill     = errors.New("template names a skill that does not exist")
 	// ErrTemplateBuiltinLoad reports that some of what we ship did not load.
 	// Distinct from the unknown-skill case because a bad frontmatter line is
 	// not a missing skill, and a log line that says otherwise sends whoever
@@ -120,7 +125,21 @@ func (s *TemplateService) Get(ctx context.Context, idOrSlug string) (*domain.Tem
 	}
 	tp.Body = body
 	tp.SkillsResolved = s.resolveSkills(ctx, tp)
-	if n, err := s.templates.ResearchCount(ctx, scope, tp); err == nil {
+	countScope := scope
+	if auth.OperatorFromContext(ctx) == auth.OperatorByToken {
+		// The one thing the narrowed scope takes away that the operator actually
+		// needs. Their scope is empty, and ResearchCount short-circuits an empty
+		// scope to zero — so every global they wrote reported "used 0 times",
+		// which is indistinguishable from nobody using it and is the only
+		// feedback the feature offers them.
+		//
+		// Counting across every team is a widening, and a deliberate one: this is
+		// an aggregate over rows they already own, on a template that is theirs,
+		// and it names no team and no research. The content scoping above is
+		// untouched.
+		countScope = storage.TemplateScope{All: true}
+	}
+	if n, err := s.templates.ResearchCount(ctx, countScope, tp); err == nil {
 		tp.ResearchCount = n
 	}
 	return tp, nil
@@ -207,8 +226,69 @@ func (s *TemplateService) CreateTeam(ctx context.Context, teamID string, in Temp
 	return tp, nil
 }
 
-// Update edits a team template in place. A global one is refused here: editing
-// what we ship is a fork, and Fork is the method that does it.
+// CreateGlobal writes a methodology every team on this instance will see.
+//
+// The one write in the product that no role grants. Roles are team-scoped by
+// design and a team publishing server-wide was refused on purpose; what changed
+// is only that the *operator* — who already owns the binary and the database —
+// now has an API for it instead of having to ship a new build. The credential is
+// checked at the HTTP layer, but the decision is made here, so a second entry
+// point cannot arrive without one.
+func (s *TemplateService) CreateGlobal(ctx context.Context, in TemplateInput) (*domain.Template, error) {
+	if auth.ShareFromContext(ctx) != nil {
+		return nil, ErrNotFound
+	}
+	if !auth.IsOperator(ctx) {
+		return nil, ErrTemplateOperatorRequired
+	}
+	if err := s.validate(ctx, in); err != nil {
+		return nil, err
+	}
+	name := normalizeTitle(in.Name)
+	slug := Slugify(name)
+	// Empty team means the global tier, which is what the partial unique index
+	// covers — so this catches a clash with what we ship as well as with another
+	// operator-written one. Both are the same answer: pick a different name.
+	taken, err := s.templates.SlugTaken(ctx, "", slug)
+	if err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, ErrTemplateSlugTaken
+	}
+	tp := &domain.Template{
+		ID:   uuid.New().String(),
+		Slug: slug,
+		Name: name,
+		Tier: domain.TemplateGlobal,
+		// Written here, so the boot-time refresh must never touch it. This is
+		// the field that makes the difference, and getting it wrong loses the
+		// operator's text on the next upgrade rather than at the next request.
+		Source:       domain.TemplateSourceUser,
+		UserID:       auth.UserIDFromContext(ctx),
+		Description:  normalizeContent(in.Description),
+		WhenToUse:    normalizeContent(in.WhenToUse),
+		WhenNotToUse: normalizeContent(in.WhenNotToUse),
+		Body:         normalizeContent(in.Body),
+		Skills:       in.Skills,
+		Version:      1,
+	}
+	if tp.Skills == nil {
+		tp.Skills = []string{}
+	}
+	if err := s.templates.Create(ctx, tp); err != nil {
+		return nil, err
+	}
+	return tp, nil
+}
+
+// Update edits a template in place.
+//
+// Two refusals, and they are different refusals. What ships in the binary cannot
+// be edited by anyone — the next boot would overwrite the edit, so allowing it
+// would be a lie; Fork is the method that does what the caller meant. A global
+// template written on this instance can be edited, by the operator who wrote it
+// and by nobody else.
 func (s *TemplateService) Update(ctx context.Context, id string, in TemplateInput) (*domain.Template, error) {
 	tp, err := s.templates.FindByID(ctx, id)
 	if err != nil {
@@ -217,10 +297,7 @@ func (s *TemplateService) Update(ctx context.Context, id string, in TemplateInpu
 	if tp == nil {
 		return nil, ErrNotFound
 	}
-	if tp.Tier == domain.TemplateGlobal {
-		return nil, ErrTemplateGlobalWrite
-	}
-	if err := s.requireTeamWrite(ctx, tp.TeamID); err != nil {
+	if err := s.requireWritable(ctx, tp); err != nil {
 		return nil, err
 	}
 	// Omitted fields are inherited rather than blanked: an edit that restates
@@ -310,10 +387,7 @@ func (s *TemplateService) Delete(ctx context.Context, id string) error {
 	if tp == nil {
 		return ErrNotFound
 	}
-	if tp.Tier == domain.TemplateGlobal {
-		return ErrTemplateGlobalWrite
-	}
-	if err := s.requireTeamWrite(ctx, tp.TeamID); err != nil {
+	if err := s.requireWritable(ctx, tp); err != nil {
 		return err
 	}
 	if err := s.templates.Delete(ctx, id); err != nil {
@@ -469,6 +543,17 @@ func (s *TemplateService) validate(ctx context.Context, in TemplateInput) error 
 // memberships rather than from anything they send — so a slug can never resolve
 // into a team they are not in.
 func (s *TemplateService) callerScope(ctx context.Context) (storage.TemplateScope, error) {
+	if auth.OperatorFromContext(ctx) == auth.OperatorByToken {
+		// The api_token proves who runs the server. It proves no membership of
+		// any team, and it must not become a way to read every team's private
+		// methodologies through the API — so an empty scope, which resolves to
+		// the global tier and nothing else. That is exactly what the operator
+		// needs anyway: the id of a global, to edit or delete it.
+		//
+		// Checked before the no-caller rule below, for the same reason a share
+		// is: falling through would hand this token the whole instance.
+		return storage.TemplateScope{}, nil
+	}
 	uid := auth.UserIDFromContext(ctx)
 	if uid == "" {
 		// Local mode: there are no memberships to enumerate, so listing the
@@ -487,6 +572,54 @@ func (s *TemplateService) callerScope(ctx context.Context) (storage.TemplateScop
 		ids = append(ids, t.ID)
 	}
 	return storage.TemplateScope{TeamIDs: ids}, nil
+}
+
+// requireWritable is the one place that decides who may change an existing
+// template, so Update and Delete cannot drift apart — which is how a delete ends
+// up permitted where the matching edit is refused.
+//
+// Read it as three tiers rather than two: what ships in the binary (nobody), the
+// server-wide library (the operator), a team's own (that team's editors).
+func (s *TemplateService) requireWritable(ctx context.Context, tp *domain.Template) error {
+	// A share is refused first, everywhere, so the rule survives an entry point
+	// nobody has written yet. It is unreachable today — no template route is
+	// mounted under the share prefix — and that is exactly why it must not
+	// depend on staying unreachable.
+	if auth.ShareFromContext(ctx) != nil {
+		return ErrNotFound
+	}
+	if tp.Tier != domain.TemplateGlobal {
+		// The api_token gets no further, and the refusal is ErrNotFound rather
+		// than ErrForbidden.
+		//
+		// Two reasons, and the first is a hole this closes. `teamCheck` reads an
+		// empty user id as "local mode, nobody to check" — a rule written when
+		// nothing else in the product could produce a user-less context. The
+		// token now can, because it is recognised before user authentication, so
+		// falling through would have let it edit and delete any team's private
+		// methodology on an auth-enabled instance. The second: an empty `Update`
+		// body inherits every field from the stored row and returns it, so a 403
+		// here would have made PUT an existence oracle for team template ids as
+		// well as a way to change them.
+		//
+		// ErrNotFound is also simply the truth about what the token proves: who
+		// runs the server, and no membership of any team. It is the same answer
+		// the read side already gives, for the same reason.
+		if auth.OperatorFromContext(ctx) == auth.OperatorByToken {
+			return ErrNotFound
+		}
+		return s.requireTeamWrite(ctx, tp.TeamID)
+	}
+	if tp.Source == domain.TemplateSourceBuiltin {
+		// Not a permission the operator is missing — the next boot rewrites this
+		// row from the binary, so an edit here would be undone without anybody
+		// being told. Fork says so honestly.
+		return ErrTemplateGlobalWrite
+	}
+	if !auth.IsOperator(ctx) {
+		return ErrTemplateOperatorRequired
+	}
+	return nil
 }
 
 func (s *TemplateService) requireTeamRead(ctx context.Context, teamID string) error {

@@ -22,9 +22,14 @@ func RegisterTemplateList(srv *mcp.Server, templateSvc *service.TemplateService,
 			return errorResult(err.Error())
 		}
 
-		// Matching criteria only, never a body. Four methodologies arriving in
+		// Matching criteria only, never a body. Seven methodologies arriving in
 		// a kickoff that needs one is the cost this whole feature exists to
 		// avoid.
+		//
+		// `source` is not sent either. It matters to a human deciding whether to
+		// trust or edit a methodology, and not at all to the model choosing one:
+		// what it matches on is the two criteria lines, and who wrote the text
+		// does not change whether the text fits.
 		out := make([]map[string]any, 0, len(list))
 		for _, tp := range list {
 			out = append(out, map[string]any{

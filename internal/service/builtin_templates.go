@@ -78,14 +78,21 @@ func (s *TemplateService) LoadBuiltinTemplates(ctx context.Context) (int, error)
 			continue
 		}
 
-		existing, err := s.templates.FindGlobalBySlug(ctx, tp.Slug)
+		// Only a row this loader wrote. A global template the operator added
+		// through the API lives in the same tier under the same unique index,
+		// and matching on the tier alone would have overwritten their text with
+		// ours the first time a shipped file took the same slug. Now the insert
+		// collides instead, and the clash is reported rather than resolved
+		// silently in our favour.
+		existing, err := s.templates.FindBuiltinBySlug(ctx, tp.Slug)
 		if err != nil {
 			return n, err
 		}
 		if existing == nil {
 			tp.ID = uuid.New().String()
 			if err := s.templates.Create(ctx, tp); err != nil {
-				return n, fmt.Errorf("create builtin template %s: %w", tp.Slug, err)
+				problems = append(problems, fmt.Sprintf("%s: create: %v", e.Name(), err))
+				continue
 			}
 			n++
 			continue
@@ -114,7 +121,13 @@ func (s *TemplateService) LoadBuiltinTemplates(ctx context.Context) (int, error)
 		n++
 	}
 	if len(problems) > 0 {
-		return n, fmt.Errorf("%w (%d loaded): %s", ErrTemplateBuiltinLoad, n, strings.Join(problems, "; "))
+		// "n written", not "n loaded". They are different numbers and the
+		// difference is the whole message: an unchanged boot writes nothing and
+		// reported "(0 loaded)", which reads at three in the morning as a server
+		// with no methodologies at all when in fact every one of them is present
+		// and healthy.
+		return n, fmt.Errorf("%w (%d of %d written, the rest were already current): %s",
+			ErrTemplateBuiltinLoad, n, len(entries)-len(problems), strings.Join(problems, "; "))
 	}
 	return n, nil
 }
@@ -153,7 +166,13 @@ func parseBuiltinTemplate(raw string) (*domain.Template, error) {
 	head := text[4 : 4+end]
 	body := strings.TrimSpace(text[4+end+5:])
 
-	tp := &domain.Template{Tier: domain.TemplateGlobal, Version: 1, Body: body, Skills: []string{}}
+	tp := &domain.Template{
+		Tier:    domain.TemplateGlobal,
+		Source:  domain.TemplateSourceBuiltin,
+		Version: 1,
+		Body:    body,
+		Skills:  []string{},
+	}
 	for _, line := range strings.Split(head, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {

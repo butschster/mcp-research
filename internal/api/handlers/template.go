@@ -72,6 +72,38 @@ func (h *TemplateHandler) ListTeam(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": emptyTemplates(list)})
 }
 
+// CreateGlobal writes a methodology every team on this instance will see. It
+// answers 403 `operator_required` to anybody who has not proved the instance
+// api_token — see service.TemplateService.CreateGlobal for why that is the only
+// credential that works.
+func (h *TemplateHandler) CreateGlobal(w http.ResponseWriter, r *http.Request) {
+	var req templateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.TeamID != "" {
+		// Silently ignoring it would answer 201 with a *global* template to
+		// somebody who plainly meant to write one for a team — and a global is
+		// the one that everybody on the server then sees.
+		writeFieldError(w, "this route writes a template for the whole instance and takes no team_id; to write one for a team, POST to /api/teams/{id}/templates", "team_id")
+		return
+	}
+	tp, err := h.templates.CreateGlobal(r.Context(), req.input())
+	if err != nil {
+		writeTemplateError(w, err)
+		return
+	}
+	out := map[string]any{"data": tp}
+	// A global template naming a skill that does not exist is worse than a
+	// team's: it will be offered at every kickoff on the server, and the skill
+	// will be missing from all of them.
+	if warnings := h.templates.UnknownSkills(r.Context(), tp); len(warnings) > 0 {
+		out["warnings"] = warnings
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
 func (h *TemplateHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	var req templateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -129,7 +161,15 @@ func (h *TemplateHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeTemplateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": tp})
+	out := map[string]any{"data": tp}
+	// The same warning the create routes give. Leaving it off here meant the
+	// only path without a check was the correction path: somebody fixing a typo
+	// in a skill list got silence, and found out months later from
+	// `skills_unavailable` on somebody else's kickoff.
+	if warnings := h.templates.UnknownSkills(r.Context(), tp); len(warnings) > 0 {
+		out["warnings"] = warnings
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *TemplateHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -187,6 +227,11 @@ func writeTemplateError(w http.ResponseWriter, err error) {
 		writeCodedError(w, http.StatusConflict, err.Error(), "slug_taken")
 	case errors.Is(err, service.ErrTemplateGlobalWrite):
 		writeCodedError(w, http.StatusForbidden, err.Error(), "not_allowed")
+	case errors.Is(err, service.ErrTemplateOperatorRequired):
+		// A distinct code from `not_allowed`: that one means fork it instead,
+		// this one means you are not the person who may do it at all, and a
+		// client that cannot tell them apart offers the wrong next step.
+		writeCodedError(w, http.StatusForbidden, err.Error(), "operator_required")
 	case errors.Is(err, service.ErrTemplateNameEmpty):
 		writeFieldError(w, err.Error(), "name")
 	case errors.Is(err, service.ErrTemplateWhenEmpty), errors.Is(err, service.ErrTemplateCriterionLong):

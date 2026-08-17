@@ -20,6 +20,7 @@
       <div class="head-row">
         <TemplateOriginBadge
           :tier="template.tier"
+          :source="template.source"
           :forked-from="template.forked_from"
           :team-name="teamName(template.team_id)"
         />
@@ -28,6 +29,11 @@
           <template v-if="template.research_count"> · started {{ template.research_count }} research{{ template.research_count === 1 ? '' : 'es' }}</template>
         </span>
       </div>
+
+      <!-- The same sentence the badge carries in its title attribute. On the list
+           page each group's blurb says it; here nothing did, so a keyboard or
+           screen-reader user got the label and never the fact behind it. -->
+      <p class="origin-note">{{ originNote }}</p>
 
       <TemplateCriteria :when-to-use="template.when_to_use" :when-not-to-use="template.when_not_to_use" />
     </div>
@@ -91,6 +97,22 @@ const template = computed(() => data.value?.data)
    linking it would invent a relationship. Same reasoning as SkillDetail. */
 const rendered = computed(() => parseMarkdown(template.value?.body ?? ''))
 
+/* Where this methodology came from, in a sentence — which for a global one is
+   also the answer to "will an upgrade change it under me". */
+const originNote = computed(() => {
+  const tp = template.value
+  if (!tp) return ''
+  if (tp.tier !== 'team') {
+    return tp.source === 'user'
+      ? 'Added on this server by whoever runs it, and visible to every team here. It is not part of the app, so an upgrade will not change it.'
+      : 'Ships with the app and is refreshed from it on every upgrade. Editing it makes a copy for your team; the original stays as it is for everybody else.'
+  }
+  const owner = teamName(tp.team_id) || 'your team'
+  return tp.forked_from
+    ? `${owner}'s copy of “${tp.forked_from}”, edited. It replaces the original everywhere this team looks.`
+    : `Written by ${owner}, and theirs alone. No other team can see it.`
+})
+
 const { teams } = useTeams()
 function teamName(teamId: string) {
   return teams.value?.find((t: any) => t.id === teamId)?.name
@@ -98,6 +120,13 @@ function teamName(teamId: string) {
 </script>
 
 <style scoped>
+.origin-note {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  max-width: var(--measure-prose);
+  margin-top: var(--space-2);
+}
+
 .lead {
   font-size: var(--type-sm);
   color: var(--color-text-muted);

@@ -132,6 +132,73 @@ func NewServer(
 		return h
 	}
 
+	// wrapOperator serves the routes that can carry either kind of caller: a
+	// person editing their team's template, or whoever runs this server writing
+	// one every team will see.
+	//
+	// It has to be its own wrapper because the two credentials are checked by
+	// different code. `wrap` sends everything through requireAuth once
+	// auth_enabled is on, and requireAuth rejects the api_token — it is not a
+	// JWT and not an API key, so the operator would get a 401 on a route that
+	// exists for them. Here the api_token is recognised first and skips the user
+	// check entirely, which is correct: the operator is not a user, has no team
+	// and is in nobody's member list.
+	//
+	// It authorises nothing on its own. All it does is stamp the context; the
+	// refusals live in TemplateService, so a second entry point cannot arrive
+	// without one.
+	asOperator := func(kind auth.OperatorKind, h http.HandlerFunc) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h(w, r.WithContext(auth.WithOperator(r.Context(), kind)))
+		})
+	}
+	wrapOperator := func(h http.HandlerFunc) http.Handler {
+		byToken := markAuthor(asOperator(auth.OperatorByToken, h))
+		if requireAuth != nil {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if operatorCredential(cfg.APIToken, r) {
+					byToken.ServeHTTP(w, r)
+					return
+				}
+				// Not the operator: an ordinary authenticated caller, who may
+				// still edit their own team's templates.
+				markAuthor(requireAuth(http.HandlerFunc(h))).ServeHTTP(w, r)
+			})
+		}
+		if cfg.APIToken != "" {
+			return bearerAuth(cfg.APIToken)(byToken)
+		}
+		// Neither a token nor accounts: a local run, where every write is
+		// already unauthenticated and there is no boundary for the operator to
+		// prove themselves across. Refusing here would only mean the feature
+		// cannot be tried without first inventing a credential. A different
+		// kind, though — the token narrows what its holder can see, and doing
+		// that here would hide a local user's own team templates from them.
+		return markAuthor(asOperator(auth.OperatorNoBoundary, h))
+	}
+
+	// wrapReadOperator is the read side of the same story. Without it the
+	// operator could write a global template and never read one back:
+	// `wrapRead` sends everything through requireAuth, which rejects the
+	// api_token — so the only id they would ever hold is the one their own
+	// create call returned, and `PUT`/`DELETE` need an id.
+	//
+	// What they see is narrowed to the global tier by TemplateService, because
+	// the token proves who runs the server and not membership of any team.
+	wrapReadOperator := func(h http.HandlerFunc) http.Handler {
+		if requireAuth == nil {
+			return wrapRead(h)
+		}
+		byToken := asOperator(auth.OperatorByToken, h)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if operatorCredential(cfg.APIToken, r) {
+				byToken.ServeHTTP(w, r)
+				return
+			}
+			requireAuth(http.HandlerFunc(h)).ServeHTTP(w, r)
+		})
+	}
+
 	// wrapOptional attaches a session when the request carries one and lets it
 	// through when it does not. Only the invitation preview uses it: someone
 	// following a link has no account yet and still has to be told what they
@@ -326,16 +393,21 @@ func NewServer(
 	//
 	// Not on the shared sub-mux, for the same reason skills are not: a
 	// template body is a team's working process.
-	mux.Handle("GET /api/templates", wrapRead(tph.List))
-	mux.Handle("GET /api/templates/{slug}", wrapRead(tph.Get))
+	mux.Handle("GET /api/templates", wrapReadOperator(tph.List))
+	mux.Handle("GET /api/templates/{slug}", wrapReadOperator(tph.Get))
 	// Read by slug, write by id — the same split skills use, and for the same
 	// reason: a team's fork keeps its parent's slug, so a slug is an address
 	// only within one caller's scope. Fork is a POST because `PUT {slug}/fork`
 	// and `PUT {templateId}` are ambiguous to the router and neither is more
 	// specific, which it refuses to route at all.
+	// The server-wide library. `wrapOperator` on all three because a global
+	// template and a team's live at the same routes and are told apart by the
+	// row, not by the path — see the wrapper for why the api_token cannot go
+	// through `wrap`.
+	mux.Handle("POST /api/templates", wrapOperator(tph.CreateGlobal))
 	mux.Handle("POST /api/templates/{slug}/fork", wrap(tph.Fork))
-	mux.Handle("PUT /api/templates/{templateId}", wrap(tph.Update))
-	mux.Handle("DELETE /api/templates/{templateId}", wrap(tph.Delete))
+	mux.Handle("PUT /api/templates/{templateId}", wrapOperator(tph.Update))
+	mux.Handle("DELETE /api/templates/{templateId}", wrapOperator(tph.Delete))
 	mux.Handle("GET /api/teams/{id}/templates", wrapRead(tph.ListTeam))
 	mux.Handle("POST /api/teams/{id}/templates", wrap(tph.CreateTeam))
 	mux.Handle("GET /api/researches/{id}/templates/draft", wrapRead(tph.DraftFromResearch))
@@ -463,6 +535,24 @@ func extractBearerToken(r *http.Request) string {
 		return t
 	}
 	return ""
+}
+
+// operatorCredential answers whether this request carries the instance
+// api_token, and reads the **header only**.
+//
+// Deliberately not extractBearerToken, which also accepts `?token=` for SSE. The
+// api_token is the longest-lived and highest-privilege secret on the instance —
+// it comes out of the config file and nothing rotates it — and in a query string
+// it lands verbatim in the nginx access log (`deploy/nginx/mcp-research.conf`
+// logs `$request`), in browser history on the GET routes, and in the `Referer`
+// of any outbound link. `bearerAuth` has always read the header only; these two
+// wrappers are the same credential and must not be laxer than it.
+func operatorCredential(configured string, r *http.Request) bool {
+	if configured == "" {
+		return false
+	}
+	a := r.Header.Get("Authorization")
+	return len(a) > 7 && a[:7] == "Bearer " && a[7:] == configured
 }
 
 // bearerAuth returns middleware that validates Authorization: Bearer <token>.
