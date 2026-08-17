@@ -35,7 +35,12 @@
       <button v-if="authEnabled" class="btn btn-primary" @click="creating = true">+ New team</button>
     </EmptyState>
 
-    <TeamRowList v-else :teams="[...teams]" />
+    <!-- The list sits in a frame, like every other list in the product: the
+         rules then run to the card's edges and the text is inset by the row
+         rather than sitting four pixels off the page edge. -->
+    <div v-else class="card card--list">
+      <TeamRowList :teams="[...teams]" />
+    </div>
 
     <ModalOverlay :visible="creating" size="sm" labelledby="new-team-title" @close="closeCreate">
       <h3 id="new-team-title" class="modal-title">New team</h3>

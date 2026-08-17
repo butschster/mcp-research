@@ -39,7 +39,9 @@
         <NuxtLink v-if="researches.length" class="btn" :to="`/?team=${team.id}`">Open as a list</NuxtLink>
       </div>
 
-      <TeamResearchList v-if="researches.length" :researches="researches" />
+      <div v-if="researches.length" class="card card--list">
+        <TeamResearchList :researches="researches" />
+      </div>
 
       <!-- The owner's version names the thing nobody tells them: their existing
            researches did not come along. -->
@@ -96,7 +98,7 @@
       </EmptyState>
 
       <template v-else>
-        <div ref="memberListEl">
+        <div ref="memberListEl" class="card card--list">
           <TeamMemberList
             :members="filteredMembers"
             :my-user-id="user?.id || ''"
@@ -121,15 +123,16 @@
             Pending invites <span class="section-count">{{ invites.length }}</span>
           </h2>
         </div>
-        <TeamInviteList
-          v-if="invites.length"
-          :invites="invites"
-          :busy-id="busyInviteId"
-          :recoverable-links="recoverableLinks"
-          @revoke="askRevoke"
-          @show-link="showLink"
-          @reinvite="reinvite"
-        />
+        <div v-if="invites.length" class="card card--list">
+          <TeamInviteList
+            :invites="invites"
+            :busy-id="busyInviteId"
+            :recoverable-links="recoverableLinks"
+            @revoke="askRevoke"
+            @show-link="showLink"
+            @reinvite="reinvite"
+          />
+        </div>
         <!-- One muted line rather than nothing: an owner who revokes the last
              invitation used to watch the heading evaporate under the cursor. -->
         <p v-else class="list-note">Nobody is waiting on an invitation.</p>

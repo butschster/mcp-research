@@ -37,7 +37,7 @@
         </p>
       </div>
 
-      <div class="card">
+      <div class="card card--list">
         <div class="field-group">
           <EditableField
             label="Goal"
@@ -338,9 +338,24 @@ async function save(field: string, value: any) {
   max-width: var(--measure-prose);
   margin-bottom: var(--space-5);
 }
+/* The last thing in a card does not need a gap under it — the card's own
+   padding is that gap, and the two were adding up. */
+.card > .lead:last-child { margin-bottom: 0; }
 .footnote { margin-top: var(--space-5); margin-bottom: 0; font-size: var(--type-xs); }
 
 .card-section-title { margin-bottom: var(--space-2); }
+
+/* A stack of labelled fields, framed the way a list of rows is: the divider
+   belongs between two fields, never around the stack. The class carried no
+   rule at all before — it was in the markup and nowhere in any stylesheet — so
+   the fields ran together and the card's padding stacked with the field's own,
+   putting the text 40px from an edge with nothing marking where one field
+   ended and the next began.
+   Scoped rather than global: TaskDetailModal and RoadmapNodePopover already own
+   this name scoped, and a global one would shadow-clash with both — the exact
+   thing css-consistency counts. */
+.field-group { display: flex; flex-direction: column; }
+.field-group > :deep(* + *) { border-top: 1px solid var(--color-border); }
 .team-link { color: var(--color-primary); }
 
 .memory-row { display: flex; gap: var(--space-3); align-items: baseline; }
