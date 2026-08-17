@@ -126,33 +126,21 @@ func TestSkill_CapCountsChosenSkillsAndIgnoresAmbientOnes(t *testing.T) {
 		t.Fatalf("load builtins: %v", err)
 	}
 
-	// Every ambient product skill attaches, however many there are.
-	lib, err := k.skills.ListLibrary(owner, research.ID, "")
-	if err != nil {
-		t.Fatalf("library: %v", err)
-	}
-	var ambientAttached int
-	for _, sk := range lib {
-		if !sk.Ambient {
-			continue
-		}
-		if _, err := k.skills.Attach(owner, research.ID, sk.Slug, false); err != nil {
-			t.Fatalf("attach ambient %s: %v", sk.Slug, err)
-		}
-		ambientAttached++
-	}
-	if ambientAttached == 0 {
-		t.Fatal("no ambient skills in the library; this test proves nothing")
+	// The product skills are on without being attached, and there are several
+	// of them — enough to have eaten most of the budget if they counted.
+	onByDefault := len(k.skills.Index(owner, research.ID))
+	if onByDefault < 2 {
+		t.Fatalf("only %d skills are on by default; this test proves nothing", onByDefault)
 	}
 
-	// The budget is untouched by them: a full six chosen skills still fit.
+	// A full six chosen skills still fit beside them.
 	for i := 0; i < domain.SkillsPerResearch; i++ {
 		if _, err := k.skills.CreatePrivate(owner, research.ID, skillInput(chosenName(i))); err != nil {
-			t.Fatalf("private skill %d refused with %d ambient attached: %v", i, ambientAttached, err)
+			t.Fatalf("chosen skill %d refused with %d product skills on: %v", i, onByDefault, err)
 		}
 	}
 
-	_, err = k.skills.CreatePrivate(owner, research.ID, skillInput("one too many"))
+	_, err := k.skills.CreatePrivate(owner, research.ID, skillInput("one too many"))
 	if !errors.Is(err, ErrSkillCapReached) {
 		t.Fatalf("seventh chosen skill: want ErrSkillCapReached, got %v", err)
 	}
@@ -776,5 +764,27 @@ func TestSkill_AForkedBuiltinIsNotOfferedTwice(t *testing.T) {
 	}
 	if seen != 1 {
 		t.Fatalf("want one row for a forked slug, got %d", seen)
+	}
+}
+
+// The library is a list of things to attach. A product skill is already on, so
+// offering it is a control with nothing behind it.
+func TestSkill_TheLibraryDoesNotOfferWhatIsAlreadyOn(t *testing.T) {
+	k := newSkillKit(t)
+	owner, _, research, _, _ := k.sharedResearch(t, domain.TeamEditor)
+	if _, err := k.skills.LoadBuiltinSkills(context.Background()); err != nil {
+		t.Fatalf("load builtins: %v", err)
+	}
+	lib, err := k.skills.ListLibrary(owner, research.ID, "")
+	if err != nil {
+		t.Fatalf("library: %v", err)
+	}
+	if len(lib) == 0 {
+		t.Fatal("the library is empty, so this proves nothing")
+	}
+	for _, sk := range lib {
+		if sk.Ambient {
+			t.Errorf("%s is always on and still offered for attaching", sk.Slug)
+		}
 	}
 }

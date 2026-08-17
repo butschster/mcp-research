@@ -213,8 +213,8 @@ func (r *SkillRepository) ListAttached(ctx context.Context, researchID string) (
 	return result, rows.Err()
 }
 
-// ListLibrary is what a research may attach: the built-ins and its team's
-// library, each carrying whether it is already on. Research-private skills are
+// ListLibrary is what a research may attach: the non-ambient built-ins and its
+// team's library, each carrying whether it is already on. Research-private skills are
 // excluded — one research's private skill is not another's to borrow, and the
 // exclusion is here rather than in the service because a library query that
 // forgets it is a cross-research leak.
@@ -226,6 +226,10 @@ func (r *SkillRepository) ListLibrary(ctx context.Context, researchID, q string)
 		                WHERE rs.skill_id = s.id AND rs.research_id = ?) AS attached
 		   FROM skills s
 		  WHERE s.research_id IS NULL
+		    -- The always-on product skills are not on offer: they are already
+		    -- in every list, so a row inviting somebody to attach one is a
+		    -- control with nothing behind it.
+		    AND s.ambient = 0
 		    AND (s.team_id IS NULL
 		         OR s.team_id = (SELECT team_id FROM researches WHERE id = ?))
 		    -- A built-in whose slug this team has forked is shadowed: attaching

@@ -165,7 +165,7 @@ Thirteen routes, all of them under the ordinary authenticated API:
 | Method | Path | Does |
 |---|---|---|
 | `GET` | `/api/researches/{id}/skills` | what it follows, in precedence order, always including the product skills. `{data, cap, chosen}` — `cap` is the server's number so no client carries its own, `chosen` counts only what somebody picked, so it is legitimately smaller than the list |
-| `GET` | `/api/researches/{id}/skills/library?q=` | what it may attach: the built-ins and its team's library, each with `attached`. `q` matches name or description. Research-private skills are never listed, its own included |
+| `GET` | `/api/researches/{id}/skills/library?q=` | what it may attach: the non-ambient built-ins and its team's library, each with `attached`. The always-on product skills are absent — they are already on, so offering them is a control with nothing behind it. `q` matches name or description. Research-private skills are never listed, its own included |
 | `GET` | `/api/researches/{id}/skills/{slug}` | one skill **with its body** — the same resolution `skill_load` uses |
 | `POST` | `/api/researches/{id}/skills` | `{slug}` attaches an existing skill; `{name, description, body}` writes a research-private one and attaches it. `201` |
 | `DELETE` | `/api/researches/{id}/skills/{slug}` | detach. `204`. Ambient is refused |
