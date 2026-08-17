@@ -27,6 +27,12 @@
   height: min(var(--mermaid-natural-h, 420px), 70vh);
   overflow: hidden;
   cursor: grab;
+  /* Dragging is panning, never selecting. Without this the drag starts a native
+     text selection over the diagram's labels, and a half-highlighted label is
+     unreadable — which is what the reader sees for as long as they keep moving.
+     The diagram's source is a click away in the toolbar, so nothing is lost. */
+  user-select: none;
+  -webkit-user-select: none;
   /* Vertical swipes stay with the page: inline, the reader scrolls past a tall
      diagram rather than panning it. Enlarged, the diagram takes the touch. */
   touch-action: pan-y;

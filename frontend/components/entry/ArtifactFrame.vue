@@ -59,8 +59,18 @@ const channel = `artifact-${Math.random().toString(36).slice(2)}`
 // drop background colours when printing, and the frame is a separate document we
 // cannot reach with our stylesheet, so the rule is injected alongside the height
 // reporter.
+// Every element, not just the root. The property inherits on paper, but what a
+// browser drops when printing is decided per box: a heading painted with a
+// gradient behind clipped text loses the gradient and prints as nothing at all,
+// while the body text beside it is untouched — which is exactly what "some of
+// the text changes and the rest does not" looks like.
 const printStyle = `
-<style id="__print_fix">@media print { :root, body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }</style>`
+<style id="__print_fix">@media print {
+  :root, body, *, *::before, *::after {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+}</style>`
 
 // The host's page background, duplicated here on purpose: it has to travel INTO
 // the sandboxed document, which cannot read our custom properties.
@@ -72,15 +82,44 @@ const shim = computed(() => printStyle + `
   var CH = ${JSON.stringify(channel)};
   var last = -1;
 
+  var fix = document.getElementById('__print_fix');
+
   // An artifact that sets no background of its own was written for a dark host
   // and gets one, but only for print: on screen the frame behind it supplies it.
   try {
     var bg = getComputedStyle(document.body).backgroundColor;
     if (!bg || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)') {
-      var fix = document.getElementById('__print_fix');
       if (fix) {
         fix.textContent += '@media print { html, body { background: ${HOST_BACKGROUND} !important; } }';
       }
+    }
+  } catch (e) {}
+
+  // A theme-aware artifact renders dark on screen and light on paper, because
+  // printing stops matching prefers-color-scheme. On its own that would merely
+  // be a light printout; combined with the dark surface the host frame paints
+  // under it, it is dark text on a dark page — the document's own light palette
+  // showing through our background.
+  //
+  // So whatever the dark query is applying right now is re-emitted for print.
+  // Copying the rules rather than the resolved colours keeps this honest for
+  // everything the query sets, not only custom properties.
+  try {
+    if (fix && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) {
+      var carried = '';
+      for (var i = 0; i < document.styleSheets.length; i++) {
+        var rules;
+        try { rules = document.styleSheets[i].cssRules; } catch (err) { continue; }
+        if (!rules) continue;
+        for (var j = 0; j < rules.length; j++) {
+          var rule = rules[j];
+          if (rule.type !== 4) continue;
+          var cond = rule.conditionText || (rule.media && rule.media.mediaText) || '';
+          if (!/prefers-color-scheme\\s*:\\s*dark/.test(cond)) continue;
+          for (var k = 0; k < rule.cssRules.length; k++) carried += rule.cssRules[k].cssText + '\\n';
+        }
+      }
+      if (carried) fix.textContent += '@media print {\\n' + carried + '}';
     }
   } catch (e) {}
 

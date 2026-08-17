@@ -34,8 +34,11 @@ jobs:
         with:
           node-version: '22'
 
+      # npm 10, which Node 22 bundles, crashes resolving this tree without a
+      # lockfile ("Cannot read properties of null (reading 'edgesOut')"), and
+      # there is no lockfile by design. Same upgrade as the test workflow.
       - name: Install frontend dependencies
-        run: npm install
+        run: npm install -g npm@11 && npm install
         working-directory: frontend
 
       - name: Build frontend

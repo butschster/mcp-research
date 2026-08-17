@@ -86,6 +86,10 @@ This is what the standalone `artifact` entry type became. Scripts run: the frame
 is sandboxed with `allow-scripts` and **without** `allow-same-origin`, so the
 document cannot read cookies, storage or the host page, and cannot call the API.
 
+The field reference is below; how to actually write the document — one theme and
+why, sizing, printing, the data bridge, style — is in
+[Writing an Artifact](/llms/artifacts.md).
+
 - Send one whole document — `<!doctype html>`, `<head>`, `<style>`, `<script>`,
   `<body>`. Inline everything; the frame cannot fetch external resources.
 - **Close the script tag as `</script>`, never `<\/script>`.** The escaped form is
