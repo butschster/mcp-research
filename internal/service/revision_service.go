@@ -386,23 +386,22 @@ type SessionEntryChange struct {
 	Fields []FieldChange `json:"fields,omitempty"`
 }
 
-// SessionChanges reports what a session did to the research's entries.
-//
-// This is the honest answer to "what came out of this session", and it is a
-// better one than the entries whose session_id happens to match: it covers
-// entries the session edited without creating, it says how much changed, and it
-// can show it.
-func (s *EntryService) SessionChanges(ctx context.Context, researchID, sessionID string) ([]*SessionEntryChange, error) {
+// sessionRevisionGroups collects the session's revisions per entry, in the order
+// the entries were first touched. Both the full change list and the count-only
+// answer start here; only what follows differs.
+func (s *EntryService) sessionRevisionGroups(
+	ctx context.Context, researchID, sessionID string,
+) ([]string, map[string][]*domain.EntryRevision, error) {
 	if err := s.access.Read(ctx, researchID); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if s.revisions == nil {
-		return []*SessionEntryChange{}, nil
+		return nil, map[string][]*domain.EntryRevision{}, nil
 	}
 
 	revs, err := s.revisions.ListBySession(ctx, sessionID)
 	if err != nil {
-		return nil, fmt.Errorf("list session revisions: %w", err)
+		return nil, nil, fmt.Errorf("list session revisions: %w", err)
 	}
 
 	byEntry := map[string][]*domain.EntryRevision{}
@@ -418,6 +417,54 @@ func (s *EntryService) SessionChanges(ctx context.Context, researchID, sessionID
 			order = append(order, rev.EntryID)
 		}
 		byEntry[rev.EntryID] = append(byEntry[rev.EntryID], rev)
+	}
+	return order, byEntry, nil
+}
+
+// SessionChangeCounts answers "how many entries did this session touch, and how
+// many of them did it create" without diffing anything.
+//
+// The Changes tab carries that number before anyone opens it, and the full
+// SessionChanges pays an O(n·m) LCS per touched entry: asking it for a badge put
+// the whole diff computation on the critical path of every session page load,
+// on a database limited to one connection. The entry lookup stays, because the
+// list skips an entry whose row is gone and a count that disagreed with the list
+// it labels would be its own small lie.
+func (s *EntryService) SessionChangeCounts(
+	ctx context.Context, researchID, sessionID string,
+) (created, modified int, err error) {
+	order, byEntry, err := s.sessionRevisionGroups(ctx, researchID, sessionID)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for _, entryID := range order {
+		entry, err := s.entries.FindByID(ctx, entryID)
+		if err != nil {
+			return 0, 0, fmt.Errorf("find entry: %w", err)
+		}
+		if entry == nil {
+			continue
+		}
+		if byEntry[entryID][0].Revision == 1 {
+			created++
+		} else {
+			modified++
+		}
+	}
+	return created, modified, nil
+}
+
+// SessionChanges reports what a session did to the research's entries.
+//
+// This is the honest answer to "what came out of this session", and it is a
+// better one than the entries whose session_id happens to match: it covers
+// entries the session edited without creating, it says how much changed, and it
+// can show it.
+func (s *EntryService) SessionChanges(ctx context.Context, researchID, sessionID string) ([]*SessionEntryChange, error) {
+	order, byEntry, err := s.sessionRevisionGroups(ctx, researchID, sessionID)
+	if err != nil {
+		return nil, err
 	}
 
 	out := make([]*SessionEntryChange, 0, len(order))
@@ -480,7 +527,13 @@ func (s *EntryService) SessionChanges(ctx context.Context, researchID, sessionID
 		out = append(out, change)
 	}
 
-	s.enrichSessions(ctx, revs)
+	// The groups hold the same revision pointers the query returned, so filling
+	// session codes across the flattened list fills them everywhere they show.
+	flat := make([]*domain.EntryRevision, 0, len(order))
+	for _, entryID := range order {
+		flat = append(flat, byEntry[entryID]...)
+	}
+	s.enrichSessions(ctx, flat)
 	return out, nil
 }
 

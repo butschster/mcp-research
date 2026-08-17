@@ -255,6 +255,71 @@ func TestRevisions_SessionChanges(t *testing.T) {
 	}
 }
 
+// The tab badge reads its number from SessionChangeCounts, which skips every
+// diff. If it ever disagrees with the list it labels, the badge is a lie about
+// the screen underneath it — so the two are asserted against each other.
+func TestRevisions_SessionChangeCountsMatchTheList(t *testing.T) {
+	entrySvc, sessionSvc, ctx, research, section := revisionFixture(t)
+
+	existing := mustEntry(t, entrySvc, ctx, research.ID, section.ID, "Old body.")
+
+	sess, _, err := sessionSvc.Create(ctx, CreateSessionRequest{
+		ResearchID: research.ID, Title: "Counting session", Focus: "everything",
+	})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	if _, err := entrySvc.Update(ctx, existing.ID, UpdateEntryRequest{Content: ptr("Old body, now revised.")}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	mustEntry(t, entrySvc, ctx, research.ID, section.ID, "Brand new.")
+	mustEntry(t, entrySvc, ctx, research.ID, section.ID, "Also brand new.")
+
+	created, modified, err := entrySvc.SessionChangeCounts(ctx, research.ID, sess.ID)
+	if err != nil {
+		t.Fatalf("session change counts: %v", err)
+	}
+	if created != 2 || modified != 1 {
+		t.Errorf("want 2 created and 1 modified, got %d and %d", created, modified)
+	}
+
+	changes, err := entrySvc.SessionChanges(ctx, research.ID, sess.ID)
+	if err != nil {
+		t.Fatalf("session changes: %v", err)
+	}
+	if created+modified != len(changes) {
+		t.Errorf("count %d disagrees with the list it labels (%d cards)", created+modified, len(changes))
+	}
+	listCreated := 0
+	for _, c := range changes {
+		if c.Created {
+			listCreated++
+		}
+	}
+	if listCreated != created {
+		t.Errorf("created count %d disagrees with the list's %d", created, listCreated)
+	}
+}
+
+// A session in a research the caller cannot read must not leak its size either:
+// the count is a smaller answer than the list, not a less protected one.
+func TestRevisions_SessionChangeCountsRefuseAnotherResearch(t *testing.T) {
+	entrySvc, sessionSvc, ctx, research, section := revisionFixture(t)
+	mustEntry(t, entrySvc, ctx, research.ID, section.ID, "Body.")
+
+	sess, _, err := sessionSvc.Create(ctx, CreateSessionRequest{
+		ResearchID: research.ID, Title: "Scoped", Focus: "f",
+	})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	if _, _, err := entrySvc.SessionChangeCounts(ctx, "00000000-0000-0000-0000-000000000000", sess.ID); err == nil {
+		t.Error("counting a session through a research id that is not its own must fail")
+	}
+}
+
 func TestRevisions_BlockPatchWritesRevisionButTickDoesNot(t *testing.T) {
 	svc, ctx, entry := patchFixture(t)
 

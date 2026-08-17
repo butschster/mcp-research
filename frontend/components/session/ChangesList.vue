@@ -10,7 +10,7 @@
       title="Could not load what this session changed"
       description="The change list did not come back. Nothing about the session has changed."
     >
-      <button class="btn btn-sm" @click="load">Try again</button>
+      <button class="btn btn-sm" @click="load()">Try again</button>
     </EmptyState>
 
     <EmptyState
@@ -21,6 +21,7 @@
     />
 
     <template v-else>
+      <div :class="['changes-body', { 'changes-stale': refreshing }]">
       <div class="changes-summary">
         <p class="changes-counts">
           <strong>{{ created }}</strong> created · <strong>{{ modified }}</strong> modified
@@ -52,6 +53,13 @@
             <span class="change-revs">
               r{{ change.from_revision }}<template v-if="change.to_revision !== change.from_revision">–r{{ change.to_revision }}</template>
             </span>
+            <!-- "Was it a person or the model" and "did it happen last night"
+                 are one question, and the second half was arriving in the
+                 payload and being dropped. Without it the reader opens each
+                 entry to find a date this card already had. -->
+            <time v-if="lastTouched(change)" class="change-when" :datetime="lastTouched(change)!" :title="absoluteTime(lastTouched(change)!)">
+              {{ relativeTime(lastTouched(change)!) }}
+            </time>
           </div>
         </div>
 
@@ -67,12 +75,14 @@
         </button>
         <EntryDiffView v-if="change.diff && isOpen(change.entry_id)" :diff="change.diff" />
       </div>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { entryPath } from '~/composables/useResearchPaths'
+import { relativeTime, absoluteTime } from '~/composables/useRelativeTime'
 
 /**
  * What a session did to the research's entries: the ones it created, the ones it
@@ -88,6 +98,11 @@ const props = defineProps<{
   researchSlug: string
 }>()
 
+/** How many entries this session touched, so the tab can carry the count
+ *  without the reader opening it to find out. Emitted on every load, including
+ *  a failed one — a stale badge is a worse lie than no badge. */
+const emit = defineEmits<{ count: [number | null] }>()
+
 const { authFetch } = useAuth()
 const apiBase = useRuntimeConfig().public.apiBase || ''
 
@@ -95,6 +110,7 @@ const changes = ref<any[]>([])
 const created = ref(0)
 const modified = ref(0)
 const loading = ref(true)
+const refreshing = ref(false)
 const error = ref(false)
 const open = ref<Record<string, boolean>>({})
 const allOpen = ref(false)
@@ -124,25 +140,62 @@ function authorsOf(change: any): string[] {
   return [...new Set(kinds)] as string[]
 }
 
-async function load() {
-  loading.value = true
-  error.value = false
+/** When this session last wrote to the entry. */
+function lastTouched(change: any): string | null {
+  const stamps = (change.revisions ?? []).map((r: any) => r.created_at).filter(Boolean)
+  return stamps.length ? stamps[stamps.length - 1] : null
+}
+
+// Two reloads can be in flight at once — a realtime burst arriving while the
+// first is still out — and the responses are not ordered. Without a token the
+// older one can land last and the list settles on a snapshot that is already
+// wrong, with nothing to correct it until the next event.
+let requestToken = 0
+
+async function load({ quiet = false } = {}) {
+  const token = ++requestToken
+  // A refresh keeps what is on screen. Blanking four rendered cards to three
+  // skeletons on every write an agent makes is a ~200px collapse under a
+  // reader's eyes, and the panel beside this one already knows better: it dims
+  // rather than tears down.
+  if (quiet && changes.value.length) refreshing.value = true
+  else loading.value = true
   try {
     const res: any = await authFetch(`${apiBase}/api/sessions/${props.sessionId}/changes`)
+    if (token !== requestToken) return
     changes.value = res?.data?.changes ?? []
     created.value = res?.data?.created ?? 0
     modified.value = res?.data?.modified ?? 0
+    error.value = false
     // One change is a session that did one thing; make the reader click nothing.
-    allOpen.value = changes.value.length === 1
+    // Only on a first load: doing it on a refresh silently undoes an explicit
+    // "Expand all" while individually opened cards survive.
+    if (!quiet) allOpen.value = changes.value.length === 1
+    emit('count', changes.value.length)
   } catch (e) {
-    error.value = true
-    changes.value = []
+    if (token !== requestToken) return
+    // A refresh that fails must not destroy a list that is correct. Only a load
+    // with nothing behind it falls through to the error state.
+    if (changes.value.length) {
+      emit('count', changes.value.length)
+    } else {
+      error.value = true
+      changes.value = []
+      emit('count', null)
+    }
   } finally {
-    loading.value = false
+    if (token === requestToken) {
+      loading.value = false
+      refreshing.value = false
+    }
   }
 }
 
-watch(() => props.sessionId, load, { immediate: true })
+watch(() => props.sessionId, () => load(), { immediate: true })
+
+// The session page reloads this on an `entry` event: an agent writing entries is
+// exactly when the reader is watching, and it was the one list that froze.
+defineExpose({ reload: () => load({ quiet: true }) })
 </script>
 
 <style scoped>
@@ -150,6 +203,18 @@ watch(() => props.sessionId, load, { immediate: true })
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+/* A refresh dims the list instead of blanking it — an agent writing five
+   entries must not strobe the page five times. Same treatment the history
+   pane already uses for the same reason. */
+.changes-stale {
+  opacity: 0.5;
+  transition: opacity var(--transition-base, 0.2s);
+}
+.change-when {
+  color: var(--color-text-muted);
+  font-size: var(--type-xs);
+  white-space: nowrap;
 }
 .change-skeleton { height: 5rem; }
 .changes-summary {

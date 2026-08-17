@@ -301,10 +301,26 @@ useRealtimeUpdates((event: WsEvent) => {
     // still overwrites whoever just wrote. Say so instead; the history keeps
     // their version either way, but the reader should not find out afterwards.
     remoteChangedWhileEditing.value = true
+    // The panel is a read of the same entry and holds no draft, so it can be
+    // brought up to date even while the editor holds the page back.
+    reloadHistoryIfOpen()
     return
   }
   refresh()
-}, { onResync: refresh })
+  reloadHistoryIfOpen()
+}, { onResync: () => { refresh(); reloadHistoryIfOpen() } })
+
+/**
+ * A remote write is a new revision, and an open history panel that never hears
+ * about it presents a list as complete while it is not.
+ *
+ * Guarded on `showHistory` because the panel is mounted for the life of the
+ * page rather than created on open: without the guard every remote edit would
+ * fetch a revision list and a diff nobody is looking at.
+ */
+function reloadHistoryIfOpen() {
+  if (showHistory.value) historyPanel.value?.refreshList()
+}
 
 // Set when somebody else changed this entry while the editor was open.
 const remoteChangedWhileEditing = ref(false)
@@ -606,7 +622,10 @@ async function changeStatus(newStatus: string) {
 
 // --- Revision history ---
 const showHistory = ref(false)
-const historyPanel = ref<{ reload: () => Promise<void> } | null>(null)
+const historyPanel = ref<{
+  reload: () => Promise<void>
+  refreshList: () => Promise<void>
+} | null>(null)
 const restoreTarget = ref<number | null>(null)
 const restoring = ref(false)
 const restoreFailed = ref(false)

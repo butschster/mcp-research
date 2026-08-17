@@ -158,7 +158,9 @@ const railList = ref<HTMLElement | null>(null)
 
 const railSummary = computed(() => {
   const n = revisions.value.length
-  if (!n) return ''
+  // A placeholder rather than an empty string: collapsing the sticky header to
+  // nothing shifts the whole rail up the moment the list lands.
+  if (!n) return loading.value ? 'Loading revisions…' : 'No revisions'
   const sessions = new Set(revisions.value.map((r) => r.session_code).filter(Boolean))
   const noun = n === 1 ? 'revision' : 'revisions'
   if (sessions.size === 1) return `${n} ${noun} · all in ${[...sessions][0]}`
@@ -215,6 +217,35 @@ async function select(revision: number) {
   }
 }
 
+/**
+ * Re-fetch the revision list without disturbing what the reader is looking at.
+ *
+ * `load()` is the open-the-panel path: it clears the comparison base and jumps
+ * to the newest revision, which is right after a restore and wrong for a remote
+ * write. A reader who shift-clicked r2 as a base and is reading r2 → r5 must not
+ * be moved to r7 because an agent saved something. History is append-only, so a
+ * selection is still valid after a refresh; it only needs re-resolving if the
+ * revision it pointed at is gone.
+ */
+async function refreshList() {
+  if (!props.entryId) return
+  try {
+    const res: any = await authFetch(`${apiBase}/api/entries/${props.entryId}/revisions`)
+    const next = res?.data?.revisions ?? []
+    revisions.value = next
+    current.value = res?.data?.current ?? current.value
+    error.value = false
+    if (!next.some((r: any) => r.revision === selected.value)) {
+      base.value = 0
+      if (next.length) await select(next[0].revision)
+    }
+  } catch {
+    // A refresh that fails leaves the list that is on screen: it was correct a
+    // moment ago, and replacing it with an error would be the panel losing data
+    // it still has.
+  }
+}
+
 function setBase(revision: number) {
   base.value = revision === base.value ? 0 : revision
   select(selected.value)
@@ -245,7 +276,9 @@ watch(() => props.visible, (open) => {
   if (open) load()
 })
 
-defineExpose({ reload: load })
+// reload: after a restore, where landing on the new head is the point.
+// refreshList: after somebody else's write, where it would be an interruption.
+defineExpose({ reload: load, refreshList })
 </script>
 
 <style scoped>

@@ -148,7 +148,7 @@ Every record gets an auto-assigned short code on creation:
 | Roadmap | `RM` | per research | `RM1`, `RM2` |
 | Node | `N` | per roadmap | `N1`, `N2` |
 
-REST responses carry the `code` field on every entity. MCP tools are less complete: `research_create`, `research_get`, `entry_create`, `entry_list`, `session_get` and the `roadmap_*` tools return codes, while section, question and task codes are only reachable through the REST API. Codes can be used in URLs instead of UUIDs (`/research/R1/entry/E2`), but as tool arguments only `research_get`, `research_update`, `research_export`, `session_get` and `roadmap_get` resolve them — see the [MCP Client Guide](/llms/mcp-client-guide.md).
+REST responses carry the `code` field on every entity. MCP tools are less complete: `research_create`, `research_import`, `research_get`, `entry_create`, `entry_list`, `entry_read`, `entry_patch`, `session_get` and the `roadmap_*` tools return codes, while section, question and task codes are only reachable through the REST API. Codes can be used in URLs instead of UUIDs (`/research/R1/entry/E2`), but as tool arguments only `research_get`, `research_update`, `research_export`, `session_get` and `roadmap_get` resolve them — see the [MCP Client Guide](/llms/mcp-client-guide.md).
 
 ## Cross-References
 

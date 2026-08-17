@@ -101,6 +101,12 @@
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
         Changes
+        <span
+          v-if="changesUnknown"
+          class="tab-count tab-count-unknown"
+          title="Could not load what this session changed — open the tab to retry"
+        >!</span>
+        <span v-else-if="changesCount" class="tab-count">{{ changesCount }}</span>
       </button>
     </div>
 
@@ -165,12 +171,19 @@
       <EmptyState v-else icon="&#x1F4C4;" title="No entries" description="Entries linked to this session will appear here." />
     </div>
 
-    <!-- Changes panel -->
-    <SessionChangesList
-      v-if="activeTab === 'changes' && session"
-      :session-id="session.id"
-      :research-slug="researchSlug"
-    />
+    <!-- Changes panel.
+         The tab's count comes from ?summary=1, which costs no diffs, so the
+         list itself stays behind the click: the full route computes an LCS per
+         touched entry and serialises every diff, and paying that on every
+         session page load to render one number is the wrong trade. -->
+    <div v-if="session && activeTab === 'changes'" id="panel-changes" role="tabpanel" aria-labelledby="tab-changes">
+      <SessionChangesList
+        ref="changesList"
+        :session-id="session.id"
+        :research-slug="researchSlug"
+        @count="onChangesCount"
+      />
+    </div>
   </div>
 
   <EmptyState v-else icon="&#x1F50D;" title="Session not found" />
@@ -318,12 +331,55 @@ async function reloadSession() {
   data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
 }
 
+const changesList = ref<{ reload: () => Promise<void> } | null>(null)
+const changesCount = ref<number | null>(null)
+// Distinct from a count of zero. Without it the tab after a failed request is
+// pixel-identical to the tab of a session that touched nothing — and "nothing
+// happened" is the single wrong conclusion this badge exists to prevent.
+const changesUnknown = ref(false)
+
+function onChangesCount(count: number | null) {
+  changesUnknown.value = count === null
+  changesCount.value = count
+}
+
+/** The tab badge, without the diffs the full list would compute. */
+async function loadChangesCount() {
+  if (!session.value) return
+  try {
+    const res: any = await authFetch(
+      `${rtBase}/api/sessions/${session.value.id}/changes?summary=1`,
+    )
+    onChangesCount(res?.data?.count ?? 0)
+  } catch {
+    onChangesCount(null)
+  }
+}
+
+// An `entry` event is an agent writing, which is the one moment somebody is
+// actually watching this page — and it was the only entity the page ignored, so
+// both the Entries tab and the Changes tab froze exactly then.
+async function reloadAll() {
+  await Promise.all([
+    reloadSession(),
+    // The open list refreshes itself and reports its own count; when the tab
+    // has never been opened there is nothing mounted, so the cheap count stands
+    // in for it.
+    changesList.value ? changesList.value.reload() : loadChangesCount(),
+  ])
+}
+
+watch(() => session.value?.id, (id) => { if (id) loadChangesCount() }, { immediate: true })
+
 useResearchRealtime(
   () => id,
-  (event) => { if (['question', 'session'].includes(event.entity)) reloadSession() },
+  (event) => {
+    if (['question', 'session'].includes(event.entity)) reloadSession()
+    else if (event.entity === 'entry') reloadAll()
+  },
   {
     researchId: () => researchData.value?.data?.research?.id,
-    onResync: reloadSession,
+    onResync: reloadAll,
   },
 )
 </script>
@@ -348,7 +404,14 @@ useResearchRealtime(
 .content-tabs {
   display: flex; gap: 0; margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--color-border);
+  /* Three labels plus three badges do not fit a 375px screen, and the strip had
+     no wrap or scroll rule — so the whole page body scrolled sideways instead.
+     Scroll the strip, and stop the tabs being squeezed into wrapped labels. */
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.content-tabs::-webkit-scrollbar { display: none; }
+.content-tab { flex-shrink: 0; }
 .content-tab {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
@@ -363,7 +426,12 @@ useResearchRealtime(
   font-size: var(--type-xs); color: var(--color-text-muted);
   background: var(--color-surface-hover); border-radius: var(--radius-xs);
   padding: 0.15rem 0.4rem; font-variant-numeric: tabular-nums;
+  /* The Entries and Changes counts now move under a live agent. A fixed floor
+     and no wrapping keep the tabs beside them from jumping sideways as digits
+     appear. */
+  min-width: 1.6rem; text-align: center; white-space: nowrap;
 }
+.tab-count-unknown { color: var(--color-error); }
 .content-tab.active .tab-count { background: var(--color-primary-muted); color: var(--color-primary); }
 
 /* Add form */

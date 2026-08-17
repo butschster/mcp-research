@@ -361,4 +361,6 @@ An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
 
 ## Cross-References in Export
 
-Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[RM1]]`) are preserved as-is in markdown export. In the web export pages, they are rendered as clickable links. In the Obsidian vault they are preserved as-is too and resolve as links there, because `[[...]]` is Obsidian's own syntax and each note aliases its code.
+Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[RM1]]`) are preserved as-is in markdown export. In the web export pages, they are rendered as clickable links.
+
+The Obsidian vault is the one export that rewrites them: each reference is retargeted at the note's filename and keeps its code as the display text (`[[E3]]` becomes `[[E3 — Pricing model|E3]]`), because Obsidian matches a wikilink against filenames and an `aliases` entry does not resolve a hand-written one. See [Obsidian Vault Export](#obsidian-vault-export) above for the full rule and what happens to a reference pointing outside the export.
