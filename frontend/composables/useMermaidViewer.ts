@@ -306,6 +306,17 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
     // is all there is, so it takes the touch (and CSS drops touch-action then).
     if (e.pointerType === 'touch' && !isEnlarged()) return
 
+    // Stop the browser turning this drag into a text selection. CSS user-select
+    // covers the diagram itself; this also stops a drag that leaves the canvas
+    // from selecting its way across the rest of the page, and clears whatever
+    // was selected before the reader grabbed the diagram.
+    e.preventDefault()
+    document.getSelection()?.removeAllRanges()
+    // preventDefault also suppresses the focus the click would have given, and
+    // the canvas is the element the arrow keys and +/- are bound to. Focus it by
+    // hand; :focus-visible keeps the ring off for a mouse.
+    canvas.focus()
+
     const startX = e.clientX - x
     const startY = e.clientY - y
     canvas.setPointerCapture(e.pointerId)
