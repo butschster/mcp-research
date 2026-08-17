@@ -26,7 +26,7 @@ type ResearchFilter struct {
 // researchColumns is the projection every research read shares. It is one
 // constant because the column order has to match the scanner, and three
 // hand-written copies is how a new column ends up read into the wrong field.
-const researchColumns = `id, code, user_id, team_id, name, description, goal, status, instruction, memory, tags, created_at, updated_at`
+const researchColumns = `id, code, user_id, team_id, name, description, goal, status, instruction, memory, tags, created_at, updated_at, template_slug, template_version`
 
 type ResearchRepository struct {
 	db *sql.DB
@@ -213,6 +213,7 @@ func scanResearchInto(s scanner) (*domain.Research, error) {
 		&res.Status, &res.Instruction,
 		&memory, &tags,
 		&createdAt, &updatedAt,
+		&res.TemplateSlug, &res.TemplateVersion,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil

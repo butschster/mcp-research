@@ -29,13 +29,35 @@ you ask. A research you created yourself is always writable. See
 
 ## Step 1: Initialize
 
-Use the `research/initialize` MCP prompt or create via API:
+Use the `research/initialize` MCP prompt, which runs this in three turns, or do
+it call by call:
 
-1. Define a clear, specific research goal
-2. Design 3-7 sections that cover the topic comprehensively
-3. Each section needs a slug name, display name, and description
-4. Add relevant tags for categorization
-5. Set working instructions for future sessions
+1. Find out what decision is waiting on the research before you propose any
+   structure. A section list shown first anchors the person to it.
+2. **Check whether a methodology already covers this.** `template_list` returns
+   the kickoff methodologies available — matching criteria only, no bodies — and
+   `template_get` returns the one that fits in full: what to ask before proposing
+   anything, what structure to suggest, what a good entry looks like here, and
+   when the research is finished. Follow it; it is instructions, not a form. An
+   empty list, or nothing that fits, is a normal answer — design the research
+   yourself and say so.
+3. Define a clear, specific research goal
+4. Design the sections *from that conversation*. Fewer than you think: create one
+   when you have something to put in it, since the conductor aims at the
+   least-covered sections and an empty one is a standing instruction to invent
+   content for it. Each needs a slug name, display name, and description
+5. Add relevant tags for categorization
+6. Create it with `research_create`, passing `template_slug` when you followed a
+   methodology. That stamps `template_slug` / `template_version` on the research
+   and attaches the skills the methodology names — read `skills_attached` and
+   `skills_unavailable` in the reply. The slug is an MCP argument only; `POST
+   /api/researches` has no field for it
+7. Set working instructions for future sessions. `instruction` is what **this**
+   research is — its scope, its constraints, what counts as done here. How the
+   work is done belongs to the template and the skills; do not copy methodology
+   into it
+
+See [Templates](/llms/templates.md).
 
 ## Step 2: Conduct Research Sessions
 

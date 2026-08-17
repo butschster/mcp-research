@@ -1,6 +1,6 @@
 # MCP Client Guide
 
-Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, the skills index and when to load one, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
+Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, the kickoff templates and the skills index and when to read each, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
 
 ## Two Ways to Interact
 
@@ -21,7 +21,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `research_create` | Create research with sections, tags, and goal. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team |
+| `research_create` | Create research with sections, tags, and goal. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team. Optional `template_slug` records the methodology you followed and attaches the skills it names |
 | `research_get` | Load full research context (sections, entry counts, active session, and the skills index when the research follows any) |
 | `research_list` | List every research you can reach, with optional status filter. Marks a shared one with `team` and a read-only one with `access: "read-only"` |
 | `research_update` | Update name, goal, status, instruction, memory, tags |
@@ -68,6 +68,13 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 |------|---------|
 | `section_list` | List sections for a research |
 | `section_update` | Update section display name, description, status, position (the slug `name` is immutable) |
+
+### Templates
+
+| Tool | Purpose |
+|------|---------|
+| `template_list` | The kickoff methodologies you may use — global plus your teams'. Matching criteria only, **no bodies**. Takes no arguments: send `{}` |
+| `template_get` | One methodology in full, by `slug`. The only call that returns a body |
 
 ### Skills
 
@@ -126,6 +133,38 @@ A research is owned by a **team**, and your role in that team decides what you m
 
 Full model — roles, invitations, transfer and the team REST routes: [Domain Guide](/llms/domain-guide.md#team).
 
+## Templates: Read One Before You Design a Research
+
+A template is a **kickoff methodology** — the criteria an agent matches on plus a
+markdown body saying what to ask the person before proposing anything, what
+structure to suggest, and when the research is finished. It clones nothing: no
+sections, no questions, no tasks come out of one. You read it and design the
+research yourself.
+
+Two tools, and only at the start of a new research:
+
+- `template_list` takes **no arguments** — send `{}`. It answers
+  `{templates: [{slug, name, tier, description, when_to_use, when_not_to_use}], usage_hint}`,
+  never a body. An empty list is a normal answer, not an error.
+- `template_get(slug)` answers
+  `{slug, name, tier, when_to_use, when_not_to_use, body, skills, version, usage_hint}`.
+  `slug` is a plain required string, taken from `template_list`; one you invent is
+  `not found`.
+
+Then pass `template_slug` to `research_create`. It is the only structural thing a
+template does: it stamps `template_slug` and `template_version` on the research
+and attaches the skills that methodology names, answering with `skills_attached`
+and — when something could not be attached — `skills_unavailable`. Neither key
+appears when empty, and neither failure ever fails the creation.
+
+**Ask what decision is waiting before you offer a template.** A structure shown
+before the person has said what they are deciding anchors them to it. And nothing
+re-reads the body later: it steers the research only through the structure you
+design and the skills it attached. **You cannot write, fork or delete a
+template** — those are REST acts, like share links and skill management, and
+there is no web UI for them yet. [Templates](/llms/templates.md),
+[Domain Guide → Template](/llms/domain-guide.md#template).
+
 ## Skills: An Index You Are Given, A Body You Ask For
 
 A research may **follow** skills — methodology documents saying how a kind of work is done (running an interview, grading a source, building a roadmap), as opposed to `instruction`, which says what this particular research is.
@@ -135,7 +174,7 @@ A research may **follow** skills — methodology documents saying how a kind of 
 When you are about to do the work one of those lines names, call `skill_load(research_id, slug)` and read the body then. Not while orienting, and not all of them up front: that is the cost this design exists to avoid, which is also why the tool takes one slug and has no batch form.
 
 - Both parameters are plain required strings — no `null`, and both must be non-empty.
-- `research_id` must be the **UUID**, not `R1`. Take it from `research.id` in the `research_get` you already made; a short code answers `not found`.
+- `research_id` accepts either the UUID or the short code (`R1`) — it is resolved, precisely because the slug you are passing came out of a `research_get` you may have made with a code.
 - The response is `{slug, name, tier, description, body, precedence}`. `precedence` restates the one rule about conflicts: a skill attached to this research directly beats a team skill, which beats a built-in.
 - A slug you invent, or one belonging to another research's private skill, is `not found`.
 
@@ -154,7 +193,8 @@ Read this before composing any tool call. Input schemas are generated from Go st
 Consequences:
 
 - **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
-- **Five exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), `research_export` requires `research_id` alone (`format` may be omitted), `research_import` requires `data` alone (`team_id` may be omitted), and `research_create` requires everything except `team_id`. Sending `null` for those six properties works as well, so "send every property as `null`" is still a correct strategy everywhere.
+- **Five exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), `research_export` requires `research_id` alone (`format` may be omitted), `research_import` requires `data` alone (`team_id` may be omitted), and `research_create` requires everything except `team_id` and `template_slug`. Sending `null` for those seven properties works as well, so "send every property as `null`" is still a correct strategy everywhere.
+- **One tool takes no input at all**: `template_list`. Its schema is an empty object — send `{}`.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
 - Unknown property names are rejected outright (`additionalProperties: false`).
@@ -174,6 +214,7 @@ Consequences:
 | `limit` (`entry_history`) | `20` newest revisions; the result says `truncated: true` when more exist |
 | `format` (`research_export`) | `portable` — the JSON `research_import` takes. `obsidian` returns a vault download link instead; `json` / `vault` / `zip` are accepted aliases, anything else is a validation error |
 | `team_id` (`research_create`, `research_import`) | Your personal team |
+| `template_slug` (`research_create`) | No methodology recorded and no skills attached — the research is created either way |
 | `to` (`entry_diff`) | The newest revision |
 | `from` (`entry_diff`) | The revision before `to` — so a call with neither shows the most recent change |
 
@@ -485,6 +526,6 @@ Where codes are accepted as tool input:
 
 | Accepts UUID **or** code | Accepts UUID only |
 |--------------------------|-------------------|
-| `research_get`, `research_update`, `research_export` (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list` / `skill_load`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
+| `research_get`, `research_update`, `research_export` (`research_id`), `skill_load` (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
 
 So keep the UUIDs returned by create calls. Short codes are for humans, URLs, and `[[...]]` cross-references — REST routes resolve them in `{id}` / `{sessionId}` / `{entryId}` / `{roadmapId}` path segments, MCP tools mostly do not.

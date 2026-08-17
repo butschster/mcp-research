@@ -51,6 +51,7 @@ func NewServer(
 	teamSvc *service.TeamService,
 	shareSvc *service.ShareService,
 	skillSvc *service.SkillService,
+	templateSvc *service.TemplateService,
 	access *service.Access,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
@@ -71,6 +72,7 @@ func NewServer(
 	tmh := handlers.NewTeamHandler(teamSvc, researchSvc, log)
 	shh := handlers.NewShareHandler(shareSvc, researchSvc, sectionSvc, log)
 	skh := handlers.NewSkillHandler(skillSvc, researchSvc, log)
+	tph := handlers.NewTemplateHandler(templateSvc, researchSvc, sectionSvc, skillSvc, log)
 	rh.SetShareService(shareSvc)
 
 	// Build auth middleware functions
@@ -314,6 +316,29 @@ func NewServer(
 	mux.Handle("GET /api/skills/{skillId}", wrapRead(skh.ReadByID))
 	mux.Handle("PUT /api/skills/{skillId}", wrap(skh.Update))
 	mux.Handle("DELETE /api/skills/{skillId}", wrap(skh.Delete))
+
+	// --- Templates ---
+	//
+	// A template is a kickoff methodology, so it belongs to nobody or to a team
+	// — never to a research. That is why none of these hang off
+	// /api/researches/{id}: the one that does, `templates/draft`, reads a
+	// research to *propose* a template and creates nothing.
+	//
+	// Not on the shared sub-mux, for the same reason skills are not: a
+	// template body is a team's working process.
+	mux.Handle("GET /api/templates", wrapRead(tph.List))
+	mux.Handle("GET /api/templates/{slug}", wrapRead(tph.Get))
+	// Read by slug, write by id — the same split skills use, and for the same
+	// reason: a team's fork keeps its parent's slug, so a slug is an address
+	// only within one caller's scope. Fork is a POST because `PUT {slug}/fork`
+	// and `PUT {templateId}` are ambiguous to the router and neither is more
+	// specific, which it refuses to route at all.
+	mux.Handle("POST /api/templates/{slug}/fork", wrap(tph.Fork))
+	mux.Handle("PUT /api/templates/{templateId}", wrap(tph.Update))
+	mux.Handle("DELETE /api/templates/{templateId}", wrap(tph.Delete))
+	mux.Handle("GET /api/teams/{id}/templates", wrapRead(tph.ListTeam))
+	mux.Handle("POST /api/teams/{id}/templates", wrap(tph.CreateTeam))
+	mux.Handle("GET /api/researches/{id}/templates/draft", wrapRead(tph.DraftFromResearch))
 
 	// --- Share links ---
 	//

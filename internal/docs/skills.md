@@ -3,7 +3,8 @@
 A skill is a methodology document the agent opens when it decides it needs it.
 
 > **`instruction` says what *this research* is. A skill says how a *kind of work*
-> is done.**
+> is done. A [template](/llms/templates.md) says how a kind of research is
+> *started*.**
 
 `research_get` lists the skills a research follows — name, tier and one line
 saying when to use it. The bodies are not there. When you are about to do the
@@ -92,8 +93,13 @@ the API.
 **They need no attaching.** The always-on set is unioned into every index and
 every attached list, so a research nobody has curated still gets them — and the
 agent still learns from the first `research_get` that skills exist. Their bodies
-load without an attachment too. Everything else does have to be attached, and in
-this release only a human can do that: there is no MCP tool for it.
+load without an attachment too. Everything else does have to be attached, and
+there is still no MCP tool for attaching one. There is exactly one way an agent
+attaches a skill: `research_create` with a `template_slug` attaches the skills
+that [template](/llms/templates.md) names, at creation and once. Those rows carry
+`via_template: true` in the attached listing, so a reader can tell a methodology's
+choice from a person's. Everything after that — attach, detach, fork, copy,
+promote — is REST or the web UI.
 
 Everything non-ambient counts. A research may follow **six** chosen skills; the
 seventh is refused with `skill_cap_reached`, and so is writing a seventh private
@@ -141,7 +147,12 @@ same team is `slug_taken`. A name with no Latin characters gets a generated
 ## What a skill is not
 
 - **Not a starting kit.** A skill is read at the moment of the work it describes,
-  not once before a research exists to say how to *start* one.
+  not once before a research exists to say how to *start* one. That is a
+  [template](/llms/templates.md): read once at kickoff, in full, by a model that
+  has nothing yet. A template may **name** skills, and `research_create` with a
+  `template_slug` attaches them — which is the one place the two meet. Everything
+  else about them is separate: a template is chosen and then done, a skill is
+  opened again and again for as long as the research runs.
 - **Not a place for rows.** A skill creates no sections, no questions, no tasks.
   It changes how you do the work; it never stands in for doing it.
 - **Not tone or format policy for one research.** That belongs in the research

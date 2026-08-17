@@ -19,6 +19,9 @@ type ResearchCreateInput struct {
 	// team and had to be moved by hand afterwards, which is the wrong default
 	// for anyone who set a team up in order to work in it.
 	TeamID *string `json:"team_id,omitempty" jsonschema:"Team to create it in. Use team_list to find one. Defaults to your personal team."`
+	// The one structural thing a template does. Everything else about a
+	// template is text the model read before getting here.
+	TemplateSlug *string `json:"template_slug,omitempty" jsonschema:"Slug of the methodology you followed, from template_list. Records it on the research and attaches the skills that methodology names."`
 }
 
 type SectionSpecInput struct {
@@ -28,7 +31,7 @@ type SectionSpecInput struct {
 	Position    int    `json:"position" jsonschema:"Sort order (0-based)"`
 }
 
-func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *slog.Logger) {
+func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, templates *service.TemplateService, log *slog.Logger) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "research_create",
 		Description: "Creates a new research project with optional initial sections, in your personal team unless team_id names another one you may write to (see team_list). Returns the research_id and count of sections created.",
@@ -69,6 +72,16 @@ func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *
 			return errorResult(err.Error())
 		}
 
+		// Recording the methodology and attaching its skills happens after the
+		// research exists, and never fails the creation: a research that exists
+		// with one skill missing is a better outcome than a create call rolled
+		// back because a template named something a later build removed.
+		var attach service.AttachResult
+		requestedTemplate := derefStr(input.TemplateSlug)
+		if requestedTemplate != "" && templates != nil {
+			attach = templates.AttachSkills(ctx, research.ID, requestedTemplate)
+		}
+
 		result := map[string]any{
 			"research_id":      research.ID,
 			"code":             research.Code,
@@ -79,6 +92,22 @@ func RegisterResearchCreate(srv *mcp.Server, svc *service.ResearchService, log *
 		}
 		if research.TeamName != "" && !research.TeamPersonal {
 			result["team"] = research.TeamName
+		}
+		if len(attach.Attached) > 0 {
+			result["skills_attached"] = attach.Attached
+		}
+		// Reported rather than swallowed: the methodology named something the
+		// research did not get, and the conductor should know which part of it
+		// will not be available.
+		if len(attach.Missed) > 0 {
+			result["skills_unavailable"] = attach.Missed
+		}
+		// The failure that used to be invisible. A slug nobody can resolve —
+		// usually a name where a slug was wanted — produced a response
+		// identical to a successful one, with the research left unstamped.
+		if requestedTemplate != "" && !attach.Resolved {
+			result["template_unresolved"] = requestedTemplate
+			result["template_hint"] = "No template of that name is visible to you, so nothing was recorded and no skills were attached. Use the slug from template_list."
 		}
 		return successResult(result)
 	})

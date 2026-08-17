@@ -19,6 +19,7 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 |--------------------------------------------------------|--------------------------------------|
 | Find every research you can reach, and which are read-only | `research_list`                  |
 | Load full research context (sections + active session + skills index) | `research_get`             |
+| Re-read the methodology the research was started from | `template_get`                     |
 | Open one skill's full text, by slug                    | `skill_load`                         |
 | List entries in a section (no content)                 | `entry_list`                         |
 | Read full content of a specific entry                  | `entry_read`                         |
@@ -42,6 +43,9 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 
 ### Step 2: Select the Research
 
+- The client named one: **{research_id}**. Pass it straight to `research_get` — it accepts a UUID or a short code
+  (`R1`) — and skip the matching below. An unsubstituted `{research_id}` means the client sent none, so select one
+  yourself:
 - Use `research_list` to retrieve every research project you can reach — your own and any owned by a team you belong to
 - Match the user request against each research name and goal
 - **Select immediately** when one research clearly fits (domain, goals, and terminology align)
@@ -60,6 +64,12 @@ Clarifying question patterns:
 
 - Use `research_get` to retrieve the full research record — this returns sections with entry counts and the active
   session if one exists
+- **If `research_get` returned a `template_slug`, call `template_get` with it.**
+  Most of a methodology is written for *this* moment, not for the kickoff: its
+  working rules, what a finished entry contains, what you must refuse to write,
+  and when the research is done. Those were read once, before the research
+  existed, by a session that has since ended. Read them again now — they are the
+  standard this research is held to, and nothing else re-delivers them.
 - **Read the `instruction` field without exception** — it contains the methodology, tone, and depth requirements for
   this research
 - **Read the `memory` array without exception** — it contains accumulated context critical for session continuity

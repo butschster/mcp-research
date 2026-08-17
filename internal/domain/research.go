@@ -33,8 +33,17 @@ type Research struct {
 	Instruction  string         `json:"instruction"`
 	Memory       []string       `json:"memory"`
 	Tags         []string       `json:"tags"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	// TemplateSlug and TemplateVersion record the methodology this research was
+	// started from, and which version of it. The version is stored because
+	// built-in templates are refreshed from the binary on every boot: without
+	// it, an upgrade would silently change the text behind a research already
+	// in flight and nobody could tell afterwards which one was followed.
+	// TemplateName is resolved for display and is never stored.
+	TemplateSlug    string    `json:"template_slug,omitempty"`
+	TemplateVersion int       `json:"template_version,omitempty"`
+	TemplateName    string    `json:"template_name,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type SectionStatus string

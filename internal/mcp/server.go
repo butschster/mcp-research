@@ -23,6 +23,7 @@ type Server struct {
 	export   *service.ExportService
 	team     *service.TeamService
 	skill    *service.SkillService
+	template *service.TemplateService
 	baseURL  string
 	log      *slog.Logger
 }
@@ -42,6 +43,7 @@ func NewServer(
 	export *service.ExportService,
 	team *service.TeamService,
 	skill *service.SkillService,
+	template *service.TemplateService,
 	log *slog.Logger,
 	version string,
 ) *Server {
@@ -62,6 +64,7 @@ func NewServer(
 		export:   export,
 		team:     team,
 		skill:    skill,
+		template: template,
 		log:      log,
 	}
 
