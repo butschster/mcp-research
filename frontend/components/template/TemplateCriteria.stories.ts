@@ -1,0 +1,32 @@
+import type { Meta, StoryObj } from '@storybook/vue3'
+import TemplateCriteria from './TemplateCriteria.vue'
+import { mockGlobalTemplates } from '../../__mocks__/template'
+
+/**
+ * The pair of matching criteria — what an agent chooses on, and what a reader
+ * compares across methodologies. Deliberately not muted: `.data-row` has a hover
+ * state, and muted at this size fails contrast against it.
+ */
+const meta: Meta<typeof TemplateCriteria> = {
+  title: 'Templates/TemplateCriteria',
+  component: TemplateCriteria,
+}
+export default meta
+type Story = StoryObj<typeof TemplateCriteria>
+
+const tp = mockGlobalTemplates[0]!
+
+export const Default: Story = {
+  args: { whenToUse: tp.when_to_use, whenNotToUse: tp.when_not_to_use },
+}
+
+/** In a list row: tighter, smaller, same shape. */
+export const Dense: Story = {
+  args: { whenToUse: tp.when_to_use, whenNotToUse: tp.when_not_to_use, dense: true },
+}
+
+/** Only the positive form — legal, and worth less. */
+export const NoNegative: Story = { args: { whenToUse: tp.when_to_use } }
+
+/** Saved with nothing to match on: in the list, and unchoosable. */
+export const Missing: Story = { args: { whenToUse: '' } }
