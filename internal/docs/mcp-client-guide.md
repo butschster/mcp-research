@@ -1,6 +1,6 @@
 # MCP Client Guide
 
-Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
+Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, the skills index and when to load one, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
 
 ## Two Ways to Interact
 
@@ -22,7 +22,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | Tool | Purpose |
 |------|---------|
 | `research_create` | Create research with sections, tags, and goal. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team |
-| `research_get` | Load full research context (sections, entry counts, active session) |
+| `research_get` | Load full research context (sections, entry counts, active session, and the skills index when the research follows any) |
 | `research_list` | List every research you can reach, with optional status filter. Marks a shared one with `team` and a read-only one with `access: "read-only"` |
 | `research_update` | Update name, goal, status, instruction, memory, tags |
 | `research_add_section` | Add a new section to an existing research |
@@ -69,6 +69,18 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `section_list` | List sections for a research |
 | `section_update` | Update section display name, description, status, position (the slug `name` is immutable) |
 
+### Skills
+
+| Tool | Purpose |
+|------|---------|
+| `skill_load` | Open **one** skill and return its full text, by `slug`. There is no batch form and no other skill tool |
+
+### Teams
+
+| Tool | Purpose |
+|------|---------|
+| `team_list` | The teams you belong to and your role in each. Use the id with `research_create` / `research_import` |
+
 ### Roadmaps
 
 | Tool | Purpose |
@@ -113,6 +125,21 @@ A research is owned by a **team**, and your role in that team decides what you m
 **Share links are not yours to issue.** A research can be published as a revocable, read-only link that someone opens without an account, but there is no MCP tool that creates, lists or revokes one — it is done in the web UI or over REST (`POST /api/researches/{id}/shares`), by a person deciding to give something away. If a user asks for one, point them at the share dialog on the research page rather than looking for a tool. Nothing you do over MCP is affected by a link existing, and a share token never authenticates an MCP call. [Domain Guide → Share](/llms/domain-guide.md#share).
 
 Full model — roles, invitations, transfer and the team REST routes: [Domain Guide](/llms/domain-guide.md#team).
+
+## Skills: An Index You Are Given, A Body You Ask For
+
+A research may **follow** skills — methodology documents saying how a kind of work is done (running an interview, grading a source, building a roadmap), as opposed to `instruction`, which says what this particular research is.
+
+`research_get` returns them as `skills`: `slug`, `name`, `tier` and a `description` that says **when** to use each one. No bodies. Alongside it comes `skills_hint`. **Both keys are absent when the research follows nothing**, which is the normal state of a new research — absence is not an error and there is nothing to retry.
+
+When you are about to do the work one of those lines names, call `skill_load(research_id, slug)` and read the body then. Not while orienting, and not all of them up front: that is the cost this design exists to avoid, which is also why the tool takes one slug and has no batch form.
+
+- Both parameters are plain required strings — no `null`, and both must be non-empty.
+- `research_id` must be the **UUID**, not `R1`. Take it from `research.id` in the `research_get` you already made; a short code answers `not found`.
+- The response is `{slug, name, tier, description, body, precedence}`. `precedence` restates the one rule about conflicts: a skill attached to this research directly beats a team skill, which beats a built-in.
+- A slug you invent, or one belonging to another research's private skill, is `not found`.
+
+**You cannot change which skills a research follows.** Attaching, writing, editing, forking and detaching are REST or web-UI acts, like share links; there is no tool for any of them. If a user wants a skill added, the call is `POST /api/researches/{id}/skills` with `{"slug": "..."}` — give them that rather than looking for a tool. The four product skills need no attaching: they are in the index of every research already. [Skills](/llms/skills.md), [Domain Guide → Skill](/llms/domain-guide.md#skill).
 
 ## Nullable and Optional Fields
 
@@ -363,6 +390,7 @@ Beyond schema validation, each create tool checks a few fields for non-empty val
 | `question_create` | `session_id`, at least one question with `text` |
 | `task_create` | `research_id`, `title` |
 | `roadmap_create` | `research_id`, `title` |
+| `skill_load` | `research_id`, `slug` |
 
 ### 2. Confusing tool errors with protocol errors
 
@@ -457,6 +485,6 @@ Where codes are accepted as tool input:
 
 | Accepts UUID **or** code | Accepts UUID only |
 |--------------------------|-------------------|
-| `research_get`, `research_update`, `research_export` (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
+| `research_get`, `research_update`, `research_export` (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list` / `skill_load`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
 
 So keep the UUIDs returned by create calls. Short codes are for humans, URLs, and `[[...]]` cross-references — REST routes resolve them in `{id}` / `{sessionId}` / `{entryId}` / `{roadmapId}` path segments, MCP tools mostly do not.

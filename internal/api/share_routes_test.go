@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/butschster/mcp-research/internal/api/ws"
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/config"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
@@ -82,9 +83,10 @@ func newShareServer(t *testing.T) *shareServer {
 	teamSvc := service.NewTeamService(teamRepo, storage.NewTeamInviteRepository(db), storage.NewUserRepository(db),
 		researchRepo, events, log)
 	shareSvc := service.NewShareService(shareRepo, access, events, log)
+	skillSvc := service.NewSkillService(storage.NewSkillRepository(db), researchRepo, teamRepo, access, events, log)
 
 	srv := NewServer(ServerConfig{Port: 0}, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc,
-		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, access, nil, db,
+		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, access, nil, db,
 		entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 
 	// Auth is off in this fixture, which is the harder case: with nobody in the
@@ -812,5 +814,58 @@ func TestShareRoutes_RefusalsDoNotSayWhetherAResearchExists(t *testing.T) {
 		if b != bodies[0] {
 			t.Errorf("refusals differ, so the prefix says which researches exist:\n%q\n%q", bodies[0], bodies[i+1])
 		}
+	}
+}
+
+// A skill is a team's methodology — the same class of working process as the
+// instruction it replaces, which redactForShare has always stripped. A share
+// link must not reach one, and the defence is two-layered on purpose: the
+// routes are not mounted on the shared sub-mux, and SkillService.Load refuses a
+// share context anyway, so a route added later that forgot still fails closed.
+func TestShareRoutes_SkillsAreNotReachableThroughAShare(t *testing.T) {
+	s := newShareServer(t)
+	token := s.newShare(domain.ShareInclude{Sessions: true, Tasks: true, Roadmaps: true, Export: true})
+
+	for _, path := range []string{
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/skills",
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/skills/library",
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/skills/managing-a-research",
+		"/api/shared/" + token + "/skills/managing-a-research",
+	} {
+		if code, body := s.get(path); code != http.StatusNotFound {
+			t.Errorf("%s: got %d (%s), want 404 — no skills route belongs on the share prefix", path, code, body)
+		}
+	}
+}
+
+// The owner-side routes must refuse a share token too. Mounting nothing on the
+// public prefix is only half the rule; the other half is that the token cannot
+// be used against the authenticated API.
+func TestShareRoutes_SkillServiceRefusesAShareContext(t *testing.T) {
+	s := newShareServer(t)
+	token := s.newShare(domain.ShareInclude{})
+
+	skills := service.NewSkillService(storage.NewSkillRepository(s.db),
+		storage.NewResearchRepository(s.db), storage.NewTeamRepository(s.db),
+		service.NewAccess(storage.NewTeamRepository(s.db)), service.NoopNotifier{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if _, err := skills.LoadBuiltinSkills(context.Background()); err != nil {
+		t.Fatalf("load builtins: %v", err)
+	}
+	if _, err := skills.Attach(s.ownerCtx, s.research.ID, "managing-a-research", false); err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+
+	share, err := s.shares.Resolve(context.Background(), token, "")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	visitor := auth.WithShare(context.Background(), service.Capability(share))
+
+	if _, err := skills.Load(visitor, s.research.ID, "managing-a-research"); err == nil {
+		t.Error("a share visitor loaded a skill body")
+	}
+	if index := skills.Index(visitor, s.research.ID); len(index) != 0 {
+		t.Errorf("a share visitor was handed a skills index of %d", len(index))
 	}
 }

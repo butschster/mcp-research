@@ -354,7 +354,22 @@ button.tag {
   border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
-.card-section-title { font-size: var(--type-base); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); letter-spacing: -0.01em; }
+/* A heading inside a card, usually with a count or a note beside it — which is
+   why it is a baseline row rather than a block. Four files had scoped copies
+   adding exactly that, and a fifth had a byte-for-byte duplicate of the rule
+   below; each of them shadowed this one, so the heading looked different
+   depending on which page you were on. */
+.card-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--type-base);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.01em;
+}
+/* In a list head the sentence under the heading carries the gap instead. */
+.list-head .card-section-title { margin-bottom: var(--space-1); }
 
 /* Icon buttons */
 /* NOTE: `.btn-icon` is also the name of two unrelated scoped rules, in
@@ -787,16 +802,54 @@ button.tag {
    The row chrome shared by the member list, the invite list, the share list
    and the team list. They stay four components — their columns are genuinely
    different, and one slot-driven component would be four booleans wearing one
-   name — but the frame is one thing. `.share-rows` had no rule at all, so that
-   list was simply missing its top border. */
-.data-rows { display: flex; flex-direction: column; border-top: 1px solid var(--color-border); }
+   name — but the frame is one thing.
+
+   The frame, restated after the settings page got lists of its own:
+
+   A rule *between* two rows is a divider. A rule at the top or the bottom of a
+   list is an edge, and an edge belongs to whatever frames the list. This used
+   to draw both — `border-top` on the container plus `border-bottom` on every
+   row — which inside a card announced a header row that was not there, closed
+   a list the card's own border had already closed, and left every rule ending
+   short of the card edge with the card's padding between them and it. An empty
+   list drew a 1px scar across nothing, because the rule was on the container
+   rather than on a row.
+
+   Two parameters:
+     --row-inset  how far a row's text sits from the frame's edge. The frame
+                  sets it once; the rows, the head and the empty line all read
+                  it, so every line of text in the assembly starts at the same
+                  x. Defaults to the hair of clearance a list on a bare page
+                  wants under its hover state — which is what `/teams` has
+                  today, so nothing there moves.
+     --bounded    what a list wears when nothing frames it: straight on a page,
+                  or as one block among prose. There the outer rules are the
+                  only marks saying where the list starts and stops, and they
+                  are carried by the first and last row, not by the container.
+   No `gap` here, ever: the divider is the separator, and a gap as well would
+   turn a variation in row height into a variation in the space between rows. */
+.data-rows { display: flex; flex-direction: column; }
+
 .data-row {
   display: grid;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-1);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--row-inset, var(--space-1));
+  /* The control height plus the row's two paddings. A row of one short string
+     is then exactly as tall as a row with a select and a ⋯ in it, which is
+     what holds the beat when one note is a word and the next is a paragraph.
+     Same reason `--control-h` exists: state the height, don't derive it. */
+  min-height: calc(var(--control-h) + var(--space-6));
 }
+/* Between rows. Never around them. */
+.data-row + .data-row { border-top: 1px solid var(--color-border); }
+
+/* A list with no frame of its own. Carried by the rows, so an empty list draws
+   nothing — `:empty` is not usable here: Vue leaves fragment anchor text nodes
+   in an empty v-for container. */
+.data-rows--bounded > .data-row:first-child { border-top: 1px solid var(--color-border); }
+.data-rows--bounded > .data-row:last-child  { border-bottom: 1px solid var(--color-border); }
+
 /* A row the server is still thinking about. It used to be `opacity: 0.6;
    pointer-events: none`, which fails twice: opacity on text is forbidden by the
    token contract, and `pointer-events: none` stops a mouse but not Tab — so a
@@ -809,6 +862,83 @@ button.tag {
    a dead share used `opacity: 0.55` — the same idea twice, and the opacity one
    put already-muted text under AA. */
 .data-row--dead { color: var(--color-text-faint); }
+
+/* --- List card ------------------------------------------------------------
+   A card whose content is a list. It keeps its border and its radius and gives
+   up its padding: the rules then run the full width of the card, edge to edge,
+   and the text is inset by the row instead.
+
+   Negative margins on the list were the other way to get here and were not
+   taken: they write the card's padding down a second time, in a second file —
+   `.card` re-states its padding inside the =768px block above — and they only
+   look right when the parent happens to be a card, so the list renders wrong in
+   its own story. `--row-inset` inherits as a custom property, straight through
+   a component boundary, which is what lets this card configure rows rendered by
+   a child component without reaching into it with :deep(). */
+.card.card--list {
+  /* Doubled class on purpose. `.card`'s mobile padding is declared later in
+     this file at equal specificity, and a single-class variant would lose to it
+     on source order at exactly the width where the mistake is most visible. */
+  padding: 0;
+  --row-inset: var(--space-6);
+}
+/* A frame that has its own edges silences the list's — including a bounded one
+   that arrived here from a page. */
+.card--list .data-rows--bounded > .data-row:first-child { border-top: 0; }
+.card--list .data-rows--bounded > .data-row:last-child  { border-bottom: 0; }
+/* A row that touches the frame takes the frame's corner, less the 1px border it
+   sits inside. Without this the first and last row paint a square background
+   across a 10px radius, which is what makes a naive full-bleed list look
+   broken. `overflow: hidden` on the card is the other fix and is worse: it
+   clips the focus ring (outline-offset: 2px) of any control in those two rows,
+   and it would clip a ⋯ menu the day one of these lists grows one. */
+.card--list .data-rows:first-child > .data-row:first-child {
+  border-start-start-radius: calc(var(--radius) - 1px);
+  border-start-end-radius: calc(var(--radius) - 1px);
+}
+.card--list .data-rows:last-child > .data-row:last-child {
+  border-end-start-radius: calc(var(--radius) - 1px);
+  border-end-end-radius: calc(var(--radius) - 1px);
+}
+/* A card that is only a frame does not lift. The rows inside it are the things
+   with states; a container that rises 2px under the cursor while a row
+   highlights inside it is two hover affordances for one pointer. */
+.card.card--list:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--color-border);
+}
+.card.card--list:hover::before { opacity: 0; }
+
+/* The heading, and the sentence under it, at the top of a list card. It carries
+   the same inset as the rows and the rule the list is no longer allowed to
+   draw — with a heading above it, the first line in the card really is a
+   header, and a rule under a header means something. */
+.list-head {
+  padding: var(--space-6) var(--row-inset) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+/* The line standing where the rows would be. Same inset as a row, and no rules
+   at all: there is nothing to divide. It was two identical scoped copies named
+   `.group-empty`, in SkillRowList and in the settings page, and it has to move
+   with `--row-inset` — two copies drifting is how the inset breaks. */
+.list-empty {
+  padding: var(--space-6) var(--row-inset, var(--space-1));
+  font-size: var(--type-sm);
+  color: var(--color-text-muted);
+}
+
+/* The list card has no padding to shrink; what shrinks is the inset it hands to
+   its rows, so the text keeps the same relationship to the edge that a padded
+   card's content does.
+
+   This block sits *after* the base rule rather than up in the general mobile
+   section, because a media query adds no specificity: `.card.card--list`
+   declared later in the file would simply win, and the inset would stay at the
+   desktop value on exactly the screens where it is most wrong. */
+@media (max-width: 768px) {
+  .card.card--list { --row-inset: var(--space-4); }
+}
 
 /* --- Select ---------------------------------------------------------------
    Three byte-identical copies existed, each re-encoding the same chevron with

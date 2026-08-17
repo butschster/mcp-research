@@ -1,5 +1,5 @@
 <template>
-  <div class="data-rows member-rows">
+  <div class="data-rows data-rows--bounded member-rows">
     <div
       v-for="member in members"
       :key="member.user_id"

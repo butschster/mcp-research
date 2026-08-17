@@ -82,8 +82,10 @@ export const SparseRow: Story = {
   },
 }
 
-/** Nothing to show. The component renders an empty rule set on purpose — the
- *  page owns the empty state, because only the page knows the reader's role. */
+/** Nothing to show, and now nothing drawn. The page owns the empty state,
+ *  because only the page knows the reader's role — and the list no longer
+ *  leaves a lone hairline behind while it waits. The rules moved onto the first
+ *  and last row, so a list with no rows has no rules. */
 export const Empty: Story = {
   args: { researches: [] },
 }

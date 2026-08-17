@@ -18,7 +18,8 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 | Purpose                                                | Tool                                 |
 |--------------------------------------------------------|--------------------------------------|
 | Find every research you can reach, and which are read-only | `research_list`                  |
-| Load full research context (sections + active session) | `research_get`                       |
+| Load full research context (sections + active session + skills index) | `research_get`             |
+| Open one skill's full text, by slug                    | `skill_load`                         |
 | List entries in a section (no content)                 | `entry_list`                         |
 | Read full content of a specific entry                  | `entry_read`                         |
 | See who last wrote an entry and what they changed      | `entry_history`, `entry_diff`        |
@@ -62,6 +63,9 @@ Clarifying question patterns:
 - **Read the `instruction` field without exception** — it contains the methodology, tone, and depth requirements for
   this research
 - **Read the `memory` array without exception** — it contains accumulated context critical for session continuity
+- **Read the `skills` array if one is returned, but load nothing yet** — each entry carries a name, a tier and one line
+  saying *when* to use it, never the text itself. Keep those lines in mind as triggers for Step 5. The key is absent
+  when the research follows no skills, which is not an error
 - Switch to operating exclusively under that research's rules from this point forward
 
 ### Step 4: Analyze Existing Entries
@@ -79,6 +83,9 @@ Clarifying question patterns:
   in-progress questions
 - **If no active session exists**: use `session_create` with a focused title, a clear `focus` area, and an initial batch
   of prioritized questions targeting the least-covered sections
+- **When you reach work a skill's line names** — starting the interview, weighing sources that disagree, building a
+  roadmap, writing up findings — call `skill_load` with that slug and follow it from there. One slug per call, at the
+  moment of use, never a sweep of all of them up front
 - Ask one question at a time during the interview loop
 - After each answer: use `question_update` to record the answer and mark the question as `answered`
 - If an answer raises follow-ups: use `question_create` to add them to the session
@@ -97,6 +104,9 @@ Clarifying question patterns:
 5. **Reference existing entries explicitly** in questions to demonstrate continuity
 6. **Create entries proactively** as sessions yield sufficient findings — don't wait for explicit prompts
 7. **Use `add_memory` and `add_note`** to persist context; never rely on conversation history alone
+8. **Skills are triggers, not reading material** — carry the index from Step 3, call `skill_load` at the point of use,
+   one at a time. `instruction` says what *this research* is and still governs tone and depth; a skill says how a *kind
+   of work* is done. Where two skills disagree, the higher tier wins — research-private, then team, then built-in
 
 ## Current Task
 

@@ -48,10 +48,14 @@
 
           <!-- More menu -->
           <ActionMenu>
-            <button class="action-menu-item" @click="detailsOpen = !detailsOpen">
+            <NuxtLink :to="`/research/${researchSlug}/sessions`" class="action-menu-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Sessions
+            </NuxtLink>
+            <NuxtLink :to="`/research/${researchSlug}/settings`" class="action-menu-item">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              {{ detailsOpen ? 'Hide details' : 'Details' }}
-            </button>
+              Settings
+            </NuxtLink>
             <NuxtLink :to="`/research/${researchSlug}/export`" class="action-menu-item">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Export
@@ -86,25 +90,12 @@
           </ActionMenu>
       </template>
       <template #below>
-        <p v-if="research.goal && !detailsOpen" class="card-meta mt-2">{{ research.goal }}</p>
+        <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
       </template>
     </PageHeader>
 
-    <!-- Research details panel -->
-    <ResearchDetailsPanel
-      :research="research"
-      :open="detailsOpen"
-      @save="handleDetailsSave"
-      @update:open="detailsOpen = $event"
-    />
-
     <!-- Active sessions -->
     <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug"
-          :research-id="research?.id"
-          :research-name="research?.name" />
-
-    <!-- Closed sessions (collapsed) -->
-    <ResearchPastSessionsList :sessions="closedSessions" :research-slug="researchSlug"
           :research-id="research?.id"
           :research-name="research?.name" />
 
@@ -320,7 +311,6 @@ const roadmaps = computed(() => roadmapsData.value?.data ?? [])
 const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
 const allSessions = computed(() => sessionsData.value?.data ?? [])
 const activeSessions = computed(() => allSessions.value.filter((s: any) => s.status === 'active'))
-const closedSessions = computed(() => allSessions.value.filter((s: any) => s.status !== 'active'))
 
 // External links
 const { data: researchLinksData, pending: researchLinksLoading } = useApi<{ data: any[]; total: number }>(
@@ -423,20 +413,6 @@ async function confirmRevokeShare() {
   } finally {
     revokingShareId.value = ''
   }
-}
-
-// Details panel
-const detailsOpen = ref(false)
-
-async function handleDetailsSave(field: string, value: any) {
-  const body: Record<string, any> = {}
-  if (field === 'tags') {
-    body.tags = value
-  } else {
-    body[field] = value
-  }
-  await authFetch(`${rtBase}/api/researches/${id}`, { method: 'PUT', body })
-  researchData.value = await authFetch<any>(`${rtBase}/api/researches/${id}`)
 }
 
 // Download portable JSON

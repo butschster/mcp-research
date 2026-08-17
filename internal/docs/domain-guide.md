@@ -26,7 +26,7 @@ Top-level container for an investigation project. Owned by a [team](#team) when 
 
 **Key rules:**
 - One research per topic. Don't mix unrelated investigations.
-- `instruction` governs all future sessions — set it during initialization.
+- `instruction` governs all future sessions — set it during initialization. It says what **this research** is; how a **kind of work** is done belongs in a [skill](#skill), which other researches can follow too.
 - `memory` survives across sessions. Use `add_memory` to append, not replace.
 - `goal` is a success criterion, not a question. "Identify top 3 competitive threats" not "What are the threats?"
 - A new research lands in the creator's personal team. `research_create` has no team parameter; `POST /api/researches` takes an optional `team_id`, and `research_import` / `POST /api/researches/import?team=` take one too.
@@ -465,6 +465,42 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 
 ---
 
+### Skill
+
+A methodology document — how to run an interview, how to grade a source, how to build a roadmap — that a research *follows* and an agent opens at the moment it needs it. `instruction` says what **this research** is; a skill says how a **kind of work** is done, and the same skill can be followed by many researches without being copied.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | The address for management. A slug is not one: a built-in and a team's fork of it share a slug |
+| `slug` | string | Derived from `name`. How a skill is addressed **inside a research**, where the resolution order is defined |
+| `name` | string | Required |
+| `tier` | enum | `private` / `team` / `builtin` — where it lives, and its precedence |
+| `description` | string | The trigger line: **when** to load it, never what it contains. Max 200 characters (runes). The one field always in the agent's context |
+| `body` | string | Markdown, max 16000 characters (runes), required. **Omitted from every list**; carried only by `skill_load` and `GET /api/researches/{id}/skills/{slug}` |
+| `team_id` / `research_id` | string | The ownership pair: exactly one is set, or neither for a built-in |
+| `user_id` | string | Who wrote it. A record, never a permission — as with a research |
+| `ambient` | bool | A product skill: never counted against the cap, never detachable. Set from the shipped file at boot, not through the API |
+| `forked_from` | string | The built-in slug this row copies, when it is a fork or a copy |
+| `needs_trigger` | bool | The description was generated rather than written by a person; cleared on the first real edit |
+| `body_tokens` | int | Estimate — characters over four. Derived at read time, never stored |
+| `version` | int | |
+| `attached` | bool | Library listings only: whether this research already follows it |
+| `via_template` / `attached_at` | bool / string | Attached listings only. They describe the attachment, not the skill |
+
+**Tiers, and what wins.** `private` (one research) over `team` over `builtin`. That order is both the sort of the index and the precedence: where two skills conflict, follow the higher one. Every `skill_load` response restates it in a `precedence` field.
+
+**Attachment** is a row in `research_skills`, not a field on the skill. A research may follow **six** chosen skills — `ambient` ones are outside that budget, and writing a research-private skill spends it, because such a skill is attached on creation.
+
+**No short code.** A skill is never referenced from content, so there is no `[[…]]` form for one.
+
+**One MCP tool, `skill_load`.** The index — slug, name, tier, description, no bodies — rides in `research_get`, and only when the research follows at least one skill. Everything else (attach, detach, write, fork, copy, promote) is REST or the web UI: eleven routes under `/api/researches/{id}/skills…`, `/api/teams/{id}/skills` and `/api/skills/{skillId}`.
+
+**A share link never exposes a skill** — not the index, not a body. Which methodology a team follows is working process, the same class as `instruction` and `memory`. There are no skills routes under `/api/shared/{token}/`, `SkillService.Load` refuses a share context before it resolves the slug, and the index is empty for one — so a route added later still fails closed.
+
+Full reference, including the route table and the conflict codes: [Skills](/llms/skills.md).
+
+---
+
 ## Workflow Summary
 
 ```
@@ -494,7 +530,7 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 | Roadmap | `RM1`, `RM2` | Per research | `/research/R2/roadmap/RM1` |
 | Node | `N1`, `N2` | Per roadmap | — |
 
-A revision has no short code: it is a plain number, 1-based per entry. A [share](#share) has none either — it is addressed by its token and never referenced from content.
+A revision has no short code: it is a plain number, 1-based per entry. A [share](#share) has none either — it is addressed by its token and never referenced from content. Nor does a [skill](#skill): inside a research it is addressed by slug, and everywhere else by id.
 
 ## Real-time Events
 
@@ -512,7 +548,7 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | Field | Type | Present |
 |-------|------|---------|
 | `type` | string | always — `entity.verb`, listed below |
-| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref`, `share` |
+| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref`, `share`, `skill` |
 | `entity_id` | string | always — the id of the thing that changed, not of its parent |
 | `research_id` | string | always present, empty for team-scoped events |
 | `research_code` | string | when the id resolves — the same scope as a short code (`R7`), so a page routed as `/research/R7` can match an event without resolving a UUID first |
@@ -538,12 +574,15 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | `question.updated` | `question` | question | an answer or a status change |
 | `task.created`, `task.updated`, `task.deleted` | `task` | task | |
 | `roadmap.created`, `roadmap.updated`, `roadmap.deleted` | `roadmap` | roadmap | adding, changing or removing nodes and edges all report as `roadmap.updated` on the roadmap |
+| `skill.attached`, `skill.detached` | `skill` | skill | this research started or stopped following a skill. The index `research_get` returns has changed |
+| `skill.created` | `skill` | skill | a research-private skill was written, or a team/built-in one was copied into this research. A **team** skill being written emits nothing — it belongs to no research yet |
+| `skill.updated` | `skill` | skill | the body or trigger line changed. A fork and a promotion report as this too, on the **new** row — its `entity_id` is not the one you were following. Editing a team skill directly emits nothing, because it names no single research |
 | `team.created`, `team.updated`, `team.deleted`, `team.invited`, `team.invite_revoked`, `team.member_added`, `team.member_removed`, `team.member_role_changed` | `team` | team | no `research_id` |
 | `access.changed` | `team` | team | directed. `reason: role_changed`. The new role is deliberately not in the event — read it back from the API rather than trusting a value pushed at you |
 | `access.revoked` | `team` or `research` | team or research | directed. `reason: removed_from_team` (entity `team`) or `research_transferred` (entity `research`, with `research_id`) |
 | `share.created`, `share.revoked` | `share` | share | a read-only link was handed out or taken back. Delivered by the ordinary research rule, so any member who may read the research learns a link exists — and never to a share visitor, who has no use for the news and, in the revoked case, is being disconnected by it |
 
-There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps and teams can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`.
+There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps and teams can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`. A skill can be deleted (`DELETE /api/skills/{skillId}`) but emits nothing when it is: the row is addressed by id and the researches that were following it are not known to that call — re-read the attached list rather than waiting for a message.
 
 ### Who receives what
 

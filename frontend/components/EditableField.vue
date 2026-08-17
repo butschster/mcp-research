@@ -123,7 +123,11 @@ watch(() => props.value, () => { if (editing.value) cancel() })
 /* None of this was global, which I learned by deleting it: an unstyled
    textarea falls back to the browser's white box, in a dark theme, on the
    panel that holds a research's instruction. */
-.field { padding: var(--space-3) var(--space-4); }
+/* The horizontal inset comes from the frame when there is one — the same
+   --row-inset a rule list hands its rows — so a field in a list card lines up
+   with every other line of text in it. The fallback is what a field wears
+   anywhere else, so nothing outside such a card moves. */
+.field { padding: var(--space-3) var(--row-inset, var(--space-4)); }
 .field-header {
   display: flex;
   justify-content: space-between;

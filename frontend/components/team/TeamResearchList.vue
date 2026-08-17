@@ -1,5 +1,5 @@
 <template>
-  <div class="data-rows research-rows">
+  <div class="data-rows data-rows--bounded research-rows">
     <NuxtLink
       v-for="research in researches"
       :key="research.id"

@@ -50,6 +50,7 @@ func NewServer(
 	obsidianSvc *service.ObsidianService,
 	teamSvc *service.TeamService,
 	shareSvc *service.ShareService,
+	skillSvc *service.SkillService,
 	access *service.Access,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
@@ -69,6 +70,7 @@ func NewServer(
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
 	tmh := handlers.NewTeamHandler(teamSvc, researchSvc, log)
 	shh := handlers.NewShareHandler(shareSvc, researchSvc, sectionSvc, log)
+	skh := handlers.NewSkillHandler(skillSvc, researchSvc, log)
 	rh.SetShareService(shareSvc)
 
 	// Build auth middleware functions
@@ -287,6 +289,31 @@ func NewServer(
 	mux.Handle("POST /api/invites/{token}/accept", wrap(tmh.AcceptInvite))
 	mux.Handle("POST /api/researches/{id}/transfer", wrap(tmh.TransferResearch))
 	mux.Handle("POST /api/teams/{id}/researches", wrap(tmh.AddResearches))
+
+	// --- Skills ---
+	//
+	// A slug addresses a skill only inside a research, where the resolution
+	// order is defined (private, then team, then built-in). Management is by id,
+	// because a built-in and a team's fork of it share a slug on purpose.
+	//
+	// None of these are mounted on the shared sub-mux. A skill is a team's
+	// methodology — the same class of working process as the instruction it
+	// replaces, which redactForShare has always stripped — so a share link must
+	// not reach one. SkillService.Load refuses a share context as well, because
+	// a future route that forgot this should still fail closed.
+	mux.Handle("GET /api/researches/{id}/skills", wrapRead(skh.ListAttached))
+	mux.Handle("GET /api/researches/{id}/skills/library", wrapRead(skh.Library))
+	mux.Handle("GET /api/researches/{id}/skills/{slug}", wrapRead(skh.Read))
+	mux.Handle("POST /api/researches/{id}/skills", wrap(skh.Create))
+	mux.Handle("DELETE /api/researches/{id}/skills/{slug}", wrap(skh.Detach))
+	mux.Handle("PUT /api/researches/{id}/skills/{slug}", wrap(skh.Fork))
+	mux.Handle("POST /api/researches/{id}/skills/{slug}/copy", wrap(skh.CopyHere))
+	mux.Handle("POST /api/researches/{id}/skills/{slug}/promote", wrap(skh.Promote))
+	mux.Handle("GET /api/teams/{id}/skills", wrapRead(skh.ListTeam))
+	mux.Handle("POST /api/teams/{id}/skills", wrap(skh.CreateTeam))
+	mux.Handle("GET /api/skills/{skillId}", wrapRead(skh.ReadByID))
+	mux.Handle("PUT /api/skills/{skillId}", wrap(skh.Update))
+	mux.Handle("DELETE /api/skills/{skillId}", wrap(skh.Delete))
 
 	// --- Share links ---
 	//

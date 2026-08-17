@@ -50,11 +50,22 @@
       <p v-if="session.focus" class="card-meta mt-2" v-html="'Focus: ' + renderRefs(session.focus, researchSlug)"></p>
     </div>
 
-    <!-- Notes -->
-    <div v-if="session.notes" class="card notes-card">
-      <h3 class="card-section-title">Session notes</h3>
+    <!-- Notes. Closed by default: they are the conductor's working record, worth
+         keeping and worth reading on purpose, but they stood between the session
+         header and the questions on every visit. <details> rather than a button,
+         so the disclosure is the browser's and the content is findable by the
+         page's own search. -->
+    <details v-if="session.notes" class="card notes-card" @toggle="onNotesToggle">
+      <summary class="notes-summary">
+        <!-- The native marker is hidden, so the affordance has to be drawn:
+             without one, a closed card is a heading with a number beside it and
+             nothing saying it opens. -->
+        <svg class="notes-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
+        <svg class="notes-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+        <h3 class="card-section-title">Session notes</h3>
+      </summary>
       <div ref="notesEl" class="notes-text markdown-content" v-html="linkRefs(parseMarkdown(normalizeContent(session.notes)) as string, researchSlug)"></div>
-    </div>
+    </details>
 
     <!-- Tabs -->
     <div class="tabs content-tabs" role="tablist" aria-label="Session content">
@@ -112,14 +123,18 @@
 
     <!-- Questions panel -->
     <div v-if="activeTab === 'questions'" id="panel-questions" role="tabpanel" aria-labelledby="tab-questions" tabindex="0">
-      <div class="panel-progress">
-        <ProgressBar :value="progress.answered" :total="progress.total" />
+      <!-- Framed. Unframed it was a full-width bar sitting a gap below the tab
+           strip's own full-width rule — two horizontal lines of the same shape,
+           reading as one broken divider rather than as a boundary and a
+           measurement. -->
+      <div class="card panel-progress">
         <div class="progress-stats">
           <span class="stat-answered">{{ progress.answered }} answered</span>
           <span class="stat-pending">{{ progress.pending }} pending</span>
           <span v-if="progress.deferred" class="stat-muted">{{ progress.deferred }} deferred</span>
           <span v-if="progress.skipped" class="stat-skipped">{{ progress.skipped }} skipped</span>
         </div>
+        <ProgressBar :value="progress.answered" :total="progress.total" />
       </div>
 
       <!-- Add question -->
@@ -213,14 +228,29 @@ const sessionSlug = computed(() => session.value?.code || sessionId)
 
 // Mermaid rendering for session notes
 const notesEl = ref<HTMLElement | null>(null)
-watch(() => session.value?.notes, () => {
+
+/* Notes are closed by default now, and a <details> that is closed hides its
+   subtree — so mermaid would measure a zero-width container and draw a diagram
+   nobody could read until the page was reloaded with it already open. Render on
+   disclosure instead, and only once per content change. */
+const notesRendered = ref(false)
+function renderNotes() {
   nextTick(() => {
-    if (notesEl.value) renderMermaidBlocks(notesEl.value)
+    if (notesEl.value?.offsetParent === null) return // still hidden
+    if (notesEl.value) {
+      renderMermaidBlocks(notesEl.value)
+      notesRendered.value = true
+    }
   })
+}
+function onNotesToggle(e: Event) {
+  if ((e.target as HTMLDetailsElement).open && !notesRendered.value) renderNotes()
+}
+watch(() => session.value?.notes, () => {
+  notesRendered.value = false
+  renderNotes()
 })
-onMounted(() => {
-  if (notesEl.value) renderMermaidBlocks(notesEl.value)
-})
+onMounted(renderNotes)
 const questions = computed(() => data.value?.data?.questions ?? data.value?.data?.Questions ?? {})
 const progress  = computed(() => ({
   total:    data.value?.data?.progress?.total    ?? 0,
@@ -389,13 +419,47 @@ useResearchRealtime(
 .session-header .page-title { min-width: 0; overflow-wrap: anywhere; }
 .session-header-actions { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
 .notes-card { margin-bottom: var(--space-6); }
-.notes-text { white-space: pre-wrap; color: var(--color-text-muted); font-size: var(--type-sm); line-height: 1.6; }
+.notes-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  list-style: none;
+}
+.notes-summary:hover { color: var(--color-text); }
+.notes-chevron,
+.notes-icon { flex-shrink: 0; color: var(--color-text-muted); }
+.notes-chevron { transition: transform var(--transition-base); }
+.notes-card[open] .notes-chevron { transform: rotate(90deg); }
+/* The disclosure has a visible focus ring of its own; the summary is the
+   control, so the ring belongs on it rather than on the card. */
+.notes-summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+.notes-summary::-webkit-details-marker { display: none; }
+/* The card's heading carries its own bottom margin, which would push the
+   summary row apart from a body that is not there when it is closed. */
+.notes-summary .card-section-title { margin-bottom: 0; }
+.notes-card[open] .notes-summary { margin-bottom: var(--space-3); }
+/* No `white-space: pre-wrap`. The notes go through parseMarkdown, which already
+   turns a blank line into a paragraph with its own margin — so preserving the
+   literal newline on top of that spaced every paragraph twice, and a note with
+   a diagram in it opened with a screen of gaps. */
+.notes-text { color: var(--color-text-muted); font-size: var(--type-sm); line-height: 1.6; }
 
 /* Panel progress */
-.panel-progress { margin-bottom: var(--space-5); }
+.panel-progress {
+  /* The strip's rule is a boundary; this is a measurement. Enough air between
+     them that they are not read as one thing, and a frame so the bar inside is
+     obviously a gauge rather than another rule across the page. */
+  margin: var(--space-5) 0;
+  padding: var(--space-4) var(--space-5);
+}
 .progress-stats {
   display: flex; gap: var(--space-4); font-size: var(--type-xs);
-  margin-top: var(--space-2); color: var(--color-text-muted);
+  margin-bottom: var(--space-3); color: var(--color-text-muted);
 }
 .stat-skipped  { color: var(--color-error); font-weight: var(--weight-medium); }
 .stat-muted    { color: var(--color-text-muted); }

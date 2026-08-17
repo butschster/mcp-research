@@ -1,5 +1,5 @@
 <template>
-  <div class="data-rows share-rows">
+  <div class="data-rows data-rows--bounded share-rows">
     <div
       v-for="share in shares"
       :key="share.id"

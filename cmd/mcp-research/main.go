@@ -71,6 +71,7 @@ func main() {
 	teamRepo := storage.NewTeamRepository(db)
 	teamInviteRepo := storage.NewTeamInviteRepository(db)
 	shareRepo := storage.NewShareRepository(db)
+	skillRepo := storage.NewSkillRepository(db)
 	userRepo := storage.NewUserRepository(db)
 
 	// Every service asks the same guard what the caller may do, so there is one
@@ -99,6 +100,17 @@ func main() {
 	obsidianSvc := service.NewObsidianService(researchSvc, sectionSvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, revisionRepo, log)
 	teamSvc := service.NewTeamService(teamRepo, teamInviteRepo, userRepo, researchRepo, events, log)
 	shareSvc := service.NewShareService(shareRepo, access, events, log)
+	skillSvc := service.NewSkillService(skillRepo, researchRepo, teamRepo, access, events, log)
+
+	// The skills we ship are refreshed on every boot, so an upgrade updates
+	// them. It only ever touches rows with no team and no research: a team that
+	// forked one owns a separate row, and overwriting somebody's edits on
+	// upgrade is the failure this whole tier exists to avoid.
+	if n, err := skillSvc.LoadBuiltinSkills(context.Background()); err != nil {
+		log.Error("failed to load built-in skills", "error", err)
+	} else if n > 0 {
+		log.Info("loaded built-in skills", "count", n)
+	}
 
 	// A shared page watches the research update live, which is the single most
 	// compelling thing this product does — a share that is a frozen snapshot
@@ -150,7 +162,7 @@ func main() {
 	}
 
 	// MCP Server
-	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, log, version)
+	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, skillSvc, log, version)
 	srv.SetBaseURL(cfg.BaseURL)
 
 	log.Info("mcp-research started",
@@ -176,7 +188,7 @@ func main() {
 		MCPHandler:     srv.StreamableHTTPHandler(),
 		Version:        version,
 	}
-	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

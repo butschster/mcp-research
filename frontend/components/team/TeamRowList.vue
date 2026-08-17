@@ -1,5 +1,5 @@
 <template>
-  <div class="data-rows team-rows">
+  <div class="data-rows data-rows--bounded team-rows">
     <NuxtLink
       v-for="team in visible"
       :key="team.id"
@@ -20,7 +20,6 @@
       </div>
 
       <span class="badge badge-quiet team-role">{{ ROLE_LABELS[team.role] }}</span>
-      <span class="team-arrow" aria-hidden="true">→</span>
     </NuxtLink>
   </div>
 </template>
@@ -65,7 +64,7 @@ function initial(team: Team) {
 
 <style scoped>
 .team-row {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   color: inherit;
   text-decoration: none;
   transition: background var(--transition-fast);
@@ -83,12 +82,14 @@ function initial(team: Team) {
 /* A floor rather than a width: three roles of nearly equal length, and rows
    whose badges start at different places read as a broken column. */
 .team-role { min-width: 4.5rem; justify-content: center; }
-.team-arrow { color: var(--color-primary); font-size: var(--type-sm); }
+/* The row was a link with a → at the end of it. The whole row is the target,
+   it highlights on hover and it is a real anchor, so the arrow was restating
+   what the cursor and the hover already say — and it was the only glyph in the
+   list carrying the primary colour, which made it read as a separate control. */
 
 @media (max-width: 768px) {
-  .team-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: var(--space-2); }
+  .team-row { grid-template-columns: auto minmax(0, 1fr); row-gap: var(--space-2); }
   .team-identity { grid-column: 2; }
-  .team-arrow { grid-column: 3; grid-row: 1; }
   .team-role { grid-column: 2 / -1; grid-row: 2; justify-self: start; min-width: 0; }
 }
 </style>

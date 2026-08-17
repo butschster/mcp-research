@@ -39,6 +39,23 @@ Use the `research/initialize` MCP prompt or create via API:
 
 ## Step 2: Conduct Research Sessions
 
+### Note the Skills, Load Them Late
+
+`research_get` may return a `skills` array — each entry a name, a tier and one
+line saying **when** to use it. The bodies are not there, and the key is absent
+entirely when the research follows nothing, which is normal.
+
+Read the lines when you load the research; do not load the bodies then. When you
+are about to do the work one of them names — start an interview, grade a source
+that two people disagree about, build a roadmap — call `skill_load` with that
+slug and read it at that moment. One slug per call. A skill read three steps
+before the work it describes has usually been forgotten by the time it matters.
+
+Where two skills conflict, the higher tier wins: research-private over team over
+built-in, which is why the index arrives in that order. `instruction` is not part
+of that ordering — it answers a different question, what this research is, and
+still governs tone and depth. See [Skills](/llms/skills.md).
+
 ### Create a Session
 
 Start a Q&A session focused on specific sections:
@@ -187,6 +204,7 @@ Use `[[...]]` syntax in entry content to create links between documents:
 - Prioritize high-priority questions first
 - Write entries that are self-contained and useful on their own
 - Use the research's instruction field as your guide for tone and depth
+- Load a skill when you reach the work it names, not while orienting — and one at a time
 - Keep session notes updated for context across sessions
 - Use tasks to plan and track remaining work
 - Use `[[E1]]` cross-references to build connections between related entries

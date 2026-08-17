@@ -4,7 +4,7 @@
        says only "Move researches here" for the same reason — `.modal-title` is
        uppercase, and a Cyrillic team name shouted across two lines is not a
        heading anybody reads. The team is named in the sentence below it. -->
-  <ModalOverlay :visible="visible" size="lg" :labelledby="titleId" @close="emit('close')">
+  <ModalOverlay :visible="visible" size="lg" flush :labelledby="titleId" @close="emit('close')">
     <ModalHeader :title-id="titleId" title="Move researches here" @close="emit('close')" />
 
     <div class="dialog-body">
@@ -35,8 +35,8 @@
         </div>
 
         <ul class="candidate-list">
-          <li v-for="research in filtered" :key="research.id">
-            <label class="check-row">
+          <li v-for="research in filtered" :key="research.id" class="candidate-row">
+            <label class="candidate-check">
               <input v-model="picked" type="checkbox" :value="research.id" />
               <span class="candidate-text">
                 <span class="candidate-name">
@@ -57,7 +57,7 @@
       <p v-if="error" class="inline-error" role="alert">{{ error }}</p>
     </div>
 
-    <div class="modal-actions">
+    <div class="modal-footer">
       <button class="btn btn-sm" :disabled="busy" @click="emit('close')">Cancel</button>
       <button
         v-if="candidates.length"
@@ -129,9 +129,18 @@ watch(
 </script>
 
 <style scoped>
-.dialog-body { padding: var(--space-4) var(--space-6); }
-.dialog-help { font-size: var(--type-sm); color: var(--color-text-muted); margin: 0 0 var(--space-3); }
-.filter-row { margin-bottom: var(--space-2); }
+/* The dialog is flush, so the parts own their spacing — which is what lets the
+   list run to the dialog's edges while the prose above it stays inset. Before
+   this the modal card's own padding stacked with the body's, putting the help
+   text 48px from an edge and stopping the header's rule short of both sides. */
+.dialog-body { --row-inset: var(--space-6); padding: var(--space-4) 0; }
+.dialog-help {
+  font-size: var(--type-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3);
+  padding: 0 var(--row-inset);
+}
+.filter-row { margin-bottom: var(--space-3); padding: 0 var(--row-inset); }
 .candidate-list {
   list-style: none;
   margin: 0;
@@ -140,7 +149,26 @@ watch(
      the window with its buttons below the fold. */
   max-height: 22rem;
   overflow-y: auto;
+  /* The rule above the first row is the edge between the prose and the list —
+     the one place in this dialog where a top rule means something. */
+  border-top: 1px solid var(--color-border);
 }
+/* One divider between two rows, and none around them: the dialog's own edges
+   close the list. */
+.candidate-row + .candidate-row { border-top: 1px solid var(--color-border); }
+/* Not `.check-row`: that name is global (system.css) and a scoped copy would
+   shadow it — the row here is a full-width list row with the frame's inset,
+   which is a different thing from the checkbox line in a form. */
+.candidate-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--row-inset);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.candidate-check:hover { background: var(--color-surface-hover); }
+.candidate-check input { flex-shrink: 0; }
 .candidate-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .candidate-name { font-size: var(--type-sm); overflow-wrap: anywhere; }
 .candidate-code { color: var(--color-text-muted); font-variant-numeric: tabular-nums; margin-right: var(--space-1); }
