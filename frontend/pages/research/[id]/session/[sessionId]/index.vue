@@ -57,8 +57,12 @@
          page's own search. -->
     <details v-if="session.notes" class="card notes-card" @toggle="onNotesToggle">
       <summary class="notes-summary">
+        <!-- The native marker is hidden, so the affordance has to be drawn:
+             without one, a closed card is a heading with a number beside it and
+             nothing saying it opens. -->
+        <svg class="notes-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
+        <svg class="notes-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
         <h3 class="card-section-title">Session notes</h3>
-        <span class="notes-hint">{{ noteWordCount }} words</span>
       </summary>
       <div ref="notesEl" class="notes-text markdown-content" v-html="linkRefs(parseMarkdown(normalizeContent(session.notes)) as string, researchSlug)"></div>
     </details>
@@ -248,14 +252,6 @@ watch(() => session.value?.notes, () => {
 })
 onMounted(renderNotes)
 const questions = computed(() => data.value?.data?.questions ?? data.value?.data?.Questions ?? {})
-/* A closed disclosure has to say what is behind it, or nobody opens it. The
-   word count is the cheapest honest signal: it distinguishes a one-line note
-   from the long record of a whole interview. */
-const noteWordCount = computed(() => {
-  const text = data.value?.data?.session?.notes ?? ''
-  return text.trim() ? text.trim().split(/\s+/).length : 0
-})
-
 const progress  = computed(() => ({
   total:    data.value?.data?.progress?.total    ?? 0,
   answered: data.value?.data?.progress?.answered ?? 0,
@@ -425,19 +421,33 @@ useResearchRealtime(
 .notes-card { margin-bottom: var(--space-6); }
 .notes-summary {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
+  align-items: center;
+  gap: var(--space-2);
   cursor: pointer;
   list-style: none;
+}
+.notes-summary:hover { color: var(--color-text); }
+.notes-chevron,
+.notes-icon { flex-shrink: 0; color: var(--color-text-muted); }
+.notes-chevron { transition: transform var(--transition-base); }
+.notes-card[open] .notes-chevron { transform: rotate(90deg); }
+/* The disclosure has a visible focus ring of its own; the summary is the
+   control, so the ring belongs on it rather than on the card. */
+.notes-summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
 }
 .notes-summary::-webkit-details-marker { display: none; }
 /* The card's heading carries its own bottom margin, which would push the
    summary row apart from a body that is not there when it is closed. */
 .notes-summary .card-section-title { margin-bottom: 0; }
-.notes-hint { font-size: var(--type-xs); color: var(--color-text-muted); }
 .notes-card[open] .notes-summary { margin-bottom: var(--space-3); }
-.notes-text { white-space: pre-wrap; color: var(--color-text-muted); font-size: var(--type-sm); line-height: 1.6; }
+/* No `white-space: pre-wrap`. The notes go through parseMarkdown, which already
+   turns a blank line into a paragraph with its own margin — so preserving the
+   literal newline on top of that spaced every paragraph twice, and a note with
+   a diagram in it opened with a screen of gaps. */
+.notes-text { color: var(--color-text-muted); font-size: var(--type-sm); line-height: 1.6; }
 
 /* Panel progress */
 .panel-progress {
