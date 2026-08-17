@@ -16,9 +16,9 @@ defineProps<{
   display: inline-flex;
   align-items: center;
   padding: 0.15rem 0.45rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-size: 0.5625rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.02em;
   line-height: 1;
   white-space: nowrap;

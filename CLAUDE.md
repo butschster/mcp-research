@@ -170,10 +170,13 @@ only way to read a research without a role in the team that owns it.
   list and nothing else. Do not teach an existing route to also accept a share.
 - **A route that serves an optional part must gate itself.** The `include` flags
   (`sessions`, `tasks`, `roadmaps`, `export`) gate routes via `needs(...)`, but
-  three payloads carry optional content on ungated routes and check the flags
+  four payloads carry optional content on ungated routes and check the flags
   themselves: `active_session` on the research route, sessions/tasks/roadmap
-  count in the export, and roadmap node `ref_data` (a task node inlines the
-  task's result, a question node its answer).
+  count in the export, roadmap node `ref_data` (a task node inlines the task's
+  result, a question node its answer), and the **Obsidian vault**, whose parts
+  are chosen by a query string the visitor writes — `service.clampForShare`
+  narrows them, in the service rather than the handler, so a second entry point
+  cannot forget.
 - `redactForShare` in `research_service.go` strips `instruction`, `memory` and
   the team fields. It is called from `ResearchService.Get`, which every read of
   a research goes through — the page, both exports, the portable dump.
@@ -198,7 +201,16 @@ only way to read a research without a role in the team that owns it.
 - Cross-references work in entry content, question text/answers, task results, session notes
 - Cross-references are extracted and stored in `crossrefs` table on entry create/update
 - `POST /api/researches/{id}/crossrefs/rebuild` re-scans all entries to fix stale references
-- Frontend renders `[[...]]` as clickable links via `renderRefs()` composable (auto-imported by Nuxt)
+- Frontend renders `[[...]]` via `composables/useCrossRefs.ts`, which offers two
+  functions and the choice between them is not a preference:
+  - `renderRefs(text, slug)` — **escapes, then links.** For a raw field: an entry
+    description, a task title, a question, a session focus.
+  - `linkRefs(html, slug)` — **links only.** For a caller that already holds HTML:
+    `marked` output, or the tail of `renderInline`.
+
+  Both feed `v-html`, so the wrong one is not a cosmetic error. `linkRefs` on raw
+  text is an injection sink; `renderRefs` on HTML double-escapes and prints the
+  tags. The rule was unwritten once and 13 of 26 call sites got it wrong.
 
 ### Event System
 

@@ -2,11 +2,11 @@
   <div>
     <!-- Filter bar -->
     <div v-if="hasFilters" class="question-filters">
-      <select v-model="filterArea" class="q-select">
+      <select v-model="filterArea" class="select">
         <option value="">All areas</option>
         <option v-for="a in areas" :key="a" :value="a">{{ a }}</option>
       </select>
-      <select v-model="filterPriority" class="q-select">
+      <select v-model="filterPriority" class="select">
         <option value="">All priorities</option>
         <option value="high">&uarr; High</option>
         <option value="medium">&bull; Medium</option>
@@ -62,17 +62,23 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { NuxtLink } from '#components'
 
 import { renderRefs } from '~/composables/useCrossRefs'
+import { normalizeContent } from '~/utils/normalizeContent'
+
 interface Question {
   id: string
   code: string
   text: string
   area: string
   priority: string
-  answer: string
-  parent_id: string
+  // A pending question has no answer and a top-level one has no parent; both
+  // arrive as null. Declaring them as plain strings made the type disagree with
+  // every payload the component is actually handed.
+  answer?: string | null
+  parent_id?: string | null
   status: string
 }
 
@@ -151,7 +157,8 @@ function truncateAnswer(text: string, max: number): string {
     .replace(/\|[^|]+\|/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-  return plain.length > max ? plain.slice(0, max) + '...' : plain
+  // The stripping is this function's own; the cutting is not.
+  return truncate(plain, max)
 }
 </script>
 
@@ -162,23 +169,6 @@ function truncateAnswer(text: string, max: number): string {
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
-.q-select {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0.35rem 1.5rem 0.35rem 0.625rem;
-  color: var(--color-text-muted);
-  font-size: var(--type-sm);
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237f8ea3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.625rem center;
-}
-.q-select:hover { border-color: rgba(108, 197, 224, 0.25); color: var(--color-text); }
 
 .question-group { margin-bottom: var(--space-3); }
 
@@ -195,9 +185,9 @@ function truncateAnswer(text: string, max: number): string {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 0.15rem 0.375rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   min-width: 1.25rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -253,18 +243,18 @@ function truncateAnswer(text: string, max: number): string {
 .q-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
   margin-top: 2px;
 }
 .q-text {
   flex: 1;
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.4;
 }
 .q-badges {

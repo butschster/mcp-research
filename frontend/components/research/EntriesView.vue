@@ -1,5 +1,43 @@
 <template>
   <div>
+    <!-- Searching inside one research.
+         The command palette has always been global, and tags were the only
+         in-research filter — which exist only if the agent applied them. In a
+         sixty-entry research that left nothing to search with, on the surface
+         where finding one paragraph is most of the job. -->
+    <div class="entries-search cluster">
+      <input
+        v-model="query"
+        type="search"
+        class="text-input entries-search-input"
+        placeholder="Search this research…"
+        :aria-label="`Search ${researchName || 'this research'}`"
+      />
+      <span v-if="query.length === 1" class="card-meta">Keep typing…</span>
+      <span v-else-if="query.length > 1" class="card-meta" role="status">
+        {{ searching ? 'Searching…' : `${found.length} ${found.length === 1 ? 'match' : 'matches'}` }}
+      </span>
+    </div>
+
+    <!-- Results replace the list while a query stands. -->
+    <div v-if="query.length > 1">
+      <div v-if="found.length" class="grid grid-2">
+        <EntryCard
+          v-for="entry in found"
+          :key="entry.id"
+          :entry="entry"
+          :research-slug="researchSlug"
+        />
+      </div>
+      <EmptyState
+        v-else-if="!searching"
+        icon="&#x1F50D;"
+        :title="`Nothing matches “${query}”`"
+        description="Titles, descriptions and the body of every entry in this research were searched."
+      />
+    </div>
+
+    <template v-else>
     <!-- All entries view -->
     <template v-if="mode === 'all'">
       <div class="section-header">
@@ -111,6 +149,7 @@
         :description="emptyDescription('section')"
       />
     </template>
+    </template>
   </div>
 </template>
 
@@ -122,6 +161,8 @@ import { shareActive } from '~/composables/useShare'
 
 const props = defineProps<{
   entries: any[]
+  researchId?: string
+  researchName?: string
   sections: any[]
   researchSlug: string
   loading: boolean
@@ -129,6 +170,46 @@ const props = defineProps<{
   sectionInfo?: any
   tags: Array<{ tag: string; count: number }>
 }>()
+
+/* The search is the component's own: it holds the query, so nothing above it
+   has to thread state through, and it asks the server rather than filtering
+   `entries`, because the body is where the answer usually is and the body is
+   not in the payload this component is handed. */
+const query = ref('')
+const searching = ref(false)
+const found = ref<any[]>([])
+const { authFetch } = useAuth()
+const base = useRuntimeConfig().public.apiBase || ''
+
+let seq = 0
+let timer: ReturnType<typeof setTimeout> | null = null
+
+async function run(q: string) {
+  const mine = ++seq
+  searching.value = true
+  try {
+    const res = await authFetch<{ entries: any[] }>(
+      `${base}/api/search?q=${encodeURIComponent(q)}&research=${encodeURIComponent(props.researchId ?? '')}`,
+    )
+    // An earlier request that lands late must not overwrite a later one.
+    if (mine === seq) found.value = res?.entries ?? []
+  } catch {
+    if (mine === seq) found.value = []
+  } finally {
+    if (mine === seq) searching.value = false
+  }
+}
+
+/* Debounced by hand rather than by a dependency: a request per keystroke is
+   what the global palette still does, and typing "authentication" there fires
+   fourteen. */
+watch(query, (q) => {
+  if (timer) clearTimeout(timer)
+  if (q.trim().length < 2) { found.value = []; searching.value = false; return }
+  timer = setTimeout(() => run(q.trim()), 200)
+})
+
+onUnmounted(() => { if (timer) clearTimeout(timer) })
 
 /**
  * What to say about an empty list.
@@ -194,8 +275,11 @@ const groupedEntries = computed(() => {
 </script>
 
 <style scoped>
+.entries-search { margin-bottom: var(--space-4); }
+.entries-search-input { flex: 1; min-width: 12rem; }
+
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
-.section-title { font-size: var(--type-xl); font-weight: 600; letter-spacing: -0.02em; }
+.section-title { font-size: var(--type-xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; }
 .tags-panel { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .tag-active { background: var(--color-primary-muted); color: var(--color-primary); }
 .tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
@@ -207,7 +291,7 @@ const groupedEntries = computed(() => {
 }
 .group-section-title {
   font-size: var(--type-base);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
@@ -220,11 +304,11 @@ const groupedEntries = computed(() => {
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 .short-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
@@ -236,7 +320,7 @@ const groupedEntries = computed(() => {
   background: var(--color-primary-muted);
   color: var(--color-primary);
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.02em;
   flex-shrink: 0;
 }

@@ -37,7 +37,11 @@ const config: StorybookConfig = {
             'vue',
             'vue-router',
             {
-              [path.resolve(__dirname, '../composables/useCrossRefs')]: ['renderRefs'],
+              // `renderRefs` escapes its input; `linkRefs` is the variant for a
+              // caller that already holds HTML. A story reaching for the wrong
+              // one is exactly the mistake worth catching in the catalogue.
+              [path.resolve(__dirname, '../composables/useCrossRefs')]: ['renderRefs', 'linkRefs'],
+              [path.resolve(__dirname, '../utils/escapeHtml')]: ['escapeHtml'],
               [path.resolve(__dirname, '../composables/useTagHue')]: ['tagHue'],
               // Pure formatting over a string — the real one, so a card in the
               // catalogue reads the same "2h ago" the product does.

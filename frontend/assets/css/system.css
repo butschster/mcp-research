@@ -1,0 +1,902 @@
+/* ==========================================================================
+   The shared vocabulary: primitives, and only primitives.
+
+   A class earns a place here when three or more *unrelated* components use
+   it. Two is the moment to extract a component instead — promoting at two is
+   how `.research-header`, `.tasks-header` and `.roadmaps-header` became three
+   names for one rule.
+   ========================================================================== */
+
+/* --- Navigation --------------------------------------------------------- */
+
+/* Ghost button reset */
+.btn-ghost {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: color var(--transition-fast);
+}
+.btn-ghost:hover { color: var(--color-primary); }
+
+/* --- Page Header -------------------------------------------------------- */
+
+.page-header {
+  padding: 0;
+  margin-bottom: var(--space-5);
+}
+
+.page-title {
+  overflow-wrap: anywhere;
+  font-size: var(--type-2xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-tight);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+/* --- Cards -------------------------------------------------------------- */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-6);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
+  position: relative;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(108, 197, 224, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+.card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(108, 197, 224, 0.06);
+  transform: translateY(-2px);
+}
+.card:hover::before { opacity: 1; }
+
+.card-title {
+  font-size: var(--type-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-tight);
+  letter-spacing: -0.015em;
+  margin-bottom: var(--space-2);
+}
+
+.card-meta {
+  color: var(--color-text-muted);
+  font-size: var(--type-sm);
+  line-height: 1.5;
+  letter-spacing: 0.005em;
+}
+
+/* --- Grid --------------------------------------------------------------- */
+
+.grid { display: grid; gap: var(--space-6); }
+.grid-2 { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
+
+/* --- Buttons ------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0.4rem 0.875rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn:hover {
+  background: var(--color-surface-hover);
+  border-color: rgba(108, 197, 224, 0.25);
+  color: var(--color-text);
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-1);
+}
+.btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.05s;
+}
+.btn-sm {
+  min-height: var(--control-h-sm);
+  padding: 0.3rem 0.625rem;
+  font-size: var(--type-sm);
+}
+.btn-primary {
+  background: var(--color-primary);
+  border-color: transparent;
+  color: var(--color-bg);
+  font-weight: var(--weight-semibold);
+}
+.btn-primary:hover {
+  background: #7cd1ea;
+  box-shadow: var(--shadow-glow);
+  color: var(--color-bg);
+  border-color: transparent;
+}
+
+.btn-danger {
+  color: var(--color-error);
+  border-color: rgba(239, 107, 107, 0.25);
+}
+.btn-danger:hover {
+  background: rgba(239, 107, 107, 0.1);
+  border-color: rgba(239, 107, 107, 0.4);
+  color: var(--color-error);
+}
+
+/* The loud variant, for a confirmation dialog — where the destructive button
+   should be the loudest thing on screen. `ConfirmModal` used to get this by
+   redefining `.btn-danger` in its own scoped block, so one class name meant a
+   quiet outline in a page and a filled red inside a dialog, decided by which
+   component you happened to be in. That fill was white on #ef4444, which
+   measures 3.76:1; the page background on the product's own red is 6.2:1. */
+.btn-danger--solid {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-bg);
+}
+.btn-danger--solid:hover { background: var(--color-error); border-color: var(--color-error); filter: brightness(1.08); }
+
+/* --- Status Badges ------------------------------------------------------ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-xs);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: none;
+}
+.badge-active      { background: rgba(52, 211, 153, 0.10); color: var(--color-success); }
+.badge-completed   { background: rgba(107, 157, 240, 0.10); color: var(--color-info); }
+.badge-archived    { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
+.badge-draft       { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
+.badge-pending     { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
+.badge-answered    { background: rgba(52, 211, 153, 0.10); color: var(--color-success); }
+.badge-deferred    { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
+.badge-skipped     { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
+.badge-blocked     { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
+.badge-failed      { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
+.badge-in_progress { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
+.badge-high        { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
+.badge-medium      { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
+.badge-low         { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
+
+/* --- Tags --------------------------------------------------------------- */
+
+/* A tag is sometimes a filter control, and a `<button>` brings a font family,
+   a centred text alignment and a UA border with it. */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-xs);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  line-height: 1;
+  transition: all var(--transition-fast);
+}
+/* A clickable tag is a <button>, which arrives with a UA border and its own
+   font. `font: inherit` was the first attempt and it is a shorthand — it reset
+   size, weight and line-height too, and `button.tag` outranks `.tag`, so the
+   control came out at body size and weight 400 beside an identical inert one. */
+button.tag {
+  font-family: inherit;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: inherit;
+}
+.tag-hue-0 { background: rgba(108, 197, 224, 0.08); color: var(--color-primary); }
+.tag-hue-1 { background: rgba(52, 211, 153, 0.08);  color: var(--color-success); }
+.tag-hue-2 { background: rgba(240, 184, 73, 0.08);  color: var(--color-warning); }
+.tag-hue-3 { background: rgba(239, 107, 107, 0.08); color: var(--color-error); }
+.tag-hue-4 { background: rgba(167, 139, 250, 0.08); color: var(--hue-5); }
+.tag-hue-5 { background: rgba(251, 146, 60, 0.08);  color: #fb923c; }
+
+/* --- Read-only Badge ---------------------------------------------------- */
+
+/* `opacity: 0.7` here put the one sentence a viewer is given at 3.17:1. */
+.readonly-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  color: var(--color-text-faint);
+}
+
+/* --- Progress Bar ------------------------------------------------------- */
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-hair);
+  overflow: hidden;
+}
+
+/* --- Sidebar Layout ----------------------------------------------------- */
+
+.layout-sidebar {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: var(--space-8);
+}
+
+/* --- Empty State -------------------------------------------------------- */
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-16) var(--space-12);
+  color: var(--color-text-muted);
+}
+
+.empty-command {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--type-sm);
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left;
+}
+.command-text {
+  flex: 1;
+  color: var(--color-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: var(--type-xs);
+  word-break: break-all;
+}
+.copy-btn {
+  flex-shrink: 0;
+  padding: 0.25rem 0.625rem;
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.copy-btn:hover { color: var(--color-text); border-color: rgba(108, 197, 224, 0.25); background: var(--color-surface-hover); }
+.copy-btn.copied { color: var(--color-success); border-color: rgba(52, 211, 153, 0.2); }
+
+/* --- Page header layout -------------------------------------------------- */
+
+/* These lived in pages/index.vue's scoped style, so every other page that used
+   them — /teams, /teams/{id}, /settings — got the class name and none of the
+   layout: buttons dropped below their title and skeleton lists rendered as one
+   slab. */
+
+/* The same thing happened again, and worse, when the shared view was built:
+   `/s/{token}` renders the research the owner's pages render, so it reached for
+   their class names — and every one of these lived in a page's own scoped
+   block. A visitor got the markup and none of the layout, on a page whose whole
+   job is to be shown to somebody outside the team.
+
+   Anything below is used by two or more pages. A rule that belongs to one page
+   stays in that page. */
+.title-with-code { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.short-code {
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-xs);
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.task-counter {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+  font-variant-numeric: tabular-nums;
+}
+.card-section-title { font-size: var(--type-base); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); letter-spacing: -0.01em; }
+
+/* Icon buttons */
+/* NOTE: `.btn-icon` is also the name of two unrelated scoped rules, in
+   ResearchCard.vue and team/TeamMemberList.vue. Their scoped selectors carry a
+   [data-v] attribute and therefore win; this one is the page-header icon
+   button. The collision is worth knowing about before renaming either. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  /* Square, and the same height as a text button beside it. */
+  min-height: var(--control-h);
+  min-width: var(--control-h);
+  padding: 0.35rem;
+  /* The same border as .btn: a fainter one made the icon buttons read as a
+     different, weaker kind of control than the labelled button next to them. */
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+  text-decoration: none;
+  line-height: 1;
+}
+.btn-icon:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+.btn-count {
+  font-size: 0.65rem;
+  background: var(--color-surface-hover);
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+
+.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
+.entry-content { padding: var(--space-8); border-radius: var(--radius-lg); }
+
+/* The measure is applied to the card, not to the blocks inside it.
+   Capping each block instead was the first attempt and it looked broken: the
+   `border-bottom` under an h2, an `hr` and a `.b-divider` are block children,
+   so they stopped two thirds of the way across a card whose own border ran the
+   full width — and a rule that ends short of its container reads as a mistake,
+   not as a measure. It also produced two right edges in one column, prose at
+   one and a table 184px beyond it, for no reason a reader could infer.
+   With the card itself capped, every edge in the entry lines up. */
+/* Entry content runs the full width of its card, by decision.
+   A reading measure was tried here and taken back out: at the container's
+   width the text column left a wide empty gutter, and the page read as though
+   the layout had come apart rather than as though the line length had been
+   chosen. `--measure-prose` survives on short lead paragraphs, where a narrow
+   column is short enough to look deliberate. */
+
+/* Content that is read by scanning rather than by line scrolls instead of
+   wrapping. This used to be a `@media (max-width: 768px)` rule, which meant a
+   wide table overflowed silently at every width above it. */
+.entry-content .markdown-content table,
+.entry-content .block-doc .b-table-wrap { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.entry-content .markdown-content pre,
+.entry-content .block-doc .b-code-wrap { overflow-x: auto; }
+
+/* Session progress figures */
+.stat-answered { color: var(--color-success); font-weight: var(--weight-medium); }
+.stat-pending  { color: var(--color-warning); font-weight: var(--weight-medium); }
+
+/* Skeletons */
+.skeleton-header { height: 60px; margin-bottom: var(--space-6); }
+.skeleton-sidebar { height: 300px; }
+.skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
+.skeleton-content { height: 400px; }
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- Form and dialog vocabulary ------------------------------------------ */
+
+/* Every modal in the app had invented its own label, its own input and its own
+   button row — nine `.modal-title`s in two disagreeing designs, three names for
+   one text field. These are the shared ones. `.auth-input` on the sign-in pages
+   stays separate on purpose: that surface is deliberately its own. */
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.modal-help {
+  font-size: var(--type-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-4);
+}
+.field-label,
+.form-label {
+  display: block;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+.text-input,
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--type-sm);
+  font-family: inherit;
+  line-height: 1.5;
+}
+.text-input:focus,
+.form-input:focus,
+.form-textarea:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+.inline-error {
+  font-size: var(--type-xs);
+  color: var(--color-error);
+  margin: var(--space-3) 0 0;
+}
+/* The row of buttons that closes a dialog. `.modal-footer` is the same row for
+   a flush modal, where it carries the edge the padding would have drawn. */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+/* A button that is only a word. */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--type-xs);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+.link-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
+
+/* --- Avatar -------------------------------------------------------------- */
+
+/* The initial standing in for a person. It lived in app.vue's stylesheet until
+   the member list needed one too — a shared rule has no business depending on a
+   page component being mounted. Size is overridable per consumer. */
+.user-avatar {
+  width: var(--avatar-size, 22px);
+  height: var(--avatar-size, 22px);
+  border-radius: 50%;
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--avatar-size, 22px) * 0.45);
+  font-weight: var(--weight-semibold);
+  flex-shrink: 0;
+}
+
+/* --- Warning Banner ----------------------------------------------------- */
+
+.warning-banner {
+  background: rgba(240, 184, 73, 0.06);
+  border: 1px solid rgba(240, 184, 73, 0.2);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-6);
+  color: var(--color-warning);
+  font-size: var(--type-sm);
+}
+
+/* --- Filter Bar --------------------------------------------------------- */
+
+/* --- Question List ------------------------------------------------------ */
+
+/* Question items are now card-based — see QuestionList.vue scoped styles */
+
+/* --- Skeleton Loaders --------------------------------------------------- */
+
+.skeleton-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(148, 163, 184, 0.03) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* --- Stagger Entry Animation -------------------------------------------- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-header {
+  animation: fade-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  /* animation with fill-mode both keeps a transform, and that creates a
+     stacking context. Without an explicit z-index, cards further down the DOM
+     (sessions, tasks) paint over the dropdown menu in the header.
+     Must stay BELOW --z-elevated: .app-nav is sticky at that level, and at an
+     equal z-index this header would win on tree order and paint over the nav
+     and over the nav's own user dropdown. The cards it needs to beat are
+     transform-only stacking contexts at z-index auto, so 1 is enough. */
+  position: relative;
+  z-index: var(--z-in-page);
+}
+
+.card,
+.session-widget,
+.getting-started,
+.notes-card {
+  animation: fade-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.grid > *:nth-child(1)  { animation-delay: 0.05s; }
+.grid > *:nth-child(2)  { animation-delay: 0.10s; }
+.grid > *:nth-child(3)  { animation-delay: 0.15s; }
+.grid > *:nth-child(4)  { animation-delay: 0.20s; }
+.grid > *:nth-child(5)  { animation-delay: 0.25s; }
+.grid > *:nth-child(6)  { animation-delay: 0.30s; }
+.grid > *:nth-child(7)  { animation-delay: 0.35s; }
+.grid > *:nth-child(8)  { animation-delay: 0.40s; }
+.grid > *:nth-child(n+9) { animation-delay: 0.45s; }
+
+/* --- Print -------------------------------------------------------------- */
+
+@media print {
+  .app-nav, .app-footer, .filter-bar, .sidebar, .btn, .warning-banner,
+  .no-print { display: none !important; }
+  .breadcrumbs a { color: inherit; }
+  body { background: white; color: black; }
+  body::before, body::after { display: none; }
+  .main-content { padding-top: 0; }
+  .page-header { margin-bottom: var(--space-4); padding-bottom: var(--space-2); }
+  .card {
+    border: none; background: none; break-inside: avoid;
+    box-shadow: none; transform: none; padding: 0;
+  }
+  .card::before { display: none; }
+  .card:hover { box-shadow: none; border-color: transparent; }
+  .badge { border: 1px solid currentColor; }
+  .layout-sidebar { grid-template-columns: 1fr; }
+  .markdown-content pre { background: #f5f5f5; }
+  * { animation: none !important; transition: none !important; }
+  a { color: inherit; text-decoration: none; }
+}
+
+/* --- Utility Classes ---------------------------------------------------- */
+
+.flex         { display: flex; }
+
+.flex-start   { display: flex; align-items: flex-start; }
+
+.items-center { align-items: center; }
+.flex-wrap    { flex-wrap: wrap; }
+
+.gap-2 { gap: var(--space-2); }
+
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-4 { margin-bottom: var(--space-4); }
+
+.text-muted  { color: var(--color-text-muted); }
+
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Read by a screen reader, invisible on screen. Used where a mark carried by
+   colour or a glyph has to also exist as words — a diff line that is an
+   addition, a before/after pair, an empty value. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Responsive --------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .layout-sidebar { grid-template-columns: 1fr; }
+
+  .container { padding: 0 var(--space-4); }
+  .page-title { font-size: var(--type-xl); }
+  .ws-label { display: none; }
+  .entry-nav-btn { font-size: var(--type-xs); max-width: 48%; }
+
+  /* Cards: reduce padding on mobile */
+  .card { padding: var(--space-4); }
+
+  /* Empty state: reduce padding */
+  .empty-state { padding: var(--space-8) var(--space-4); }
+
+  /* Markdown tables: horizontal scroll on mobile */
+  .markdown-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Buttons: ensure touch-friendly min height */
+  .btn { min-height: 36px; padding: 0.5rem 0.875rem; }
+  .btn-sm { min-height: 32px; padding: 0.375rem 0.625rem; }
+  /* `.btn-icon` is square, and half the icon buttons in this product also carry
+     `.btn` — which is declared later in this block than `.btn-icon`'s width is
+     up above, so those grew to 36 tall and stayed 30 wide. Every `⋯` trigger in
+     the product was a vertical rectangle on a phone. */
+  .btn-icon { min-height: 36px; min-width: 36px; }
+
+  /* Filter bar */
+
+}
+
+@media (max-width: 480px) {
+  .container { padding: 0 var(--space-3); }
+  .page-title { font-size: var(--type-lg); }
+
+  /* Stack grids that use minmax for skeleton loaders etc. */
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* --- Layout primitives ---------------------------------------------------
+   Two rules that between them dissolve eleven page-shaped classes which were
+   all the same thing: `.research-actions`, `.entry-actions`, `.title-with-code`,
+   `.page-header-actions`, `.tasks-actions`, `.entry-tags`, `.q-badges`,
+   `.skeleton-list`, `.group-body`, `.password-form`, `.rail-skeletons`.
+   `--gap` is a parameter so a caller tunes the one thing that ever differs. */
+.cluster {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap, var(--space-2));
+  min-width: 0;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap, var(--space-3));
+  min-width: 0;
+}
+
+/* --- Page bar -------------------------------------------------------------
+   The title-beside-its-controls layout, which existed under seven names:
+   `.page-header-row` (declared twice), `.research-header`, `.entry-header`,
+   `.session-header`, `.tasks-header`, `.roadmaps-header` and `.export-toolbar`.
+   It is `PageHeader.vue`'s internals — global rather than scoped because the
+   shared `/s/{token}` views render that component's markup too. */
+.page-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+/* The title takes the room that is left and wraps inside it; the actions keep
+   their place at the end of the row. Without this the title claims the whole
+   first line — research names are sentences — and the controls drop underneath
+   it, left-aligned, which is not where anyone left them. */
+.page-bar > .title-with-code { flex: 1 1 20rem; min-width: 0; }
+.page-bar > .page-header-actions { flex: 0 0 auto; }
+@media (max-width: 768px) {
+  .page-bar { flex-direction: column; align-items: stretch; }
+  /* `flex-basis` is measured along the main axis, and the main axis just became
+     vertical: `flex: 1 1 20rem` was making the title block 320px **tall**, so
+     every page in the product opened on a phone with a third of a screen of
+     nothing between the breadcrumbs and its own name. */
+  .page-bar > .title-with-code { flex: 0 0 auto; }
+}
+
+/* --- Rule list ------------------------------------------------------------
+   The row chrome shared by the member list, the invite list, the share list
+   and the team list. They stay four components — their columns are genuinely
+   different, and one slot-driven component would be four booleans wearing one
+   name — but the frame is one thing. `.share-rows` had no rule at all, so that
+   list was simply missing its top border. */
+.data-rows { display: flex; flex-direction: column; border-top: 1px solid var(--color-border); }
+.data-row {
+  display: grid;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+}
+/* A row the server is still thinking about. It used to be `opacity: 0.6;
+   pointer-events: none`, which fails twice: opacity on text is forbidden by the
+   token contract, and `pointer-events: none` stops a mouse but not Tab — so a
+   keyboard user could focus a control in a "disabled" row and press it into
+   nothing. `inert` on the element is what actually takes it out of the document,
+   and `aria-busy` is what says why. */
+.data-row--busy { color: var(--color-text-muted); }
+.data-row--busy :is(button, a, select, input) { cursor: progress; }
+/* One rendering for "this row is over". An expired invite used muted text and
+   a dead share used `opacity: 0.55` — the same idea twice, and the opacity one
+   put already-muted text under AA. */
+.data-row--dead { color: var(--color-text-faint); }
+
+/* --- Select ---------------------------------------------------------------
+   Three byte-identical copies existed, each re-encoding the same chevron with
+   `stroke='%237f8ea3'` written into the data URI — which silently stops
+   matching `--color-text-muted` the moment that token moves. */
+.select {
+  appearance: none;
+  height: var(--control-h);
+  padding: 0 1.75rem 0 var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237f8ea3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+}
+.select:hover { border-color: var(--color-border-hover); color: var(--color-text); }
+
+/* --- Tabs -----------------------------------------------------------------
+   With the roles baked in, because the two tab strips in this product
+   disagreed: the research sidebar carries `role="tab"` and the session page
+   shipped bare buttons a screen reader cannot see as tabs at all. */
+.tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-border); }
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.tab:hover { color: var(--color-text); }
+.tab[aria-selected='true'] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+/* --- Segmented control ----------------------------------------------------
+   The entry page built one by overriding `.btn`'s hover, transform and shadow,
+   and carried its active state in a background with no `aria-pressed`. */
+.segmented { display: inline-flex; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 2px; }
+.segmented > button {
+  appearance: none;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-3);
+  height: var(--control-h-sm);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-xs);
+  cursor: pointer;
+}
+.segmented > button[aria-pressed='true'],
+.segmented > button[aria-checked='true'] { background: var(--color-surface-hover); color: var(--color-text); }
+
+/* The danger zone used to be two classes here — `.danger-zone` and
+   `.danger-row` — extracted from the team page, which then went on declaring
+   its own copies. Scoped selectors carry a [data-v] attribute and win, so one
+   class name meant a red-bordered box in the primitive and a borderless column
+   on the only page using it, and the discipline check counted the page that was
+   overriding the rule as its consumer. It is a component now
+   (`DangerZone.vue` / `DangerRow.vue`), which cannot be shadowed by accident. */
+
+/* --- Centred gate ---------------------------------------------------------
+   The full-screen single-card layout: the share password prompt, the
+   invitation landing, and a share link that has stopped working. */
+.centered-gate { display: flex; align-items: center; justify-content: center; min-height: 100dvh; padding: var(--space-6); }
+
+/* --- Check row ------------------------------------------------------------
+   A labelled checkbox, from the share dialog, the Obsidian dialog and the
+   graph sidebar. */
+.check-row { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-2) 0; cursor: pointer; }
+.check-row input { margin-top: 0.2rem; flex-shrink: 0; }
+
+
+/* --- Editor fullscreen ----------------------------------------------------
+   `md-editor-v3` puts its expanded state at `z-index: 10000`, which is above
+   everything this product owns — including the toast host. A save that fails
+   while the editor is expanded would then announce itself into a layer the
+   reader cannot see, on the one screen where the failure costs unsaved text.
+   Below the toasts, above the grain and the sticky nav. */
+.md-editor-fullscreen { z-index: 250 !important; }

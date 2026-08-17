@@ -105,7 +105,7 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   margin: 0 0 var(--space-4) 0;
 }
@@ -116,7 +116,7 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
 }
 .crossrefs-subtitle {
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -143,11 +143,11 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
 .crossref-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 .crossref-entry-title {
@@ -164,7 +164,7 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
 }
 .crossref-unresolved {
   font-size: var(--type-xs);
-  color: var(--color-warning, #d4a017);
+  color: var(--color-warning, var(--color-warning));
   font-style: italic;
   margin-left: auto;
 }

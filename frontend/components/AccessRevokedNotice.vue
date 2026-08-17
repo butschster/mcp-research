@@ -13,6 +13,7 @@
 </template>
 
 <script setup lang="ts">
+import { revocationCopy } from '~/composables/useAccessRevoked'
 import type { Revocation } from '~/composables/useAccessRevoked'
 
 /**

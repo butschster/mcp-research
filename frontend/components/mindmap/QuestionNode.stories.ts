@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import QuestionNode from './QuestionNode.vue'
+import { markupImg } from '../../__mocks__/markup'
 
 const meta: Meta<typeof QuestionNode> = {
   title: 'Mindmap/QuestionNode',
@@ -84,6 +85,60 @@ export const WithCrossRef: Story = {
       answer: '',
       sessionId: 'sess-001',
       sessionTitle: 'Cross-reference Analysis',
+      researchSlug: 'R1',
+    },
+  },
+}
+
+/**
+ * A question whose text contains markup.
+ *
+ * `data.text` reaches `v-html` through `renderRefs`, which escapes it: the tags
+ * read as text and `[[E3]]` beside them is still a link. The answer line
+ * underneath takes the other path — `parseMarkdownInline` then `linkRefs` — so
+ * both rules of the split are visible on one node.
+ *
+ * Kept under 70 characters because the node truncates there; the sibling story
+ * below shows what happens when it does not fit.
+ */
+export const MarkupInText: Story = {
+  args: {
+    data: {
+      id: 'q-007',
+      code: 'Q9',
+      text: '<b>bold</b> and <script>alert(1)</script>? [[E3]]',
+      status: 'answered',
+      answer: 'It renders as text. The reference next to it still links.',
+      sessionId: 'sess-001',
+      sessionTitle: 'Rendering Rules',
+      researchSlug: 'R1',
+    },
+  },
+}
+
+/**
+ * The same payload, long enough that the 70-character cut lands **inside** the
+ * image tag.
+ *
+ * `truncate()` runs before `renderRefs()`, so the half tag is escaped along with
+ * everything else and shows up as the broken text it is. In the other order —
+ * escape, then slice — the cut could fall inside an entity or between a tag's
+ * name and its closing bracket, and the browser would be handed something it
+ * has to guess about. Worth having a story for, because both orders look
+ * equally reasonable in the source line.
+ *
+ * `[[E3]]` is past the cut here and is gone; the story above carries it.
+ */
+export const MarkupTruncatedMidTag: Story = {
+  args: {
+    data: {
+      id: 'q-008',
+      code: 'Q11',
+      text: `Is the truncation safe here: ${markupImg} [[E3]]`,
+      status: 'pending',
+      answer: '',
+      sessionId: 'sess-001',
+      sessionTitle: 'Rendering Rules',
       researchSlug: 'R1',
     },
   },

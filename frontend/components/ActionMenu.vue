@@ -3,7 +3,8 @@
     <button
       class="btn btn-icon"
       :title="title"
-      aria-haspopup="menu"
+      :aria-label="title"
+      aria-haspopup="true"
       :aria-expanded="open ? 'true' : 'false'"
       @click.stop="open = !open"
     >
@@ -15,7 +16,6 @@
         v-if="open"
         class="action-menu-list"
         :class="`action-menu-list--${props.align}`"
-        role="menu"
         @click="open = false"
       >
         <slot />
@@ -25,6 +25,16 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * The `⋯` that holds a row's or a page's less-used actions.
+ *
+ * The panel deliberately carries **no** `role="menu"`. It had one, and none of
+ * its slotted children carried `role="menuitem"` — which is not a partial
+ * implementation but a wrong announcement: a screen reader tells the reader
+ * they are in a menu and then finds nothing in it, and the arrow-key navigation
+ * the role promises does not exist either. A group of buttons announced as
+ * buttons is the truth, and Tab already works on it.
+ */
 const props = withDefaults(
   defineProps<{
     /** Tooltip on the trigger button. */
@@ -74,7 +84,7 @@ defineExpose({ close: () => (open.value = false) })
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-2);
   /* The header this sits in is raised to --z-in-page, which is below the sticky
      nav on purpose. --z-overlay keeps the panel above in-page content without
      escaping that header. */

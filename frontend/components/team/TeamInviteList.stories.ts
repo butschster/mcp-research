@@ -11,7 +11,12 @@ import { mockInviteLink, mockInvites, mockRecoverableLinks } from '../../__mocks
  * up wondering why a colleague never joined while the colleague is looking at a
  * page that says "expired".
  *
- * The right-hand action depends on something the server cannot tell you: whether
+ * The row is shaped like a member row on purpose — an avatar, an identity, a
+ * standing, one `⋯`. An invitation is a person and their access, the same as
+ * the row above it; it used to be an email, grey text and two bare text links
+ * with 21.7px targets, told apart by colour alone.
+ *
+ * What the menu offers depends on something the server cannot tell you: whether
  * this tab still holds the token it was handed when the invitation was created.
  * The server stores only a hash, so after a reload there is no way back to a
  * working link and the only honest offer is a new invitation. `recoverableLinks`
@@ -51,8 +56,10 @@ export const LinkNotRecoverable: Story = {
   args: { invites: [staleLink], recoverableLinks: {} },
 }
 
-/** Lapsed: dimmed, "expired", and one action. Revoke is not offered because an
- *  expired link already grants nothing. */
+/** Lapsed: faint, and an "expired" badge rather than grey text, so the state is
+ *  not a difference in colour alone. Re-invite leads; Revoke is still offered,
+ *  because a dead invitation otherwise sits in the list for ever with no way to
+ *  clear it. */
 export const Expired: Story = {
   args: { invites: [expired], recoverableLinks: {} },
 }
@@ -69,8 +76,9 @@ export const AllStates: Story = {
   args: { invites: mockInvites, recoverableLinks: mockRecoverableLinks },
 }
 
-/** A revoke in flight. The row dims and its Revoke locks; the other actions stay
- *  reachable because they do not touch the same record. */
+/** A revoke in flight. The row goes faint and `inert` — out of reach of the
+ *  pointer and of Tab — so a second press cannot race the first. The other rows
+ *  are untouched. */
 export const RevokeInFlight: Story = {
   args: {
     invites: mockInvites,
@@ -80,8 +88,8 @@ export const RevokeInFlight: Story = {
 }
 
 /** An internationalised address, which is a real thing to invite in this market
- *  and the longest string the row can be handed. It wraps rather than pushing
- *  the actions off the end. */
+ *  and the longest string the row can be handed. It wraps inside the identity
+ *  block rather than pushing the menu off the end. */
 export const CyrillicEmail: Story = {
   args: {
     invites: [
@@ -106,8 +114,9 @@ export const WithoutEmail: Story = {
   },
 }
 
-/** Nothing pending. The row set is empty; the team page drops the whole
- *  "Pending invites" heading rather than showing an empty one. */
+/** Nothing pending. The row set is empty; the team page keeps the heading and
+ *  puts one muted line under it — an owner who revokes the last invitation used
+ *  to watch the heading evaporate under the cursor. */
 export const Empty: Story = {
   args: { invites: [], recoverableLinks: {} },
 }

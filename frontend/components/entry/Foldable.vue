@@ -83,7 +83,7 @@ function toggle() {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   margin: 0;
 }
@@ -105,11 +105,11 @@ function toggle() {
 .foldable-title { margin-bottom: 0; }
 .foldable-count {
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
   padding: 0.05rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
 .foldable-chevron {

@@ -575,34 +575,103 @@ func (s *TeamService) AcceptInvite(ctx context.Context, token string) (*AcceptRe
 // way in: handing your work to a team you merely read would be a way to lose
 // it, and pushing it into a team you have no say in would be a way to litter.
 func (s *TeamService) TransferResearch(ctx context.Context, researchID, targetTeamID string) error {
+	research, err := s.checkTransfer(ctx, researchID, targetTeamID)
+	if err != nil || research == nil {
+		return err
+	}
+	return s.moveResearch(ctx, research, targetTeamID)
+}
+
+// TransferResearches pulls several researches into one team.
+//
+// It exists because the team page asks the inverse question from the research
+// page: not "where should this go" but "what belongs in here". Answering that
+// one research at a time meant one request, one failure state and one event per
+// row — so moving twelve could half-succeed in eleven different ways, and the
+// reader had no single place to be told.
+//
+// Every research is checked before any is moved. That is not a database
+// transaction — these repositories share one connection and no Tx plumbing —
+// but it covers the failure that actually happens: a permission the caller
+// does not have, or a research that is gone. A move that fails after the checks
+// pass stops the run and reports how many had already been made, because
+// claiming zero when eight moved would be worse than the partial truth.
+//
+// Each move still emits its own `research.transferred`, and its own
+// `access.revoked` to whoever just lost it. Those are per-research facts and
+// collapsing them into a count would leave open tabs showing a research their
+// reader can no longer load.
+func (s *TeamService) TransferResearches(ctx context.Context, targetTeamID string, researchIDs []string) (int, error) {
+	if len(researchIDs) == 0 {
+		return 0, nil
+	}
+
+	// Deduplicated, because a list arriving from a form can repeat an id, and
+	// the second move of the same research is a no-op that would still be
+	// counted.
+	seen := make(map[string]struct{}, len(researchIDs))
+	pending := make([]*domain.Research, 0, len(researchIDs))
+	for _, id := range researchIDs {
+		if _, done := seen[id]; done {
+			continue
+		}
+		seen[id] = struct{}{}
+		research, err := s.checkTransfer(ctx, id, targetTeamID)
+		if err != nil {
+			return 0, err
+		}
+		if research != nil {
+			pending = append(pending, research)
+		}
+	}
+
+	moved := 0
+	for _, research := range pending {
+		if err := s.moveResearch(ctx, research, targetTeamID); err != nil {
+			return moved, err
+		}
+		moved++
+	}
+	return moved, nil
+}
+
+// checkTransfer answers whether this caller may move this research into that
+// team, and returns nil with no error when the research is already there —
+// which is a request that has nothing left to do, not a refusal.
+func (s *TeamService) checkTransfer(ctx context.Context, researchID, targetTeamID string) (*domain.Research, error) {
 	uid := auth.UserIDFromContext(ctx)
 	research, err := s.researches.FindByID(ctx, researchID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if research == nil {
-		return ErrNotFound
+		return nil, ErrNotFound
 	}
 
 	if uid != "" {
 		if _, err := s.requireRole(ctx, research.TeamID, domain.TeamOwner); err != nil {
-			return err
+			return nil, err
 		}
 		role, ok, err := s.teams.FindRole(ctx, targetTeamID, uid)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !ok {
-			return ErrNotFound
+			return nil, ErrNotFound
 		}
 		if !role.CanWrite() {
-			return ErrForbidden
+			return nil, ErrForbidden
 		}
 	}
 
 	if research.TeamID == targetTeamID {
-		return nil
+		return nil, nil
 	}
+	return research, nil
+}
+
+func (s *TeamService) moveResearch(ctx context.Context, research *domain.Research, targetTeamID string) error {
+	researchID := research.ID
 	// With no caller the role checks above are skipped, so the target still has
 	// to be shown to exist — otherwise a typo comes back as a foreign-key
 	// failure from the database.

@@ -1,16 +1,11 @@
 <template>
-  <ModalOverlay :visible="visible" size="lg" flush @close="$emit('cancel')">
+  <ModalOverlay :labelledby="titleId" :visible="visible" size="lg" flush @close="$emit('cancel')">
     <!-- Header -->
-    <div class="modal-header">
-      <h3 class="modal-title">
-        Move to
-        <span :class="['kanban-dot', `dot-${targetStatus}`]"></span>
-        {{ statusLabel }}
-      </h3>
-      <button class="modal-close" @click="$emit('cancel')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
+    <ModalHeader :title-id="titleId" @close="$emit('cancel')">
+      Move to
+            <span :class="['kanban-dot', `dot-${targetStatus}`]"></span>
+            {{ statusLabel }}
+    </ModalHeader>
 
     <div class="modal-body">
       <p class="task-info">
@@ -39,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+const titleId = useId()
 const props = defineProps<{
   visible: boolean
   task: any | null
@@ -67,30 +63,6 @@ function onConfirm() {
 </script>
 
 <style scoped>
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-}
-.modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.modal-close:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
 
 .kanban-dot {
   width: 8px;
@@ -121,11 +93,11 @@ function onConfirm() {
 }
 .task-code {
   font-size: var(--type-xs);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
 }

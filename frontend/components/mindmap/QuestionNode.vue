@@ -15,11 +15,12 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { Handle, Position } from '@vue-flow/core'
-import { marked } from 'marked'
-import { renderRefs } from '~/composables/useCrossRefs'
+import { parseMarkdownInline } from '~/composables/useSafeMarkdown'
+import { renderRefs, linkRefs } from '~/composables/useCrossRefs'
+import { normalizeContent } from '~/utils/normalizeContent'
 
-marked.setOptions({ gfm: true, breaks: true })
 
 const props = defineProps<{
   data: {
@@ -36,14 +37,10 @@ const props = defineProps<{
   targetPosition?: Position
 }>()
 
-function truncate(text: string, len: number): string {
-  if (!text) return ''
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 
 function renderInline(text: string, len: number): string {
   const truncated = truncate(normalizeContent(text), len)
-  return renderRefs(marked.parseInline(truncated) as string, props.data.researchSlug)
+  return linkRefs(parseMarkdownInline(truncated) as string, props.data.researchSlug)
 }
 
 function navigate() {
@@ -66,7 +63,7 @@ function navigate() {
 }
 .question-node:hover {
   border-color: rgba(240, 184, 73, 0.4);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-1);
 }
 .q-header {
   display: flex;
@@ -77,14 +74,14 @@ function navigate() {
 }
 .q-title-row { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
 .mm-code {
-  font-size: 0.625rem; font-weight: 700; color: var(--color-primary);
+  font-size: 0.625rem; font-weight: var(--weight-bold); color: var(--color-primary);
   background: var(--color-primary-muted); padding: 0.1rem 0.3rem;
-  border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+  border-radius: var(--radius-xs); font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0; line-height: 1; margin-top: 2px;
 }
 .q-text {
   font-size: var(--type-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text);
   line-height: 1.35;
 }

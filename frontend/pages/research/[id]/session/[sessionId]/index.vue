@@ -18,6 +18,25 @@
           <StatusBadge :status="session.status" />
           <TeamViewerNotice v-if="isViewer" :team-name="researchData?.data?.research?.team_name" />
           <ActionMenu>
+            <!-- A run that ends without the agent marking the session
+                 `completed` leaves the research showing an active session
+                 forever, and the UI offered no way to close it. -->
+            <button
+              v-if="canWrite && session.status === 'active'"
+              class="action-menu-item"
+              @click="setSessionStatus('completed')"
+            >Mark completed</button>
+            <button
+              v-if="canWrite && session.status === 'completed'"
+              class="action-menu-item"
+              @click="setSessionStatus('active')"
+            >Reopen</button>
+            <button
+              v-if="canWrite && session.status !== 'archived'"
+              class="action-menu-item"
+              @click="setSessionStatus('archived')"
+            >Archive</button>
+            <div v-if="canWrite" class="action-menu-divider"></div>
             <NuxtLink
               :to="`/research/${researchSlug}/session/${sessionSlug}/export`"
               class="action-menu-item"
@@ -34,30 +53,51 @@
     <!-- Notes -->
     <div v-if="session.notes" class="card notes-card">
       <h3 class="card-section-title">Session notes</h3>
-      <div ref="notesEl" class="notes-text markdown-content" v-html="renderRefs(marked.parse(normalizeContent(session.notes)) as string, researchSlug)"></div>
+      <div ref="notesEl" class="notes-text markdown-content" v-html="linkRefs(parseMarkdown(normalizeContent(session.notes)) as string, researchSlug)"></div>
     </div>
 
     <!-- Tabs -->
-    <div class="content-tabs">
+    <div class="tabs content-tabs" role="tablist" aria-label="Session content">
       <button
-        :class="['content-tab', { active: activeTab === 'questions' }]"
-        @click="activeTab = 'questions'"
+        :id="`tab-questions`"
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'questions'"
+        :aria-controls="`panel-questions`"
+        :tabindex="activeTab === 'questions' ? 0 : -1"
+        :class="['tab', 'content-tab', { active: activeTab === 'questions' }]"
+        @click="selectTab('questions')"
+        @keydown="onTabKey($event, 'questions')"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
         Questions
         <span class="tab-count">{{ progress.answered }} / {{ progress.total }}</span>
       </button>
       <button
-        :class="['content-tab', { active: activeTab === 'entries' }]"
-        @click="activeTab = 'entries'"
+        :id="`tab-entries`"
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'entries'"
+        :aria-controls="`panel-entries`"
+        :tabindex="activeTab === 'entries' ? 0 : -1"
+        :class="['tab', 'content-tab', { active: activeTab === 'entries' }]"
+        @click="selectTab('entries')"
+        @keydown="onTabKey($event, 'entries')"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Entries
         <span v-if="sessionEntries.length" class="tab-count">{{ sessionEntries.length }}</span>
       </button>
       <button
-        :class="['content-tab', { active: activeTab === 'changes' }]"
-        @click="activeTab = 'changes'"
+        :id="`tab-changes`"
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'changes'"
+        :aria-controls="`panel-changes`"
+        :tabindex="activeTab === 'changes' ? 0 : -1"
+        :class="['tab', 'content-tab', { active: activeTab === 'changes' }]"
+        @click="selectTab('changes')"
+        @keydown="onTabKey($event, 'changes')"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
         Changes
@@ -65,7 +105,7 @@
     </div>
 
     <!-- Questions panel -->
-    <div v-if="activeTab === 'questions'">
+    <div v-if="activeTab === 'questions'" id="panel-questions" role="tabpanel" aria-labelledby="tab-questions" tabindex="0">
       <div class="panel-progress">
         <ProgressBar :value="progress.answered" :total="progress.total" />
         <div class="progress-stats">
@@ -101,7 +141,7 @@
     </div>
 
     <!-- Entries panel -->
-    <div v-if="activeTab === 'entries'">
+    <div v-else-if="activeTab === 'entries'" id="panel-entries" role="tabpanel" aria-labelledby="tab-entries" tabindex="0">
       <div v-if="sessionEntries.length" class="grid entries-grid">
         <NuxtLink
           v-for="entry in sessionEntries"
@@ -137,9 +177,8 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-marked.setOptions({ gfm: true, breaks: true })
 const route = useRoute()
 const id = route.params.id as string
 const sessionId = route.params.sessionId as string
@@ -186,7 +225,36 @@ function tagHue(tag: string): number {
 }
 
 // Active tab
-const activeTab = ref<'questions' | 'entries' | 'changes'>('questions')
+type Tab = 'questions' | 'entries' | 'changes'
+const TABS: Tab[] = ['questions', 'entries', 'changes']
+
+/* The tab lives in the URL, so a teammate can be sent to the Changes view and
+   a refresh does not drop back to Questions — the same thing the research page
+   already does for its active section. */
+const router = useRouter()
+const activeTab = ref<Tab>(
+  TABS.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'questions'
+)
+
+function selectTab(tab: Tab) {
+  activeTab.value = tab
+  router.replace({ query: { ...route.query, tab: tab === 'questions' ? undefined : tab } })
+}
+
+/* The ARIA tabs pattern moves selection with the arrows, and the strip was
+   three plain buttons. Roving tabindex is on the template. */
+function onTabKey(e: KeyboardEvent, current: Tab) {
+  const i = TABS.indexOf(current)
+  let next: Tab | null = null
+  if (e.key === 'ArrowRight') next = TABS[(i + 1) % TABS.length]!
+  else if (e.key === 'ArrowLeft') next = TABS[(i - 1 + TABS.length) % TABS.length]!
+  else if (e.key === 'Home') next = TABS[0]!
+  else if (e.key === 'End') next = TABS[TABS.length - 1]!
+  if (!next) return
+  e.preventDefault()
+  selectTab(next)
+  nextTick(() => document.getElementById(`tab-${next}`)?.focus())
+}
 
 const { authFetch } = useAuth()
 const rtBase = useRuntimeConfig().public.apiBase || ''
@@ -196,6 +264,23 @@ const showAddQuestion = ref(false)
 const addingQuestion = ref(false)
 const newQuestion = ref({ text: '', area: '', priority: 'medium' })
 const realSessionId = computed(() => session.value?.id || sessionId)
+
+async function setSessionStatus(status: string) {
+  try {
+    await authFetch(`${rtBase}/api/sessions/${realSessionId.value}`, {
+      method: 'PUT',
+      body: { status },
+    })
+    data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
+  } catch (e: any) {
+    useToasts().push({
+      variant: 'error',
+      title: 'Could not change the session status',
+      message: e?.data?.error || e?.message || 'The server refused it.',
+      timeout: 0,
+    })
+  }
+}
 
 async function submitQuestion() {
   if (!newQuestion.value.text.trim()) return
@@ -215,7 +300,16 @@ async function submitQuestion() {
     newQuestion.value = { text: '', area: '', priority: 'medium' }
     showAddQuestion.value = false
     data.value = await authFetch<any>(`${rtBase}/api/researches/${id}/sessions/${sessionId}`)
-  } catch { /* ignore */ }
+  } catch (e: any) {
+    // A refused write that says nothing leaves the form sitting there with the
+    // text still in it, indistinguishable from one that worked.
+    useToasts().push({
+      variant: 'error',
+      title: 'Could not add the question',
+      message: e?.data?.error || e?.message || 'The server refused it. Your text is still here.',
+      timeout: 0,
+    })
+  }
   addingQuestion.value = false
 }
 
@@ -247,7 +341,7 @@ useResearchRealtime(
   display: flex; gap: var(--space-4); font-size: var(--type-xs);
   margin-top: var(--space-2); color: var(--color-text-muted);
 }
-.stat-skipped  { color: var(--color-error); font-weight: 500; }
+.stat-skipped  { color: var(--color-error); font-weight: var(--weight-medium); }
 .stat-muted    { color: var(--color-text-muted); }
 
 /* Tabs */
@@ -259,7 +353,7 @@ useResearchRealtime(
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   background: none; border: none; border-bottom: 2px solid transparent;
-  color: var(--color-text-muted); font-size: var(--type-sm); font-weight: 500;
+  color: var(--color-text-muted); font-size: var(--type-sm); font-weight: var(--weight-medium);
   font-family: inherit; cursor: pointer; transition: all var(--transition-fast);
   margin-bottom: -1px;
 }
@@ -267,7 +361,7 @@ useResearchRealtime(
 .content-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .tab-count {
   font-size: var(--type-xs); color: var(--color-text-muted);
-  background: var(--color-surface-hover); border-radius: 4px;
+  background: var(--color-surface-hover); border-radius: var(--radius-xs);
   padding: 0.15rem 0.4rem; font-variant-numeric: tabular-nums;
 }
 .content-tab.active .tab-count { background: var(--color-primary-muted); color: var(--color-primary); }

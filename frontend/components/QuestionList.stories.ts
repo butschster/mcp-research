@@ -6,6 +6,7 @@ import {
   mockQuestionDeferred,
   mockQuestionsGrouped,
 } from '../__mocks__/question'
+import { markupQuestionText } from '../__mocks__/markup'
 import { withShare, withoutShare } from '../__mocks__/share'
 
 /**
@@ -119,6 +120,34 @@ export const ManyAreas: Story = {
         },
       ],
       deferred: [mockQuestionDeferred],
+      skipped: [],
+    },
+    researchSlug: 'R1',
+    sessionId: 'SS1',
+  },
+}
+
+/**
+ * A question whose text contains markup.
+ *
+ * `q.text` is the only field on this card that reaches `v-html`, through
+ * `renderRefs`; the answer preview underneath is `{{ }}` and was never at risk.
+ * The tags must read as text and `[[E3]]` must still be a link — an executed
+ * payload prints `XSS EXECUTED` where the image tag is.
+ *
+ * A question is written by whoever is running the interview, so this is not a
+ * hypothetical field to find markup in: `<Component>` and `a < b` appear in
+ * real ones.
+ */
+export const MarkupInQuestionText: Story = {
+  args: {
+    questions: {
+      answered: [mockQuestion],
+      pending: [
+        { ...mockQuestionPending, id: 'q_markup', code: 'Q7', text: markupQuestionText },
+      ],
+      in_progress: [],
+      deferred: [],
       skipped: [],
     },
     researchSlug: 'R1',

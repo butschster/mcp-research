@@ -35,7 +35,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const ROOT = new URL('..', import.meta.url).pathname
-const GLOBAL_CSS = join(ROOT, 'assets/css/main.css')
+const GLOBAL_CSS = join(ROOT, 'assets/css/system.css')
 
 /** The button family: the controls a user sees side by side in a row. */
 const CONTROL = /^\.btn(-|$)/
@@ -92,7 +92,7 @@ const allRules = []
 const globalCss = readFileSync(GLOBAL_CSS, 'utf8')
 const globalClasses = classSelectors(globalCss)
 const files = walk(join(ROOT, 'components')).concat(walk(join(ROOT, 'pages')), [join(ROOT, 'app.vue')])
-collectRules(globalCss, 'assets/css/main.css')
+collectRules(globalCss, 'assets/css/system.css')
 
 for (const file of files) {
   const source = readFileSync(file, 'utf8')
@@ -106,7 +106,7 @@ for (const file of files) {
         findings.push({
           kind: 'collision',
           where: `${rel}:${at}`,
-          detail: `${sel} is also defined in assets/css/main.css:${globalClasses.get(sel)}. The scoped rule wins here and the global one wins everywhere else, so this element looks different depending on which page it is on.`,
+          detail: `${sel} is also defined in assets/css/system.css:${globalClasses.get(sel)}. The scoped rule wins here and the global one wins everywhere else, so this element looks different depending on which page it is on.`,
         })
       }
     }
@@ -154,7 +154,7 @@ for (const block of globalCss.split(/\n(?=\.[a-zA-Z])/)) {
     const at = globalCss.slice(0, globalCss.indexOf(block)).split('\n').length
     findings.push({
       kind: 'derived-height',
-      where: `assets/css/main.css:${at}`,
+      where: `assets/css/system.css:${at}`,
       detail: `${sel} sets padding but no min-height, so its height is whatever its content happens to be. Two of these side by side will not line up. Use var(--control-h).`,
     })
   }

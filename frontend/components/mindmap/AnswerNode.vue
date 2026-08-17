@@ -10,11 +10,12 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { Handle, Position } from '@vue-flow/core'
-import { marked } from 'marked'
-import { renderRefs } from '~/composables/useCrossRefs'
+import { parseMarkdownInline } from '~/composables/useSafeMarkdown'
+import { linkRefs } from '~/composables/useCrossRefs'
+import { normalizeContent } from '~/utils/normalizeContent'
 
-marked.setOptions({ gfm: true, breaks: true })
 
 const props = defineProps<{
   data: {
@@ -26,14 +27,10 @@ const props = defineProps<{
   targetPosition?: Position
 }>()
 
-function truncate(text: string, len: number): string {
-  if (!text) return ''
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 
 function renderInline(text: string, len: number): string {
   const truncated = truncate(normalizeContent(text), len)
-  return renderRefs(marked.parseInline(truncated) as string, props.data.researchSlug)
+  return linkRefs(parseMarkdownInline(truncated) as string, props.data.researchSlug)
 }
 
 function navigate() {
@@ -56,7 +53,7 @@ function navigate() {
 }
 .answer-node:hover {
   border-color: rgba(52, 211, 153, 0.4);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-1);
 }
 .a-header {
   display: flex;
@@ -67,7 +64,7 @@ function navigate() {
 }
 .a-label {
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }

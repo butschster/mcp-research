@@ -1,5 +1,14 @@
 <template>
   <Teleport to="body">
+    <!-- The politeness lives on the host, not on the toast.
+         A live region has to be in the document *before* its content changes,
+         and a toast is inserted together with its text — so the region was
+         being created and filled in the same tick, which is the one case a
+         screen reader is entitled to miss. And `aria-live="polite"` on an
+         element that also carried `role="alert"` overrode the assertive
+         politeness that role implies, so an error queued behind whatever was
+         being read. Two regions, because the two politeness levels cannot
+         share one. -->
     <div
       class="toast-host"
       role="region"
@@ -9,13 +18,13 @@
       @focusin="hold"
       @focusout="resume"
     >
+      <span class="sr-only" aria-live="assertive" aria-atomic="true">{{ assertiveText }}</span>
+      <span class="sr-only" aria-live="polite" aria-atomic="true">{{ politeText }}</span>
       <TransitionGroup name="toast">
         <div
           v-for="toast in toasts"
           :key="toast.id"
           :class="['toast', `toast-${toast.variant}`]"
-          :role="toast.variant === 'error' ? 'alert' : 'status'"
-          aria-live="polite"
         >
           <span class="toast-icon" aria-hidden="true">
             <svg v-if="toast.variant === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -54,6 +63,32 @@ import type { Toast } from '~/composables/useToasts'
  */
 const { toasts, dismiss, hold, resume } = useToasts()
 
+/**
+ * What the two live regions announce.
+ *
+ * They are separate spans that exist from first render, so a screen reader has
+ * already claimed them by the time a toast arrives. Errors go to the assertive
+ * one because an error is the message a reader must not finish the previous
+ * sentence before hearing; everything else waits its turn.
+ */
+const assertiveText = ref('')
+const politeText = ref('')
+let announced = new Set<number>()
+
+watch(toasts, (list) => {
+  for (const t of list) {
+    if (announced.has(t.id)) continue
+    announced.add(t.id)
+    const said = [t.title, t.message].filter(Boolean).join('. ')
+    if (t.variant === 'error') assertiveText.value = said
+    else politeText.value = said
+  }
+  // Ids of toasts that are gone cannot come back, and the set would otherwise
+  // grow for the life of the tab.
+  const live = new Set(list.map(t => t.id))
+  announced = new Set([...announced].filter(id => live.has(id)))
+}, { deep: true })
+
 function run(toast: Toast) {
   const keepOpen = toast.action?.onClick() === false
   if (!keepOpen) dismiss(toast.id)
@@ -84,7 +119,7 @@ function run(toast: Toast) {
   border: 1px solid var(--color-border-strong);
   border-left: 3px solid var(--color-border-strong);
   border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-2);
 }
 /* The left edge carries the variant, so it survives a screenshot in greyscale
    and does not depend on the icon being noticed. */
@@ -105,7 +140,7 @@ function run(toast: Toast) {
 .toast-title {
   margin: 0;
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
 }
 .toast-message {

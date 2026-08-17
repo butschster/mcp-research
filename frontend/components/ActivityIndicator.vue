@@ -1,5 +1,5 @@
 <template>
-  <div v-if="active" class="activity-indicator">
+  <div v-if="active" class="activity-indicator" aria-hidden="true">
     <span class="activity-dot"></span>
     <span class="activity-label">{{ label }}</span>
   </div>
@@ -20,7 +20,7 @@ defineProps<{
   font-size: var(--type-xs);
   color: var(--color-primary);
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--color-primary-muted);
   border: 1px solid rgba(108, 197, 224, 0.12);
   line-height: 1;
@@ -41,5 +41,5 @@ defineProps<{
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.8); }
 }
-.activity-label { font-weight: 500; }
+.activity-label { font-weight: var(--weight-medium); }
 </style>

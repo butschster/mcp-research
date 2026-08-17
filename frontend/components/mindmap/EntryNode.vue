@@ -17,6 +17,8 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
+import { tagHue } from '~/composables/useTagHue'
 import { Handle, Position } from '@vue-flow/core'
 
 const props = defineProps<{
@@ -35,13 +37,7 @@ const props = defineProps<{
 const visibleTags = computed(() => (props.data.tags ?? []).slice(0, 3))
 const extraTagCount = computed(() => Math.max(0, (props.data.tags ?? []).length - 3))
 
-function truncate(text: string, len: number): string {
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 
-function tagHue(tag: string): number {
-  return [...tag].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6
-}
 
 function navigate() {
   window.open(`/research/${props.data.researchSlug}/entry/${props.data.entrySlug}`, '_blank')
@@ -61,7 +57,7 @@ function navigate() {
 }
 .entry-node:hover {
   border-color: var(--color-border-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-1);
 }
 .entry-header {
   display: flex;
@@ -78,7 +74,7 @@ function navigate() {
 }
 .entry-title {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   line-height: 1.3;
 }
@@ -96,7 +92,7 @@ function navigate() {
 .mm-tag {
   font-size: 0.625rem;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--color-surface-hover);
   color: var(--color-text-muted);
   line-height: 1;
@@ -104,11 +100,11 @@ function navigate() {
 .mm-tag-more { opacity: 0.6; }
 .mm-code {
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;

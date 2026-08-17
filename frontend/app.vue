@@ -70,6 +70,14 @@ onMounted(() => {
 
 <template>
   <div>
+    <!-- Every page in this app awaits its data at the top level, which makes it
+         a Suspense boundary: the page you came from stays on screen until the
+         new one resolves, and each page's own `v-if="pending"` skeleton is
+         already false by the time its template first runs. So a navigation was
+         several sequential round trips of nothing happening at all. This is the
+         one feedback that does not require restructuring those awaits. -->
+    <NuxtLoadingIndicator :color="'var(--color-primary)'" />
+
     <!-- One host for the whole app, outside the page chrome so a notification
          survives navigation and shows on the auth pages too. -->
     <ToastHost />
@@ -82,6 +90,7 @@ onMounted(() => {
     <!-- Normal pages: full chrome -->
     <template v-else>
       <div class="app-shell">
+        <a href="#main" class="skip-link">Skip to content</a>
         <nav class="app-nav">
           <div class="container nav-inner">
             <NuxtLink to="/" class="logo">Research</NuxtLink>
@@ -117,7 +126,7 @@ onMounted(() => {
           </div>
         </nav>
 
-        <main class="container main-content">
+        <main id="main" class="container main-content" tabindex="-1">
           <WarningBanner />
           <!-- The page's subject was taken away while it was open. Rendering it
                would show a research the next request will refuse. -->
@@ -216,7 +225,7 @@ onMounted(() => {
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius);
   padding: var(--space-1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-2);
   z-index: 100;
   animation: dropdown-in 0.12s ease both;
 }
@@ -252,4 +261,33 @@ onMounted(() => {
   background: var(--color-border);
   margin: var(--space-1) var(--space-2);
 }
+</style>
+
+<style scoped>
+/* Moved out of the global stylesheet: these style this component and
+   nothing else, and they were a directory away from the markup they
+   describe. What stays global is what three unrelated components share. */
+.app-nav {
+  background: rgba(21, 29, 46, 0.8);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) 0;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-elevated);
+}
+.app-nav .container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.app-nav .logo {
+  font-size: var(--type-lg);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+  letter-spacing: -0.025em;
+  text-decoration: none;
+}
+.app-nav .logo:hover { text-decoration: none; color: var(--color-primary); }
 </style>

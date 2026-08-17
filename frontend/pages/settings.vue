@@ -30,6 +30,27 @@ interface APIKey {
 const apiKeys = ref<APIKey[]>([])
 const newKeyName = ref('')
 const newKeyValue = ref('')
+
+/* The address the agent has to reach, and the shape a client config takes.
+   Built from the browser's own origin: this page is served by the server in
+   question, so whatever got the reader here is the answer — reverse proxy,
+   port and all. The strings `mcp`, `mcp-remote` and `claude_desktop_config`
+   appeared nowhere in the frontend before this, so the one thing a new user
+   needed was the one thing the product never said. */
+const mcpConfig = computed(() => {
+  const origin = import.meta.client ? window.location.origin : ''
+  return JSON.stringify({
+    mcpServers: {
+      research: {
+        command: 'npx',
+        args: [
+          '-y', 'mcp-remote', `${origin}/mcp`,
+          '--header', `Authorization: Bearer ${newKeyValue.value || '<your key>'}`,
+        ],
+      },
+    },
+  }, null, 2)
+})
 const keyError = ref('')
 
 async function loadKeys() {
@@ -107,18 +128,28 @@ onMounted(() => {
 
     <div class="settings-section">
       <h2>API Keys</h2>
-      <p class="card-meta">Use API keys to authenticate MCP SSE connections and REST API requests.</p>
+      <p class="card-meta">Use API keys to authenticate MCP connections and REST API requests.</p>
 
+      <!-- The key is shown exactly once, and it was a bare <code> under the
+           words "copy it now" — with no copy button, on the one screen in the
+           product that has a component for exactly this and was not using it. -->
       <div v-if="newKeyValue" class="key-created">
         <strong>New API key created. Copy it now — it won't be shown again:</strong>
-        <code class="key-value">{{ newKeyValue }}</code>
+        <CopyableSecret :value="newKeyValue" toast="API key copied" />
+
+        <p class="key-hint">Point your agent at this server with it:</p>
+        <CopyableSecret
+          :value="mcpConfig"
+          hint="Paste into your client's MCP config — Claude Desktop, Cursor or Claude Code."
+          toast="Configuration copied"
+        />
       </div>
 
-      <div v-if="keyError" class="auth-error">{{ keyError }}</div>
+      <div v-if="keyError" class="auth-error" role="alert">{{ keyError }}</div>
 
       <form @submit.prevent="createKey" class="key-form">
         <input v-model="newKeyName" type="text" placeholder="Key name (optional)" class="text-input" />
-        <button type="submit" class="auth-button">Create key</button>
+        <button type="submit" class="btn btn-primary">Create key</button>
       </form>
 
       <table v-if="apiKeys.length" class="keys-table">
@@ -134,7 +165,7 @@ onMounted(() => {
           <tr v-for="key in apiKeys" :key="key.id">
             <td>{{ key.name || '—' }}</td>
             <td><code>{{ key.key_prefix }}</code></td>
-            <td class="card-meta">{{ key.last_used_at || 'Never' }}</td>
+            <td class="card-meta" :title="key.last_used_at ? absoluteTime(key.last_used_at) : ''">{{ key.last_used_at ? relativeTime(key.last_used_at) : 'Never' }}</td>
             <td><button class="delete-btn" @click="deleteKey(key.id)">Revoke</button></td>
           </tr>
         </tbody>
@@ -146,8 +177,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.key-hint { margin: var(--space-4) 0 var(--space-2); font-size: var(--type-sm); color: var(--color-text-muted); }
+
 .settings-page { max-width: 700px; }
-.page-title { font-size: var(--type-2xl); font-weight: 600; margin-bottom: var(--space-8); }
+.page-title { font-size: var(--type-2xl); font-weight: var(--weight-semibold); margin-bottom: var(--space-8); }
 .settings-section {
   margin-bottom: var(--space-8);
   padding: var(--space-6);
@@ -155,10 +188,9 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
-.settings-section h2 { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); }
+.settings-section h2 { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
 .key-form { display: flex; gap: var(--space-2); margin: var(--space-4) 0; flex-wrap: wrap; }
 .key-form .text-input { flex: 1; min-width: 200px; }
-.key-form .auth-button { white-space: nowrap; }
 .key-created {
   padding: var(--space-3);
   background: rgba(52, 211, 153, 0.10);
@@ -186,7 +218,7 @@ onMounted(() => {
   text-align: left;
   border-bottom: 1px solid var(--color-border);
 }
-.keys-table th { font-weight: 500; color: var(--color-text-muted); }
+.keys-table th { font-weight: var(--weight-medium); color: var(--color-text-muted); }
 .delete-btn {
   background: none;
   border: none;
@@ -204,17 +236,12 @@ onMounted(() => {
   font-size: var(--type-sm);
   margin-bottom: var(--space-3);
 }
-.auth-button {
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--type-sm);
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-}
+/* `.auth-button` used to live here as a local copy of the primary button that
+   put white ink on the product's cyan — 1.9:1, a WCAG failure by a factor of
+   two, on the control that mints an API key. The shared `.btn-primary` has
+   always used the page background as its ink (9.5:1) and is now the only
+   definition. The name also collided with the auth pages' animated gradient
+   button, which is a different control entirely. */
 
 .section-note { margin-top: var(--space-4); }
 .team-skeleton { height: 48px; }

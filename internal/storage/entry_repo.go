@@ -112,7 +112,13 @@ func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entr
 // into an oracle over text its reader could not open.
 //
 // An empty userID means auth is off and there is nothing to scope by.
-func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int, userID string) ([]*domain.Entry, error) {
+// SearchEntries finds entries whose title, description or content matches.
+//
+// researchID scopes the search to one research. It is optional because the
+// command palette searches everything, and it is not optional in practice for
+// anyone reading a sixty-entry research: tags are the only in-research filter
+// and they exist only if the agent applied them.
+func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit int, userID string, researchID string) ([]*domain.Entry, error) {
 	if query == "" {
 		return nil, nil
 	}
@@ -130,6 +136,7 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 		        END AS relevance
 		 FROM entries
 		 WHERE (title LIKE ? OR description LIKE ? OR content LIKE ?)
+		   AND (? = '' OR research_id = ?)
 		   AND (? = '' OR EXISTS (
 		         SELECT 1 FROM researches res
 		          WHERE res.id = entries.research_id
@@ -139,6 +146,7 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 		 LIMIT ?`,
 		pattern, pattern, pattern,
 		pattern, pattern, pattern,
+		researchID, researchID,
 		userID, userID,
 		limit,
 	)

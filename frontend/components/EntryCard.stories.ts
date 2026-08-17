@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import EntryCard from './EntryCard.vue'
 import { mockEntry, mockEntryDraft, mockEntryNoTags } from '../__mocks__/entry'
+import { markupDescription } from '../__mocks__/markup'
 import { withShare, withoutShare } from '../__mocks__/share'
 
 /**
@@ -107,6 +108,26 @@ export const InsideAShare: Story = {
   args: {
     entry: mockEntry,
     researchSlug: 'R7',
+  },
+}
+
+/**
+ * A description with markup in it.
+ *
+ * The description is the one field on this card that goes to `v-html`, through
+ * `renderRefs`. Everything here must read as text — `<b>bold</b>` in angle
+ * brackets, the script tag spelled out — while `[[E3]]` beside it is still a
+ * link. If either half stops being true the card says so on sight: an executed
+ * payload prints `XSS EXECUTED` where the image tag was.
+ *
+ * The title above it is `{{ }}` interpolation and was never at risk. It is
+ * worth knowing which of the two fields is which, because they look identical
+ * in the template.
+ */
+export const MarkupInDescription: Story = {
+  args: {
+    entry: { ...mockEntry, description: markupDescription },
+    researchSlug: 'R1',
   },
 }
 

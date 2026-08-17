@@ -28,15 +28,11 @@
         { label: entry.title },
       ]" />
 
-      <div class="entry-header">
-        <div class="title-with-code">
-          <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-          <h1 class="page-title">{{ entry.title }}</h1>
-        </div>
-        <div class="entry-actions no-print">
+      <PageHeader :code="entry.code" :title="entry.title">
+        <template #actions>
           <StatusBadge :status="entry.status" />
-        </div>
-      </div>
+        </template>
+      </PageHeader>
 
       <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, slug)"></p>
       <div v-if="entry.tags?.length" class="entry-tags">
@@ -90,7 +86,7 @@
  * purpose — who edited what and when is internal working process, of a piece
  * with `instruction` and `memory`.
  */
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { tagHue } from '~/composables/useTagHue'
 
 const route = useRoute()
@@ -116,6 +112,9 @@ const sectionName = computed(() => {
 
 async function loadEntry() {
   pending.value = true
+  // The previous entry's siblings are not this entry's siblings; leaving them
+  // in place renders a navigation bar belonging to the section just left.
+  siblings.value = []
   try {
     const res = await shareFetch<{ data: any }>(
       `/researches/${researchId.value}/entries/${entryCode.value}`,
@@ -181,8 +180,8 @@ const blocks = computed<any[]>(() => {
 const contentEl = ref<HTMLElement | null>(null)
 const renderedContent = computed(() => {
   if (!entry.value?.content) return ''
-  const html = marked.parse(String(entry.value.content).replace(/\\n/g, '\n')) as string
-  return renderRefs(html, slug.value)
+  const html = parseMarkdown(String(entry.value.content).replace(/\\n/g, '\n')) as string
+  return linkRefs(html, slug.value)
 })
 
 watch(renderedContent, () => {

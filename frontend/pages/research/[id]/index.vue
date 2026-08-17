@@ -11,15 +11,13 @@
 
   <div v-else-if="research">
     <!-- Header -->
-    <div class="page-header">
-      <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: research.name }]" />
-      <div class="research-header">
-        <div class="title-with-code">
-          <span v-if="research.code" class="short-code">{{ research.code }}</span>
-          <h1 class="page-title">{{ research.name }}</h1>
-        </div>
-        <div class="research-actions">
-          <StatusBadge :status="research.status" />
+    <PageHeader
+      :crumbs="[{ label: 'Research', to: '/' }, { label: research.name }]"
+      :code="research.code"
+      :title="research.name"
+    >
+      <template #actions>
+        <StatusBadge :status="research.status" />
           <TeamChip v-if="showTeamChip" :name="research.team_name" />
           <TeamViewerNotice v-if="isViewer" :team-name="research.team_name" />
 
@@ -86,10 +84,11 @@
               {{ research.status === 'archived' ? 'Restore' : 'Archive' }}
             </button>
           </ActionMenu>
-        </div>
-      </div>
-      <p v-if="research.goal && !detailsOpen" class="card-meta mt-2">{{ research.goal }}</p>
-    </div>
+      </template>
+      <template #below>
+        <p v-if="research.goal && !detailsOpen" class="card-meta mt-2">{{ research.goal }}</p>
+      </template>
+    </PageHeader>
 
     <!-- Research details panel -->
     <ResearchDetailsPanel
@@ -100,10 +99,14 @@
     />
 
     <!-- Active sessions -->
-    <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug" />
+    <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name" />
 
     <!-- Closed sessions (collapsed) -->
-    <ResearchPastSessionsList :sessions="closedSessions" :research-slug="researchSlug" />
+    <ResearchPastSessionsList :sessions="closedSessions" :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name" />
 
     <!-- Sidebar layout: sections + entries -->
     <div class="layout-sidebar">
@@ -124,6 +127,8 @@
           :entries="allEntries"
           :sections="sections"
           :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name"
           :loading="allEntriesPending"
           mode="all"
           :tags="globalTags"
@@ -135,6 +140,8 @@
           :entries="entries"
           :sections="sections"
           :research-slug="researchSlug"
+          :research-id="research?.id"
+          :research-name="research?.name"
           :loading="entriesPending"
           mode="section"
           :section-info="currentSection"
@@ -446,7 +453,7 @@ async function downloadPortableJSON() {
     a.click()
     URL.revokeObjectURL(url)
   } catch (e: any) {
-    alert('Export failed: ' + (e.message || e))
+    useToasts().push({ variant: 'error', title: 'Export failed', message: e?.message || String(e), timeout: 0 })
   } finally {
     exporting.value = false
   }
@@ -527,8 +534,6 @@ useResearchRealtime(() => id, async (event) => {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .research-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
-  .research-actions { flex-wrap: wrap; gap: var(--space-2); }
   .title-with-code { flex-wrap: wrap; }
 }
 </style>

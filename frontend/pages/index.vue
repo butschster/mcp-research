@@ -1,28 +1,25 @@
 <template>
   <div>
-    <div class="page-header">
-      <div class="page-header-row">
-        <h1 class="page-title">Research Projects</h1>
-        <div class="page-header-actions">
-          <button class="btn btn-sm" @click="triggerImport" :disabled="importing">
+    <PageHeader title="Research Projects">
+      <template #actions>
+        <button class="btn btn-sm" @click="triggerImport" :disabled="importing">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><polyline points="9 15 12 12 15 15"/></svg>
             {{ importing ? 'Importing...' : 'Import JSON' }}
           </button>
           <input ref="fileInput" type="file" accept=".json" style="display:none" @change="handleImportFile" />
-        </div>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <div class="filter-bar">
-      <select v-model="statusFilter">
+      <select v-model="statusFilter" class="select">
         <option value="">All statuses</option>
         <option value="active">Active</option>
         <option value="completed">Completed</option>
         <option value="archived">Archived</option>
       </select>
       <!-- Only when there is a choice to make. A solo user never sees this. -->
-      <select v-if="teams.length > 1" v-model="teamFilter" :disabled="teamsLoading" aria-label="Filter by team">
+      <select v-if="teams.length > 1" v-model="teamFilter" :disabled="teamsLoading" class="select" aria-label="Filter by team">
         <option value="">All teams</option>
         <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
       </select>
@@ -32,8 +29,10 @@
       </span>
     </div>
 
-    <!-- Onboarding -->
-    <GettingStartedBanner :has-researches="researches.length > 0" />
+    <!-- Onboarding, for the person this product was set up by. Someone who was
+         invited into a team has an agent's worth of advice they did not ask
+         for: "install an MCP server" is not why they followed a link. -->
+    <GettingStartedBanner v-if="!teamFilter && !invitedElsewhere" :has-researches="researches.length > 0" />
 
     <!-- Loading -->
     <div v-if="pending" class="skeleton-list">
@@ -51,14 +50,34 @@
       />
     </div>
 
-    <!-- Empty because of the team filter, not because there is nothing -->
+    <!-- Empty because of the team filter, not because there is nothing. What to
+         do about it depends entirely on whether the reader can move work into
+         the team: an owner has a control, a viewer has a colleague. -->
     <EmptyState
       v-else-if="teamFilter"
       icon="&#x1F4C1;"
-      title="No researches in this team yet"
-      description="Researches created in this team will appear here. An agent connected to your account can create one."
+      :title="`No researches in ${filteredTeamName} yet`"
+      :description="
+        filteredTeamOwned
+          ? 'Researches you move into this team appear here, and everyone in it can read them. Your own researches are still in your personal team.'
+          : 'Researches added to this team will appear here for everyone in it. An owner of the team can move one across.'
+      "
     >
-      <button class="btn btn-sm" @click="teamFilter = ''">Show all teams</button>
+      <NuxtLink v-if="filteredTeamOwned" class="btn" :to="`/teams/${teamFilter}`">Move researches here</NuxtLink>
+      <NuxtLink v-else class="btn" :to="`/teams/${teamFilter}`">Who is in this team</NuxtLink>
+      <button class="btn" @click="teamFilter = ''">Show all teams</button>
+    </EmptyState>
+
+    <!-- Empty, and the reader was invited here by somebody. Telling them to
+         connect an agent answers a question they did not ask, and reads as the
+         invitation having failed. -->
+    <EmptyState
+      v-else-if="invitedElsewhere"
+      icon="&#x1F91D;"
+      title="Nothing has been shared with you yet"
+      description="You are in a team, but no research has been moved into it. Whoever invited you can move one across — it will appear here the moment they do."
+    >
+      <NuxtLink class="btn" to="/teams">Your teams</NuxtLink>
     </EmptyState>
 
     <!-- Empty -->
@@ -97,6 +116,20 @@ const teamFilter = computed({
   },
 })
 
+const filteredTeam = computed(() => teams.value.find((t) => t.id === teamFilter.value) ?? null)
+const filteredTeamName = computed(() => filteredTeam.value?.name || 'this team')
+const filteredTeamOwned = computed(() => filteredTeam.value?.role === 'owner')
+
+/**
+ * True when somebody else brought this reader here.
+ *
+ * A team they are in but do not own is an invitation that was accepted, and it
+ * changes what an empty screen means: not "you have not started yet" but "the
+ * work has not arrived yet". The founder's onboarding is wrong in that case,
+ * and reads as the invitation having failed.
+ */
+const invitedElsewhere = computed(() => teams.value.some((t) => !t.personal && t.role !== 'owner'))
+
 onMounted(() => loadTeams())
 const importing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -120,7 +153,7 @@ async function handleImportFile(event: Event) {
     )
     await navigateTo(`/research/${result.code}`)
   } catch (e: any) {
-    alert('Import failed: ' + (e.message || e))
+    useToasts().push({ variant: 'error', title: 'Import failed', message: e?.message || String(e), timeout: 0 })
   } finally {
     importing.value = false
     input.value = '' // reset file input
@@ -168,16 +201,16 @@ useRealtimeUpdates(
 </script>
 
 <style scoped>
-.page-header-row {
+/* Moved out of the global stylesheet: these style this component and
+   nothing else, and they were a directory away from the markup they
+   describe. What stays global is what three unrelated components share. */
+.filter-bar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
 }
-.page-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  @media (max-width: 768px) {
+  .filter-bar { flex-wrap: wrap; }
 }
 .skeleton-list {
   /* This page's skeletons stand in for cards in a grid, not for rows. */

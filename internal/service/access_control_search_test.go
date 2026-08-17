@@ -43,7 +43,7 @@ func TestAccessControl_Search(t *testing.T) {
 	}
 
 	t.Run("owner finds their own entry", func(t *testing.T) {
-		found, err := entryRepo.SearchEntries(ctxA, "Zaphod", 20, userA.ID)
+		found, err := entryRepo.SearchEntries(ctxA, "Zaphod", 20, userA.ID, "")
 		if err != nil {
 			t.Fatalf("search: %v", err)
 		}
@@ -54,7 +54,7 @@ func TestAccessControl_Search(t *testing.T) {
 
 	t.Run("another user finds nothing", func(t *testing.T) {
 		for _, q := range []string{"Zaphod", "hunter2", "bastion"} {
-			found, err := entryRepo.SearchEntries(userCtx(userB), q, 20, userB.ID)
+			found, err := entryRepo.SearchEntries(userCtx(userB), q, 20, userB.ID, "")
 			if err != nil {
 				t.Fatalf("search %q: %v", q, err)
 			}
@@ -67,7 +67,7 @@ func TestAccessControl_Search(t *testing.T) {
 	})
 
 	t.Run("no user means no scoping, as everywhere else", func(t *testing.T) {
-		found, err := entryRepo.SearchEntries(ctxA, "Zaphod", 20, "")
+		found, err := entryRepo.SearchEntries(ctxA, "Zaphod", 20, "", "")
 		if err != nil {
 			t.Fatalf("search: %v", err)
 		}

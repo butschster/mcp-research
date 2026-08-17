@@ -16,12 +16,8 @@
 
       <!-- View mode header -->
       <template v-if="!editing">
-        <div class="entry-header">
-          <div class="title-with-code">
-            <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-            <h1 class="page-title">{{ entry.title }}</h1>
-          </div>
-          <div class="entry-actions no-print">
+        <PageHeader :code="entry.code" :title="entry.title">
+          <template #actions>
             <TeamViewerNotice v-if="isViewer" :team-name="research?.team_name" />
 
             <!-- Status: a picker for a writer, the badge alone for a reader -->
@@ -59,11 +55,11 @@
               <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               {{ copied ? 'Copied' : 'Copy' }}
             </button>
-            <button v-if="canWrite" class="btn btn-sm btn-delete" @click="showDeleteConfirm = true">
+            <button v-if="canWrite" class="btn btn-sm btn-delete" aria-label="Delete entry" title="Delete entry" @click="showDeleteConfirm = true">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
-          </div>
-        </div>
+          </template>
+        </PageHeader>
         <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
         <div v-if="entry.tags?.length" class="entry-tags">
           <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
@@ -222,11 +218,18 @@
     />
   </div>
 
-  <EmptyState v-else icon="&#x1F50D;" title="Entry not found" />
+  <EmptyState
+    v-else
+    icon="&#x1F50D;"
+    title="Entry not found"
+    description="It may have been deleted, or the reference that brought you here may name an entry that never existed."
+  >
+    <NuxtLink :to="`/research/${researchSlug}`" class="btn btn-sm">Back to the research</NuxtLink>
+  </EmptyState>
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
@@ -239,7 +242,6 @@ const router = useRouter()
 const id = route.params.id as string
 const entryId = route.params.entryId as string
 
-marked.setOptions({ gfm: true, breaks: true })
 
 const statuses = ['draft', 'active', 'completed', 'archived']
 
@@ -249,6 +251,11 @@ const editorToolbars: ToolbarNames[] = [
   'unorderedList', 'orderedList', 'task', '-',
   'codeRow', 'code', 'link', 'image', 'table', 'mermaid', '-',
   'revoke', 'next', '=',
+  // Reading an entry is one job and writing one is another. `pageFullscreen`
+  // fills the window without leaving the page, so Escape still belongs to the
+  // editor and the browser's own chrome stays put; `fullscreen` hands the
+  // screen over entirely for the case where even the browser is a distraction.
+  'pageFullscreen', 'fullscreen', '-',
   'preview', 'catalog',
 ]
 
@@ -353,8 +360,8 @@ const blockBridgeData = computed(() => {
 // Rendered markdown
 const renderedContent = computed(() => {
   if (!entry.value?.content) return ''
-  const html = marked.parse(normalizeContent(entry.value.content)) as string
-  return renderRefs(html, researchSlug.value)
+  const html = parseMarkdown(normalizeContent(entry.value.content)) as string
+  return linkRefs(html, researchSlug.value)
 })
 
 // Syntax-highlighted markdown source
@@ -546,7 +553,16 @@ async function saveEntry() {
     await refresh()
   } catch (e: any) {
     console.error('Failed to save entry:', e)
-    alert(e?.data?.error || e?.message || 'Failed to save')
+    // A native dialog over an editor full of unsaved work is the worst place
+    // in the product for one, and it blocks the render loop while it is up.
+    // The draft is still in `editForm`, so say so.
+    useToasts().push({
+      variant: 'error',
+      title: 'Could not save',
+      message: (e?.data?.error || e?.message || 'The server refused the change.')
+        + ' Your text is still here — try again, or copy it somewhere safe.',
+      timeout: 0,
+    })
   } finally {
     saving.value = false
   }
@@ -644,7 +660,7 @@ async function deleteEntry() {
     router.push(`/research/${researchSlug.value}?section=${entry.value.section_id}`)
   } catch (e: any) {
     console.error('Failed to delete entry:', e)
-    alert(e?.data?.error || e?.message || 'Failed to delete')
+    useToasts().push({ variant: 'error', title: 'Could not delete', message: e?.data?.error || e?.message || 'The server refused it.', timeout: 0 })
   } finally {
     deleting.value = false
   }
@@ -678,12 +694,36 @@ const { data: siblingsData } = useApi<{ data: any[] }>(
   )
 )
 const siblings = computed(() => siblingsData.value?.data ?? [])
-const currIndex = computed(() => siblings.value.findIndex((e: any) => e.id === entryId))
+/**
+ * Where this entry sits among its section's entries.
+ *
+ * It used to compare `e.id` against `entryId` — the route param, which is a
+ * short code (`E3`) on every link the app builds, against a sibling's UUID. So
+ * the index was -1 for anyone who arrived by clicking, which is everyone:
+ * "Prev" required `> 0` and never rendered, and "Next" required
+ * `< length - 1`, which -1 satisfies, so it pointed at the section's first
+ * entry from every page — including from that entry, where it linked to itself.
+ *
+ * Matching on the loaded entry's own id sidesteps the question of which
+ * identity the URL happened to carry.
+ */
+const currIndex = computed(() => {
+  const id = entry.value?.id
+  return id ? siblings.value.findIndex((e: any) => e.id === id) : -1
+})
 const prevEntry = computed(() => currIndex.value > 0 ? siblings.value[currIndex.value - 1] : null)
-const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? siblings.value[currIndex.value + 1] : null)
+const nextEntry = computed(() =>
+  currIndex.value >= 0 && currIndex.value < siblings.value.length - 1
+    ? siblings.value[currIndex.value + 1]
+    : null,
+)
 </script>
 
 <style scoped>
+/* css-discipline: literal-ok — the source view uses the One Dark palette,
+   which is a palette in its own right rather than the product's. It is not
+   expressible in the design tokens and should not be: a syntax colour that
+   drifted with the brand would stop meaning "string" or "keyword". */
 .edit-remote-change {
   display: flex;
   align-items: center;
@@ -738,7 +778,7 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   color: var(--color-text-muted);
   padding: 0.35rem 0.5rem;
 }
-.btn-delete:hover { color: #ef4444; }
+.btn-delete:hover { color: var(--color-danger); }
 
 /* Status dropdown */
 .status-dropdown-wrap {
@@ -772,7 +812,7 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 }
 .edit-label {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -879,17 +919,17 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 .source-view code { background: none; padding: 0; font-size: inherit; }
 
 /* Markdown syntax highlighting */
-.source-view :deep(.md-heading-marker) { color: #e06c75; font-weight: 700; }
-.source-view :deep(.md-heading) { color: #e5c07b; font-weight: 600; }
-.source-view :deep(.md-bold) { color: #d19a66; font-weight: 600; }
+.source-view :deep(.md-heading-marker) { color: #e06c75; font-weight: var(--weight-bold); }
+.source-view :deep(.md-heading) { color: #e5c07b; font-weight: var(--weight-semibold); }
+.source-view :deep(.md-bold) { color: #d19a66; font-weight: var(--weight-semibold); }
 .source-view :deep(.md-italic) { color: #c678dd; font-style: italic; }
-.source-view :deep(.md-inline-code) { color: #98c379; background: rgba(152, 195, 121, 0.08); border-radius: 3px; padding: 0 0.15em; }
+.source-view :deep(.md-inline-code) { color: #98c379; background: rgba(152, 195, 121, 0.08); border-radius: var(--radius-xs); padding: 0 0.15em; }
 .source-view :deep(.md-link) { color: #61afef; }
 .source-view :deep(.md-url) { color: #56b6c2; opacity: 0.7; }
 .source-view :deep(.md-image) { color: #c678dd; }
-.source-view :deep(.md-crossref) { color: #6cc5e0; background: rgba(108, 197, 224, 0.1); border-radius: 3px; padding: 0 0.15em; }
+.source-view :deep(.md-crossref) { color: var(--color-primary); background: rgba(108, 197, 224, 0.1); border-radius: var(--radius-xs); padding: 0 0.15em; }
 .source-view :deep(.md-blockquote) { color: #5c6370; font-style: italic; border-left: 2px solid #5c6370; padding-left: 0.75em; display: inline-block; }
-.source-view :deep(.md-list-marker) { color: #e06c75; font-weight: 600; }
+.source-view :deep(.md-list-marker) { color: #e06c75; font-weight: var(--weight-semibold); }
 .source-view :deep(.md-hr) { color: #5c6370; }
 .source-view :deep(.md-fence) { color: #98c379; }
 .source-view :deep(.md-code-line) { color: #abb2bf; opacity: 0.85; }
@@ -899,8 +939,6 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
 
 /* Responsive */
 @media (max-width: 768px) {
-  .entry-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
-  .entry-actions { flex-wrap: wrap; }
   .title-with-code { flex-wrap: wrap; gap: var(--space-2); }
   .entry-content { padding: var(--space-4); }
 }
@@ -924,7 +962,7 @@ const nextEntry = computed(() => currIndex.value < siblings.value.length - 1 ? s
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius);
   padding: var(--space-1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-2);
   min-width: 140px;
 }
 .status-option {

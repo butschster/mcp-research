@@ -13,10 +13,17 @@ import EntryAuthorBadge from '../components/entry/AuthorBadge.vue'
 import EntryFieldChanges from '../components/entry/FieldChanges.vue'
 import EntryRevisionRow from '../components/entry/RevisionRow.vue'
 import ShortCode from '../components/ShortCode.vue'
+import ActionMenu from '../components/ActionMenu.vue'
+import ModalHeader from '../components/ModalHeader.vue'
 import TeamRoleSelect from '../components/team/RoleSelect.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
-import '../assets/css/main.css'
+import { resetMockApiData } from '../__mocks__/api'
+import '../assets/css/tokens.css'
+import '../assets/css/base.css'
+import '../assets/css/system.css'
+import '../assets/css/markdown.css'
+import '../assets/css/mermaid.css'
 
 const router = createRouter({
   history: createMemoryHistory(),
@@ -55,6 +62,8 @@ setup((app) => {
   app.component('EntryFieldChanges', EntryFieldChanges)
   app.component('EntryRevisionRow', EntryRevisionRow)
   app.component('ShortCode', ShortCode)
+  app.component('ActionMenu', ActionMenu)
+  app.component('ModalHeader', ModalHeader)
   app.component('TeamRoleSelect', TeamRoleSelect)
   app.component('StatusBadge', StatusBadge)
   app.component('TagList', TagList)
@@ -102,6 +111,12 @@ const preview: Preview = {
   decorators: [
     (story) => ({
       components: { story },
+      // A decorator's setup runs before the story's, and the story's before the
+      // component's — so this clears the `useApi` routing table in time for a
+      // story to install its own, and in time for a story that installs none to
+      // see nothing. Module state that outlives one story is how a catalogue
+      // starts depending on the order it was clicked through in.
+      setup: () => resetMockApiData(),
       template: `
         <div style="background: var(--color-bg); color: var(--color-text); padding: 1.5rem; font-family: 'Outfit', system-ui, sans-serif;">
           <story />

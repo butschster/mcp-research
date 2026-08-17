@@ -127,9 +127,10 @@
  * server decides what is in the payload, and under a share it has already left
  * out `instruction`, `memory`, and any section the link does not include.
  */
-import { marked } from 'marked'
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
+import { linkRefs } from '~/composables/useCrossRefs'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-marked.setOptions({ gfm: true, breaks: true })
+import { normalizeContent } from '~/utils/normalizeContent'
 
 const props = defineProps<{
   data: any
@@ -161,8 +162,8 @@ function blocksOf(entry: any): any[] | null {
 
 function renderMarkdown(content: string): string {
   if (!content) return ''
-  const html = marked.parse(normalizeContent(content)) as string
-  return renderRefs(html, props.researchSlug)
+  const html = parseMarkdown(normalizeContent(content)) as string
+  return linkRefs(html, props.researchSlug)
 }
 
 // Markdown entries carry their diagrams as ```mermaid fences. Draw them, or the
@@ -188,7 +189,7 @@ watch(() => props.data, drawDiagrams)
 }
 .doc-title {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.03em;
   line-height: 1.2;
   margin-bottom: var(--space-3);
@@ -211,7 +212,7 @@ watch(() => props.data, drawDiagrams)
   padding: 0.15rem 0.5rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   color: var(--color-text-muted);
 }
 .doc-tag-sm { font-size: 0.65rem; padding: 0.1rem 0.35rem; }
@@ -232,7 +233,7 @@ watch(() => props.data, drawDiagrams)
 }
 .doc-toc h2 {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -250,7 +251,7 @@ watch(() => props.data, drawDiagrams)
 .doc-toc a {
   color: var(--color-text);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 .doc-toc a:hover { color: var(--color-primary); }
 .toc-count {
@@ -265,7 +266,7 @@ watch(() => props.data, drawDiagrams)
 }
 .section-heading {
   font-size: var(--type-xl);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--color-border);
@@ -292,7 +293,7 @@ watch(() => props.data, drawDiagrams)
 .doc-entry:last-child { border-bottom: none; }
 .entry-heading {
   font-size: var(--type-lg);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   margin-bottom: var(--space-2);
   display: flex;
@@ -302,11 +303,11 @@ watch(() => props.data, drawDiagrams)
 .entry-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--type-xs);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 .entry-meta {
@@ -323,7 +324,7 @@ watch(() => props.data, drawDiagrams)
   border-bottom: 1px solid var(--color-border);
 }
 .doc-session:last-child { border-bottom: none; }
-.session-heading { font-size: var(--type-lg); font-weight: 600; margin-bottom: var(--space-2); }
+.session-heading { font-size: var(--type-lg); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
 .session-focus { font-size: var(--type-sm); color: var(--color-text-muted); margin-bottom: var(--space-4); }
 
 /* Questions */
@@ -335,11 +336,11 @@ watch(() => props.data, drawDiagrams)
   margin-bottom: var(--space-3);
 }
 .q-heading { display: flex; align-items: flex-start; gap: var(--space-2); margin-bottom: var(--space-2); }
-.q-label { font-weight: 700; color: var(--color-primary); flex-shrink: 0; }
-.q-text { font-weight: 500; flex: 1; }
+.q-label { font-weight: var(--weight-bold); color: var(--color-primary); flex-shrink: 0; }
+.q-text { font-weight: var(--weight-medium); flex: 1; }
 .q-status {
   font-size: var(--type-xs); padding: 0.1rem 0.4rem;
-  border-radius: 3px; flex-shrink: 0;
+  border-radius: var(--radius-xs); flex-shrink: 0;
   background: var(--color-surface-hover); color: var(--color-text-muted);
 }
 .q-status-answered { background: rgba(52, 211, 153, 0.1); color: var(--color-success); }
@@ -362,11 +363,11 @@ watch(() => props.data, drawDiagrams)
   flex-shrink: 0;
 }
 .task-done { color: var(--color-success); }
-.task-title { flex: 1; font-weight: 500; font-size: var(--type-sm); }
+.task-title { flex: 1; font-weight: var(--weight-medium); font-size: var(--type-sm); }
 .task-priority {
   font-size: var(--type-xs); padding: 0.1rem 0.35rem;
   background: rgba(239, 68, 68, 0.1); color: var(--color-error);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 .task-status {
   font-size: var(--type-xs); color: var(--color-text-muted);

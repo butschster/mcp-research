@@ -92,6 +92,83 @@ function sectionProgressWidth(section: any): string {
 </script>
 
 <style scoped>
+/* Moved out of the global stylesheet: these style this component and
+   nothing else, and they were a directory away from the markup they
+   describe. What stays global is what three unrelated components share. */
+.sidebar {
+  position: sticky;
+  top: calc(var(--space-4) + var(--nav-h));
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.sidebar-item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.sidebar-item:hover {
+  color: var(--color-text);
+}
+.sidebar-item.active {
+  color: var(--color-text);
+  border-left-color: var(--color-primary);
+}
+.sidebar-item.active .sidebar-item-name {
+  font-weight: var(--weight-medium);
+}
+.sidebar-progress {
+  height: 2px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 1px;
+  margin-top: var(--space-1);
+  overflow: hidden;
+}
+.sidebar-progress-fill {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: 1px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* The mobile shape: a horizontal strip instead of a rail. Its `@media`
+   wrapper was lost when these rules were moved out of the global sheet, so
+   for one commit the desktop sidebar was a scroller inside a 240px grid
+   column with every progress bar hidden. */
+@media (max-width: 768px) {
+  .sidebar {
+    position: static;
+    flex-direction: row;
+    gap: var(--space-1);
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .sidebar::-webkit-scrollbar { display: none; }
+  .sidebar .sidebar-divider { display: none; }
+  .sidebar-item {
+    flex-shrink: 0;
+    flex-direction: row;
+    white-space: nowrap;
+    padding: var(--space-2) var(--space-3);
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    font-size: var(--type-xs);
+  }
+  .sidebar-item.active {
+    color: var(--color-primary);
+    border-left-color: transparent;
+    border-bottom-color: var(--color-primary);
+  }
+  .sidebar-progress { display: none; }
+}
+
 /* There was no focus style, because nothing here was focusable. */
 .sidebar-item:focus-visible {
   outline: 2px solid var(--color-primary);

@@ -69,7 +69,7 @@ export function shareResearchCode() {
  */
 export function isShareLive(share: { revoked_at?: string | null; expires_at?: string | null }) {
   if (share.revoked_at) return false
-  return !share.expires_at || new Date(share.expires_at).getTime() > Date.now()
+  return !share.expires_at || parseTimestamp(share.expires_at).getTime() > Date.now()
 }
 
 /**
@@ -93,7 +93,7 @@ export function shareContents(include: ShareInclude, style: 'prose' | 'list' = '
 /** When a link lapses, said the way a person would say it. */
 export function shareExpiryPhrase(expiresAt?: string | null) {
   if (!expiresAt) return ''
-  const when = new Date(expiresAt)
+  const when = parseTimestamp(expiresAt)
   if (Number.isNaN(when.getTime())) return 'at some point'
   const days = Math.round((when.getTime() - Date.now()) / 86_400_000)
   if (days <= 0) return 'today'

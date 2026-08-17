@@ -61,18 +61,18 @@ func (h *ExportHandler) SetRoadmapService(svc *service.RoadmapService) {
 func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	idOrCode := r.PathValue("id")
 
-	// A share visitor gets markdown and the JSON this page renders from, and
-	// nothing else. The vault export builds its own payload from the repository
-	// rather than from ResearchService.Get, so the redaction that keeps
-	// `instruction` and `memory` out of a share does not cover it — and a format
-	// whose safety has to be argued separately is one a share should not have.
+	// The vault is offered to a share visitor too, on a link that includes
+	// downloading. It used to be refused here on the grounds that it builds its
+	// own payload rather than reusing this handler's — but it builds it from
+	// `ResearchService.Get`, which is exactly where `instruction` and `memory`
+	// are redacted, so the research it starts from was already the published
+	// one. What genuinely was missing is that the vault's parts come from a
+	// query string the visitor can type, and the include flags never saw it;
+	// `service.clampForShare` narrows them now, next to the code that reads
+	// them.
 	share := auth.ShareFromContext(r.Context())
 	if r.URL.Query().Get("format") == "obsidian" {
-		if share != nil {
-			writeError(w, http.StatusNotFound, "not found")
-			return
-		}
-		// The vault export reads the research itself and does its own ownership
+		// The vault export reads the research itself and does its own access
 		// check, so it branches before this handler fetches anything.
 		h.ExportObsidian(w, r)
 		return

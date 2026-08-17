@@ -89,9 +89,17 @@ function trapFocus(event: KeyboardEvent) {
   }
 }
 
+/* The page behind a dialog scrolled under the wheel, which reads as the dialog
+   having lost its grip on the page. */
+function lockScroll(on: boolean) {
+  if (import.meta.server) return
+  document.body.style.overflow = on ? 'hidden' : ''
+}
+
 watch(
   () => props.visible,
   async (open) => {
+    lockScroll(open)
     if (open) {
       restoreTo = document.activeElement as HTMLElement | null
       await nextTick()
@@ -107,6 +115,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  lockScroll(false)
   restoreTo?.focus?.()
 })
 </script>
@@ -123,13 +132,18 @@ onBeforeUnmount(() => {
   z-index: var(--z-overlay);
 }
 .modal-card {
+  /* Only the lg and xl sizes carried these, and the overlay centres its child —
+     so a `sm` confirm with a long message, or a form on a 375x667 screen with
+     the keyboard up, was cut off at the *top*, where nothing can scroll to it. */
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   width: 100%;
   max-width: 460px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-3);
 }
 /* The dialog takes focus when it holds no controls; that is a programmatic
    focus, not a keyboard one, so it should not paint a ring. */
@@ -160,7 +174,12 @@ onBeforeUnmount(() => {
 /* Responsive */
 @media (max-width: 768px) {
   .modal-overlay { padding: var(--space-4); }
-  .modal-card { max-width: 100%; padding: var(--space-4); }
+  .modal-card {
+  /* Only the lg and xl sizes carried these, and the overlay centres its child —
+     so a `sm` confirm with a long message, or a form on a 375x667 screen with
+     the keyboard up, was cut off at the *top*, where nothing can scroll to it. */
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto; max-width: 100%; padding: var(--space-4); }
   .modal-lg { max-height: calc(100dvh - var(--space-8)); }
   .modal-xl {
     max-width: 100%;

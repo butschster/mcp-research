@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import KanbanCard from './KanbanCard.vue'
+import { markupTaskTitle } from '../../__mocks__/markup'
 import { mockTask, mockTaskHigh } from '../../__mocks__/task'
 
 const meta: Meta<typeof KanbanCard> = {
@@ -28,6 +29,22 @@ export const Default: Story = {
 export const HighPriority: Story = {
   args: {
     task: mockTaskHigh,
+    researchSlug: 'R1',
+  },
+}
+
+/**
+ * A title with markup in it.
+ *
+ * The card's title is the whole of its content and it goes to `v-html` through
+ * `renderRefs`. A task title is written by an agent from whatever it was
+ * reading, so `<script>` in one is a Tuesday, not an attack — which is exactly
+ * why it has to render as the text it is, with `[[E3]]` still linking. An
+ * executed payload prints `XSS EXECUTED` in the middle of the card.
+ */
+export const MarkupInTitle: Story = {
+  args: {
+    task: { ...mockTask, code: 'T7', title: markupTaskTitle },
     researchSlug: 'R1',
   },
 }

@@ -80,7 +80,7 @@ function toggle(key: Key, value: boolean) {
 <style scoped>
 .dialog-title {
   font-size: var(--type-base);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   margin: 0 0 var(--space-4);
 }
 .option-list {

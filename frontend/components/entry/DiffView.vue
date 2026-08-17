@@ -177,7 +177,7 @@ function marker(op: string): string {
 .diff-notice-title {
   margin: 0;
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--color-text);
 }
 .diff-notice-body {
@@ -237,13 +237,13 @@ function marker(op: string): string {
 
 .diff-word-add {
   background: color-mix(in srgb, var(--color-success) 30%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .diff-word-remove {
   background: color-mix(in srgb, var(--color-error) 30%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   text-decoration: line-through;
 }
 

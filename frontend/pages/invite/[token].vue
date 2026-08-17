@@ -1,5 +1,5 @@
 <template>
-  <div class="invite-page">
+  <div class="centered-gate invite-page">
     <div class="invite-card">
       <!-- No partially-rendered team name: a skeleton, then the real thing. -->
       <div v-if="loading" class="skeleton-card invite-skeleton"></div>
@@ -212,20 +212,13 @@ async function copyInviter() {
 </script>
 
 <style scoped>
-.invite-page {
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6);
-}
 .invite-card { width: 100%; max-width: 440px; text-align: center; }
 .invite-skeleton { height: 260px; }
 .invite-from { font-size: var(--type-sm); color: var(--color-text-muted); margin-bottom: var(--space-4); }
 .inviter { color: var(--color-text); }
 .invite-team {
   font-size: var(--type-2xl);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.03em;
   line-height: var(--line-tight);
   overflow-wrap: anywhere;

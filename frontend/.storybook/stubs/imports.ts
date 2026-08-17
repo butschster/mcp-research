@@ -1,5 +1,5 @@
-import { ref, computed } from 'vue'
-import { runMockFetch } from '../../__mocks__/api'
+import { ref, computed, isRef, watch, toValue } from 'vue'
+import { resolveMockApiData, runMockFetch } from '../../__mocks__/api'
 
 export {
   ref,
@@ -43,12 +43,32 @@ export const useSeoMeta = () => {}
 export const definePageMeta = () => {}
 
 // Project composable stubs
-export const useApi = (_url: any) => ({
-  data: ref(null),
-  pending: ref(false),
-  error: ref(null),
-  refresh: () => Promise.resolve(),
-})
+//
+// The URL used to be ignored and `data` was always null. It is read now so a
+// story can answer a component that fetches for itself, through
+// `mockApiData()` in __mocks__/api.ts. Unrouted URLs still resolve to null, so
+// every story written before this behaves exactly as it did.
+export const useApi = (url: any) => {
+  const data = ref<any>(null)
+  const read = () => {
+    const resolved = toValue(url)
+    data.value = typeof resolved === 'string' ? resolveMockApiData(resolved) : null
+  }
+  read()
+  // The real composable refetches when a computed URL changes — SearchModal's
+  // query is one — so the stub has to as well, or a story can only ever show
+  // the first keystroke's results.
+  if (isRef(url) || typeof url === 'function') watch(() => toValue(url), read)
+  return {
+    data,
+    pending: ref(false),
+    error: ref(null),
+    refresh: () => {
+      read()
+      return Promise.resolve()
+    },
+  }
+}
 
 export const useAuth = () => ({
   user: ref(null),

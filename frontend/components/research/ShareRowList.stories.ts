@@ -212,6 +212,47 @@ export const IncludeVariants: Story = {
   },
 }
 
+/**
+ * The same instant, in both shapes the API sends it in.
+ *
+ * SQLite hands back `2026-08-14 15:59:40` and the JSON encoder emits
+ * `2026-08-14T15:59:40Z`, and which one a row carries depends on the route it
+ * came from. `new Date()` reads the first as **local** time and the second as
+ * UTC, so the creation date could disagree by hours — and, near midnight, by a
+ * day — with the "last opened" line directly above it, which had always gone
+ * through the composable. Both cells now go through `absoluteTime`.
+ *
+ * The two rows below are one timestamp written twice. They must print the same
+ * date. `AllStates` and `Live` above already carry the space-separated form —
+ * that is what `shr_live` has in the mock — but nothing there could show a skew,
+ * because there was nothing to compare against.
+ */
+export const TimestampShapes: Story = {
+  args: {
+    shares: [
+      {
+        ...live,
+        id: 'shr_sqlite',
+        label: 'created_at as SQLite sends it',
+        created_at: '2026-08-14 15:59:40',
+        has_password: false,
+        view_count: 3,
+        last_seen_at: '2026-08-14 16:04:00',
+      },
+      {
+        ...live,
+        id: 'shr_encoder',
+        label: 'created_at as the JSON encoder sends it',
+        created_at: '2026-08-14T15:59:40Z',
+        has_password: false,
+        view_count: 3,
+        last_seen_at: '2026-08-14T16:04:00Z',
+      },
+    ] as ShareRow[],
+    recoverableLinks: {},
+  },
+}
+
 /** Boundary wording, side by side: today, tomorrow, in six days. "Expires in 1
  *  days" is the bug this row set exists to catch. */
 export const ExpiryWording: Story = {

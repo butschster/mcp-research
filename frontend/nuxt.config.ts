@@ -9,7 +9,16 @@ export default defineNuxtConfig({
     },
   },
 
-  css: ['~/assets/css/main.css'],
+  // Order is load-bearing. tokens before anything that uses them; system before
+  // markdown, whose `.markdown-content pre` the mermaid error state builds on;
+  // mermaid last for the same reason.
+  css: [
+    '~/assets/css/tokens.css',
+    '~/assets/css/base.css',
+    '~/assets/css/system.css',
+    '~/assets/css/markdown.css',
+    '~/assets/css/mermaid.css',
+  ],
 
   app: {
     head: {

@@ -1,16 +1,11 @@
 <template>
-  <ModalOverlay :visible="!!task" size="lg" flush @close="$emit('close')">
+  <ModalOverlay :labelledby="titleId" :visible="!!task" size="lg" flush @close="$emit('close')">
     <template v-if="task">
       <!-- Header -->
-      <div class="modal-header">
-        <h3 class="modal-title">
-          <span class="header-code">{{ task.code }}</span>
-          Task Details
-        </h3>
-        <button class="modal-close" @click="$emit('close')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
+      <ModalHeader :title-id="titleId" @close="$emit('close')">
+        <span class="header-code">{{ task.code }}</span>
+                Task Details
+      </ModalHeader>
 
       <div class="modal-body">
         <!-- Title -->
@@ -50,7 +45,34 @@
                 <label class="field-label">Status</label>
               </div>
               <div class="field-value">
-                <StatusBadge :status="task.status" />
+                <!-- Read-only for a viewer, and the only status control there
+                     is for everyone else. Dragging a card was the sole way to
+                     move a task, and HTML5 drag events do not fire on touch —
+                     so the board was a viewer on a phone and unreachable from
+                     a keyboard, on the surface whose whole point is steering
+                     the agent's work. `blocked` and `deferred` are here too:
+                     the board folds both into Todo and offers neither. -->
+                <StatusBadge v-if="!canWrite" :status="task.status" />
+                <!-- `role="group"`, not `radiogroup`. A radio group models a
+                     pending selection committed later and promises arrow-key
+                     navigation that changes it; these are six one-shot
+                     commands — each click opens the confirmation immediately
+                     and can be refused. `aria-pressed` says which one is
+                     current without making a promise the component does not
+                     keep, and native buttons already answer Enter and Space.
+                     `aria-disabled` rather than `disabled`, so a busy control
+                     keeps its place in the tab order instead of dropping
+                     focus to the body. -->
+                <div v-else class="segmented status-picker" role="group" aria-label="Task status">
+                  <button
+                    v-for="s in STATUSES"
+                    :key="s"
+                    type="button"
+                    :aria-pressed="task.status === s"
+                    :aria-disabled="busyStatus || undefined"
+                    @click="onPick(s)"
+                  >{{ STATUS_LABELS[s] }}</button>
+                </div>
               </div>
             </div>
             <div class="field">
@@ -71,13 +93,13 @@
               <div class="field-header">
                 <label class="field-label">Created</label>
               </div>
-              <div class="field-value">{{ new Date(task.created_at).toLocaleDateString() }}</div>
+              <div class="field-value">{{ absoluteTime(task.created_at, { dateStyle: 'medium' }) }}</div>
             </div>
             <div v-if="task.completed_at" class="field">
               <div class="field-header">
                 <label class="field-label">Completed</label>
               </div>
-              <div class="field-value">{{ new Date(task.completed_at).toLocaleDateString() }}</div>
+              <div class="field-value">{{ absoluteTime(task.completed_at, { dateStyle: 'medium' }) }}</div>
             </div>
           </div>
         </section>
@@ -98,7 +120,7 @@
                   v-if="task.description"
                   ref="descContentEl"
                   class="field-value field-value-pre markdown-content"
-                  v-html="renderRefs(marked.parse(normalizeContent(task.description)) as string, researchSlug)"
+                  v-html="linkRefs(parseMarkdown(normalizeContent(task.description)) as string, researchSlug)"
                 ></div>
                 <div v-else class="field-value field-empty">Click the pencil to add a description</div>
               </div>
@@ -136,7 +158,7 @@
                   v-if="task.result"
                   ref="resultContentEl"
                   class="field-value field-value-pre markdown-content"
-                  v-html="renderRefs(marked.parse(normalizeContent(task.result)) as string, researchSlug)"
+                  v-html="linkRefs(parseMarkdown(normalizeContent(task.result)) as string, researchSlug)"
                 ></div>
                 <div v-else class="field-value field-empty">Click the pencil to add a result</div>
               </div>
@@ -163,10 +185,12 @@
 </template>
 
 <script setup lang="ts">
-import { marked } from 'marked'
-import { renderRefs } from '~/composables/useCrossRefs'
+const titleId = useId()
+import { parseMarkdown } from '~/composables/useSafeMarkdown'
+import { renderRefs, linkRefs } from '~/composables/useCrossRefs'
+import { absoluteTime } from '~/composables/useRelativeTime'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
-marked.setOptions({ gfm: true, breaks: true })
+import { normalizeContent } from '~/utils/normalizeContent'
 
 const props = defineProps<{
   task: any | null
@@ -177,7 +201,31 @@ const emit = defineEmits<{
   close: []
   save: [field: string, value: string]
   updatePriority: [priority: string]
+  updateStatus: [status: string]
 }>()
+
+/* Every status the domain has, in the order the work moves through them.
+   The board's four columns are a projection of this, not the whole of it. */
+const STATUSES = ['pending', 'in_progress', 'blocked', 'deferred', 'completed', 'failed'] as const
+/* The words the rest of the product uses. A picker that says "Doing" while the
+   confirmation says "In Progress" and the badge says in_progress is three names
+   for one state — the exact bug the "Rejected" column was renamed to fix. */
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Todo',
+  in_progress: 'In Progress',
+  blocked: 'Blocked',
+  deferred: 'Deferred',
+  completed: 'Completed',
+  failed: 'Failed',
+}
+const busyStatus = ref(false)
+watch(() => props.task?.status, () => { busyStatus.value = false })
+
+function onPick(status: string) {
+  if (busyStatus.value || props.task?.status === status) return
+  busyStatus.value = true
+  emit('updateStatus', status)
+}
 
 // A viewer reads the same fields; the pencils and the priority chips go, and
 // priority renders as the badge it already is elsewhere.
@@ -229,41 +277,20 @@ function saveField(field: string) {
 </script>
 
 <style scoped>
+.status-picker { flex-wrap: wrap; }
+.status-picker > button[aria-disabled='true'] { opacity: 0.6; cursor: default; }
+
 /* Header — same as DetailsPanel */
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-}
 .header-code {
   font-size: var(--type-xs);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: 0;
   text-transform: none;
-}
-.modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.modal-close:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
 }
 
 /* Body — same as DetailsPanel */
@@ -280,7 +307,7 @@ function saveField(field: string) {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -333,7 +360,7 @@ function saveField(field: string) {
 }
 .field-value-title {
   font-size: var(--type-lg);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.02em;
   line-height: 1.35;
 }
@@ -368,9 +395,9 @@ function saveField(field: string) {
 }
 .priority-chip {
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--color-border);
   background: none;
   color: var(--color-text-muted);
@@ -380,7 +407,7 @@ function saveField(field: string) {
   font-family: inherit;
 }
 .priority-chip:hover { border-color: var(--color-border-strong); color: var(--color-text); }
-.priority-chip.active { color: var(--color-text); font-weight: 600; }
+.priority-chip.active { color: var(--color-text); font-weight: var(--weight-semibold); }
 .priority-low.active { background: rgba(108, 197, 224, 0.1); border-color: var(--color-primary); color: var(--color-primary); }
 .priority-medium.active { background: rgba(240, 184, 73, 0.1); border-color: var(--color-warning); color: var(--color-warning); }
 .priority-high.active { background: rgba(239, 107, 107, 0.1); border-color: var(--color-error); color: var(--color-error); }

@@ -1,13 +1,8 @@
 <template>
-  <ModalOverlay :visible="!!node" size="sm" flush @close="$emit('close')">
+  <ModalOverlay :labelledby="titleId" :visible="!!node" size="sm" flush @close="$emit('close')">
     <template v-if="node">
       <!-- Header (same pattern as DetailsPanel) -->
-      <div class="modal-header">
-        <h3 class="modal-title">{{ node.refType || node.nodeType }}</h3>
-        <button class="modal-close" @click="$emit('close')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
+      <ModalHeader title="{{ node.refType || node.nodeType }}" :title-id="titleId" @close="$emit('close')" />
 
       <div class="modal-body">
         <!-- Title + description -->
@@ -106,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+const titleId = useId()
 const ENTITY_STATUSES: Record<string, string[]> = {
   task:     ['pending', 'in_progress', 'blocked', 'completed', 'failed', 'deferred'],
   entry:    ['draft', 'active', 'completed', 'archived'],
@@ -157,30 +153,6 @@ const entityStatuses = computed(() => {
 
 <style scoped>
 /* Header — same as DetailsPanel */
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-}
-.modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.modal-close:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
 
 /* Body — same as DetailsPanel */
 .modal-body {
@@ -192,7 +164,7 @@ const entityStatuses = computed(() => {
 
 .node-title {
   font-size: var(--type-base);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   margin: 0;
   line-height: 1.3;
@@ -228,19 +200,19 @@ const entityStatuses = computed(() => {
 
 .entity-code {
   font-size: 0.5625rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
 }
 
 .priority-chip {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   padding: 0.15rem 0.4rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   text-transform: capitalize;
 }
 .priority-high, .priority-critical {
@@ -278,7 +250,7 @@ const entityStatuses = computed(() => {
 .status-chip {
   font-size: 0.625rem;
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--color-border);
   background: var(--color-surface-hover);
   color: var(--color-text-muted);
@@ -294,7 +266,7 @@ const entityStatuses = computed(() => {
   background: var(--color-primary-muted);
   border-color: rgba(108, 197, 224, 0.4);
   color: var(--color-primary);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 .status-chip-clear {
   color: var(--color-text-muted);

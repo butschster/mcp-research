@@ -13,17 +13,27 @@ import {
 /**
  * The list of teams, as rules rather than cards.
  *
- * A team is one line of information — a name, a headcount, your role. Boxing
- * each one produces a column of identical rectangles and a scroll for what is
- * really a short list.
+ * A team is one line of information — a name, a headcount, what work is in it,
+ * your role. Boxing each one produces a column of identical rectangles and a
+ * scroll for what is really a short list.
  *
- * Two pages render it: `/teams` in full, and the Settings summary with
- * `limit`. One implementation on purpose — two would grow apart the first time
- * either page was touched.
+ * This is the list a reader meets first, and it was the one list on the teams
+ * surface that did **not** use `.data-rows`/`.data-row`: it kept a private
+ * subgrid through the split that named it as a consumer, which is how one page
+ * ended up with 56px rows above 72px rows above 48px rows. It shares the frame
+ * now, and the row is the same four zones as the member and invite lists — who,
+ * what, standing, way in.
  *
- * The personal team always sorts last and is the one row that is not a link:
- * there is nothing to manage and nobody to invite, so it renders as static text
- * with the action column held open so the rows above stay aligned.
+ * The research count is new and is the point of the row: a team is a set of
+ * people around some work, and the work was the one thing this list never said.
+ *
+ * The personal team still sorts last — it is the row that says nothing new —
+ * but it is a link like the others now. It holds researches, and its page is
+ * the only place that lists them.
+ *
+ * Two pages render it: `/teams` in full, and the Settings summary with `limit`.
+ * One implementation on purpose — two would grow apart the first time either
+ * page was touched.
  */
 const meta: Meta<typeof TeamRowList> = {
   title: 'Team/TeamRowList',
@@ -37,19 +47,21 @@ const meta: Meta<typeof TeamRowList> = {
 export default meta
 type Story = StoryObj<typeof TeamRowList>
 
-/** One shared team you own — the row reads "Manage". */
+/** One shared team you own — an Owner badge and a way in. */
 export const SingleTeam: Story = {
   args: { teams: [mockTeam] },
 }
 
-/** Several, with the action text following your role: "Manage" where you own
- *  the team, "Open" where you only belong to it. */
+/** Several, each carrying its role as a badge. It used to be an action word —
+ *  "Manage" against "Open" — which named the reader's permission in the place a
+ *  list normally names the row's own state. */
 export const SeveralTeams: Story = {
   args: { teams: [mockTeam, mockTeamEditor, mockTeamViewer, mockTeamIntegrations] },
 }
 
 /** The personal team in the mix. It arrives first from the API and is sorted to
- *  the bottom here, carries a "Personal" chip and is not a link. */
+ *  the bottom here, and carries a "Personal" chip. It is a link: it holds
+ *  twelve researches, and the team page is where they are listed. */
 export const WithPersonalTeam: Story = {
   args: { teams: mockTeams },
 }
@@ -69,8 +81,8 @@ export const LimitedToThree: Story = {
   args: { teams: mockTeams, limit: 3 },
 }
 
-/** Russian department names at full length, next to a five-digit-free headcount
- *  — the name wraps and the meta columns keep their place. */
+/** Russian department names at full length. The name wraps inside the identity
+ *  block; the badge and the arrow keep their place at the end of the row. */
 export const CyrillicNames: Story = {
   args: {
     teams: [
@@ -82,11 +94,23 @@ export const CyrillicNames: Story = {
   },
 }
 
-/** A single member reads "1 member", not "1 members" — the one plural in the
- *  row, and the one a headcount of one exposes. */
+/** A single member reads "1 member", not "1 members". Both counts in the row
+ *  are pluralised, so this is also where a team of one holding one research
+ *  would read wrong twice. */
 export const SingleMemberTeam: Story = {
   args: {
-    teams: [{ ...mockTeamIntegrations, member_count: 1 }, mockTeamPersonal],
+    teams: [{ ...mockTeamIntegrations, member_count: 1, research_count: 1 }, mockTeamPersonal],
+  },
+}
+
+/** A team with nobody's work in it — the state a team is in for the whole
+ *  window between being created and being useful, and the one the product
+ *  previously said nothing about anywhere. Here it reads "0 researches"; on the
+ *  team's own page it becomes a paragraph explaining that the owner's existing
+ *  researches stayed in their personal team. */
+export const EmptyTeam: Story = {
+  args: {
+    teams: [{ ...mockTeam, member_count: 1, research_count: 0 }, mockTeamPersonal],
   },
 }
 

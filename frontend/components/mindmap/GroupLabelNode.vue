@@ -46,7 +46,7 @@ defineEmits<{ toggle: [e: MouseEvent] }>()
 }
 .group-name {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
 }
 .group-count {
@@ -54,7 +54,7 @@ defineEmits<{ toggle: [e: MouseEvent] }>()
   color: var(--color-text-muted);
   background: var(--color-surface-hover);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
 </style>

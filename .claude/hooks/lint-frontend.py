@@ -22,7 +22,49 @@ import os
 import re
 import sys
 
-AUTO_IMPORTED = ("renderRefs", "tagHue")
+# Which helpers Storybook resolves for a component that did not import them.
+#
+# The list used to be two hand-maintained names while seven more had quietly
+# joined the codebase, and `normalizeContent` was being called with no import in
+# five components — a ReferenceError on render in the catalogue, not a warning.
+# So the allow-list is no longer written here: it is read from the Storybook
+# config that actually decides it, and anything a component calls which that
+# config does not resolve is reported. The check now cannot drift from the
+# thing it is checking.
+STORYBOOK_CONFIG = "frontend/.storybook/main.ts"
+
+
+def storybook_auto_imports(repo_root):
+    """Symbol names `unplugin-auto-import` is configured to resolve."""
+    cfg = os.path.join(repo_root, STORYBOOK_CONFIG)
+    try:
+        with open(cfg, encoding="utf-8") as fh:
+            src = fh.read()
+    except OSError:
+        return None  # No config, no claim to make.
+    block = re.search(r"AutoImport\(\{(.*?)\n\s*\}\)", src, re.S)
+    if not block:
+        return None
+    return set(re.findall(r"'([A-Za-z_$][\w$]*)'", block.group(1)))
+
+
+
+def project_helpers(repo_root):
+    """Every function exported from composables/ and utils/, by name."""
+    names = set()
+    for sub in ("frontend/composables", "frontend/utils"):
+        d = os.path.join(repo_root, sub)
+        if not os.path.isdir(d):
+            continue
+        for entry in os.listdir(d):
+            if not entry.endswith(".ts"):
+                continue
+            try:
+                with open(os.path.join(d, entry), encoding="utf-8") as fh:
+                    names.update(re.findall(r"export\s+function\s+([A-Za-z_$][\w$]*)", fh.read()))
+            except OSError:
+                pass
+    return names
 
 
 def check_bare_fetch(rel, lines):
@@ -43,19 +85,31 @@ def check_bare_fetch(rel, lines):
     return issues
 
 
-def check_auto_imports(rel, src):
+def check_auto_imports(rel, src, repo_root):
+    """A component calling a project helper Storybook will not resolve for it.
+
+    Nuxt auto-imports everything under composables/ and utils/; Storybook
+    resolves only what its config names. The gap is a ReferenceError the moment
+    the story renders, and it is invisible until somebody opens the catalogue.
+    """
+    allowed = storybook_auto_imports(repo_root)
+    if allowed is None:
+        return []
     issues = []
-    for sym in AUTO_IMPORTED:
+    for sym in sorted(project_helpers(repo_root)):
+        if sym in allowed:
+            continue
         if not re.search(r"\b%s\(" % sym, src):
             continue
-        if re.search(r"(function|const)\s+%s\b" % sym, src):
+        if re.search(r"(function|const|let)\s+%s\b" % sym, src):
             continue  # defined locally
         if re.search(r"import\s*\{[^}]*\b%s\b[^}]*\}\s*from" % sym, src):
             continue
         issues.append(
-            f"{rel}: {sym}() is used without an explicit import. Nuxt auto-imports "
-            f"it, Storybook does not, so the component crashes there. "
-            f"Add: import {{ {sym} }} from '~/composables/...'"
+            f"{rel}: {sym}() is used without an explicit import, and "
+            f"frontend/.storybook/main.ts does not resolve it either. Nuxt "
+            f"auto-imports it, so this works in the app and throws a "
+            f"ReferenceError in the catalogue. Add the import."
         )
     return issues
 
@@ -96,7 +150,7 @@ def main():
     if not rel.endswith("composables/useAuth.ts"):
         issues += check_bare_fetch(rel, lines)
     if rel.startswith("frontend/components/"):
-        issues += check_auto_imports(rel, src)
+        issues += check_auto_imports(rel, src, root)
         if rel.endswith(".vue"):
             issues += check_story(path, rel)
 

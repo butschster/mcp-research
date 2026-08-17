@@ -683,7 +683,7 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
   position: fixed;
   inset: 0;
   display: flex;
-  background: #111;
+  background: var(--color-bg-deep);
   z-index: 100;
 }
 
@@ -700,7 +700,7 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
 
 .sidebar-title {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: rgba(255,255,255,0.85);
 }
 
@@ -758,7 +758,7 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
 .tooltip-type {
   font-size: 10px;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.5px;
 }
 

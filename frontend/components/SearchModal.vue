@@ -81,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import { escapeHtml } from '~/utils/escapeHtml'
 const open = ref(false)
 const query = ref('')
 const cursor = ref(0)
@@ -141,10 +142,32 @@ function entryLink(e: any): string {
 // Total results for keyboard navigation
 const totalResults = computed(() => researchResults.value.length + entryResults.value.length)
 
+/**
+ * Wraps the matched run in a `<mark>`, for v-html.
+ *
+ * Both arguments are attacker-controlled — the text is a research name or an
+ * entry title somebody's agent wrote, and the query is whatever was typed — so
+ * both are escaped before any markup is introduced. The regex is built from the
+ * escaped query, because escaping afterwards would eat the `<mark>` too.
+ */
 function highlight(text: string, q: string): string {
   if (!text) return ''
-  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-  return text.replace(re, '<mark class="search-mark">$1</mark>')
+  if (!q) return escapeHtml(text)
+  // Match against the raw text and escape each piece as it is assembled.
+  // Escaping first and matching afterwards looked simpler and was wrong: the
+  // escape introduces entity names that were not in the source, so a search for
+  // `lt` matched inside the `&lt;` it had just produced and split it — a title
+  // reading `a < b` came back as the literal text `a &lt; b`.
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+  let out = ''
+  let last = 0
+  for (const m of text.matchAll(re)) {
+    if (!m[0]) break
+    out += escapeHtml(text.slice(last, m.index))
+      + `<mark class="search-mark">${escapeHtml(m[0])}</mark>`
+    last = m.index + m[0].length
+  }
+  return out + escapeHtml(text.slice(last))
 }
 
 function moveUp() { cursor.value = Math.max(0, cursor.value - 1) }
@@ -191,7 +214,7 @@ function selectCurrent() {
   padding: 1px 5px;
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   color: var(--color-text-muted);
   font-family: inherit;
   line-height: 1.4;
@@ -244,7 +267,7 @@ function selectCurrent() {
 .search-results { max-height: 420px; overflow-y: auto; padding: var(--space-2) 0; }
 .result-group + .result-group { border-top: 1px solid var(--color-border); }
 .result-group-label {
-  font-size: var(--type-xs); font-weight: 600; text-transform: uppercase;
+  font-size: var(--type-xs); font-weight: var(--weight-semibold); text-transform: uppercase;
   letter-spacing: 0.04em; color: var(--color-text-muted);
   padding: var(--space-3) var(--space-5) var(--space-1);
 }
@@ -259,22 +282,22 @@ function selectCurrent() {
 .result-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 .result-content { flex: 1; min-width: 0; }
-.result-title { display: block; font-weight: 500; font-size: var(--type-sm); }
+.result-title { display: block; font-weight: var(--weight-medium); font-size: var(--type-sm); }
 .result-meta { display: block; font-size: var(--type-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .result-tags { display: flex; gap: 3px; flex-shrink: 0; }
 .result-tag {
   font-size: 0.6rem;
   padding: 1px 4px;
   background: var(--color-surface-hover);
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   color: var(--color-text-muted);
 }
 .result-empty { padding: var(--space-10); text-align: center; color: var(--color-text-muted); font-size: var(--type-sm); }

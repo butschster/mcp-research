@@ -183,7 +183,7 @@ watch(() => props.sessionId, load, { immediate: true })
 }
 .change-title {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   text-decoration: none;
   overflow: hidden;
@@ -200,7 +200,7 @@ watch(() => props.sessionId, load, { immediate: true })
 }
 .change-badge {
   padding: 0.1rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
 }
 .badge-created {

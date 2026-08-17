@@ -14,11 +14,17 @@
       <span class="short-code">{{ task.code }}</span>
       <StatusBadge v-if="task.priority === 'high'" :status="task.priority" />
     </div>
+    <!-- The column already says the task is in Todo; this says which kind.
+         `blocked` carries a reason in the description by convention, so a card
+         that shows nothing is a request the reader never sees. -->
+    <StatusBadge v-if="OFF_COLUMN.has(task.status)" :status="task.status" />
     <div class="kanban-card-title" v-html="renderRefs(task.title, researchSlug)"></div>
   </div>
 </template>
 
 <script setup lang="ts">
+/* Statuses the board has no column for, and therefore has to name on the card. */
+const OFF_COLUMN = new Set(['blocked', 'deferred'])
 import { renderRefs } from '~/composables/useCrossRefs'
 
 // A card that lifts and snaps back is worse than a card that does not lift:
@@ -58,7 +64,7 @@ defineEmits<{
 }
 .kanban-card:hover {
   border-color: var(--color-border-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-1);
 }
 .kanban-card:deep(.dragging) {
   opacity: 0.4;
@@ -75,11 +81,11 @@ defineEmits<{
 
 .short-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
@@ -87,7 +93,7 @@ defineEmits<{
 
 .kanban-card-title {
   font-size: var(--type-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.4;
   word-break: break-word;
 }

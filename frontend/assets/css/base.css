@@ -1,0 +1,118 @@
+/* ==========================================================================
+   Reset, environment, and the two preferences the product honours.
+
+   Everything here applies to the document rather than to a component: the
+   reset, the page ground, the focus ring, the grain and glow layers, the
+   reduced-motion opt-out and the skip link.
+   ========================================================================== */
+
+/* --- Reset -------------------------------------------------------------- */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--type-base);
+  line-height: var(--line-base);
+  font-weight: var(--weight-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
+}
+
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+html { scroll-behavior: smooth; }
+
+::selection { background: rgba(108, 197, 224, 0.2); color: var(--color-text); }
+
+/* --- Noise Overlay (subtle texture) ------------------------------------- */
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-noise);
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* --- Ambient Background Glow -------------------------------------------- */
+
+body::after {
+  content: '';
+  position: fixed;
+  top: -40%;
+  right: -20%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(ellipse, rgba(108, 197, 224, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* --- Container ---------------------------------------------------------- */
+
+.container {
+  /* `width: 100%` looks redundant on a block — it is exactly what `auto` gives
+     with border-box sizing — and it is load-bearing the moment a .container
+     becomes a flex item.
+     A flex item is stretched across the cross axis only when neither cross-axis
+     margin is `auto`. This rule sets `margin: 0 auto`, so inside a column flex
+     container the stretch is suppressed and the element shrinks to fit its
+     content: the page's whole text column narrowed to whatever happened to be
+     in it. Stating the width makes .container behave the same wherever it is
+     put. */
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+
+/* --- Reduced motion -----------------------------------------------------
+   This file owns `fade-up` on every card, a 0.05-0.45s stagger across a grid,
+   a lift on card and button hover, and two `infinite` animations — and it
+   honoured `prefers-reduced-motion` nowhere, in a product where five files out
+   of a hundred did. An indefinite shimmer while a slow API answers is WCAG
+   2.2.2 on its own. `scroll-behavior: smooth` is here too: it is the one that
+   most reliably makes people ill. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* --- Skip link ------------------------------------------------------------
+   On a research page a keyboard user passed the logo, the search box, the user
+   menu, ten sidebar tabs and six header controls before reaching any content. */
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: calc(-1 * var(--space-16));
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  transition: top var(--transition-fast);
+}
+.skip-link:focus { top: var(--space-4); text-decoration: none; }

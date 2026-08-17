@@ -1,10 +1,12 @@
 <template>
-  <div class="share-rows">
+  <div class="data-rows share-rows">
     <div
       v-for="share in shares"
       :key="share.id"
-      class="share-row"
-      :class="{ 'share-row--dead': !isLive(share), 'share-row--busy': busyId === share.id }"
+      class="data-row share-row"
+      :class="{ 'data-row--dead': !isLive(share), 'data-row--busy': busyId === share.id }"
+      :aria-busy="busyId === share.id || undefined"
+      :inert="busyId === share.id || undefined"
     >
       <div class="share-cell share-cell--label">
         <span class="share-label">{{ share.label || 'Untitled link' }}</span>
@@ -44,6 +46,7 @@
 </template>
 
 <script setup lang="ts">
+import { shareContents, shareExpiryPhrase } from '~/composables/useShare'
 /**
  * The links a research has handed out — live, expired and revoked.
  *
@@ -78,7 +81,7 @@ const isLive = isShareLive
 
 function stateLabel(s: ShareRow) {
   if (s.revoked_at) return 'Revoked'
-  if (s.expires_at && new Date(s.expires_at).getTime() <= Date.now()) return 'Expired'
+  if (s.expires_at && parseTimestamp(s.expires_at).getTime() <= Date.now()) return 'Expired'
   if (s.expires_at) {
     const phrase = shareExpiryPhrase(s.expires_at)
     return phrase.startsWith('on ') ? `Expires ${phrase}` : `Expires ${phrase}`
@@ -97,28 +100,25 @@ function contents(s: ShareRow) {
   return shareContents(s.include)
 }
 
+// `new Date(value)` read the API's two timestamp shapes differently — SQLite's
+// space-separated form as local, the encoder's Z-suffixed form as UTC — so a
+// share's creation date could disagree by hours with the last-opened line
+// directly above it, which already went through the composable.
 function formatDate(value: string) {
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString()
+  return absoluteTime(value, { dateStyle: 'medium' })
 }
 </script>
 
 <style scoped>
 .share-row {
-  display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
-  gap: var(--space-3);
   align-items: start;
-  padding: var(--space-3) var(--space-1);
-  border-bottom: 1px solid var(--color-border);
 }
-.share-row--dead { opacity: 0.55; }
-.share-row--busy { opacity: 0.6; pointer-events: none; }
 .share-cell { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .share-cell--actions { flex-direction: row; align-items: center; gap: var(--space-3); justify-content: flex-end; }
 /* A truncated label is not a label, and this list exists to be recognised by
    one. */
-.share-label { font-weight: 600; overflow-wrap: anywhere; }
+.share-label { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
 .share-sub { font-size: var(--type-xs); overflow-wrap: anywhere; }
 .share-state { font-size: var(--type-sm); }
 .share-badge {
@@ -129,7 +129,7 @@ function formatDate(value: string) {
   border-radius: var(--radius-sm);
   font-size: 0.65rem;
 }
-/* .link-btn itself is global (main.css). Only the destructive variant is
+/* .link-btn itself is global (system.css). Only the destructive variant is
    local, and it uses the product's own red — there is no --color-danger. */
 .link-btn--danger:hover { color: var(--color-error); }
 .link-btn:disabled { opacity: 0.5; cursor: default; }

@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import { truncate } from '~/utils/truncate'
 import { Handle, Position } from '@vue-flow/core'
 
 defineProps<{
@@ -32,9 +33,6 @@ defineProps<{
   sourcePosition?: Position
 }>()
 
-function truncate(text: string, len: number): string {
-  return text.length > len ? text.slice(0, len) + '...' : text
-}
 </script>
 
 <style scoped>
@@ -45,7 +43,7 @@ function truncate(text: string, len: number): string {
   padding: var(--space-5) var(--space-6);
   min-width: 340px;
   max-width: 400px;
-  box-shadow: 0 4px 24px rgba(108, 197, 224, 0.15);
+  box-shadow: var(--shadow-glow);
 }
 .root-header {
   display: flex;
@@ -56,7 +54,7 @@ function truncate(text: string, len: number): string {
 }
 .root-name {
   font-size: var(--type-lg);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   color: var(--color-text);
 }
@@ -76,7 +74,7 @@ function truncate(text: string, len: number): string {
 .root-stats span {
   background: var(--color-surface-hover);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
 </style>

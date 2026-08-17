@@ -12,18 +12,25 @@ import {
 /**
  * The people in a team.
  *
- * Name and email each get a column and both wrap rather than truncate: a
- * shortened email is not an email, and these are the two strings a reader came
- * to check. Your own row says "you"; everyone else's says when they joined.
+ * Name and email were a column each, which made this row 72px against the
+ * invite list's 48px under two identical headings — one page, two lists about
+ * the same thing, half again the height. They are one identity block now: the
+ * name a reader scans for, and under it the two facts that qualify it. That is
+ * 56px, the rhythm every rule list on the page shares. Neither string
+ * truncates — a shortened email is not an email.
  *
  * `canManage` is the whole difference between the two shapes of this list. An
- * owner gets a role select and a remove button per row; anyone else gets the
- * role as plain text and no controls at all — not disabled ones, because a
- * dimmed button still says "you could have done this".
+ * owner gets a role select and a `⋯` per row; anyone else gets the role as
+ * plain text and no controls at all — not disabled ones, because a dimmed
+ * button still says "you could have done this".
  *
- * The last owner is refused in both places, on the select and on the ✕, with the
- * same reason. It is the server's rule, repeated here so the control is never
- * offered in a state the server would reject.
+ * Removal moved into the `⋯`. It costs a click on a large team and wins anyway:
+ * it used to be a 28px unlabelled ✕, which made the loudest control in the row
+ * also the only irreversible one, and it announced itself as "button".
+ *
+ * The last owner is refused in both places, on the select and in the menu, with
+ * the same reason. It is the server's rule, repeated here so the control is
+ * never offered in a state the server would reject.
  */
 const meta: Meta<typeof TeamMemberList> = {
   title: 'Team/TeamMemberList',
@@ -41,15 +48,16 @@ const meta: Meta<typeof TeamMemberList> = {
 export default meta
 type Story = StoryObj<typeof TeamMemberList>
 
-/** An owner looking at a healthy team: two owners, so every select and every ✕
- *  is live. */
+/** An owner looking at a healthy team: two owners, so every select and every
+ *  menu is live. */
 export const AsOwner: Story = {
   args: { members: mockMembers, myUserId, canManage: true },
 }
 
 /** The same team seen by an editor or a viewer. Roles are readable, nothing is
- *  actionable, and the rows keep their alignment because the removed button
- *  leaves a zero-width placeholder rather than collapsing the grid. */
+ *  actionable, and the rows keep their alignment because the absent menu leaves
+ *  a placeholder its exact width — otherwise every role would sit at a
+ *  different distance from the edge depending on who is reading. */
 export const AsMember: Story = {
   args: { members: mockMembers, myUserId, canManage: false },
 }
@@ -61,15 +69,17 @@ export const SingleMember: Story = {
   args: { members: mockMembersSolo, myUserId, canManage: true },
 }
 
-/** Four members, one owner. That owner's select and ✕ are disabled and both
- *  carry the reason; the other three rows are untouched. Making someone else an
- *  owner first is what unlocks it. */
+/** Four members, one owner. That owner's select is disabled and so is Remove
+ *  inside their menu, both carrying the reason; the other three rows are
+ *  untouched. Making someone else an owner first is what unlocks it. */
 export const LastOwner: Story = {
   args: { members: mockMembersOneOwner, myUserId, canManage: true },
 }
 
-/** A role change in flight on one row. The row dims, its select locks and its ✕
- *  goes with it, so a second click cannot race the first. */
+/** A role change in flight on one row. The row goes faint and `inert`, which
+ *  takes it out of the document for the pointer *and* for Tab — it used to be
+ *  `opacity` plus `pointer-events: none`, so a keyboard user could still focus
+ *  a control inside it and press it into nothing. */
 export const ChangeInFlight: Story = {
   args: {
     members: mockMembers,
@@ -80,8 +90,8 @@ export const ChangeInFlight: Story = {
 }
 
 /** The strings that break a table: a long Cyrillic name, and an address with no
- *  hyphen, dot or underscore to break at. Both wrap inside their column instead
- *  of widening the row. */
+ *  hyphen, dot or underscore to break at. Both wrap inside the identity block
+ *  instead of widening the row or pushing the menu off the end. */
 export const LongNamesAndEmails: Story = {
   args: {
     members: [
@@ -118,9 +128,9 @@ export const MemberWithoutName: Story = {
   },
 }
 
-/** The list wired up: changing a role or pressing ✕ applies to local state, so
- *  the last-owner guard can be watched appearing and disappearing as the second
- *  owner is demoted or removed. */
+/** The list wired up: changing a role or removing from the menu applies to
+ *  local state, so the last-owner guard can be watched appearing and
+ *  disappearing as the second owner is demoted or removed. */
 export const Interactive: Story = {
   render: () => ({
     components: { TeamMemberList },

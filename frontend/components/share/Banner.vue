@@ -39,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+import { shareContents, shareExpiryPhrase } from '~/composables/useShare'
 /**
  * The permanent strip across a shared view.
  *
@@ -94,7 +95,7 @@ const expiryPhrase = computed(() => shareExpiryPhrase(props.expiresAt))
 }
 .share-banner-main:hover { color: var(--color-text); }
 .share-banner-text { min-width: 0; overflow-wrap: anywhere; }
-.share-banner-text strong { color: var(--color-text); font-weight: 600; }
+.share-banner-text strong { color: var(--color-text); font-weight: var(--weight-semibold); }
 .share-dot {
   width: 7px;
   height: 7px;

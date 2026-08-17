@@ -1,6 +1,8 @@
 package api
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -176,6 +178,36 @@ func (s *shareServer) get(path string) (int, string) {
 	rec := httptest.NewRecorder()
 	s.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec.Code, rec.Body.String()
+}
+
+// getVault fetches a zip and unpacks it, so an assertion can be about a file
+// rather than about a byte sequence that happens to survive Deflate.
+func (s *shareServer) getVault(path string) (int, map[string]string) {
+	s.t.Helper()
+	rec := httptest.NewRecorder()
+	s.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	if rec.Code != http.StatusOK {
+		return rec.Code, nil
+	}
+	body := rec.Body.Bytes()
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		s.t.Fatalf("the response was not a zip: %v", err)
+	}
+	files := map[string]string{}
+	for _, f := range zr.File {
+		rc, err := f.Open()
+		if err != nil {
+			s.t.Fatalf("open %s: %v", f.Name, err)
+		}
+		content, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			s.t.Fatalf("read %s: %v", f.Name, err)
+		}
+		files[f.Name] = string(content)
+	}
+	return rec.Code, files
 }
 
 func (s *shareServer) do(method, path, body string) (int, string) {
@@ -386,14 +418,75 @@ func TestShareRoutes_ExportHonoursTheFlagsAndRedacts(t *testing.T) {
 		t.Error("the export carried tasks the link does not include")
 	}
 
-	// The vault format builds its payload from the repository rather than from
-	// the redacted read, so a share must not have it at all.
-	if code, _ := s.get("/api/shared/" + token + "/researches/" + s.research.ID + "/export?format=obsidian"); code != http.StatusNotFound {
-		t.Errorf("obsidian export through a share: got %d, want 404", code)
-	}
-	// Neither is the portable dump mounted under the prefix.
+	// The portable dump is not mounted under the prefix at all: it is a
+	// re-importable copy of the record, not a reading of it.
 	if code, _ := s.get("/api/shared/" + token + "/researches/" + s.research.ID + "/export/portable"); code != http.StatusNotFound {
 		t.Errorf("portable export through a share: got %d, want 404", code)
+	}
+}
+
+// The vault is the fourth way to the same data, and the first three are gated by
+// routes. It has to obey the flags on its own, because its parts are chosen by a
+// query string that the visitor writes.
+func TestShareRoutes_VaultObeysTheFlags(t *testing.T) {
+	s := newShareServer(t)
+	token := s.newShare(domain.ShareInclude{Export: true, Roadmaps: true})
+
+	// Everything asked for, including the two the link does not carry.
+	path := "/api/shared/" + token + "/researches/" + s.research.ID +
+		"/export?format=obsidian&sessions=true&tasks=true&revisions=true"
+	code, files := s.getVault(path)
+	if code != http.StatusOK {
+		t.Fatalf("vault through a share: %d", code)
+	}
+
+	all := ""
+	for name, content := range files {
+		all += name + "\n" + content + "\n"
+	}
+
+	for _, secret := range []string{
+		"internal working note",                    // the research instruction
+		"a memory the client must not read",        // the research memory
+		"internal todo",                            // a task, not included
+		"the session notes a client must not read", // a session, not included
+		"Initial exploration",                      // ...and its title
+	} {
+		if strings.Contains(all, secret) {
+			t.Errorf("the vault carried %q, which this link does not publish", secret)
+		}
+	}
+	// Provenance and revision history are never published, by any flag.
+	for name := range files {
+		if strings.HasPrefix(name, "_history/") {
+			t.Errorf("the vault carried a revision history: %s", name)
+		}
+		if strings.HasPrefix(name, "Sessions/") {
+			t.Errorf("the vault carried a session folder: %s", name)
+		}
+	}
+	if strings.Contains(all, "\nsession:") {
+		t.Error("an entry's frontmatter named the session that produced it")
+	}
+
+	// What the link does publish is there, or the export is useless.
+	if !strings.Contains(all, "A finding") {
+		t.Error("the vault did not carry the entry")
+	}
+	if !strings.Contains(all, "Plan") {
+		t.Error("the vault did not carry the roadmap the link includes")
+	}
+}
+
+// Without the export flag the vault is unreachable for the same reason the
+// markdown is: the route is gated, and the format is a query on that route.
+func TestShareRoutes_VaultNeedsTheExportFlag(t *testing.T) {
+	s := newShareServer(t)
+	token := s.newShare(domain.ShareInclude{Roadmaps: true, Sessions: true, Tasks: true})
+
+	path := "/api/shared/" + token + "/researches/" + s.research.ID + "/export?format=obsidian"
+	if code, _ := s.get(path); code != http.StatusNotFound {
+		t.Errorf("vault without the export flag: got %d, want 404", code)
 	}
 }
 

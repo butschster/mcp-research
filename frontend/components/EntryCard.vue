@@ -42,7 +42,7 @@ defineProps<{
   display: inline-flex; align-items: center; gap: 0.25rem;
   padding: 0.1rem 0.4rem; border-radius: var(--radius-sm);
   background: var(--color-primary-muted); color: var(--color-primary);
-  font-size: var(--type-xs); font-weight: 600; letter-spacing: 0.02em;
+  font-size: var(--type-xs); font-weight: var(--weight-semibold); letter-spacing: 0.02em;
   flex-shrink: 0;
 }
 </style>

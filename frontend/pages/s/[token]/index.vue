@@ -1,13 +1,11 @@
 <template>
   <div v-if="research">
-    <div class="page-header">
-      <div class="research-header">
-        <div class="title-with-code">
-          <span v-if="research.code" class="short-code">{{ research.code }}</span>
-          <h1 class="page-title">{{ research.name }}</h1>
-        </div>
-        <div class="research-actions">
-          <StatusBadge :status="research.status" />
+    <PageHeader
+      :code="research.code"
+      :title="research.name"
+    >
+      <template #actions>
+        <StatusBadge :status="research.status" />
 
           <NuxtLink v-if="include.tasks" :to="tasksPath(slug)" class="btn btn-icon" title="Tasks">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -19,12 +17,13 @@
           <NuxtLink v-if="include.export" :to="exportPath(slug)" class="btn btn-icon" title="Export">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </NuxtLink>
-        </div>
-      </div>
-      <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
-      <p v-if="research.description" class="card-meta mt-2">{{ research.description }}</p>
-      <TagList v-if="research.tags?.length" :tags="research.tags" class="mt-2" />
-    </div>
+      </template>
+      <template #below>
+        <p v-if="research.goal" class="card-meta mt-2">{{ research.goal }}</p>
+        <p v-if="research.description" class="card-meta mt-2">{{ research.description }}</p>
+        <TagList v-if="research.tags?.length" :tags="research.tags" class="mt-2" />
+      </template>
+    </PageHeader>
 
     <ResearchActiveSessionsGrid v-if="include.sessions" :sessions="activeSessions" :research-slug="slug" />
     <ResearchPastSessionsList v-if="include.sessions" :sessions="closedSessions" :research-slug="slug" />

@@ -1,3 +1,5 @@
+import { escapeHtml } from '~/utils/escapeHtml'
+
 /**
  * Converts [[E3]], [[R2:E5]], [[R2]], [[RM1]], [[RM1:N3]] references in text to clickable HTML links.
  *
@@ -14,6 +16,24 @@
  * the author's own text already.
  */
 export function renderRefs(text: string, researchSlug: string): string {
+  if (!text) return ''
+  // Escaping is the default because the callers are overwhelmingly passing a
+  // raw field — an entry description, a task title, a question — straight into
+  // v-html. Fifteen of them did, and the one page that remembered to escape
+  // first said so in a comment, which is the shape of a rule nobody can keep.
+  // A caller holding HTML already calls `linkRefs` instead, and that name is
+  // the whole warning.
+  return linkRefs(escapeHtml(text), researchSlug)
+}
+
+/**
+ * The same rewriting, for a string that is **already HTML**.
+ *
+ * Two kinds of caller have one: `renderInline`, which escapes and then adds its
+ * own restricted markup, and the four surfaces that run a field through
+ * `marked` first. Passing raw text here puts it into v-html unescaped.
+ */
+export function linkRefs(text: string, researchSlug: string): string {
   if (!text) return ''
   // Normalize literal \n and \t from MCP clients before rendering
   text = text.replace(/\\n/g, '\n').replace(/\\t/g, '\t')
@@ -50,6 +70,8 @@ export function renderRefs(text: string, researchSlug: string): string {
       href = entryPath(researchSlug, ref)
     }
 
-    return `<a href="${href}" class="crossref-link">${ref}</a>`
+    // The href is built from the reference's own text, so it carries whatever
+    // was between the brackets into an attribute value.
+    return `<a href="${escapeHtml(href)}" class="crossref-link">${ref}</a>`
   })
 }

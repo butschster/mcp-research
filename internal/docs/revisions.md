@@ -158,3 +158,8 @@ revisions, and every entry an import creates starts again at revision 1,
 attributed to `import`. The Obsidian vault export can write history out as a
 readable table per entry (`?format=obsidian&revisions=true`, one `_history/{code}.md`
 each), but nothing reads it back — see [Export](/llms/export.md).
+
+A **share link never carries history**, and `revisions=true` on a shared vault is
+ignored rather than honoured. There is no include flag that turns it on: who
+edited an entry, when, and from which session is working process, and a link
+publishes findings.

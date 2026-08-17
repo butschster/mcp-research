@@ -55,14 +55,14 @@ defineProps<{
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: var(--space-1);
 }
-.session-title { font-size: var(--type-sm); font-weight: 600; letter-spacing: -0.01em; }
+.session-title { font-size: var(--type-sm); font-weight: var(--weight-semibold); letter-spacing: -0.01em; }
 .short-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;

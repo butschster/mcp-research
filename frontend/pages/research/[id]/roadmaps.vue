@@ -8,20 +8,16 @@
 
   <div v-else-if="research" class="roadmaps-page">
     <!-- Header -->
-    <div class="page-header">
-      <Breadcrumbs :crumbs="[
+    <PageHeader
+      :crumbs="[
         { label: 'Research', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
-        { label: 'Roadmaps' }
-      ]" />
-      <div class="roadmaps-header">
-        <div class="title-with-code">
-          <span v-if="research.code" class="short-code">{{ research.code }}</span>
-          <h1 class="page-title">Roadmaps</h1>
-          <span v-if="roadmaps.length" class="task-counter">{{ roadmaps.length }}</span>
-        </div>
-      </div>
-    </div>
+        { label: 'Roadmaps' },
+      ]"
+      :code="research.code"
+      title="Roadmaps"
+      :count="roadmaps.length || undefined"
+    />
 
     <!-- Roadmaps Grid -->
     <div v-if="roadmaps.length" class="roadmaps-grid">
@@ -83,21 +79,15 @@ useResearchRealtime(
   max-width: 900px;
   margin: 0 auto;
 }
-.roadmaps-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
 .roadmaps-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   gap: var(--space-4);
   margin-top: var(--space-4);
 }
 .roadmaps-grid-skeleton {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   gap: var(--space-4);
   margin-top: var(--space-4);
 }
@@ -116,7 +106,7 @@ useResearchRealtime(
 .empty-state code {
   background: var(--color-surface-hover);
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
 }
 </style>

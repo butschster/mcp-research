@@ -51,7 +51,7 @@ defineEmits<{ click: [] }>()
 }
 .roadmap-card:hover {
   border-color: var(--color-border-strong);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-1);
 }
 .rm-card-header {
   display: flex;
@@ -67,18 +67,18 @@ defineEmits<{ click: [] }>()
 }
 .rm-card-code {
   font-size: var(--type-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-primary);
   background: var(--color-primary-muted);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
   line-height: 1;
 }
 .rm-card-title {
   font-size: var(--type-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   margin: 0;
   line-height: 1.3;
@@ -102,7 +102,7 @@ defineEmits<{ click: [] }>()
 .rm-card-status-chip {
   font-size: 0.625rem;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--color-surface-hover);
   color: var(--color-text-muted);
   line-height: 1;
