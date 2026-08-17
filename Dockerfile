@@ -4,7 +4,11 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
 
 WORKDIR /app/frontend
 COPY frontend/package.json ./
-RUN npm install
+# npm 10, which node:22 bundles, crashes resolving this tree without a lockfile
+# ("Cannot read properties of null (reading 'edgesOut')"), and the lockfile is
+# deliberately not in the repository. Without this the release image stops
+# building — which is how a deploy discovers the problem.
+RUN npm install -g npm@11 && npm install
 COPY frontend/ ./
 RUN NUXT_PUBLIC_API_BASE= npm run generate
 

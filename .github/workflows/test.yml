@@ -42,8 +42,15 @@ jobs:
       # `npm install`, not `npm ci`, and no cache key: frontend/package-lock.json
       # is gitignored, so there is no lockfile to install from or to hash. Same
       # as the release workflow does.
+      #
+      # The npm that ships with Node 22 is 10.x, whose arborist crashes with
+      # "Cannot read properties of null (reading 'edgesOut')" while resolving
+      # this tree from scratch. With no lockfile every run resolves from
+      # scratch, so it is not intermittent: it started the day the registry
+      # served a graph shape that trips the bug, and then failed every time.
+      # npm 11 resolves the same package.json without complaint.
       - name: Install
-        run: npm install
+        run: npm install -g npm@11 && npm install
         working-directory: frontend
 
       # Two CSS mistakes that are invisible in a diff and obvious on screen: a
