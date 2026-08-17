@@ -1,5 +1,5 @@
 <template>
-  <ModalOverlay :labelledby="titleId" :visible="visible" size="lg" @close="emit('close')">
+  <ModalOverlay :labelledby="titleId" :visible="visible" size="lg" flush @close="emit('close')">
     <ModalHeader :title="skill?.name || 'Skill'" :title-id="titleId" @close="emit('close')" />
 
     <div class="modal-body">
@@ -57,7 +57,9 @@ const rendered = computed(() => parseMarkdown(props.skill?.body ?? ''))
 </script>
 
 <style scoped>
-.modal-body { padding: var(--space-5); overflow-y: auto; }
+/* Flush, so the header's rule runs to the dialog's edges and the body's
+   padding is not stacked on top of the card's own. */
+.modal-body { padding: var(--space-5) var(--space-6); overflow-y: auto; }
 
 .skill-head {
   display: flex;

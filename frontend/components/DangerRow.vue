@@ -64,7 +64,9 @@ const reasonId = `danger-reason-${useId()}`
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) 0;
+  /* The inset comes from the frame, so the row's text lines up with the
+     heading above it and the rule between rows runs the full width. */
+  padding: var(--space-3) var(--row-inset, 0);
 }
 .danger-row + .danger-row { border-top: 1px solid var(--color-border); }
 .danger-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

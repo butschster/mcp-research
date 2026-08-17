@@ -1,7 +1,12 @@
 <template>
   <section class="danger-zone" :aria-labelledby="headingId">
-    <h2 :id="headingId" class="danger-zone-title">{{ title }}</h2>
-    <p v-if="lead" class="danger-zone-lead">{{ lead }}</p>
+    <!-- The heading and its sentence are the head of this box, and they carry
+         the rule. The rows below then read as a series rather than as a stack
+         with an orphan line above it. -->
+    <div class="danger-zone-head">
+      <h2 :id="headingId" class="danger-zone-title">{{ title }}</h2>
+      <p v-if="lead" class="danger-zone-lead">{{ lead }}</p>
+    </div>
     <div class="danger-zone-rows">
       <slot />
     </div>
@@ -33,11 +38,23 @@ const headingId = `danger-zone-${useId()}`
 </script>
 
 <style scoped>
+/* Framed the way every other list in the product is: the box gives up its
+   horizontal padding and hands it to its rows through --row-inset, so the rule
+   under the heading and the rules between rows run to the box's edges instead
+   of stopping short of them. The rows are a separate component and read the
+   property across that boundary. */
 .danger-zone {
   margin-top: var(--space-12);
   border: 1px solid rgba(239, 107, 107, 0.25);
   border-radius: var(--radius);
-  padding: var(--space-4) var(--space-5);
+  padding: 0;
+  --row-inset: var(--space-5);
+}
+.danger-zone-head {
+  padding: var(--space-4) var(--row-inset);
+  /* The box's own red, not the neutral border: this rule belongs to the frame,
+     and a grey line across a red box reads as a seam rather than a division. */
+  border-bottom: 1px solid rgba(239, 107, 107, 0.25);
 }
 .danger-zone-title {
   color: var(--color-danger);
@@ -50,5 +67,9 @@ const headingId = `danger-zone-${useId()}`
   font-size: var(--type-xs);
   color: var(--color-text-muted);
 }
-.danger-zone-rows { display: flex; flex-direction: column; margin-top: var(--space-2); }
+.danger-zone-rows { display: flex; flex-direction: column; }
+
+@media (max-width: 768px) {
+  .danger-zone { --row-inset: var(--space-4); }
+}
 </style>
