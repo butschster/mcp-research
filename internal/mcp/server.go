@@ -22,6 +22,7 @@ type Server struct {
 	roadmap  *service.RoadmapService
 	export   *service.ExportService
 	team     *service.TeamService
+	skill    *service.SkillService
 	baseURL  string
 	log      *slog.Logger
 }
@@ -40,6 +41,7 @@ func NewServer(
 	roadmap *service.RoadmapService,
 	export *service.ExportService,
 	team *service.TeamService,
+	skill *service.SkillService,
 	log *slog.Logger,
 	version string,
 ) *Server {
@@ -59,6 +61,7 @@ func NewServer(
 		roadmap:  roadmap,
 		export:   export,
 		team:     team,
+		skill:    skill,
 		log:      log,
 	}
 

@@ -282,6 +282,8 @@ Import re-creates entities from scratch: new UUIDs, new short codes, cross-refer
 
 **Where the import lands.** The new research goes into the caller's personal team unless another one is named: `?team={id}` on the REST route, `team_id` on the `research_import` tool. Naming a team you are not in is `not found`; naming one where you are only a `viewer` is refused with `your role in this team does not allow this`. Ownership does not travel with the payload — the export carries no team and no user.
 
+**No skills travel with an export either.** Which [skills](/llms/skills.md) a research follows is not in the portable payload and not in any of the reading formats, so an imported research follows nothing and its team library is not reconstructed. Re-attach them on the destination server.
+
 **No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server. The vault's `_history/` tables (`revisions=true`) are a readable record, not a transferable one — nothing imports them back.
 
 ## Export Through a Share Link

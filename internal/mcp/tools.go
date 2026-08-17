@@ -7,7 +7,7 @@ import (
 func (s *Server) registerTools() {
 	// Research tools
 	tools.RegisterResearchCreate(s.server, s.research, s.log)
-	tools.RegisterResearchGet(s.server, s.research, s.section, s.session, s.log)
+	tools.RegisterResearchGet(s.server, s.research, s.section, s.session, s.skill, s.log)
 	tools.RegisterResearchList(s.server, s.research, s.log)
 	tools.RegisterResearchUpdate(s.server, s.research, s.log)
 	tools.RegisterResearchAddSection(s.server, s.research, s.log)
@@ -51,6 +51,9 @@ func (s *Server) registerTools() {
 	tools.RegisterRoadmapAddNodes(s.server, s.roadmap, s.log)
 	tools.RegisterRoadmapUpdateNode(s.server, s.roadmap, s.log)
 	tools.RegisterRoadmapRemoveNodes(s.server, s.roadmap, s.log)
+
+	// Skill tools
+	tools.RegisterSkillLoad(s.server, s.skill, s.research, s.log)
 
 	// Team tools
 	tools.RegisterTeamList(s.server, s.team, s.log)

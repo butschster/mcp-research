@@ -62,7 +62,7 @@ Legacy MCP Client
     | SSE (:8081)
     |
 Go Process
-    |-- MCP Server (36 tools, 2 prompts)
+    |-- MCP Server (37 tools, 2 prompts)
     |-- REST API (:8088) -- read-only + write (bearer auth)
     |-- WebSocket (:8088/ws) -- real-time event push
     |-- OAuth2 endpoints (/auth/*)
@@ -94,7 +94,7 @@ internal/
   storage/                         -- SQLite repos + embedded migrations (001-010)
   service/                         -- business logic, validation, event emission, access control
   mcp/                             -- MCP server wrapper, tool + prompt registration
-    tools/                         -- 36 tool files (one per tool)
+    tools/                         -- 37 tool files (one per tool)
     prompts_data/                  -- embedded markdown prompt templates
   api/                             -- REST handlers, WebSocket hub, OAuth, static embedding
     ws/                            -- WebSocket hub + client + event notifier bridge

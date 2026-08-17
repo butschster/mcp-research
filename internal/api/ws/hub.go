@@ -375,6 +375,13 @@ func visibleToShare(share *auth.Share, event Event) bool {
 		// A visitor does not need to be told that another link was made, and
 		// being told their own was revoked is what the closed socket says.
 		return false
+	case "skill":
+		// Never. Which methodology a team follows is working process — the same
+		// class as `instruction` and `memory`, which no share has ever carried.
+		// The HTTP surface refuses skills and the service refuses a share
+		// context; without this line the socket announced every change anyway,
+		// telling a stranger that the set changed, when, and with which ids.
+		return false
 	}
 	return true
 }
