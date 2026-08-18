@@ -597,3 +597,20 @@ func formatMetadataValue(v any) string {
 		return fmt.Sprint(t)
 	}
 }
+
+// EntryMarkdown serves one document as a markdown file.
+//
+// The whole-research exports answer "give me everything"; this answers "give me
+// this one", which until now had no answer at all.
+func (h *ExportHandler) EntryMarkdown(w http.ResponseWriter, r *http.Request) {
+	file, err := h.entry.MarkdownExport(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Content-Disposition", contentDisposition(file.Filename))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(file.Content))
+}

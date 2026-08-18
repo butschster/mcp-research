@@ -65,7 +65,7 @@ func NewServer(
 	mux := http.NewServeMux()
 
 	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, log)
-	eh := handlers.NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, log)
+	eh := handlers.NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, storage.NewUserRepository(db), log)
 	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
@@ -263,6 +263,10 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/sessions/{sessionId}/export", wrapRead(exportHandler.ExportSession))
 	importHandler := handlers.NewImportHandler(exportSvc, log)
 	mux.Handle("GET /api/researches/{id}/export/portable", wrapRead(exportHandler.ExportPortable))
+	// One document as a file. Not on the share sub-mux: whether a visitor may
+	// take a document away is a separate decision, and it is not made here by
+	// leaving the route off that list.
+	mux.Handle("GET /api/entries/{id}/markdown", wrapRead(exportHandler.EntryMarkdown))
 	mux.Handle("POST /api/researches/import", wrap(importHandler.Import))
 	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))

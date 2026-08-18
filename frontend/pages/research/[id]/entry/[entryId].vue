@@ -42,36 +42,58 @@
                 </div>
               </Teleport>
             </div>
-            <button v-if="canWrite" class="btn btn-sm" @click="startEditing">
+            <button v-if="canWrite" class="btn" @click="startEditing">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Edit
             </button>
-            <button class="btn btn-sm" @click="showHistory = true">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
-              History
-            </button>
-            <button class="btn btn-sm" @click="copyMarkdown">
+            <!-- Everything that is not the main verb or a piece of state the
+                 reader is looking at. Six controls in a row had turned the
+                 header into a toolbar, and the destructive one was an unlabelled
+                 red icon eight pixels from Copy. -->
+            <!-- The label does not change. Swapping "Copy" for "Copied" is two
+                 characters wider and shoved the ⋯ sideways for two seconds,
+                 which is a bigger movement than the feedback is worth. -->
+            <button class="btn" :class="{ 'is-copied': copied }" @click="copyMarkdown">
               <svg v-if="!copied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
               <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              {{ copied ? 'Copied' : 'Copy' }}
+              Copy
             </button>
-            <button v-if="canWrite" class="btn btn-sm btn-delete" aria-label="Delete entry" title="Delete entry" @click="showDeleteConfirm = true">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            </button>
+            <div class="doc-more">
+              <ActionMenu ref="docMenu" title="Document actions" width="wide" class="no-print">
+                <!-- The fact, then the verbs. It renders with or without a
+                     revision: a document nobody has revised still has an author
+                     and a timestamp, and one menu that degrades beats two menus
+                     that differ. -->
+                <EntryProvenanceMenuHeader
+                  :revision="provenance?.revision"
+                  :author-kind="provenance?.author_kind || 'agent'"
+                  :revised-at="provenance?.revised_at || entry.updated_at"
+                  :author-name="provenance?.author_name"
+                />
+                <button class="action-menu-item" @click="openHistory">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                  Revision history
+                </button>
+                <button class="action-menu-item" @click="downloadMarkdown">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download .md
+                </button>
+
+                <template v-if="canWrite">
+                  <div class="action-menu-divider" role="separator"></div>
+                  <button class="action-menu-item action-menu-item--danger" @click="showDeleteConfirm = true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Delete document
+                  </button>
+                </template>
+              </ActionMenu>
+            </div>
           </template>
         </PageHeader>
         <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
         <div v-if="entry.tags?.length" class="entry-tags">
           <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
         </div>
-        <button v-if="provenance" class="entry-provenance no-print" @click="showHistory = true">
-          <EntryAuthorBadge :kind="provenance.author_kind" />
-          <span class="provenance-sep" aria-hidden="true">·</span>
-          <span>edited {{ relativeTime(provenance.revised_at) }}</span>
-          <span class="provenance-sep" aria-hidden="true">·</span>
-          <span class="provenance-rev">r{{ provenance.revision }}</span>
-          <span class="provenance-cta">View history →</span>
-        </button>
         <NuxtLink v-if="linkedSession" :to="`/research/${researchSlug}/session/${linkedSession.code || linkedSession.id}`" class="entry-session-link">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
           {{ linkedSession.title }}
@@ -150,7 +172,7 @@
           :entry-id="entry?.id"
         />
         <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
-        <pre v-else class="source-view"><code v-html="highlightedSource"></code></pre>
+        <pre v-else class="source-view"><code v-if="sourceFrontmatter" class="source-frontmatter">{{ sourceFrontmatter }}</code><code v-html="highlightedSource"></code></pre>
       </div>
 
       <!-- Cross-references -->
@@ -215,7 +237,7 @@
       :entry-title="entry.title"
       :entry-code="entry.code"
       :restore-error="restoreFailed"
-      @close="showHistory = false"
+      @close="onHistoryClosed"
       @restore="askRestore"
     />
 
@@ -238,7 +260,7 @@
       variant="danger"
       :loading="deleting"
       @confirm="deleteEntry"
-      @cancel="showDeleteConfirm = false"
+      @cancel="cancelDelete"
     />
   </div>
 
@@ -258,7 +280,6 @@ import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { tagHue } from '~/composables/useTagHue'
-import { relativeTime } from '~/composables/useRelativeTime'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
 
 const route = useRoute()
@@ -312,6 +333,12 @@ const { data, pending, refresh } = await useApi<{ data: any }>(`/api/researches/
 // question is answered rather than raced: a slow save no longer repainted over
 // the reader, and a genuine remote change arriving within the window is no
 // longer swallowed.
+// True while the metadata block holds a draft. Declared above the realtime
+// callback that reads it, not beside the handler that sets it: a value a
+// setup-time registration can reach has to exist by then, and the same shape
+// one screen down already cost this page a blank error dialog.
+const metaEditing = ref(false)
+
 useRealtimeUpdates((event: WsEvent) => {
   if (event.entity !== 'entry') return
   // The event carries the entry's UUID; the route parameter is usually a short
@@ -360,10 +387,6 @@ const entrySection = computed(() =>
   sections.value.find((sec: any) => sec.id === entry.value?.section_id))
 const sectionFieldSpec = computed<any[]>(() => entrySection.value?.field_spec ?? [])
 const sectionSpecVersion = computed<number>(() => entrySection.value?.spec_version ?? 0)
-
-// True while the metadata block holds a draft, so the realtime guard above can
-// treat it the way it treats the content editor.
-const metaEditing = ref(false)
 
 async function saveMetadata(values: Record<string, unknown>) {
   if (!entry.value) return
@@ -554,17 +577,133 @@ onMounted(() => {
 })
 
 // Copy markdown
+// Copy answers on the button that was pressed — a toast for a clipboard write
+// is a notification about something the reader is already looking at. The
+// download is the one that needs a toast, because a browser says nothing at
+// all when a file arrives.
 const copied = ref(false)
+
 async function copyMarkdown() {
   if (!entry.value?.content) return
-  await navigator.clipboard.writeText(entry.value.content)
-  copied.value = true
-  setTimeout(() => { copied.value = false }, 2000)
+  try {
+    await navigator.clipboard.writeText(entry.value.content)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch {
+    useToasts().push({
+      variant: 'error',
+      title: 'Could not copy',
+      message: 'The browser refused clipboard access. Use Download instead.',
+    })
+  }
+}
+
+// The token travels as a header, so a plain <a href> arrives unauthenticated
+// and the browser paints the JSON error over the app. `useDownload` fetches the
+// bytes and hands a blob to a synthetic link; it also reads the filename the
+// server chose out of the Content-Disposition header.
+const {
+  filename: downloadedName,
+  error: downloadError,
+  start: startDownload,
+} = useDownload()
+
+async function downloadMarkdown() {
+  if (!entry.value) return
+  // The panel closes on the click that started this, so there is no control
+  // left to show a pending state on. A toast is the only surface still standing
+  // — and a browser says nothing at all while a file is being prepared.
+  const pendingId = useToasts().push({ variant: 'info', message: 'Preparing the document…', timeout: 0 })
+  const ok = await startDownload(
+    `/api/entries/${entry.value.id}/markdown`,
+    `${entry.value.code || 'entry'}.md`,
+  )
+  useToasts().dismiss(pendingId)
+  if (ok) {
+    useToasts().push({
+      variant: 'success',
+      title: downloadedName.value || 'Downloaded',
+      // The caveat is delivered here rather than buried in a guide, because
+      // this is the moment somebody is about to put the file somewhere else.
+      message: 'References like [[E3]] are written exactly as stored, so they will not resolve in another vault.',
+    })
+    return
+  }
+  useToasts().push({
+    variant: 'error',
+    title: 'Download failed',
+    message: downloadError.value?.message || 'The server did not return the document.',
+    timeout: 0,
+  })
+}
+
+// Opening the history from a menu item is a focus problem: the item unmounts
+// with the menu, so whatever the panel saved to restore focus to is a detached
+// node by the time it closes. The trigger is the only element still standing.
+const docMenu = ref<{ focusTrigger: () => void } | null>(null)
+
+function openHistory() {
+  showHistory.value = true
+}
+
+function cancelDelete() {
+  showDeleteConfirm.value = false
+  docMenu.value?.focusTrigger()
+}
+
+function onHistoryClosed() {
+  showHistory.value = false
+  docMenu.value?.focusTrigger()
 }
 
 // --- Edit mode ---
 const { authFetch } = useAuth()
 const rtBase = useRuntimeConfig().public.apiBase || ''
+
+/*
+ * Declared here, below `viewMode`, `authFetch` and `rtBase`, and not beside the
+ * source view where it is used.
+ *
+ * The watcher runs immediately, so placing it above those three read them
+ * before initialisation and the whole page died with "Cannot access 'de' before
+ * initialization" — a temporal dead zone, wearing a minified name.
+ */
+/*
+ * The front matter the source view shows is fetched, not built here.
+ *
+ * A second YAML writer in TypeScript would drift from the one that writes the
+ * file — on a list with one element, on a declared field nobody filled, on a
+ * date — and the drift would be invisible until somebody compared a download
+ * with the screen. So the screen asks the server for the file and shows the
+ * header off the front of it. What you read is what you would get.
+ */
+const sourceFrontmatter = ref('')
+const frontmatterFor = ref('')
+
+async function loadFrontmatter() {
+  const id = entry.value?.id
+  if (!id || frontmatterFor.value === id) return
+  try {
+    const file = await authFetch<string>(`${rtBase}/api/entries/${id}/markdown`, { responseType: 'text' })
+    const end = typeof file === 'string' && file.startsWith('---\n') ? file.indexOf('\n---\n', 4) : -1
+    sourceFrontmatter.value = end === -1 ? '' : file.slice(0, end + 5)
+    frontmatterFor.value = id
+  } catch {
+    // The body is the point; a header we could not fetch simply does not show.
+    sourceFrontmatter.value = ''
+  }
+}
+
+// Fetched when the reader asks for source, and again whenever the document
+// changes underneath — a metadata edit rewrites the header, not the body.
+watch(
+  () => [viewMode.value, entry.value?.id, entry.value?.updated_at],
+  () => {
+    if (viewMode.value === 'source') loadFrontmatter()
+    else frontmatterFor.value = ''
+  },
+  { immediate: true },
+)
 const editing = ref(false)
 const saving = ref(false)
 const editForm = reactive({
@@ -729,7 +868,9 @@ const restoreFailed = ref(false)
 
 const provenance = computed(() => {
   const d: any = data.value
-  return d?.revision ? { revision: d.revision, author_kind: d.author_kind, revised_at: d.revised_at } : null
+  return d?.revision
+    ? { revision: d.revision, author_kind: d.author_kind, revised_at: d.revised_at, author_name: d.author_name }
+    : null
 })
 
 function askRestore(revision: number) {
@@ -855,23 +996,6 @@ const nextEntry = computed(() =>
   font-size: var(--type-sm);
 }
 
-.entry-provenance {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  padding: 0;
-  background: none;
-  border: none;
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-.entry-provenance:hover .provenance-cta { color: var(--color-primary); }
-.provenance-sep { opacity: 0.5; }
-.provenance-rev { font-family: 'JetBrains Mono', monospace; }
-.provenance-cta { color: var(--color-text-muted); }
-
 .entry-session-link {
   display: inline-flex;
   align-items: center;
@@ -900,10 +1024,17 @@ const nextEntry = computed(() =>
 .status-dropdown-wrap {
   position: relative;
 }
+/* Three controls stand in this row — the status picker, Edit and the ⋯ — and
+   they came out at three heights: 26px from `.btn-sm`, 30px from `.btn-icon`,
+   and whatever this one's padding added up to. `.btn-icon`'s own comment claims
+   it matches "a text button beside it", which is true beside `.btn` and false
+   beside `.btn-sm`. So the row is `.btn` and `.btn-icon`, both --control-h, and
+   this one says so rather than deriving it. */
 .status-dropdown-trigger {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  height: var(--control-h);
   background: none;
   border: none;
   cursor: pointer;
@@ -911,6 +1042,8 @@ const nextEntry = computed(() =>
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast);
 }
+.btn.is-copied { color: var(--color-success); border-color: var(--color-success); }
+
 .status-dropdown-trigger:hover { background: var(--color-surface-hover); }
 .status-dropdown-trigger svg { color: var(--color-text-muted); }
 
@@ -1054,6 +1187,22 @@ const nextEntry = computed(() =>
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }
 
 /* Responsive */
+/* The header reads as a header: dimmer than the body, and separated from it, so
+   nobody mistakes it for the first paragraph of the document. */
+.source-frontmatter {
+  display: block;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+/* The header stacks below this width and the trigger lands at the left edge,
+   where a right-anchored panel hangs off the viewport. */
+@media (max-width: 768px) {
+  .doc-more { margin-left: auto; }
+}
+
 @media (max-width: 768px) {
   .title-with-code { flex-wrap: wrap; gap: var(--space-2); }
   .entry-content { padding: var(--space-4); }
