@@ -48,11 +48,12 @@ func (r *EntryRevisionRepository) Create(ctx context.Context, q Querier, rev *do
 
 	_, err := q.ExecContext(ctx,
 		`INSERT INTO entry_revisions
-		   (id, entry_id, research_id, revision, title, description, content, entry_type, status, tags, author_kind, session_id, user_id, summary, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   (id, entry_id, research_id, revision, title, description, content, entry_type, status, tags, metadata, spec_version, author_kind, session_id, user_id, summary, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rev.ID, rev.EntryID, rev.ResearchID, rev.Revision,
 		rev.Title, rev.Description, rev.Content, rev.Type, rev.Status,
-		marshalJSON(rev.Tags), rev.AuthorKind,
+		marshalJSON(rev.Tags), marshalObject(rev.Metadata), rev.SpecVersion,
+		rev.AuthorKind,
 		nullable(rev.SessionID), nullable(rev.UserID), rev.Summary, now,
 	)
 	if err != nil {
@@ -149,7 +150,7 @@ func (r *EntryRevisionRepository) Trim(ctx context.Context, q Querier, entryID s
 	return nil
 }
 
-const revisionColumns = `id, entry_id, research_id, revision, title, description, content, entry_type, status, tags, author_kind, session_id, user_id, summary, created_at`
+const revisionColumns = `id, entry_id, research_id, revision, title, description, content, entry_type, status, tags, metadata, spec_version, author_kind, session_id, user_id, summary, created_at`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -183,6 +184,7 @@ func scanRevision(s rowScanner, withContent bool) (*domain.EntryRevision, error)
 		rev       domain.EntryRevision
 		content   string
 		tags      sql.NullString
+		metadata  sql.NullString
 		sessionID sql.NullString
 		userID    sql.NullString
 		createdAt string
@@ -190,7 +192,8 @@ func scanRevision(s rowScanner, withContent bool) (*domain.EntryRevision, error)
 	err := s.Scan(
 		&rev.ID, &rev.EntryID, &rev.ResearchID, &rev.Revision,
 		&rev.Title, &rev.Description, &content, &rev.Type, &rev.Status,
-		&tags, &rev.AuthorKind, &sessionID, &userID, &rev.Summary, &createdAt,
+		&tags, &metadata, &rev.SpecVersion,
+		&rev.AuthorKind, &sessionID, &userID, &rev.Summary, &createdAt,
 	)
 	if err != nil {
 		return nil, err
@@ -199,6 +202,7 @@ func scanRevision(s rowScanner, withContent bool) (*domain.EntryRevision, error)
 		rev.Content = content
 	}
 	rev.Tags = unmarshalStringSlice(tags)
+	rev.Metadata = unmarshalObject(metadata)
 	rev.SessionID = sessionID.String
 	rev.UserID = userID.String
 	rev.CreatedAt, _ = time.Parse(time.DateTime, createdAt)

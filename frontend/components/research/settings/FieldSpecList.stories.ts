@@ -1,0 +1,182 @@
+import type { Meta, StoryObj } from '@storybook/vue3'
+import FieldSpecList from './FieldSpecList.vue'
+import { fails, neverResolves } from '../../../__mocks__/api'
+import {
+  fieldCaps,
+  fieldTypes,
+  mockSpecSection,
+  mockTopicSection,
+  reservedKeys,
+  specAtCap,
+} from '../../../__mocks__/metadata'
+
+/**
+ * Where a person declares what a section's documents record.
+ *
+ * Most sections declare nothing and should — a section is usually a topic
+ * ("Вопросы на повестку", "Отвергнутые гипотезы"), not a class of document. The
+ * feature only earns its place where a section genuinely holds one kind of
+ * thing, which is why the empty state says so rather than nagging.
+ *
+ * The caps, the type list and the reserved keys are all mocked from
+ * `domain.FieldSchema()` rather than invented, because the component takes them
+ * as props for exactly that reason: a cap the client believes and the server
+ * enforces would disagree once, at the worst moment.
+ */
+const meta: Meta<typeof FieldSpecList> = {
+  title: 'Research/Settings/FieldSpecList',
+  component: FieldSpecList,
+  tags: ['autodocs'],
+  decorators: [
+    () => ({ template: '<div style="max-width: 860px"><story /></div>' }),
+  ],
+}
+export default meta
+type Story = StoryObj<typeof FieldSpecList>
+
+const base = { editable: true, caps: fieldCaps, types: fieldTypes, reservedKeys }
+
+/** One section that declares fields, one that does not — the ordinary research. */
+export const Mixed: Story = {
+  args: { ...base, sections: [mockSpecSection, mockTopicSection] },
+}
+
+/** A section that declares nothing — the normal case, said out loud. */
+export const NothingDeclared: Story = {
+  args: { ...base, sections: [mockTopicSection] },
+}
+
+/**
+ * Every declared type at once, which is the only place the read view's type
+ * column can be compared.
+ *
+ * `enum` is the one that matters: converting a field to four to six named
+ * options is what moves it from filled-a-tenth-of-the-time to filled most of
+ * the time, while `date` and `text` fill no better than an untyped field. The
+ * list reads as six equals and is not.
+ */
+export const AllFieldTypes: Story = {
+  args: {
+    ...base,
+    sections: [{
+      ...mockSpecSection,
+      field_spec: [
+        { key: 'stage', label: 'Стадия', type: 'enum', options: ['draft', 'in-review', 'agreed'], required: true },
+        { key: 'registry', label: 'Registry', type: 'ref' },
+        { key: 'reviewed', label: 'Reviewed', type: 'date' },
+        { key: 'owner', label: 'Owner', type: 'text', required: true, help: 'The service name from the repo.' },
+        { key: 'retries', label: 'Retries', type: 'number' },
+        { key: 'schema_url', label: 'Schema', type: 'url' },
+      ],
+    }],
+  },
+}
+
+/**
+ * At the cap: twelve declared fields, five of them required.
+ *
+ * The two caps are independent and both are sitting on their limit here. The
+ * count turns amber; `EditorAtTheCap` below is where "Add field" goes
+ * unavailable, since that control only exists once the editor is open.
+ */
+export const AtTheCap: Story = {
+  args: { ...base, sections: [{ ...mockSpecSection, field_spec: specAtCap }] },
+}
+
+/**
+ * The editor, opened.
+ *
+ * This is half the component and none of it renders until a button is pressed:
+ * a row per field with key, label, type, the two checkboxes and Remove, the
+ * options box that appears only for `enum`, and the help box whose placeholder
+ * is the instruction — "Where does this value come from? The agent reads this."
+ * A required field without that note is an invitation to invent one.
+ *
+ * The reserved-key line underneath is the other thing worth reading. Those
+ * eleven keys are what the Obsidian export already emits as front matter, and
+ * YAML is last-wins, so a field keyed `status` would silently overwrite the
+ * system value in every exported note.
+ */
+export const EditorOpen: Story = {
+  args: { ...base, sections: [mockSpecSection] },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit fields')
+  },
+}
+
+/** The same editor on a section that declares nothing: the button reads
+ *  "Declare fields" and opens onto no rows at all. */
+export const EditorFromNothing: Story = {
+  args: { ...base, sections: [mockTopicSection] },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Declare fields')
+  },
+}
+
+/** The editor at the cap: twelve rows and "Add field" disabled, with the cap
+ *  itself as the button's title rather than a silent refusal. */
+export const EditorAtTheCap: Story = {
+  args: { ...base, sections: [{ ...mockSpecSection, field_spec: specAtCap }] },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit fields')
+  },
+}
+
+/**
+ * Mid-save: the button reads "Saving...", the row controls stay put.
+ *
+ * Reachable only because saving is a function prop the component awaits. An
+ * emit returns undefined, so an awaited emit would clear the busy flag before
+ * the request landed and make the error box below unreachable.
+ */
+export const EditorSaving: Story = {
+  args: { ...base, sections: [mockSpecSection], onSave: () => neverResolves() },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit fields')
+    await clickButton(canvasElement, 'Save')
+  },
+}
+
+/**
+ * The server refused the declaration.
+ *
+ * The refusals worth seeing here are the ones a client cannot make on its own:
+ * a reserved key, a cap, a key that does not match the pattern. The editor
+ * stays open with the rows intact — the message is only useful next to the
+ * field that caused it. Nothing is applied optimistically for the same reason:
+ * showing a declaration before the server agrees misstates what documents are
+ * being held to.
+ */
+export const EditorSaveFails: Story = {
+  args: {
+    ...base,
+    sections: [mockSpecSection],
+    onSave: () => fails('field 3: "status" is a reserved key — the export already emits it'),
+  },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit fields')
+    await clickButton(canvasElement, 'Save')
+  },
+}
+
+/** A viewer reads the declaration and cannot change it. */
+export const ReadOnly: Story = {
+  args: { ...base, sections: [mockSpecSection, mockTopicSection], editable: false },
+}
+
+/**
+ * Clicks the first button whose label matches, once it exists. There is no
+ * `@storybook/test` in this project, so the catalogue polls — same helper shape
+ * as `HistoryPanel.stories.ts`.
+ */
+async function clickButton(root: HTMLElement, label: string): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    const button = Array.from(root.querySelectorAll('button'))
+      .find(b => b.textContent?.trim() === label) as HTMLElement | undefined
+    if (button) {
+      button.click()
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+}

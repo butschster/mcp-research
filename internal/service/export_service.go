@@ -52,7 +52,7 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 		return nil, fmt.Errorf("list sections: %w", err)
 	}
 
-	allEntries, err := s.entries.FindByResearchWithContent(ctx, research.ID)
+	allEntries, err := s.entry.ListWithContent(ctx, research.ID)
 	if err != nil {
 		return nil, fmt.Errorf("list entries: %w", err)
 	}
@@ -103,6 +103,7 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 			Description: sec.Description,
 			Status:      sec.Status,
 			Position:    sec.Position,
+			FieldSpec:   sec.FieldSpec,
 			CreatedAt:   sec.CreatedAt,
 			UpdatedAt:   sec.UpdatedAt,
 		}
@@ -114,6 +115,7 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 				Description: e.Description,
 				Status:      e.Status,
 				Tags:        e.Tags,
+				Metadata:    e.Metadata,
 				SessionCode: sessionIDToCode[e.SessionID],
 				CreatedAt:   e.CreatedAt,
 				UpdatedAt:   e.UpdatedAt,
@@ -187,6 +189,7 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, tea
 			DisplayName: sec.DisplayName,
 			Description: sec.Description,
 			Position:    sec.Position,
+			FieldSpec:   sec.FieldSpec,
 		}
 	}
 
@@ -294,6 +297,7 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, tea
 				Description: e.Description,
 				Status:      e.Status,
 				Tags:        e.Tags,
+				Metadata:    e.Metadata,
 			}); err != nil {
 				return nil, fmt.Errorf("create entry %q: %w", e.Title, err)
 			}

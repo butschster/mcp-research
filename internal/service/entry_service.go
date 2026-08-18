@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
@@ -35,6 +36,9 @@ type CreateEntryRequest struct {
 	Description string
 	Status      domain.EntryStatus
 	Tags        []string
+	// Metadata is values keyed by the field keys the target section declares.
+	// Anything else is reported and dropped — the vocabulary is closed.
+	Metadata map[string]any
 }
 
 type UpdateEntryRequest struct {
@@ -46,6 +50,13 @@ type UpdateEntryRequest struct {
 	Tags        []string
 	TextReplace *TextReplace
 	SessionID   *string
+	// Metadata is a pointer so an omitted map (leave the values alone) is
+	// distinguishable from an empty one (clear them).
+	Metadata *map[string]any
+	// AllowIncomplete carries the human's override past the completed gate. It
+	// is never set by an agent's ordinary write, and the revision summary says
+	// it was used.
+	AllowIncomplete bool
 }
 
 type TextReplace struct {
@@ -109,6 +120,8 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 	if strings.TrimSpace(req.Content) == "" {
 		return nil, fmt.Errorf("content is required")
 	}
+
+	metadata, metaReport := applyMetadata(section, req.Metadata, nil)
 
 	entryType := req.Type
 	if entryType == "" {
@@ -194,11 +207,14 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 		Description: description,
 		Status:      status,
 		Tags:        tags,
+		Metadata:    metadata,
+		SpecVersion: section.SpecVersion,
 	}
 
 	if err := s.entries.Create(ctx, entry); err != nil {
 		return nil, fmt.Errorf("create entry: %w", err)
 	}
+	entry.MetaReport = metaReport
 
 	if entry.Type == domain.EntryBlocks {
 		doc, derr := NormalizeBlockDocument(entry.Content)
@@ -286,6 +302,8 @@ func (s *EntryService) Get(ctx context.Context, id string) (*domain.Entry, error
 	if err := s.access.Read(ctx, entry.ResearchID); err != nil {
 		return nil, ErrNotFound
 	}
+	s.attachMetadataStatus(ctx, entry)
+	redactEntryForShare(ctx, entry)
 	return entry, nil
 }
 
@@ -314,6 +332,8 @@ func (s *EntryService) GetByIDOrCode(ctx context.Context, researchID, idOrCode s
 	if entry == nil {
 		return nil, ErrNotFound
 	}
+	s.attachMetadataStatus(ctx, entry)
+	redactEntryForShare(ctx, entry)
 	return entry, nil
 }
 
@@ -321,14 +341,46 @@ func (s *EntryService) List(ctx context.Context, researchID, sectionID string, f
 	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
-	return s.entries.FindBySection(ctx, researchID, sectionID, filter)
+	entries, err := s.entries.FindBySection(ctx, researchID, sectionID, filter)
+	if err != nil {
+		return nil, err
+	}
+	s.attachMetadataStatusAll(ctx, entries)
+	redactEntriesForShare(ctx, entries)
+	return entries, nil
 }
 
 func (s *EntryService) ListByResearch(ctx context.Context, researchID string, filter storage.EntryFilter) ([]*domain.Entry, error) {
 	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil, err
 	}
-	return s.entries.FindByResearch(ctx, researchID, filter)
+	entries, err := s.entries.FindByResearch(ctx, researchID, filter)
+	if err != nil {
+		return nil, err
+	}
+	s.attachMetadataStatusAll(ctx, entries)
+	redactEntriesForShare(ctx, entries)
+	return entries, nil
+}
+
+// ListWithContent returns every entry of a research with its body.
+//
+// It exists because three exporters — the markdown and JSON handlers, the
+// portable dump and the Obsidian vault — were reading the repository directly,
+// which is how document metadata reached a share visitor: the redaction lives
+// on the service, and the repository has never known what a share is.
+//
+// Anything that needs entries with content goes through here.
+func (s *EntryService) ListWithContent(ctx context.Context, researchID string) ([]*domain.Entry, error) {
+	if err := s.access.Read(ctx, researchID); err != nil {
+		return nil, err
+	}
+	entries, err := s.entries.FindByResearchWithContent(ctx, researchID)
+	if err != nil {
+		return nil, fmt.Errorf("list entries with content: %w", err)
+	}
+	redactEntriesForShare(ctx, entries)
+	return entries, nil
 }
 
 func (s *EntryService) Update(ctx context.Context, id string, req UpdateEntryRequest) (*domain.Entry, error) {
@@ -352,6 +404,8 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 	// Remembered before anything below can rewrite it: an entry that stops being
 	// a block document has to take its rows with it.
 	prevType := entry.Type
+
+	var metaReport *domain.MetadataReport
 
 	// The target type decides how new content is normalized, so settle it before
 	// touching content — and remember whether the type itself was asked to change,
@@ -388,11 +442,41 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 	if req.Description != nil {
 		entry.Description = normalizeContent(*req.Description)
 	}
-	if req.Status != nil {
-		entry.Status = *req.Status
-	}
 	if req.Tags != nil {
 		entry.Tags = req.Tags
+	}
+	if req.Metadata != nil {
+		// The declaration is read now rather than remembered from creation: an
+		// entry written before the section grew a field is validated against
+		// what the section says today, which is what makes topping up on the
+		// next ordinary write the whole migration mechanism.
+		section, serr := s.sections.FindByID(ctx, entry.SectionID)
+		if serr != nil {
+			return nil, fmt.Errorf("find section: %w", serr)
+		}
+		metadata, report := applyMetadata(section, *req.Metadata, entry.Metadata)
+		entry.Metadata = metadata
+		if section != nil {
+			entry.SpecVersion = section.SpecVersion
+		}
+		metaReport = report
+	}
+	// Checked after the metadata above has been applied, never before: the
+	// natural call is "finish this document and fill in its fields", and
+	// evaluating the gate against the pre-write values refused exactly that —
+	// then offered an override for an incompleteness the same request had
+	// already fixed.
+	if req.Status != nil {
+		// The one place incompleteness means anything. Everywhere else a write
+		// is accepted and reported on, because the author is usually a model
+		// mid-interview; declaring a document finished is a deliberate act, and
+		// it is worth stopping.
+		if *req.Status == domain.EntryCompleted && entry.Status != domain.EntryCompleted && !req.AllowIncomplete {
+			if missing := s.missingRequiredFor(ctx, entry); len(missing) > 0 {
+				return nil, &IncompleteMetadataError{Missing: missing}
+			}
+		}
+		entry.Status = *req.Status
 	}
 	if req.SessionID != nil {
 		if err := s.validateSession(ctx, entry.ResearchID, *req.SessionID); err != nil {
@@ -455,6 +539,7 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 
 	s.updateCrossRefs(ctx, entry)
 	s.updateExternalLinks(ctx, entry)
+	entry.MetaReport = metaReport
 	emit(ctx, s.events, Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }
@@ -863,5 +948,207 @@ func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (st
 
 	default:
 		return normalizeContent(raw), domain.EntryMarkdown, nil
+	}
+}
+
+// applyMetadata validates submitted values against a section's declaration.
+//
+// A section that declares nothing accepts nothing: every key comes back as
+// unknown, which is what "the vocabulary is closed" means at the write path.
+// Nothing here can fail a write — the author is usually a model in the middle
+// of an interview, and refusing there destroys answers a person already gave.
+func applyMetadata(section *domain.Section, values, existing map[string]any) (map[string]any, *domain.MetadataReport) {
+	if section == nil {
+		return nil, nil
+	}
+	if values == nil {
+		// A write that mentioned no metadata still gets told what the section
+		// expects, when the section expects something. The agent that has not
+		// read section_list is precisely the one that needs it, and the first
+		// two or three documents in a section set the pattern every later one
+		// copies.
+		if missing := domain.MissingRequired(section.FieldSpec, nil); len(missing) > 0 {
+			return nil, &domain.MetadataReport{
+				MissingRequired: missing,
+				SpecVersion:     section.SpecVersion,
+			}
+		}
+		return nil, nil
+	}
+	// Single-line normalization, not normalizeContent: in a one-line field a
+	// backslash is data, exactly as it is in a title.
+	clean := make(map[string]any, len(values))
+	for k, v := range values {
+		switch t := v.(type) {
+		case string:
+			clean[k] = normalizeTitle(t)
+		case []any:
+			items := make([]any, 0, len(t))
+			for _, item := range t {
+				if str, ok := item.(string); ok {
+					items = append(items, normalizeTitle(str))
+					continue
+				}
+				items = append(items, item)
+			}
+			clean[k] = items
+		default:
+			clean[k] = v
+		}
+	}
+
+	stored, report := domain.ValidateMetadata(section.FieldSpec, clean)
+
+	// Values already recorded under keys the section has since stopped
+	// declaring survive the write. Without this, the rule that removing a field
+	// never deletes what documents carry would hold only until the next save —
+	// and the save that destroyed them would be one somebody made to change a
+	// different field entirely. A key that was never declared and never stored
+	// is still refused: this preserves history, it does not open the vocabulary.
+	declared := map[string]bool{}
+	for _, f := range section.FieldSpec {
+		declared[f.Key] = true
+	}
+	var carried []string
+	for k, v := range existing {
+		if declared[k] {
+			continue
+		}
+		if _, replaced := stored[k]; replaced {
+			continue
+		}
+		stored[k] = v
+		carried = append(carried, k)
+	}
+	// A key the writer sent that is neither declared nor already stored is the
+	// only real unknown; one it merely restated is not worth reporting.
+	if len(carried) > 0 {
+		kept := map[string]bool{}
+		for _, k := range carried {
+			kept[k] = true
+		}
+		filtered := report.UnknownKeys[:0]
+		for _, issue := range report.UnknownKeys {
+			if !kept[issue.Key] {
+				filtered = append(filtered, issue)
+			}
+		}
+		report.UnknownKeys = filtered
+	}
+
+	report.SpecVersion = section.SpecVersion
+	if len(stored) == 0 {
+		stored = nil
+	}
+	return stored, &report
+}
+
+// attachMetadataStatusAll is attachMetadataStatus over a list, with the
+// sections read once rather than once per entry.
+//
+// The list surfaces need it for a reason the document page does not: a value
+// outside its declared vocabulary can be recomputed only against the spec, and
+// without this the table shows a wrong answer and a right one identically —
+// on the one screen the feature exists to make gaps visible.
+func (s *EntryService) attachMetadataStatusAll(ctx context.Context, entries []*domain.Entry) {
+	if len(entries) == 0 {
+		return
+	}
+	specs := map[string]*domain.Section{}
+	for _, e := range entries {
+		if _, seen := specs[e.SectionID]; seen {
+			continue
+		}
+		section, err := s.sections.FindByID(ctx, e.SectionID)
+		if err != nil {
+			continue
+		}
+		specs[e.SectionID] = section
+	}
+	for _, e := range entries {
+		section := specs[e.SectionID]
+		if section == nil {
+			continue
+		}
+		if len(section.FieldSpec) == 0 && len(e.Metadata) == 0 {
+			continue
+		}
+		missing := domain.MissingRequired(section.FieldSpec, e.Metadata)
+		e.MetaStatus = &domain.MetadataStatus{
+			MissingRequired: missing,
+			Orphaned:        domain.OrphanedKeys(section.FieldSpec, e.Metadata),
+			Issues:          domain.MetadataIssues(section.FieldSpec, e.Metadata),
+			Complete:        len(missing) == 0,
+			SpecVersion:     section.SpecVersion,
+		}
+	}
+}
+
+// attachMetadataStatus answers "how does this document stand against what its
+// section declares today", which is deliberately not a stored fact: adding a
+// required field must make existing documents incomplete without rewriting a
+// single one of them.
+func (s *EntryService) attachMetadataStatus(ctx context.Context, entry *domain.Entry) {
+	if entry == nil {
+		return
+	}
+	section, err := s.sections.FindByID(ctx, entry.SectionID)
+	if err != nil || section == nil {
+		return
+	}
+	if len(section.FieldSpec) == 0 && len(entry.Metadata) == 0 {
+		// A section that declares nothing, on a document carrying nothing: the
+		// feature is invisible here and should stay that way.
+		return
+	}
+	missing := domain.MissingRequired(section.FieldSpec, entry.Metadata)
+	entry.MetaStatus = &domain.MetadataStatus{
+		MissingRequired: missing,
+		Orphaned:        domain.OrphanedKeys(section.FieldSpec, entry.Metadata),
+		Issues:          domain.MetadataIssues(section.FieldSpec, entry.Metadata),
+		Complete:        len(missing) == 0,
+		SpecVersion:     section.SpecVersion,
+	}
+}
+
+// missingRequiredFor answers the completed gate. It reads the section's current
+// declaration rather than the version the entry was written against: whether a
+// document may be called finished is a question about the rules in force now.
+func (s *EntryService) missingRequiredFor(ctx context.Context, entry *domain.Entry) []string {
+	section, err := s.sections.FindByID(ctx, entry.SectionID)
+	if err != nil || section == nil || len(section.FieldSpec) == 0 {
+		return nil
+	}
+	return domain.MissingRequired(section.FieldSpec, entry.Metadata)
+}
+
+// redactEntryForShare strips document metadata from anything a share link can
+// reach.
+//
+// It is a separate rule from redactForShare, which covers the research, and it
+// has to exist: metadata lives on the entry, so the moment the column arrived
+// every share link that includes entries would have started publishing it —
+// owner, cost, an interviewee's name, an internal ticket. Those are exactly the
+// facts a section spec invites a team to record.
+//
+// The declaration goes too, in redactSectionForShare: a spec with no values
+// renders as a list of everything the team decided to track, which is the same
+// disclosure with the answers removed.
+func redactEntryForShare(ctx context.Context, entry *domain.Entry) {
+	if entry == nil || auth.ShareFromContext(ctx) == nil {
+		return
+	}
+	entry.Metadata = nil
+	entry.MetaStatus = nil
+	entry.MetaReport = nil
+	entry.SpecVersion = 0
+}
+
+func redactEntriesForShare(ctx context.Context, entries []*domain.Entry) {
+	if auth.ShareFromContext(ctx) == nil {
+		return
+	}
+	for _, e := range entries {
+		redactEntryForShare(ctx, e)
 	}
 }

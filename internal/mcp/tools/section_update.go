@@ -10,11 +10,12 @@ import (
 )
 
 type SectionUpdateInput struct {
-	SectionID   string  `json:"section_id" jsonschema:"ID of the section to update"`
-	DisplayName *string `json:"display_name" jsonschema:"New display name"`
-	Description *string `json:"description" jsonschema:"New description"`
-	Status      *string `json:"status" jsonschema:"New status: draft, active, completed, or archived. Note: completed requires at least one entry."`
-	Position    *int    `json:"position" jsonschema:"New sort position"`
+	SectionID   string              `json:"section_id" jsonschema:"ID of the section to update"`
+	DisplayName *string             `json:"display_name" jsonschema:"New display name"`
+	Description *string             `json:"description" jsonschema:"New description"`
+	Status      *string             `json:"status" jsonschema:"New status: draft, active, completed, or archived. Note: completed requires at least one entry."`
+	Position    *int                `json:"position" jsonschema:"New sort position"`
+	FieldSpec   *[]domain.FieldSpec `json:"field_spec" jsonschema:"Replace what documents in this section record: a list of {key,label,type,required,repeated,options,help}. Types: enum (needs options — prefer it, a named choice gets filled far more often than free text), ref, date, text, number, url. Omit to leave the declaration alone; send [] to remove every field, which never deletes values documents already carry. At most 12 fields and 5 required; the eleven export keys (code, title, aliases, research, section, type, status, tags, created, updated, session) are refused"`
 }
 
 func RegisterSectionUpdate(srv *mcp.Server, svc *service.SectionService, log *slog.Logger) {
@@ -33,6 +34,7 @@ func RegisterSectionUpdate(srv *mcp.Server, svc *service.SectionService, log *sl
 		}
 
 		section, err := svc.Update(ctx, input.SectionID, service.UpdateSectionRequest{
+			FieldSpec:   input.FieldSpec,
 			DisplayName: input.DisplayName,
 			Description: input.Description,
 			Status:      status,

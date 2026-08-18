@@ -160,6 +160,7 @@ That list is the whole surface. Anything else under the prefix — another metho
 
 - `instruction` and `memory` — stripped from the research on every read path, the export included. They are the agent's working notes about how to conduct the research, not a result, and their author did not publish them by sending a link to the findings.
 - `user_id`, `team_id`, `team_name`, `team_is_personal` — a share is about one research, not about the organisation behind it. `role` survives and is always `viewer`.
+- Document metadata, values and declaration both. An entry's `metadata`, `spec_version` and `metadata_status` are stripped, and so is the section's `field_spec` — a list of twelve field labels with nothing in them still says what the team decided to track, and the values are exactly the facts a declaration invites a team to record: an owner, a cost, an interviewee, an internal ticket.
 - Any other research. There is no list route under the prefix, and the listing service itself answers empty for a share rather than falling through to "no user in context, so no filter" — which would have returned every research on the server.
 - The Obsidian vault and the portable JSON. The vault builds its payload from the repository rather than from the redacted read path, so it is refused outright; the portable route is not mounted.
 - Any [template](#template) — no list, no body, and no stamp. `TemplateService` refuses a share context before it resolves anything, and `template_slug` / `template_version` are blanked on the research alongside `instruction`: a slug is a name a team chose, and it would read back as that name.
@@ -190,11 +191,16 @@ Logical division within a research. Organizes entries by topic.
 | `position` | int | Sort order (0-based) — investigation sequence |
 | `status` | enum | `draft` / `active` / `completed` / `archived` |
 | `code` | string | Auto-assigned: `S1`, `S2`... (per research) |
+| `field_spec` | object[] | What documents in this section record: `{key, label, type, required, repeated, options, help}`. Empty is the normal case and means the section accepts no metadata at all |
+| `spec_version` | int | Bumped when `field_spec` actually changes; entries record the version their values were validated against |
 
 **Key rules:**
 - 3-7 sections per research. Non-overlapping scopes.
 - Order by investigation logic (context → current state → gaps → recommendations), not alphabetically.
 - Requires at least one entry before marking `completed`.
+- A section is usually a *topic* and declares nothing. Declare `field_spec` only when it holds one class of document repeatedly — eighteen specifications, not eight loose questions. The vocabulary is then closed: an entry may write those keys and no others. See [Document Metadata](/llms/metadata.md).
+- `field_spec` is settable only through `section_update` / `PUT /api/sections/{sectionId}` — neither `research_create` nor `research_add_section` accepts one. A portable import is the exception: the declaration travels with the section.
+- `section_list` and `research_get` return `spec_version` on every section and `field_spec` only when it is non-empty.
 
 ---
 
@@ -216,7 +222,10 @@ body is not searched as text and contributes no cross-references.
 | `description` | string | Short summary (auto-generated if omitted) |
 | `section_id` | string | Parent section |
 | `session_id` | string | Optional: session that produced this entry |
-| `tags` | string[] | Categorization tags for filtering |
+| `tags` | string[] | Categorization tags for filtering — free-form and cross-cutting, and not a substitute for `metadata` |
+| `metadata` | object | Values for the fields this entry's section declares, keyed by field key. Absent when the section declares nothing |
+| `spec_version` | int | The section spec version these values were last validated against |
+| `metadata_status` | object | Computed on every read, never stored: `{complete, missing_required, orphaned, issues, spec_version}` |
 | `status` | enum | `draft` / `active` / `completed` / `archived` |
 | `code` | string | Auto-assigned: `E1`, `E2`... (per research) |
 
@@ -224,6 +233,7 @@ body is not searched as text and contributes no cross-references.
 - One entry per topic. Synthesize multiple answers into one coherent document.
 - Use `[[E3]]` syntax in content to cross-reference other entries.
 - Tags enable filtering on the research page. Use consistent taxonomy.
+- `metadata` only accepts keys the section declares; anything else is dropped and named in `metadata_report` on the response. No metadata problem ever fails a write — the single exception is moving to `status: completed` with required fields unanswered, which is refused (`409 metadata_incomplete` over REST) unless `allow_incomplete` is set. A value of `null` is an explicit unknown and answers a required field, which is what you send instead of guessing. `entry_read` returns the values; `entry_list` does not. See [Document Metadata](/llms/metadata.md).
 - Title/description auto-generated from content if not provided.
 - `session_id` tracks provenance. When you leave it empty, the server links the entry to the research's active session automatically; the session export (`/research/{code}/session/{sessionCode}/export`) lists entries by this link.
 - Every write that changes an entry appends a [revision](#revision); `entry_history` says who wrote each one and `entry_diff` what it changed. Read them before rewriting an entry a previous session produced.

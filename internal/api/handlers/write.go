@@ -148,10 +148,11 @@ func (h *WriteHandler) AddSection(w http.ResponseWriter, r *http.Request) {
 func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 	sectionID := r.PathValue("sectionId")
 	var input struct {
-		DisplayName *string `json:"display_name"`
-		Description *string `json:"description"`
-		Status      *string `json:"status"`
-		Position    *int    `json:"position"`
+		DisplayName *string             `json:"display_name"`
+		Description *string             `json:"description"`
+		Status      *string             `json:"status"`
+		Position    *int                `json:"position"`
+		FieldSpec   *[]domain.FieldSpec `json:"field_spec"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -165,7 +166,7 @@ func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 
 	section, err := h.section.Update(r.Context(), sectionID, service.UpdateSectionRequest{
 		DisplayName: input.DisplayName, Description: input.Description,
-		Status: status, Position: input.Position,
+		Status: status, Position: input.Position, FieldSpec: input.FieldSpec,
 	})
 	if err != nil {
 		writeServiceError(w, err)
@@ -178,15 +179,16 @@ func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		ResearchID  string   `json:"research_id"`
-		SectionID   string   `json:"section_id"`
-		SessionID   string   `json:"session_id"`
-		EntryType   string   `json:"entry_type"`
-		Content     string   `json:"content"`
-		Title       string   `json:"title"`
-		Description string   `json:"description"`
-		Status      string   `json:"status"`
-		Tags        []string `json:"tags"`
+		ResearchID  string         `json:"research_id"`
+		SectionID   string         `json:"section_id"`
+		SessionID   string         `json:"session_id"`
+		EntryType   string         `json:"entry_type"`
+		Content     string         `json:"content"`
+		Title       string         `json:"title"`
+		Description string         `json:"description"`
+		Status      string         `json:"status"`
+		Tags        []string       `json:"tags"`
+		Metadata    map[string]any `json:"metadata"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -201,17 +203,24 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 		Type:    domain.EntryType(input.EntryType),
 		Content: input.Content, Title: input.Title, Description: input.Description,
 		Status: domain.EntryStatus(input.Status), Tags: input.Tags,
+		Metadata: input.Metadata,
 	})
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
+	out := map[string]any{
 		"data": map[string]any{
 			"entry_id": entry.ID, "code": entry.Code,
 			"title": entry.Title, "status": entry.Status, "entry_type": entry.Type,
 		},
-	})
+	}
+	// A key the section does not declare is dropped, and the drop is silent
+	// unless the response says so — the entry comes back looking fine.
+	if entry.MetaReport != nil {
+		out["metadata_report"] = entry.MetaReport
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
@@ -228,6 +237,10 @@ func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 			To   string `json:"to"`
 		} `json:"text_replace"`
 		SessionID *string `json:"session_id"`
+		// A pointer so an omitted map leaves the values alone and an empty one
+		// clears them, which is the same distinction the MCP tool draws.
+		Metadata        *map[string]any `json:"metadata"`
+		AllowIncomplete bool            `json:"allow_incomplete"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -253,12 +266,20 @@ func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 		Type:  entryType,
 		Title: input.Title, Content: input.Content, Description: input.Description,
 		Status: status, Tags: input.Tags, TextReplace: textReplace, SessionID: input.SessionID,
+		Metadata: input.Metadata, AllowIncomplete: input.AllowIncomplete,
 	})
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": entry})
+	// The report rides the response rather than the entry, exactly as it does
+	// over MCP: a key that was refused would otherwise vanish behind a save
+	// that said it succeeded.
+	out := map[string]any{"data": entry}
+	if entry.MetaReport != nil {
+		out["metadata_report"] = entry.MetaReport
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // --- Tasks ---

@@ -10,15 +10,17 @@ import (
 )
 
 type EntryUpdateInput struct {
-	EntryID     string           `json:"entry_id" jsonschema:"ID of the entry to update"`
-	EntryType   *string          `json:"entry_type" jsonschema:"Optional new content kind: markdown, blocks, or artifact (sugar for one html block). Switching to blocks requires content in block form in the same call; switching from blocks to markdown converts what is stored"`
-	Title       *string          `json:"title" jsonschema:"New title"`
-	Content     *string          `json:"content" jsonschema:"Replace entire content"`
-	Description *string          `json:"description" jsonschema:"New description"`
-	Status      *string          `json:"status" jsonschema:"New status: draft, active, completed, archived"`
-	Tags        []string         `json:"tags" jsonschema:"Replace tags"`
-	TextReplace *TextReplaceSpec `json:"text_replace" jsonschema:"Replace first occurrence of 'from' with 'to' in content"`
-	SessionID   *string          `json:"session_id" jsonschema:"Link entry to a session (pass empty string to unlink)"`
+	EntryID         string           `json:"entry_id" jsonschema:"ID of the entry to update"`
+	EntryType       *string          `json:"entry_type" jsonschema:"Optional new content kind: markdown, blocks, or artifact (sugar for one html block). Switching to blocks requires content in block form in the same call; switching from blocks to markdown converts what is stored"`
+	Title           *string          `json:"title" jsonschema:"New title"`
+	Content         *string          `json:"content" jsonschema:"Replace entire content"`
+	Description     *string          `json:"description" jsonschema:"New description"`
+	Status          *string          `json:"status" jsonschema:"New status: draft, active, completed, archived"`
+	Tags            []string         `json:"tags" jsonschema:"Replace tags"`
+	TextReplace     *TextReplaceSpec `json:"text_replace" jsonschema:"Replace first occurrence of 'from' with 'to' in content"`
+	SessionID       *string          `json:"session_id" jsonschema:"Link entry to a session (pass empty string to unlink)"`
+	Metadata        *map[string]any  `json:"metadata" jsonschema:"Replace the values for the fields this entry's section declares, keyed by field key — call section_list to see them. Omit to leave them alone; send {} to clear. A key the section does not declare is reported back and dropped. Send null as a value to record an explicit unknown, which answers a required field without inventing one"`
+	AllowIncomplete *bool            `json:"allow_incomplete" jsonschema:"Set true to move an entry to status completed while required metadata is still unanswered. Without it that one transition is refused; every other write is always accepted"`
 }
 
 type TextReplaceSpec struct {
@@ -56,14 +58,16 @@ func RegisterEntryUpdate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 		}
 
 		entry, err := svc.Update(ctx, input.EntryID, service.UpdateEntryRequest{
-			Type:        entryType,
-			Title:       input.Title,
-			Content:     input.Content,
-			Description: input.Description,
-			Status:      status,
-			Tags:        input.Tags,
-			TextReplace: textReplace,
-			SessionID:   input.SessionID,
+			Type:            entryType,
+			Title:           input.Title,
+			Content:         input.Content,
+			Description:     input.Description,
+			Status:          status,
+			Tags:            input.Tags,
+			TextReplace:     textReplace,
+			SessionID:       input.SessionID,
+			Metadata:        input.Metadata,
+			AllowIncomplete: input.AllowIncomplete != nil && *input.AllowIncomplete,
 		})
 		if err != nil {
 			return errorResult(err.Error())
@@ -84,6 +88,7 @@ func RegisterEntryUpdate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 			result["state_lost"] = r.StateLost
 			result["rev"] = service.DocumentRev(entry.Content)
 		}
+		addMetadataReport(result, entry)
 		return successResult(result)
 	})
 }

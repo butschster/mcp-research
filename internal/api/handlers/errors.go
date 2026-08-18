@@ -19,6 +19,20 @@ import (
 // no-information-leak rule the access layer enforces, and the status has to
 // carry it through unchanged.
 func writeServiceError(w http.ResponseWriter, err error) {
+	// Checked before the sentinel list: this one carries a payload, and the only
+	// useful thing a client can do with the refusal is name the fields, which a
+	// bare message cannot.
+	var incomplete *service.IncompleteMetadataError
+	if errors.As(err, &incomplete) {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error":            err.Error(),
+			"code":             "metadata_incomplete",
+			"missing_required": incomplete.Missing,
+			"hint":             "Send allow_incomplete: true to complete it anyway, or fill the fields — a value of null records an explicit unknown.",
+		})
+		return
+	}
+
 	switch {
 	case err == nil:
 		return
@@ -44,7 +58,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		errors.Is(err, service.ErrSectionHasNoEntries),
 		errors.Is(err, service.ErrQuestionDepthLimit),
 		errors.Is(err, service.ErrTextReplaceNotFound),
-		errors.Is(err, service.ErrTextReplaceOnBlocks):
+		errors.Is(err, service.ErrTextReplaceOnBlocks),
+		errors.Is(err, service.ErrInvalidFieldSpec):
 		writeError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeError(w, http.StatusInternalServerError, err.Error())

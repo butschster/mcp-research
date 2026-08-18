@@ -142,3 +142,64 @@ export const ArtifactEntry: Story = {
     researchSlug: 'R1',
   },
 }
+
+/**
+ * A document that leaves a required field unanswered.
+ *
+ * The chip is on the card and not only on the document, because that is the
+ * whole mechanism: a blank next to filled ones is the strongest force there is
+ * on whether an optional field ever gets answered, and a gap visible only after
+ * you open the document is a gap nobody meets. The count comes from the
+ * section's declaration, so a card in a section that declares nothing can never
+ * show it.
+ */
+export const MissingRequiredField: Story = {
+  args: {
+    entry: { ...mockEntry, title: 'SPEC-03 · Сервис watchdog', status: 'active' },
+    researchSlug: 'R21',
+    missingRequired: 1,
+  },
+}
+
+/** Three of them. The title text is pluralised — hover the chip. */
+export const SeveralMissing: Story = {
+  args: {
+    entry: { ...mockEntry, title: 'SPEC-05 · Инциденты без права решения', status: 'draft' },
+    researchSlug: 'R21',
+    missingRequired: 3,
+  },
+}
+
+/**
+ * Zero is not "0 missing", it is nothing at all — a complete document says so by
+ * looking exactly as it did before the feature existed. Compare with
+ * `MissingRequiredField`: the two differ by one prop.
+ */
+export const NothingMissing: Story = {
+  args: {
+    entry: { ...mockEntry, title: 'SPEC-01 · Payload состояния площадки' },
+    researchSlug: 'R21',
+    missingRequired: 0,
+  },
+}
+
+/**
+ * The chip against a title long enough to wrap, in Cyrillic.
+ *
+ * The header is a flex row and the chip does not shrink, so this is where the
+ * title has to give way rather than the count. Russian titles are what this
+ * product actually holds, and they are the ones long enough to find out.
+ */
+export const MissingWithLongTitle: Story = {
+  args: {
+    entry: {
+      ...mockEntry,
+      title: 'SPEC-18 · temporal-watchdog: эмиттер инцидентов без права принимать решения о площадке',
+      description: 'Границы ответственности сторожа и то, чего он не решает. См. [[E47]].',
+      tags: ['spec', 'watchdog', 'temporal'],
+      status: 'active',
+    },
+    researchSlug: 'R21',
+    missingRequired: 2,
+  },
+}

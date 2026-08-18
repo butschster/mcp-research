@@ -41,11 +41,12 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO entries (id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO entries (id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		entry.ID, entry.Code, entry.ResearchID, entry.SectionID, sessionID, entry.Type,
 		entry.Title, entry.Content, entry.Description,
 		entry.Status, marshalJSON(entry.Tags),
+		marshalObject(entry.Metadata), entry.SpecVersion,
 		now, now,
 	)
 	if err != nil {
@@ -58,7 +59,7 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 
 func (r *EntryRepository) FindByCode(ctx context.Context, researchID, code string) (*domain.Entry, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at
 		 FROM entries WHERE research_id=? AND code=?`, researchID, code)
 	return r.scanEntry(row, true)
 }
@@ -81,10 +82,12 @@ func (r *EntryRepository) UpdateTx(ctx context.Context, q Querier, entry *domain
 	}
 
 	_, err := q.ExecContext(ctx,
-		`UPDATE entries SET entry_type=?, title=?, content=?, description=?, status=?, tags=?, code=?, session_id=?, updated_at=?
+		`UPDATE entries SET entry_type=?, title=?, content=?, description=?, status=?, tags=?, metadata=?, spec_version=?, code=?, session_id=?, updated_at=?
 		 WHERE id=?`,
 		entry.Type, entry.Title, entry.Content, entry.Description,
-		entry.Status, marshalJSON(entry.Tags), entry.Code, sessionID,
+		entry.Status, marshalJSON(entry.Tags),
+		marshalObject(entry.Metadata), entry.SpecVersion,
+		entry.Code, sessionID,
 		now, entry.ID,
 	)
 	if err != nil {
@@ -96,7 +99,7 @@ func (r *EntryRepository) UpdateTx(ctx context.Context, q Querier, entry *domain
 
 func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entry, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at
 		 FROM entries WHERE id=?`, id)
 	return r.scanEntry(row, true)
 }
@@ -127,7 +130,7 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 	}
 	pattern := "%" + query + "%"
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, created_at, updated_at,
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at,
 		        CASE
 		          WHEN title LIKE ? THEN 3
 		          WHEN description LIKE ? THEN 2
@@ -159,18 +162,20 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 	for rows.Next() {
 		var e domain.Entry
 		var tags sql.NullString
+		var metadata sql.NullString
 		var sessionID sql.NullString
 		var createdAt, updatedAt string
 		var relevance int
 		if err := rows.Scan(
 			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Description, &e.Status,
-			&tags, &createdAt, &updatedAt, &relevance,
+			&tags, &metadata, &e.SpecVersion, &createdAt, &updatedAt, &relevance,
 		); err != nil {
 			return nil, fmt.Errorf("scan search entry: %w", err)
 		}
 		e.SessionID = sessionID.String
 		e.Tags = unmarshalStringSlice(tags)
+		e.Metadata = unmarshalObject(metadata)
 		e.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
 		e.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
 		result = append(result, &e)
@@ -180,7 +185,7 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 
 // FindBySection returns entries without content for token efficiency.
 func (r *EntryRepository) FindBySection(ctx context.Context, researchID, sectionID string, filter EntryFilter) ([]*domain.Entry, error) {
-	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, created_at, updated_at
+	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at
 		 FROM entries WHERE research_id=? AND section_id=?`
 	args := []any{researchID, sectionID}
 
@@ -218,7 +223,7 @@ func (r *EntryRepository) FindBySection(ctx context.Context, researchID, section
 
 // FindByResearch returns entries without content for token efficiency.
 func (r *EntryRepository) FindByResearch(ctx context.Context, researchID string, filter EntryFilter) ([]*domain.Entry, error) {
-	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, created_at, updated_at
+	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at
 		 FROM entries WHERE research_id=?`
 	args := []any{researchID}
 
@@ -361,7 +366,7 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 // FindByResearchWithContent returns all entries with content for cross-reference scanning.
 func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researchID string) ([]*domain.Entry, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, created_at, updated_at
+		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at
 		 FROM entries WHERE research_id=? ORDER BY created_at`,
 		researchID,
 	)
@@ -374,12 +379,13 @@ func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researc
 	for rows.Next() {
 		var e domain.Entry
 		var tags sql.NullString
+		var metadata sql.NullString
 		var sessionID sql.NullString
 		var createdAt, updatedAt string
 		err := rows.Scan(
 			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Content, &e.Description,
-			&e.Status, &tags,
+			&e.Status, &tags, &metadata, &e.SpecVersion,
 			&createdAt, &updatedAt,
 		)
 		if err != nil {
@@ -387,6 +393,7 @@ func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researc
 		}
 		e.SessionID = sessionID.String
 		e.Tags = unmarshalStringSlice(tags)
+		e.Metadata = unmarshalObject(metadata)
 		e.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
 		e.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
 		result = append(result, &e)
@@ -408,6 +415,7 @@ func (r *EntryRepository) CountBySection(ctx context.Context, sectionID string) 
 func (r *EntryRepository) scanEntry(row *sql.Row, withContent bool) (*domain.Entry, error) {
 	var e domain.Entry
 	var tags sql.NullString
+	var metadata sql.NullString
 	var sessionID sql.NullString
 	var createdAt, updatedAt string
 
@@ -416,14 +424,14 @@ func (r *EntryRepository) scanEntry(row *sql.Row, withContent bool) (*domain.Ent
 		err = row.Scan(
 			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Content, &e.Description,
-			&e.Status, &tags,
+			&e.Status, &tags, &metadata, &e.SpecVersion,
 			&createdAt, &updatedAt,
 		)
 	} else {
 		err = row.Scan(
 			&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 			&e.Title, &e.Description,
-			&e.Status, &tags,
+			&e.Status, &tags, &metadata, &e.SpecVersion,
 			&createdAt, &updatedAt,
 		)
 	}
@@ -436,6 +444,7 @@ func (r *EntryRepository) scanEntry(row *sql.Row, withContent bool) (*domain.Ent
 	}
 	e.SessionID = sessionID.String
 	e.Tags = unmarshalStringSlice(tags)
+	e.Metadata = unmarshalObject(metadata)
 	e.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
 	e.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
 	return &e, nil
@@ -444,13 +453,14 @@ func (r *EntryRepository) scanEntry(row *sql.Row, withContent bool) (*domain.Ent
 func (r *EntryRepository) scanEntryRowNoContent(rows *sql.Rows) (*domain.Entry, error) {
 	var e domain.Entry
 	var tags sql.NullString
+	var metadata sql.NullString
 	var sessionID sql.NullString
 	var createdAt, updatedAt string
 
 	err := rows.Scan(
 		&e.ID, &e.Code, &e.ResearchID, &e.SectionID, &sessionID, &e.Type,
 		&e.Title, &e.Description,
-		&e.Status, &tags,
+		&e.Status, &tags, &metadata, &e.SpecVersion,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -458,6 +468,7 @@ func (r *EntryRepository) scanEntryRowNoContent(rows *sql.Rows) (*domain.Entry, 
 	}
 	e.SessionID = sessionID.String
 	e.Tags = unmarshalStringSlice(tags)
+	e.Metadata = unmarshalObject(metadata)
 	e.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
 	e.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
 	return &e, nil

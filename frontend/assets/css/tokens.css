@@ -168,6 +168,12 @@
      different width at every heading level. */
   --measure-prose: 34rem;
 
+  /* The label column of a document's metadata block. Capped, because a Cyrillic
+     label runs long and an uncapped column pushes every value off the right of
+     the card; floored by a minmax() at the use site, so short labels do not
+     leave the values wandering. */
+  --metadata-col-max: 16rem;
+
   /* --- Z-Index Scale ---------------------------------------------------- */
   /* Above in-page cards, below the sticky nav — see .page-header. */
   --z-in-page: 1;

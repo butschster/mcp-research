@@ -9,7 +9,17 @@
         </span>
         <h3 class="card-title">{{ entry.title }}</h3>
       </div>
-      <StatusBadge :status="entry.status" />
+      <div class="entry-card-flags">
+        <!-- A blank cell next to filled ones is the strongest force there is on
+             whether an optional field ever gets answered, so the gap is shown
+             where the documents are listed, not only on the document. -->
+        <span
+          v-if="missingRequired"
+          class="badge badge-draft"
+          :title="`${missingRequired} required ${missingRequired === 1 ? 'field is' : 'fields are'} unanswered`"
+        >{{ missingRequired }} missing</span>
+        <StatusBadge :status="entry.status" />
+      </div>
     </div>
     <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
     <TagList v-if="entry.tags?.length" :tags="entry.tags" class="mt-3" />
@@ -31,12 +41,15 @@ defineProps<{
     entry_type?: string
   }
   researchSlug: string
+  /** How many required fields this document does not answer. Zero hides it. */
+  missingRequired?: number
 }>()
 </script>
 
 <style scoped>
 .entry-card { display: block; text-decoration: none; color: inherit; }
 .entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+.entry-card-flags { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 .entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .entry-artifact-badge {
   display: inline-flex; align-items: center; gap: 0.25rem;

@@ -919,3 +919,92 @@ func TestShareRoutes_TemplatesAreNotReachableThroughAShare(t *testing.T) {
 		}
 	}
 }
+
+// TestShareRoutes_ExportsCarryNoDocumentMetadata drives the real mux, because
+// this is where the leak actually was.
+//
+// The service-level test asserts on EntryService.Get and its list methods, and
+// every one of those redacts — so it could not fail on the bug it was written
+// for. The exports read the repository directly, which has never known what a
+// share is, and the JSON export serialized the whole entry.
+func TestShareRoutes_ExportsCarryNoDocumentMetadata(t *testing.T) {
+	s := newShareServer(t)
+
+	// Declare a field on the section and record a value under it, through the
+	// same routes an owner would use.
+	code, body := s.get("/api/researches/" + s.research.ID)
+	if code != http.StatusOK {
+		t.Fatalf("read research: %d", code)
+	}
+	var payload struct {
+		Data struct {
+			Sections []struct {
+				Section struct {
+					ID string `json:"id"`
+				} `json:"-"`
+				ID string `json:"id"`
+			} `json:"sections"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("decode research: %v", err)
+	}
+	if len(payload.Data.Sections) == 0 {
+		t.Fatal("no sections in the research payload")
+	}
+	sectionID := payload.Data.Sections[0].ID
+
+	put := func(path string, in any) int {
+		raw, _ := json.Marshal(in)
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPut, path, bytes.NewReader(raw))
+		req.Header.Set("Content-Type", "application/json")
+		s.mux.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if c := put("/api/sections/"+sectionID, map[string]any{
+		"field_spec": []map[string]any{{"key": "owner", "label": "Acquisition owner", "type": "text"}},
+	}); c != http.StatusOK {
+		t.Fatalf("declare field: %d", c)
+	}
+	if c := put("/api/entries/"+s.entry.ID, map[string]any{
+		"metadata": map[string]any{"owner": "SECRETOWNERVALUE"},
+	}); c != http.StatusOK {
+		t.Fatalf("set metadata: %d", c)
+	}
+
+	token := s.newShare(domain.ShareInclude{Sessions: true, Tasks: true, Roadmaps: true, Export: true})
+
+	// Three formats, one rule. The value, the label a team chose, and the
+	// version number that would confirm a declaration exists at all.
+	forbidden := []string{"SECRETOWNERVALUE", "Acquisition owner"}
+	for _, path := range []string{
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/export",
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/export?format=md",
+	} {
+		status, out := s.get(path)
+		if status != http.StatusOK {
+			t.Fatalf("%s: %d", path, status)
+		}
+		for _, needle := range forbidden {
+			if strings.Contains(out, needle) {
+				t.Errorf("%s published %q", path, needle)
+			}
+		}
+		if strings.Contains(out, `"spec_version":1`) {
+			t.Errorf("%s published a spec version, which confirms a declaration exists", path)
+		}
+	}
+
+	status, files := s.getVault("/api/shared/" + token + "/researches/" + s.research.ID + "/export?format=obsidian")
+	if status != http.StatusOK {
+		t.Fatalf("vault: %d", status)
+	}
+	for name, content := range files {
+		for _, needle := range forbidden {
+			if strings.Contains(content, needle) {
+				t.Errorf("vault file %s published %q", name, needle)
+			}
+		}
+	}
+}

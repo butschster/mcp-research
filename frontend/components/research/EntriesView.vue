@@ -27,6 +27,7 @@
           :key="entry.id"
           :entry="entry"
           :research-slug="researchSlug"
+          :missing-required="entry.metadata_status?.missing_required?.length ?? 0"
         />
       </div>
       <EmptyState
@@ -76,7 +77,14 @@
                   <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
                   <h3 class="card-title">{{ entry.title }}</h3>
                 </div>
-                <StatusBadge :status="entry.status" />
+                <div class="entry-card-flags">
+                  <span
+                    v-if="missingIn(group.section, entry)"
+                    class="badge badge-draft"
+                    :title="`${missingIn(group.section, entry)} required ${missingIn(group.section, entry) === 1 ? 'field is' : 'fields are'} unanswered`"
+                  >{{ missingIn(group.section, entry) }} missing</span>
+                  <StatusBadge :status="entry.status" />
+                </div>
               </div>
               <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
               <div v-if="entry.tags?.length" class="entry-tags">
@@ -100,6 +108,22 @@
       <div class="section-header">
         <h2 class="section-title">{{ sectionInfo.display_name || sectionInfo.name }}</h2>
         <StatusBadge :status="sectionInfo.status" />
+        <!-- Offered only where there is something to tabulate. A toggle over a
+             table with one column would be a control that promises more than
+             the section declares. -->
+        <NuxtLink
+          v-if="fieldSpec.length"
+          :to="`/research/${researchSlug}/settings?tab=sections#fields-${sectionInfo.code || sectionInfo.id}`"
+          class="section-fields-link"
+        >{{ fieldSpec.length }} fields</NuxtLink>
+        <SegmentedToggle
+          v-if="fieldSpec.length"
+          :model-value="view"
+          :options="viewOptions"
+          label="Section view"
+          class="section-view-toggle"
+          @update:model-value="view = $event as 'cards' | 'table'"
+        />
       </div>
       <p v-if="sectionInfo.description" class="card-meta mb-4">
         {{ sectionInfo.description }}
@@ -120,6 +144,59 @@
         <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
       </div>
 
+      <!-- The table is the point of declaring fields at all: a blank cell beside
+           filled ones is the strongest force there is on whether an optional
+           field ever gets answered. -->
+      <!-- Gated on the declaration, not only on the toggle: the component
+           instance is reused across sections, so a section with no fields
+           inherited the table and had no control to leave it with. -->
+      <div v-else-if="view === 'table' && fieldSpec.length && filteredEntries.length" class="meta-table-wrap">
+        <table class="meta-table">
+          <thead>
+            <tr>
+              <th scope="col">Document</th>
+              <th scope="col">Status</th>
+              <th v-for="f in fieldSpec" :key="f.key" scope="col" :title="f.help || undefined">
+                {{ fieldLabel(f) }}<span v-if="f.required" class="meta-req" aria-label="required">*</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="entry in filteredEntries" :key="entry.id">
+              <th scope="row" class="meta-table-doc">
+                <NuxtLink :to="entryPath(researchSlug, entry.code || entry.id)">
+                  <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
+                  {{ entry.title }}
+                </NuxtLink>
+              </th>
+              <td><StatusBadge :status="entry.status" /></td>
+              <!-- A blank required cell and a blank optional one used to read
+                   the same, on the one screen built to make gaps visible. So
+                   did a value outside its vocabulary and a legitimate one. -->
+              <td
+                v-for="f in fieldSpec"
+                :key="f.key"
+                :class="{
+                  'is-empty': !isFilled(entry.metadata?.[f.key]),
+                  'is-missing': f.required && !isFilled(entry.metadata?.[f.key]),
+                  'is-invalid': hasIssue(entry, f.key),
+                }"
+                :title="issueReason(entry, f.key) || undefined"
+              >
+                <template v-if="isUnknown(entry.metadata?.[f.key])">unknown</template>
+                <template v-else-if="isFilled(entry.metadata?.[f.key])">
+                  <!-- The same renderer the document's own block uses. Printing
+                       the raw string here would show `[[E47]]` in the table and
+                       a live link on the page, for one value. -->
+                  <span v-html="renderRefs(displayValue(f, entry.metadata?.[f.key]), researchSlug)"></span>
+                </template>
+                <template v-else>&mdash;</template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div v-else-if="filteredEntries.length" class="grid entries-grid">
         <NuxtLink
           v-for="entry in filteredEntries"
@@ -133,7 +210,14 @@
               <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
               <h3 class="card-title">{{ entry.title }}</h3>
             </div>
-            <StatusBadge :status="entry.status" />
+            <div class="entry-card-flags">
+              <span
+                v-if="missingCount(entry)"
+                class="badge badge-draft"
+                :title="`${missingCount(entry)} required ${missingCount(entry) === 1 ? 'field is' : 'fields are'} unanswered`"
+              >{{ missingCount(entry) }} missing</span>
+              <StatusBadge :status="entry.status" />
+            </div>
           </div>
           <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
           <div v-if="entry.tags?.length" class="entry-tags">
@@ -154,10 +238,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { tagHue } from '~/composables/useTagHue'
 import { renderRefs } from '~/composables/useCrossRefs'
 import { entryPath } from '~/composables/useResearchPaths'
 import { shareActive } from '~/composables/useShare'
+import { displayValue, fieldLabel, isFilled, isUnknown, missingRequired } from '~/composables/useFieldSpec'
 
 const props = defineProps<{
   entries: any[]
@@ -170,6 +256,42 @@ const props = defineProps<{
   sectionInfo?: any
   tags: Array<{ tag: string; count: number }>
 }>()
+
+/* What this section declares, and the two things every surface needs from it.
+   The predicate lives in the composable rather than here, because a document
+   reading "complete" in the table and "1 missing" on its own page is the same
+   class of bug as a stored status disagreeing with the prose. */
+const fieldSpec = computed<any[]>(() => props.sectionInfo?.field_spec ?? [])
+const view = ref<'cards' | 'table'>('cards')
+
+const viewOptions = [
+  { value: 'cards', label: 'Cards' },
+  { value: 'table', label: 'Table' },
+]
+
+function missingCount(entry: any): number {
+  return missingIn(props.sectionInfo, entry)
+}
+
+/* The all-entries list groups by section, so it holds the declaration for each
+   group and can show the same gap. Leaving it out would have hidden the signal
+   on the surface people actually browse a research from. */
+function hasIssue(entry: any, key: string): boolean {
+  return !!issueReason(entry, key)
+}
+
+/* Recomputed on the server and carried on the list payload, not derived here:
+   enum membership, date parsing and URL schemes are the server's judgement, and
+   a second copy in TypeScript is how the two come to disagree. */
+function issueReason(entry: any, key: string): string {
+  return entry?.metadata_status?.issues?.find((i: any) => i.key === key)?.reason ?? ''
+}
+
+function missingIn(section: any, entry: any): number {
+  const specs = section?.field_spec ?? []
+  if (!specs.length) return 0
+  return missingRequired(specs, entry.metadata ?? {}).length
+}
 
 /* The search is the component's own: it holds the query, so nothing above it
    has to thread state through, and it asks the server rather than filtering
@@ -324,4 +446,62 @@ const groupedEntries = computed(() => {
   letter-spacing: 0.02em;
   flex-shrink: 0;
 }
+
+/* No auto margins here. `.section-header` is space-between with no gap, and an
+   auto margin is resolved first — it absorbed all the free space, so the title
+   and the status badge packed flush together and a section that declares fields
+   looked broken next to one that does not. */
+.section-header { gap: var(--space-3); }
+.section-view-toggle { margin-left: auto; }
+.section-fields-link {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.section-fields-link:hover { color: var(--color-primary); }
+
+.meta-table-wrap {
+  /* Without this the wrapper takes its min-content width from the table and
+     blows out the `1fr` grid track it sits in, which scrolls the page body
+     rather than the table. */
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  /* The page body must never scroll sideways; a wide table scrolls inside its
+     own frame instead. */
+  overflow-x: auto;
+}
+
+.meta-table { width: 100%; border-collapse: collapse; font-size: var(--type-sm); }
+.meta-table th,
+.meta-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+.meta-table thead th {
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.meta-table tbody tr:last-child th,
+.meta-table tbody tr:last-child td { border-bottom: 0; }
+
+.meta-table-doc { font-weight: var(--weight-normal); max-width: 22rem; white-space: normal; }
+.meta-table-doc a { color: inherit; text-decoration: none; }
+.meta-table-doc a:hover { text-decoration: underline; }
+
+.meta-table td.is-empty { color: var(--color-text-faint); }
+/* A required field nobody answered, and a value that is not one of the declared
+   options. Both carry a word or a mark, never colour alone. */
+.meta-table td.is-missing { color: var(--color-warning); }
+.meta-table td.is-invalid { color: var(--color-danger); text-decoration: underline dotted; }
+.meta-req { color: var(--color-warning); margin-left: 0.15em; }
+/* The chip and the status badge are one group, or the header's space-between
+   distributes free space between them and the chip floats mid-row. */
+.entry-card-flags { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+
 </style>

@@ -200,3 +200,14 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{"error": msg})
 }
+
+// MetadataSchema serves the rules a section field declaration must follow —
+// the type catalogue, the reserved keys and every cap.
+//
+// It exists so the editor does not carry a second copy of them. A cap the
+// client believes and the server enforces will disagree exactly once, at the
+// worst possible moment, and a reserved-key list hard-coded in TypeScript
+// drifts the day a twelfth key is added to the export.
+func (h *ResearchHandler) MetadataSchema(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"data": domain.FieldSchema()})
+}
