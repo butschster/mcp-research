@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -110,4 +111,44 @@ func edgeFromInput(e RoadmapCreateEdge) service.CreateRoadmapEdgeRequest {
 		Label:         derefStr(e.Label),
 		EdgeType:      derefStr(e.EdgeType),
 	}
+}
+
+// derefMap reads an optional map input. Optional fields are pointers here so a
+// client sending null does not fail schema validation, and a nil pointer has to
+// mean "not mentioned" rather than "empty".
+func derefMap(m *map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	return *m
+}
+
+// addMetadataReport tells a writer what happened to the metadata it sent.
+//
+// It is attached to a response and never stored, for the same reason
+// BlockSaveReport is: a key that was dropped and a required field left empty
+// are losses the author cannot see from the entry it gets back. Nothing here
+// failed the write — an agent mid-interview that is refused loses the answers a
+// person already gave — so saying what happened is the only correction channel
+// there is.
+func addMetadataReport(out map[string]any, entry *domain.Entry) {
+	r := entry.MetaReport
+	if r == nil {
+		return
+	}
+	report := map[string]any{"spec_version": r.SpecVersion}
+	if len(r.Stored) > 0 {
+		report["stored"] = r.Stored
+	}
+	if len(r.UnknownKeys) > 0 {
+		report["unknown_keys"] = r.UnknownKeys
+	}
+	if len(r.InvalidValues) > 0 {
+		report["invalid_values"] = r.InvalidValues
+	}
+	if len(r.MissingRequired) > 0 {
+		report["missing_required"] = r.MissingRequired
+		report["hint"] = "Required fields are still unanswered. The metadata map replaces what is stored, so send the values you want to keep alongside the new ones; a null value records an explicit unknown, which is the honest answer when you do not know."
+	}
+	out["metadata_report"] = report
 }

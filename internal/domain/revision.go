@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"encoding/json"
+	"sort"
+	"time"
+)
 
 // AuthorKind says what wrote a revision. It is the field a reader looks at first
 // when deciding how much to trust a document: "a person wrote this" and "a model
@@ -44,11 +48,17 @@ type EntryRevision struct {
 	Type        EntryType   `json:"entry_type"`
 	Status      EntryStatus `json:"status"`
 	Tags        []string    `json:"tags"`
-	AuthorKind  AuthorKind  `json:"author_kind"`
-	SessionID   string      `json:"session_id,omitempty"`
-	UserID      string      `json:"user_id,omitempty"`
-	Summary     string      `json:"summary,omitempty"`
-	CreatedAt   time.Time   `json:"created_at"`
+	// Metadata is the entry's section-declared values as they stood after this
+	// write. Without it a metadata edit would leave no trace in history — and,
+	// because SameContent decides whether a revision is written at all, it
+	// would not merely go unrecorded, it would be judged a no-op and vanish.
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	SpecVersion int            `json:"spec_version,omitempty"`
+	AuthorKind  AuthorKind     `json:"author_kind"`
+	SessionID   string         `json:"session_id,omitempty"`
+	UserID      string         `json:"user_id,omitempty"`
+	Summary     string         `json:"summary,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
 
 	// Enriched on read, never stored.
 	SessionCode  string `json:"session_code,omitempty"`
@@ -78,5 +88,46 @@ func (r *EntryRevision) SameContent(other *EntryRevision) bool {
 			return false
 		}
 	}
-	return true
+	return sameMetadata(r.Metadata, other.Metadata)
+}
+
+// sameMetadata compares two value maps by their JSON encoding.
+//
+// Comparing the encodings rather than the maps is deliberate: the values arrive
+// as `any` from a JSON decode and from a database column, so a number is
+// float64 down one path and could be int down another, and == on `any` would
+// then report a change nobody made. Encoding both sides normalises that, and
+// the maps are a dozen short values, so the cost does not matter.
+func sameMetadata(a, b map[string]any) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	ja, err := json.Marshal(sortedPairs(a))
+	if err != nil {
+		return false
+	}
+	jb, err := json.Marshal(sortedPairs(b))
+	if err != nil {
+		return false
+	}
+	return string(ja) == string(jb)
+}
+
+// sortedPairs renders a map as an ordered slice, because Go's JSON encoder
+// sorts map keys but not the values inside them consistently enough to rely on
+// for equality.
+func sortedPairs(m map[string]any) [][2]any {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([][2]any, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, [2]any{k, m[k]})
+	}
+	return out
 }

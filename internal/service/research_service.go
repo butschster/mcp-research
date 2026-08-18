@@ -27,6 +27,11 @@ type CreateSectionRequest struct {
 	DisplayName string
 	Description string
 	Position    int
+	// FieldSpec declares what documents in this section record. Almost always
+	// empty — most sections are topics, not document classes — and carried here
+	// so an imported research arrives with the declaration its documents were
+	// written against rather than with values nothing explains.
+	FieldSpec []domain.FieldSpec
 }
 
 type UpdateResearchRequest struct {
@@ -88,6 +93,8 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 			Description: normalizeContent(sec.Description),
 			Status:      domain.SectionDraft,
 			Position:    sec.Position,
+			FieldSpec:   validFieldSpec(sec.FieldSpec),
+			SpecVersion: specVersionFor(sec.FieldSpec),
 		}
 		if err := s.sections.Create(ctx, section); err != nil {
 			return nil, nil, fmt.Errorf("create section %s: %w", sec.Name, err)
@@ -343,6 +350,8 @@ func (s *ResearchService) AddSection(ctx context.Context, researchID string, req
 		Description: normalizeContent(req.Description),
 		Status:      domain.SectionDraft,
 		Position:    req.Position,
+		FieldSpec:   validFieldSpec(req.FieldSpec),
+		SpecVersion: specVersionFor(req.FieldSpec),
 	}
 
 	if err := s.sections.Create(ctx, section); err != nil {
@@ -351,4 +360,30 @@ func (s *ResearchService) AddSection(ctx context.Context, researchID string, req
 
 	emit(ctx, s.events, Event{Type: "section.created", ResearchID: researchID, EntityID: section.ID, Entity: "section"})
 	return section, nil
+}
+
+// validFieldSpec keeps a declaration only when it is one this product would
+// have accepted.
+//
+// Creation is the one path that takes a spec from somewhere else — an import,
+// or a restore of a file somebody edited — and refusing the whole research
+// because one field is malformed would be the wrong trade: the documents are
+// the point, and a declaration that cannot be honoured is better dropped than
+// enforced half-way. A rejected spec leaves the section a plain topic, which is
+// what it will look like until somebody declares one.
+func validFieldSpec(specs []domain.FieldSpec) []domain.FieldSpec {
+	if len(specs) == 0 {
+		return nil
+	}
+	if errs := domain.ValidateFieldSpecs(specs); len(errs) > 0 {
+		return nil
+	}
+	return specs
+}
+
+func specVersionFor(specs []domain.FieldSpec) int {
+	if len(validFieldSpec(specs)) == 0 {
+		return 0
+	}
+	return 1
 }

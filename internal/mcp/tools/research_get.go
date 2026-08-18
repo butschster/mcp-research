@@ -38,7 +38,7 @@ func RegisterResearchGet(srv *mcp.Server, researchSvc *service.ResearchService, 
 		var sectionData []map[string]any
 		for _, s := range sections {
 			count, _ := sectionSvc.CountEntries(ctx, s.ID)
-			sectionData = append(sectionData, map[string]any{
+			item := map[string]any{
 				"id":            s.ID,
 				"name":          s.Name,
 				"display_name":  s.DisplayName,
@@ -46,7 +46,17 @@ func RegisterResearchGet(srv *mcp.Server, researchSvc *service.ResearchService, 
 				"status":        s.Status,
 				"position":      s.Position,
 				"entries_count": count,
-			})
+				"spec_version":  s.SpecVersion,
+			}
+			// Only when the section declares something. Most sections are topics
+			// rather than document classes and declare nothing, and an empty
+			// field_spec on every one of them is noise in a payload the
+			// conductor reads on every call.
+			if len(s.FieldSpec) > 0 {
+				item["field_spec"] = s.FieldSpec
+			}
+
+			sectionData = append(sectionData, item)
 		}
 
 		var activeSession map[string]any

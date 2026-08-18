@@ -74,11 +74,21 @@ GET /api/researches/{id}/export?format=md
 Returns `text/markdown` with `Content-Disposition: attachment`, filename derived from the research name (spaces become `_`, `/ \ : " '` are stripped or replaced).
 
 The markdown document structure:
-1. Title and metadata (goal, description, tags)
+1. Title and research header (goal, description, tags)
 2. Table of contents
 3. Sections with full entry content
 4. Sessions with all questions and answers
 5. Tasks with statuses and results
+
+**Document metadata** — the values for the fields a section declares — is
+rendered as a labelled block above each entry's body, in the order the section
+declares its fields. A declared field nobody answered prints an em dash rather
+than being skipped: a reader of the file has no other way to learn the field
+exists and is empty, and that gap is what "incomplete" looks like on paper.
+Values under keys the section has since dropped are kept in the database but not
+printed. A section that declares nothing prints no block at all, and the session
+export below renders no metadata in any case. See
+[Document Metadata](/llms/metadata.md).
 
 ## Session Export API
 
@@ -197,6 +207,17 @@ from the current titles, so renaming an entry cannot leave a stale link behind.
   `updated`; a task also `priority` and `completed`; a roadmap also `statuses`.
   Frontmatter is written with a YAML encoder, so a title containing `:` or a
   quote still parses.
+- **A section's declared fields follow the eleven system keys**, in declared
+  order, so two notes from the same section scan the same way. Those eleven keys
+  are refused as field keys precisely so nothing here can overwrite them. Three
+  rules differ from the system keys above and none of them is cosmetic: a
+  declared field with **no value is written as an explicit `null`** rather than
+  dropped, because a vault query for "documents missing this field" would
+  otherwise find nothing and the documents worth finding would be exactly the
+  invisible ones; a `ref` value is emitted in its `"[[E47]]"` bracket form so
+  Obsidian treats the property as a link; a repeated field is a real YAML
+  sequence even with one element, so a membership filter matches. Numbers stay
+  unquoted and sort numerically. See [Document Metadata](/llms/metadata.md).
 - **Filenames** are `E1 — Title` and keep Cyrillic and other non-ASCII. What a
   filesystem refuses is removed (`: * ? " < > |`), a path separator becomes `-`,
   newlines and control characters become spaces, Windows reserved names get a
@@ -280,6 +301,17 @@ The `research_export` MCP tool returns the same portable payload for a research 
 
 Import re-creates entities from scratch: new UUIDs, new short codes, cross-references re-parsed from the imported content.
 
+**Section declarations and document metadata do travel.** `field_spec` rides on
+the section and `metadata` on the entry, and an import restores both — otherwise
+an imported research would arrive as a pile of values nothing explains. Two
+consequences: a declaration the destination would not have accepted (a reserved
+key, a cap breached, an enum with no options) is dropped whole rather than
+enforced half-way, so the section lands as a plain topic and its documents' values
+land as orphans; and values are re-validated against whatever the destination
+section declares, because a dump carries the values, not the authority that
+collected them. `spec_version` is not carried — an imported section that keeps
+its declaration starts at version 1.
+
 **Where the import lands.** The new research goes into the caller's personal team unless another one is named: `?team={id}` on the REST route, `team_id` on the `research_import` tool. Naming a team you are not in is `not found`; naming one where you are only a `viewer` is refused with `your role in this team does not allow this`. Ownership does not travel with the payload — the export carries no team and no user.
 
 **No skills travel with an export either.** Which [skills](/llms/skills.md) a research follows is not in the portable payload and not in any of the reading formats, so an imported research follows nothing and its team library is not reconstructed. Re-attach them on the destination server.
@@ -298,9 +330,10 @@ GET /api/shared/{token}/researches/{id}/export?format=md
 GET /api/shared/{token}/researches/{id}/export?format=obsidian
 ```
 
-Same handler, same payload shape as the authenticated route above, with three differences that are the point of the feature:
+Same handler, same payload shape as the authenticated route above, with four differences that are the point of the feature:
 
 - `instruction` and `memory` are absent, along with `user_id` and every team field. They are stripped on the read path every export goes through, so there is no format that carries them out.
+- **A share sees neither document metadata nor the declaration behind it.** `field_spec` is stripped from every section a share reads and `metadata` from every entry, so the shared markdown renders no metadata block and the shared vault emits no user front-matter keys — both render *from* the declaration, and a share has none. A list of field labels with nothing in them still says what a team decided to track. See [Document Metadata](/llms/metadata.md).
 - `sessions` is empty unless the link includes sessions, and `tasks` unless it includes tasks. An export that carried the interview transcript would hand over in one file exactly what the creator chose to leave out of the pages.
 - `/export/portable` is not mounted under the prefix at all: it is a re-importable copy of the record rather than a reading of it. **Session export is not shared either** — only the research-scoped route is mounted.
 

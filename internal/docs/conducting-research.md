@@ -107,6 +107,16 @@ As information accumulates:
 6. Each entry gets an auto-assigned short code (E1, E2, ...)
 7. Entries created while a session is active are linked to it automatically, which is what the session export lists as "entries produced in this session"
 
+**Check whether the section declares fields.** `section_list` (or `research_get`)
+returns `field_spec` on a section that holds one class of document — a
+specification, a vendor, a decision record. Pass those keys in `metadata` on
+`entry_create`; the vocabulary is closed, so any other key is dropped and named
+in `metadata_report`, and a section that declares nothing accepts none. Where you
+do not know a value, send `null` rather than a plausible guess: `null` is an
+explicit unknown and it answers a required field. Read the section's existing
+documents first — the first few entries set the pattern for every one after. See
+[Document Metadata](/llms/metadata.md).
+
 ### Build on What Exists, Don't Overwrite It
 
 Before rewriting an entry a previous session produced:
@@ -164,10 +174,15 @@ When the research has a natural progression, sequence, or decision tree, create 
 
 ## Step 3: Complete
 
-1. Mark all sections as completed with `section_update`
-2. Mark the research as completed with `research_update`
-3. The web UI shows the full research with all entries, questions, and tasks
-4. Hand the user a document if they want one — see [Export](/llms/export.md):
+1. Mark entries as completed with `entry_update`. This is the one write that
+   required metadata can refuse — `cannot complete: required metadata is
+   unanswered: …`. Fill those fields, or send `null` for the ones nobody can
+   honestly answer; reach for `allow_incomplete: true` only as a decision you can
+   defend
+2. Mark all sections as completed with `section_update`
+3. Mark the research as completed with `research_update`
+4. The web UI shows the full research with all entries, questions, and tasks
+5. Hand the user a document if they want one — see [Export](/llms/export.md):
    - the research and per-session export pages produce markdown or PDF
    - `research_export` with `format: "obsidian"` returns a link to a zip shaped like an Obsidian vault (a folder per section, a note per entry, `[[E3]]` resolving as a link) — offer this when the user keeps notes in Obsidian or wants the research as files. The link needs their bearer token
    - `research_export` with no `format` returns the portable JSON, which is for moving the research to another server, not for reading

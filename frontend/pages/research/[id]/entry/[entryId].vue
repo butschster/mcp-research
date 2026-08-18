@@ -127,6 +127,21 @@
 
       <!-- Content -->
       <div class="entry-content card">
+        <!-- Inside the content card rather than above it. A second bordered box
+             would read as chrome, and chrome is exactly what the stored status
+             was when authors started typing the real one into the prose. -->
+        <EntryMetadataBlock
+          :specs="sectionFieldSpec"
+          :values="entry.metadata ?? {}"
+          :status="entry.status"
+          :research-slug="researchSlug"
+          :editable="canWrite"
+          :entry-spec-version="entry.spec_version"
+          :section-spec-version="sectionSpecVersion"
+          :metadata-status="entry.metadata_status"
+          :on-save="saveMetadata"
+          @editing="metaEditing = $event"
+        />
         <BlocksBlockRenderer
           v-if="viewMode === 'rendered' && isBlocks"
           :blocks="blocks"
@@ -295,7 +310,11 @@ useRealtimeUpdates((event: WsEvent) => {
   // page never refreshed for anyone who arrived by clicking a link.
   if (event.entity_id !== entry.value?.id && event.entity_id !== entryId) return
   if (isSelf(event)) return
-  if (editing.value) {
+  // `metaEditing` is the metadata block's draft, which is a snapshot exactly
+  // like `editForm`. It was added to this page after this guard was written and
+  // did not participate: a refresh replaced the values under an open editor,
+  // and Save then overwrote the agent that had just written them.
+  if (editing.value || metaEditing.value) {
     // Refetching would not reach the draft — `editForm` is a snapshot taken when
     // editing began — so the only thing a silent refresh achieves is that Save
     // still overwrites whoever just wrote. Say so instead; the history keeps
@@ -325,6 +344,39 @@ function reloadHistoryIfOpen() {
 // Set when somebody else changed this entry while the editor was open.
 const remoteChangedWhileEditing = ref(false)
 const entry = computed(() => data.value?.data)
+
+// The declaration lives on the section, so the block reads it from the research
+// payload the page already has rather than fetching one more thing.
+const entrySection = computed(() =>
+  sections.value.find((sec: any) => sec.id === entry.value?.section_id))
+const sectionFieldSpec = computed<any[]>(() => entrySection.value?.field_spec ?? [])
+const sectionSpecVersion = computed<number>(() => entrySection.value?.spec_version ?? 0)
+
+// True while the metadata block holds a draft, so the realtime guard above can
+// treat it the way it treats the content editor.
+const metaEditing = ref(false)
+
+async function saveMetadata(values: Record<string, unknown>) {
+  if (!entry.value) return
+  const res = await authFetch<any>(`${rtBase}/api/entries/${entry.value.id}`, {
+    method: 'PUT',
+    body: { metadata: values },
+  })
+  await refresh()
+  // A key the server refused, or a required field still empty, is a thing the
+  // person just did and cannot see from the entry they get back.
+  const report = res?.metadata_report
+  if (report?.unknown_keys?.length || report?.invalid_values?.length) {
+    useToasts().push({
+      variant: 'error',
+      title: 'Some values were not stored as sent',
+      message: [
+        ...(report.unknown_keys ?? []).map((u: any) => `${u.key}: ${u.reason}`),
+        ...(report.invalid_values ?? []).map((u: any) => `${u.key}: ${u.reason}`),
+      ].join('; '),
+    })
+  }
+}
 
 const sectionName = computed(() => {
   const sec = sections.value.find((s: any) => s.id === entry.value?.section_id)

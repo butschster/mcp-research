@@ -22,7 +22,7 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | Tool | Purpose |
 |------|---------|
 | `research_create` | Create research with sections, tags, and goal. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team. Optional `template_slug` records the methodology you followed and attaches the skills it names |
-| `research_get` | Load full research context (sections, entry counts, active session, and the skills index when the research follows any) |
+| `research_get` | Load full research context (sections with their `spec_version` and, where non-empty, `field_spec`; entry counts; active session; and the skills index when the research follows any) |
 | `research_list` | List every research you can reach, with optional status filter. Marks a shared one with `team` and a read-only one with `access: "read-only"` |
 | `research_update` | Update name, goal, status, instruction, memory, tags |
 | `research_add_section` | Add a new section to an existing research |
@@ -33,10 +33,10 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `entry_create` | Create an entry in a section — markdown by default, or a block document via `entry_type` |
-| `entry_read` | Read full entry content |
-| `entry_list` | List entries in a section (metadata only, no content) |
-| `entry_update` | Update title, content, description, status, tags, session link, entry type, or replace text in a **markdown** entry (`text_replace`) |
+| `entry_create` | Create an entry in a section — markdown by default, or a block document via `entry_type`. `metadata` carries values for the fields that section declares |
+| `entry_read` | Read full entry content, plus the entry's `metadata` and its `metadata_status` against the section's current declaration |
+| `entry_list` | List entries in a section (title/description/tags only — no content and no `metadata`) |
+| `entry_update` | Update title, content, description, status, tags, session link, entry type, `metadata`, or replace text in a **markdown** entry (`text_replace`). `allow_incomplete` overrides the one refusal: completing a document whose required fields are unanswered |
 | `entry_patch` | Edit blocks of a `blocks` entry by id — update, insert, delete, move, tick a checklist item — as one atomic, strict change. The surgical edit path for block documents; `text_replace` is refused on them |
 | `entry_delete` | Delete an entry (also removes its cross-references and external links) |
 | `entry_history` | List an entry's revisions: who wrote each one (agent, human, import, restore), in which session, and what it changed. Read it before rewriting an entry another session wrote |
@@ -66,8 +66,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `section_list` | List sections for a research |
-| `section_update` | Update section display name, description, status, position (the slug `name` is immutable) |
+| `section_list` | List sections for a research, each with `spec_version` and — only when the section declares any — the `field_spec` its documents record |
+| `section_update` | Update section display name, description, status, position, or `field_spec` (the slug `name` is immutable). The only way to declare fields: `research_create` and `research_add_section` take none |
 
 ### Templates
 
@@ -190,6 +190,8 @@ Read this before composing any tool call. Input schemas are generated from Go st
 |------------------------------|----------------|------------------|
 | `"type": ["null", "string"]` / `["null","number"]` (pointer in Go) | send `null` | default value is used |
 | `"type": ["null", "array"]` (any list: `tags`, `statuses`, `questions`, `nodes`, `edges`, `node_ids`) | send `null` or `[]` | treated as empty |
+| `"type": ["null", "object"]` (`text_replace`, `metadata`) | send `null` | the value is left alone |
+| `"type": ["null", "boolean"]` (`allow_incomplete`) | send `null` | `false` |
 | `"type": "string"` / `"integer"` (plain scalar) | send `""` or `0` — **not** `null` | rejected: `null` is not a valid string/integer |
 
 Consequences:
@@ -199,6 +201,8 @@ Consequences:
 - **One tool takes no input at all**: `template_list`. Its schema is an empty object — send `{}`.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
+- **`null` and empty are different for a replacing field.** `metadata` (`entry_update`) and `field_spec` (`section_update`) are nullable but not "empty means empty": `null` leaves what is stored alone, while `{}` clears every value and `[]` removes every declared field. Send `null` unless you mean to erase.
+- **Inside a `field_spec` item**, `key`, `label`, `type` and `required` must be present. `repeated`, `options` and `help` may be omitted; if you do send them, `options` accepts `null` while `repeated` (boolean) and `help` (string) do not — send `false` and `""`.
 - Unknown property names are rejected outright (`additionalProperties: false`).
 
 ### Default values when a nullable field is null
@@ -213,6 +217,9 @@ Consequences:
 | `description` (entry) | Auto-generated from lines 2-5 of content |
 | `position_x`, `position_y` | `0` (frontend auto-layouts) |
 | `session_id` (entry) | The research's currently active session, if there is one |
+| `metadata` (`entry_create`) | No values recorded. `entry_update`: the stored values are left as they are |
+| `allow_incomplete` (`entry_update`) | `false` — completing a document with required fields unanswered is refused |
+| `field_spec` (`section_update`) | The section's declaration is left as it is |
 | `limit` (`entry_history`) | `20` newest revisions; the result says `truncated: true` when more exist |
 | `format` (`research_export`) | `portable` — the JSON `research_import` takes. `obsidian` returns a vault download link instead; `json` / `vault` / `zip` are accepted aliases, anything else is a validation error |
 | `team_id` (`research_create`, `research_import`) | Your personal team |
@@ -500,6 +507,30 @@ plan a session, an entry or a task against a research you did not create. A
 `viewer` gets `your role in this team does not allow this` on the first write —
 after the user has already answered your questions. See
 [Access](#access-you-can-see-more-than-you-can-write).
+
+### 10. Filling a metadata field you do not actually know
+
+This is the failure mode with no human equivalent. A person leaves a field blank
+when they do not know; a model fills it confidently and plausibly — `owner:
+platform-team`, because the document mentions a platform. Blank used to mean
+"unknown", and with an agent author there are no blanks.
+
+**Send `null` as the value.** It records an explicit unknown, it answers a
+required field, and it is the only thing that stops a required field from
+manufacturing a fact. Omitting the key says nobody recorded anything; `null` says
+somebody looked and could not say.
+
+Two more habits worth having:
+
+- **Read `metadata_report` on the response.** A key the section does not declare
+  is dropped, and the entry comes back looking fine. The report is the only place
+  the loss is stated.
+- **Call `section_list` before writing into a section you have not written into
+  before**, and read the existing documents. The first two or three entries in a
+  section set the pattern for every one after, and the `help` line on a field
+  says where its value is supposed to come from.
+
+See [Document Metadata](/llms/metadata.md).
 
 ## Short Codes
 

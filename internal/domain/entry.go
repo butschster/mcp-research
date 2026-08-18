@@ -60,8 +60,41 @@ type Entry struct {
 	Description string      `json:"description"`
 	Status      EntryStatus `json:"status"`
 	Tags        []string    `json:"tags"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	// Metadata holds the values for the fields this entry's section declares,
+	// keyed by field key. A key the section no longer declares keeps its value
+	// here rather than being deleted — see domain.OrphanedKeys.
+	Metadata map[string]any `json:"metadata,omitempty"`
+	// SpecVersion is the section spec version these values were last validated
+	// against, so a reader can tell which rule the document was held to.
+	SpecVersion int       `json:"spec_version,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 	// Set on a write to a blocks entry, never persisted. See BlockSaveReport.
 	BlockReport *BlockSaveReport `json:"block_report,omitempty"`
+	// Set on a write that carried metadata, never persisted. See MetadataReport.
+	MetaReport *MetadataReport `json:"metadata_report,omitempty"`
+	// Computed on read against the section's current declaration, never
+	// persisted — a stored completeness flag goes stale the moment the spec
+	// changes.
+	MetaStatus *MetadataStatus `json:"metadata_status,omitempty"`
+}
+
+// MetadataStatus is how a stored document stands against what its section
+// currently declares. It is computed on read, every read.
+type MetadataStatus struct {
+	// MissingRequired names declared, required fields this document does not
+	// answer. A document is incomplete, never invalid: a missing element has
+	// never made a record inauthentic, it annotates it.
+	MissingRequired []string `json:"missing_required,omitempty"`
+	// Orphaned names values kept under keys the section no longer declares.
+	Orphaned []string `json:"orphaned,omitempty"`
+	// Issues are stored values that do not match their declared type. They were
+	// kept rather than discarded — dropping a person's value to protect a type
+	// is the same mistake as refusing the write — and they are re-checked on
+	// every read so the reader who can fix one is the one who is told.
+	Issues   []MetadataIssue `json:"issues,omitempty"`
+	Complete bool            `json:"complete"`
+	// SpecVersion is the section's current version, which may be ahead of the
+	// entry's own — that difference is exactly what lazy top-up works through.
+	SpecVersion int `json:"spec_version"`
 }

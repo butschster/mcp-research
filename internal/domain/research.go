@@ -64,6 +64,15 @@ type Section struct {
 	Description string        `json:"description"`
 	Status      SectionStatus `json:"status"`
 	Position    int           `json:"position"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	// FieldSpec is what documents in this section record. Empty is the normal
+	// case and means this section accepts no metadata at all — which is what
+	// lets a section that is a topic rather than a document class carry on
+	// behaving exactly as it did before the feature existed.
+	FieldSpec []FieldSpec `json:"field_spec"`
+	// SpecVersion is bumped on every change to FieldSpec. Sections are
+	// overwritten in place, so without it nothing records which declaration a
+	// given document was written under.
+	SpecVersion int       `json:"spec_version"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }

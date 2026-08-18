@@ -14,6 +14,7 @@ can prove it happened or get the earlier text back.
 |-------|---------|
 | `revision` | 1-based, per entry. Never reused. |
 | `title`, `description`, `content`, `entry_type`, `status`, `tags` | The entry exactly as it stood after that write |
+| `metadata`, `spec_version` | Its section-declared field values after that write, and the declaration version they were checked against — see [Document Metadata](/llms/metadata.md) |
 | `author_kind` | `agent`, `human`, `import` or `restore` — see below |
 | `session_id` / `session` | The session that was **active when the write happened** |
 | `summary` | A short label: "Updated content, tags", "Patched blocks: inserted 2" |
@@ -57,7 +58,7 @@ the other belongs.
 Created:
 
 - `entry_create` — revision 1, the entry as it was first written
-- `entry_update` — any change to title, description, content, type, status or tags
+- `entry_update` — any change to title, description, content, type, status, tags or document metadata. A write that touches only metadata still appends a revision: without metadata in the snapshot such an edit would be judged a no-op and disappear rather than merely go unrecorded
 - `entry_patch` — any structural change to a block document
 - import — revision 1, attributed to `import`
 - restore — a new revision holding the restored content
@@ -73,7 +74,10 @@ Not created:
 An entry that predates this feature carries one backfilled revision: number 1,
 `author_kind: agent`, no summary, timestamped with the entry's last update rather
 than its creation. A one-row history like that is the absence of a record, not a
-claim that the entry was written once.
+claim that the entry was written once. A revision written before document
+metadata existed reads as empty metadata, which likewise means "predates the
+field" rather than "was left blank": no backfill can invent values nobody
+collected.
 
 ## Tools
 
@@ -98,6 +102,14 @@ does.
 
 Block documents are diffed through their **markdown projection**, never their
 JSON: what changed is a paragraph, not a field inside an object.
+
+Document metadata is reported **one row per key** — `metadata.stage`, not one row
+saying an object changed. A key present on one side only shows as an empty half,
+which is the truth: the value was not recorded then. Those rows live in `fields`,
+which only the REST diff and `GET /api/sessions/{id}/changes` return: the MCP
+`entry_diff` tool carries the content diff and a title change and nothing else,
+so a revision that only flipped a status, a tag or a metadata value reads there
+as a change to nothing.
 
 Two documents of more than 4000 lines each are not aligned line by line; the
 comparison falls back to "everything was replaced" and says `truncated: true`.

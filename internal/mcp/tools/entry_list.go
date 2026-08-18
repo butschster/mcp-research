@@ -38,7 +38,7 @@ func RegisterEntryList(srv *mcp.Server, svc *service.EntryService, log *slog.Log
 
 		var items []map[string]any
 		for _, e := range entries {
-			items = append(items, map[string]any{
+			item := map[string]any{
 				"id":          e.ID,
 				"code":        e.Code,
 				"title":       e.Title,
@@ -46,7 +46,18 @@ func RegisterEntryList(srv *mcp.Server, svc *service.EntryService, log *slog.Log
 				"status":      e.Status,
 				"tags":        e.Tags,
 				"created_at":  e.CreatedAt,
-			})
+			}
+			// Content is left out of this listing on purpose; metadata is not
+			// content. Without it "which specifications are still in review" cost
+			// one entry_read per document, which is the question this feature was
+			// built to answer.
+			if len(e.Metadata) > 0 {
+				item["metadata"] = e.Metadata
+			}
+			if e.MetaStatus != nil && !e.MetaStatus.Complete {
+				item["metadata_missing"] = e.MetaStatus.MissingRequired
+			}
+			items = append(items, item)
 		}
 
 		return successResult(map[string]any{

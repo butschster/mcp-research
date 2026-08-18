@@ -161,6 +161,23 @@
       </p>
     </div>
 
+    <!-- Sections -->
+    <div v-else-if="activeTab === 'sections'" id="panel-sections" role="tabpanel" aria-labelledby="tab-sections" tabindex="0" class="panel">
+      <p class="lead">
+        A section can declare what its documents record. The vocabulary is closed: an agent
+        may write the keys named here and nothing else, and a section that declares nothing
+        accepts no metadata at all.
+      </p>
+      <ResearchSettingsFieldSpecList
+        :sections="sections"
+        :editable="canWrite"
+        :caps="fieldCaps"
+        :types="fieldTypes"
+        :reserved-keys="reservedKeys"
+        :on-save="saveFieldSpec"
+      />
+    </div>
+
     <ResearchSettingsSkillDetail
       :visible="!!openSlug"
       :skill="openedSkill"
@@ -194,7 +211,7 @@ watch(research, r => setFromResearch(r), { immediate: true })
 
 /* The tab lives in the query string so a link can point at one, and it is
    replaced rather than pushed: Back should leave the page, not walk the tabs. */
-const TABS = ['overview', 'skills', 'memory'] as const
+const TABS = ['overview', 'skills', 'sections', 'memory'] as const
 type Tab = (typeof TABS)[number]
 const activeTab = computed<Tab>({
   get: () => (TABS.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'overview'),
@@ -240,12 +257,60 @@ const tabs = computed(() => [
     srCount: `${chosenCount.value} of ${cap.value} chosen`,
   },
   {
+    id: 'sections',
+    label: 'Sections',
+    count: declaredSections.value,
+    srCount: `${declaredSections.value} sections declare fields`,
+  },
+  {
     id: 'memory',
     label: 'Memory',
     count: research.value?.memory?.length ?? 0,
     srCount: `${research.value?.memory?.length ?? 0} notes`,
   },
 ])
+
+// --- Section field specs ---
+const sections = computed<any[]>(() => researchData.value?.data?.sections ?? [])
+const declaredSections = computed(() => sections.value.filter(s => (s.field_spec?.length ?? 0) > 0).length)
+
+// The rules come from the server rather than a copy in here. A cap the client
+// believes and the server enforces will disagree exactly once, at the worst
+// moment, and a reserved-key list hard-coded here drifts the day a twelfth key
+// joins the export.
+const schema = ref<any>(null)
+const fieldCaps = computed(() => schema.value?.caps ?? { fields: 12, required: 5, options: 20 })
+// A fallback that keeps the editor usable, not an empty list: without it a
+// failed schema fetch rendered the type <select> with zero options, so the one
+// control the editor cannot do without stopped working — while the comment on
+// the catch claimed the caps were the only thing lost.
+const FALLBACK_TYPES = [
+  { type: 'enum' }, { type: 'ref' }, { type: 'date' },
+  { type: 'text' }, { type: 'number' }, { type: 'url' },
+]
+const fieldTypes = computed<any[]>(() => {
+  const served = schema.value?.types ?? []
+  return served.length ? served : FALLBACK_TYPES
+})
+const reservedKeys = computed<string[]>(() => schema.value?.reserved_keys ?? [])
+
+onMounted(async () => {
+  try {
+    const res = await authFetch<any>(`${base}/api/metadata/schema`)
+    schema.value = res?.data ?? null
+  } catch {
+    // The editor still works on the fallbacks above; it just cannot warn about
+    // a reserved key before the server does.
+  }
+})
+
+async function saveFieldSpec(sectionId: string, spec: any[]) {
+  await authFetch(`${base}/api/sections/${sectionId}`, {
+    method: 'PUT',
+    body: { field_spec: spec },
+  })
+  researchData.value = await authFetch<any>(`${base}/api/researches/${id}`)
+}
 
 const busySlug = ref<string | null>(null)
 const toasts = useToasts()

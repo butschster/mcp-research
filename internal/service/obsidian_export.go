@@ -143,6 +143,12 @@ func (s *ObsidianService) Vault(ctx context.Context, idOrCode string, opts Vault
 	if err != nil {
 		return nil, fmt.Errorf("list entries: %w", err)
 	}
+	// The vault reads the repository directly, so the redaction that lives on
+	// the service has to be applied by hand. Today the vault prints only keys
+	// the section declares, and the section arrives redacted — but the values
+	// are in memory either way, and anything that later renders them without
+	// consulting the declaration would leak with no signal in review.
+	redactEntriesForShare(ctx, entries)
 
 	var sessions []*domain.Session
 	questions := map[string][]*domain.Question{}
@@ -449,6 +455,24 @@ func (b *vaultBuilder) writeEntry(
 	// but the guard is written out so the rule is visible where it applies.
 	if sessCode != "" && !b.opts.RedactProvenance {
 		fm.add("session", sessCode)
+	}
+	// User metadata last, so the eleven system keys keep their order and a
+	// reader scanning two notes sees the same shape twice. Keys are refused at
+	// declaration time when they collide with one of those, which is why
+	// nothing here has to guard against overwriting them.
+	if sec != nil {
+		for _, f := range sec.FieldSpec {
+			v, recorded := e.Metadata[f.Key]
+			// A declared field nobody answered emits null, so a vault query for
+			// "documents missing this" can find it. A field answered with an
+			// explicit unknown emits the word, because somebody did look and
+			// that document is not the one you are looking for.
+			if recorded && v == nil {
+				fm.addDeclared(f.Key, "unknown")
+				continue
+			}
+			fm.addDeclared(f.Key, metadataForFrontmatter(f, v))
+		}
 	}
 	if len(revs) > 0 {
 		// The newest revision leads the list, which is what makes this the
@@ -1003,6 +1027,25 @@ type fmPair struct {
 
 // add skips empty values: a note full of blank keys reads as broken metadata
 // rather than absent metadata.
+// addDeclared emits a key even when it has no value, as an explicit null.
+//
+// `add` skips empties, which is right for a system key nobody declared. It is
+// wrong for a field a section says its documents record: the key would vanish
+// from the note, and a vault query for "documents missing this field" would
+// find nothing — the documents worth finding would be exactly the invisible
+// ones.
+func (f *frontmatter) addDeclared(key string, val any) {
+	if val == nil {
+		f.pairs = append(f.pairs, fmPair{key: key, val: nil})
+		return
+	}
+	if str, ok := val.(string); ok && strings.TrimSpace(str) == "" {
+		f.pairs = append(f.pairs, fmPair{key: key, val: nil})
+		return
+	}
+	f.pairs = append(f.pairs, fmPair{key: key, val: val})
+}
+
 func (f *frontmatter) add(key string, val any) {
 	switch v := val.(type) {
 	case string:
@@ -1236,4 +1279,31 @@ func standaloneHTML(title, html string) string {
 func htmlEscape(s string) string {
 	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;")
 	return r.Replace(s)
+}
+
+// metadataForFrontmatter renders one value the way a vault query expects it.
+//
+// The rules are not cosmetic. A one-element list still has to be a YAML
+// sequence, because a query filtering on membership fails against a string. A
+// number has to stay unquoted or it sorts lexically. And a reference is emitted
+// in its bracket form so Obsidian treats the property as a link rather than as
+// text that happens to look like one.
+func metadataForFrontmatter(spec domain.FieldSpec, v any) any {
+	switch t := v.(type) {
+	case nil:
+		return nil
+	case []any:
+		out := make([]any, 0, len(t))
+		for _, item := range t {
+			out = append(out, metadataForFrontmatter(spec, item))
+		}
+		return out
+	case string:
+		if spec.Type == domain.FieldRef && t != "" {
+			return "[[" + t + "]]"
+		}
+		return t
+	default:
+		return v
+	}
 }

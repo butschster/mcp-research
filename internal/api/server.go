@@ -252,6 +252,9 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/sections/{sectionId}/entries", wrapRead(rh.ListSectionEntries))
 	mux.Handle("GET /api/researches/{id}/entries", wrapRead(rh.ListAllEntries))
 	mux.Handle("GET /api/researches/{id}/tags", wrapRead(rh.ListTags))
+	// Constant data, but behind wrapRead all the same: it describes what this
+	// installation lets a team record, which is not for anonymous readers.
+	mux.Handle("GET /api/metadata/schema", wrapRead(rh.MetadataSchema))
 	exportHandler := handlers.NewExportHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, log)
 	exportHandler.SetExportService(exportSvc)
 	exportHandler.SetObsidianService(obsidianSvc)

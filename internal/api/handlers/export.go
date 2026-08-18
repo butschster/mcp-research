@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/butschster/mcp-research/internal/auth"
@@ -92,7 +93,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allEntries, err := h.entries.FindByResearchWithContent(r.Context(), researchID)
+	allEntries, err := h.entry.ListWithContent(r.Context(), researchID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -199,8 +200,11 @@ func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Entries produced during this session, grouped by their section.
-	allEntries, err := h.entries.FindByResearchWithContent(r.Context(), research.ID)
+	// Entries produced during this session, grouped by their section. Through
+	// the service, not the repository: the session export is not reachable from
+	// a share today, and the first thing anyone will do when it is reachable is
+	// mount the route rather than re-audit this read.
+	allEntries, err := h.entry.ListWithContent(r.Context(), research.ID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -339,6 +343,14 @@ func buildMarkdown(
 				b.WriteString("**Tags:** " + strings.Join(e.Tags, ", ") + "  \n")
 			}
 			b.WriteString(fmt.Sprintf("**Status:** %s\n\n", e.Status))
+			// Only the fields the section declares, in the order it declares
+			// them, so the same document reads the same way in every export.
+			// Values under keys the section has since dropped are kept in the
+			// database but not printed: they are no longer what this section
+			// says a document records.
+			if md := metadataMarkdown(s.FieldSpec, e.Metadata); md != "" {
+				b.WriteString(md)
+			}
 			if body := entryMarkdown(e); body != "" {
 				b.WriteString(body + "\n\n")
 			}
@@ -525,4 +537,63 @@ func exportEntries(entries []*domain.Entry) []entryExport {
 func sanitizeFilename(name string) string {
 	r := strings.NewReplacer("/", "-", "\\", "-", ":", "-", "\"", "", "'", "", " ", "_")
 	return r.Replace(name)
+}
+
+// metadataMarkdown renders a document's declared fields as a short list above
+// its body.
+//
+// A declared field with no value is printed as an em dash rather than skipped.
+// A reader of the exported file has no other way to learn that the field exists
+// and nobody answered it, and that gap is usually the more interesting half —
+// it is what "this document is incomplete" looks like on paper.
+func metadataMarkdown(specs []domain.FieldSpec, values map[string]any) string {
+	if len(specs) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, f := range specs {
+		label := f.Label
+		if label == "" {
+			label = f.Key
+		}
+		v, recorded := values[f.Key]
+		// "unknown" and "—" are different sentences, and only one of them means
+		// somebody looked. Collapsing them here would have made a required field
+		// answered with an explicit unknown read as complete in the app and
+		// blank on paper.
+		text := "—"
+		switch {
+		case recorded && v == nil:
+			text = "unknown"
+		case recorded:
+			text = formatMetadataValue(v)
+		}
+		b.WriteString("**" + label + ":** " + text + "  \n")
+	}
+	return b.String() + "\n"
+}
+
+func formatMetadataValue(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return "—"
+	case string:
+		if strings.TrimSpace(t) == "" {
+			return "—"
+		}
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case []any:
+		parts := make([]string, 0, len(t))
+		for _, item := range t {
+			parts = append(parts, formatMetadataValue(item))
+		}
+		if len(parts) == 0 {
+			return "—"
+		}
+		return strings.Join(parts, ", ")
+	default:
+		return fmt.Sprint(t)
+	}
 }

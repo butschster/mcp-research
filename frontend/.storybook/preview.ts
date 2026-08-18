@@ -18,6 +18,7 @@ import ModalHeader from '../components/ModalHeader.vue'
 import TeamRoleSelect from '../components/team/RoleSelect.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
+import SegmentedToggle from '../components/SegmentedToggle.vue'
 import { resetMockApiData } from '../__mocks__/api'
 import '../assets/css/tokens.css'
 import '../assets/css/base.css'
@@ -67,6 +68,11 @@ setup((app) => {
   app.component('TeamRoleSelect', TeamRoleSelect)
   app.component('StatusBadge', StatusBadge)
   app.component('TagList', TagList)
+  // Four components reach for this by name without importing it — the two
+  // roadmap toggles, and now the section view switch in EntriesView. Unregistered,
+  // Vue resolves nothing and the control silently does not render, which is the
+  // one failure mode a catalogue must not have.
+  app.component('SegmentedToggle', SegmentedToggle)
   app.component('ActivityIndicator', ActivityIndicator)
   app.component('BlocksBlockRenderer', BlocksBlockRenderer)
   app.component('CopyableSecret', CopyableSecret)

@@ -29,7 +29,7 @@ func RegisterSectionList(srv *mcp.Server, svc *service.SectionService, log *slog
 		var items []map[string]any
 		for _, s := range sections {
 			count, _ := svc.CountEntries(ctx, s.ID)
-			items = append(items, map[string]any{
+			item := map[string]any{
 				"id":            s.ID,
 				"name":          s.Name,
 				"display_name":  s.DisplayName,
@@ -37,7 +37,17 @@ func RegisterSectionList(srv *mcp.Server, svc *service.SectionService, log *slog
 				"status":        s.Status,
 				"position":      s.Position,
 				"entries_count": count,
-			})
+				"spec_version":  s.SpecVersion,
+			}
+			// Only when the section declares something. Most sections are topics
+			// rather than document classes and declare nothing, and an empty
+			// field_spec on every one of them is noise in a payload the
+			// conductor reads on every call.
+			if len(s.FieldSpec) > 0 {
+				item["field_spec"] = s.FieldSpec
+			}
+
+			items = append(items, item)
 		}
 
 		return successResult(map[string]any{

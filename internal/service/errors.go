@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"unicode"
 )
 
@@ -17,8 +18,13 @@ var (
 	ErrTextReplaceNotFound  = errors.New("text_replace: from string not found in content")
 	ErrTextReplaceOnBlocks  = errors.New("text_replace does not work on a blocks entry: it would edit the stored JSON as text. Use entry_patch to change one block, or send the whole document in content")
 	ErrQuestionDepthLimit   = errors.New("question nesting depth limit exceeded (max 3 levels)")
-	ErrAnswerRequired       = errors.New("answered questions must have a non-empty answer")
-	ErrMutualExclusion      = errors.New("mutually exclusive fields provided")
+	// ErrInvalidFieldSpec is a malformed section declaration — a reserved key, a
+	// cap breached, an enum with no options. It is a sentinel so the handler
+	// answers 400 with the reasons rather than 500: the caller can fix every one
+	// of these, and a 500 tells them the server broke instead.
+	ErrInvalidFieldSpec = errors.New("invalid field_spec")
+	ErrAnswerRequired   = errors.New("answered questions must have a non-empty answer")
+	ErrMutualExclusion  = errors.New("mutually exclusive fields provided")
 )
 
 // isCode returns true if s looks like a short code (e.g. R1, E23, SS1, T5, Q3) rather than a UUID.
@@ -42,4 +48,19 @@ func isCode(s string) bool {
 		}
 	}
 	return true
+}
+
+// IncompleteMetadataError refuses to call a document finished while required
+// fields are unanswered.
+//
+// It carries the field keys because the only useful thing to do with this
+// refusal is name them: a message saying "some fields are missing" makes the
+// caller go looking for what the server already knows. The override is
+// AllowIncomplete on the request — a decision, not a retry.
+type IncompleteMetadataError struct {
+	Missing []string
+}
+
+func (e *IncompleteMetadataError) Error() string {
+	return "cannot complete: required metadata is unanswered: " + strings.Join(e.Missing, ", ")
 }

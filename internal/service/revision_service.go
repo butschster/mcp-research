@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/butschster/mcp-research/internal/auth"
@@ -90,6 +92,8 @@ func (s *EntryService) recordRevision(ctx context.Context, q storage.Querier, en
 		Type:        entry.Type,
 		Status:      entry.Status,
 		Tags:        entry.Tags,
+		Metadata:    entry.Metadata,
+		SpecVersion: entry.SpecVersion,
 		AuthorKind:  note.authorKind(ctx),
 		SessionID:   note.sessionID,
 		UserID:      auth.UserIDFromContext(ctx),
@@ -304,18 +308,66 @@ func changedFields(before, after *domain.EntryRevision) []FieldChange {
 	}
 	var (
 		wasTitle, wasDescription, wasStatus, wasTags string
+		wasMeta                                      map[string]any
 	)
 	if before != nil {
 		wasTitle = before.Title
 		wasDescription = before.Description
 		wasStatus = string(before.Status)
 		wasTags = strings.Join(before.Tags, ", ")
+		wasMeta = before.Metadata
 	}
 	add("title", wasTitle, after.Title)
 	add("description", wasDescription, after.Description)
 	add("status", wasStatus, string(after.Status))
 	add("tags", wasTags, strings.Join(after.Tags, ", "))
+	// One row per metadata key rather than one row for "metadata": a reader
+	// wants to know that `owner` changed, not that an object did. A key set on
+	// one side and absent on the other shows as an empty half, which is the
+	// truth — the value was not recorded then.
+	for _, key := range metadataKeys(wasMeta, after.Metadata) {
+		add("metadata."+key, formatMetaValue(wasMeta[key]), formatMetaValue(after.Metadata[key]))
+	}
 	return out
+}
+
+// metadataKeys is the union of two value maps, ordered, so a diff lists keys
+// the same way twice in a row.
+func metadataKeys(before, after map[string]any) []string {
+	seen := map[string]bool{}
+	var keys []string
+	for _, m := range []map[string]any{before, after} {
+		for k := range m {
+			if !seen[k] {
+				seen[k] = true
+				keys = append(keys, k)
+			}
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// formatMetaValue renders one value for a diff row. A missing value is an empty
+// string, which is why an absent key and a blank one read the same here — the
+// distinction that matters to a reader is what the document says now.
+func formatMetaValue(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case []any:
+		parts := make([]string, 0, len(t))
+		for _, item := range t {
+			parts = append(parts, formatMetaValue(item))
+		}
+		return strings.Join(parts, ", ")
+	default:
+		return fmt.Sprint(t)
+	}
 }
 
 // revisionText is what a human compares. A block document is diffed through its
@@ -349,6 +401,10 @@ func (s *EntryService) Restore(ctx context.Context, entryID string, number int) 
 
 	entryType := rev.Type
 	status := rev.Status
+	metadata := rev.Metadata
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
 	req := UpdateEntryRequest{
 		Type:        &entryType,
 		Title:       &rev.Title,
@@ -356,6 +412,17 @@ func (s *EntryService) Restore(ctx context.Context, entryID string, number int) 
 		Description: &rev.Description,
 		Status:      &status,
 		Tags:        rev.Tags,
+		// Restoring a revision has to put its metadata back too. Without this
+		// the button did nothing at all in the common case: if only the values
+		// differed, nothing else changed either, SameContent judged the write a
+		// no-op, and no revision was written — while the diff pane beside it
+		// listed the very change that was not being made.
+		Metadata: &metadata,
+		// A restore is not a fresh claim that the document is finished. It puts
+		// back a state that was already true, and refusing it because a required
+		// field was declared afterwards would make an old revision unrestorable
+		// for a rule written after it.
+		AllowIncomplete: true,
 	}
 	if req.Tags == nil {
 		req.Tags = []string{}
@@ -614,6 +681,9 @@ func summarizeUpdate(req UpdateEntryRequest) string {
 	}
 	if req.Type != nil {
 		parts = append(parts, "type")
+	}
+	if req.Metadata != nil {
+		parts = append(parts, "metadata")
 	}
 	if len(parts) == 0 {
 		return ""

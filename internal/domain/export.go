@@ -33,8 +33,12 @@ type ExportSection struct {
 	Description string        `json:"description,omitempty"`
 	Status      SectionStatus `json:"status"`
 	Position    int           `json:"position"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	// FieldSpec travels so an imported research keeps the declaration its
+	// documents were written against, rather than arriving as a pile of values
+	// nothing explains.
+	FieldSpec []FieldSpec `json:"field_spec,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
 
 	Entries []ExportEntry `json:"entries,omitempty"`
 }
@@ -48,9 +52,13 @@ type ExportEntry struct {
 	Description string      `json:"description,omitempty"`
 	Status      EntryStatus `json:"status"`
 	Tags        []string    `json:"tags,omitempty"`
-	SessionCode string      `json:"session_code,omitempty"` // links to ExportSession.Code
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	// Metadata travels with the document. On import it is validated against the
+	// target section's declaration, which may be a different one — a portable
+	// dump carries the values, not the authority that collected them.
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	SessionCode string         `json:"session_code,omitempty"` // links to ExportSession.Code
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 type ExportSession struct {
