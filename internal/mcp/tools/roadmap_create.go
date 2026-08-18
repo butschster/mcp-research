@@ -20,6 +20,8 @@ type RoadmapCreateNode struct {
 	RefType     *string  `json:"ref_type" jsonschema:"Reference type linking to a research entity: entry, task, session, research, question. Leave empty for standalone nodes"`
 	RefID       *string  `json:"ref_id" jsonschema:"ID of the referenced entity (entry ID, task ID, etc.)"`
 	Metadata    *string  `json:"metadata" jsonschema:"JSON string with node-type-specific data (e.g. checklist items, URL for link nodes, metric value)"`
+	Stage       *string  `json:"stage" jsonschema:"Stage/column name for the stages view. Should match one of the roadmap's stages"`
+	NodeDate    *string  `json:"node_date" jsonschema:"ISO date YYYY-MM-DD for the timeline view. Leave empty for an undated node"`
 }
 
 type RoadmapCreateEdge struct {
@@ -34,6 +36,8 @@ type RoadmapCreateInput struct {
 	Title       string              `json:"title" jsonschema:"Roadmap title"`
 	Description *string             `json:"description" jsonschema:"Roadmap description"`
 	Statuses    []string            `json:"statuses" jsonschema:"Available node statuses in order (e.g. ['not_started', 'in_progress', 'completed'])"`
+	Stages      []string            `json:"stages" jsonschema:"Ordered stage/column names for the stages view (e.g. ['Discovery', 'Design', 'Build', 'Launch']). A stage with no nodes is an empty column"`
+	View        *string             `json:"view" jsonschema:"Which layout the roadmap opens in: graph (free node-edge graph), stages (columns), or timeline (by node_date). Default: graph"`
 	Nodes       []RoadmapCreateNode `json:"nodes" jsonschema:"Array of nodes to create"`
 	Edges       []RoadmapCreateEdge `json:"edges" jsonschema:"Array of edges connecting nodes by temp_id"`
 }
@@ -69,6 +73,8 @@ func RegisterRoadmapCreate(srv *mcp.Server, svc *service.RoadmapService, log *sl
 			Title:       input.Title,
 			Description: derefStr(input.Description),
 			Statuses:    input.Statuses,
+			Stages:      input.Stages,
+			View:        derefStr(input.View),
 			Nodes:       nodes,
 			Edges:       edges,
 		})

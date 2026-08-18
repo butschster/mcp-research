@@ -11,6 +11,9 @@
         <span v-if="roadmap?.code" class="toolbar-code">{{ roadmap.code }}</span>
       </div>
       <div class="toolbar-right">
+        <!-- View toggle: governs the mode-specific controls after it -->
+        <RoadmapViewToggle v-model="view" />
+
         <!-- Progress -->
         <div v-if="progress.total > 0" class="toolbar-progress">
           <span class="progress-text">{{ progress.completed }}/{{ progress.total }}</span>
@@ -21,6 +24,7 @@
 
         <TeamViewerNotice v-if="isViewer" :team-name="researchData?.data?.research?.team_name" />
 
+        <template v-if="view === 'graph'">
         <span class="toolbar-sep"></span>
 
         <!-- Layout toggle -->
@@ -52,6 +56,7 @@
         <button class="btn btn-sm" @click="fitAll" title="Fit view">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
         </button>
+        </template>
       </div>
     </div>
 
@@ -69,7 +74,23 @@
 
     <!-- Canvas -->
     <div v-else class="roadmap-canvas">
+      <RoadmapStagesBoard
+        v-if="view === 'stages'"
+        :stages="roadmap?.stages ?? []"
+        :nodes="rawNodes"
+        :edges="rawEdges"
+        @node-click="openNode"
+        @switch-graph="view = 'graph'"
+      />
+      <RoadmapTimeline
+        v-else-if="view === 'timeline'"
+        :nodes="rawNodes"
+        :edges="rawEdges"
+        @node-click="openNode"
+        @switch-graph="view = 'graph'"
+      />
       <VueFlow
+        v-else
         :nodes="nodes"
         :edges="edges"
         :node-types="nodeTypes"
@@ -100,8 +121,11 @@
     <RoadmapNodePopover
       :node="selectedNode"
       :statuses="roadmap?.statuses ?? []"
+      :stages="roadmap?.stages ?? []"
       @update-status="onUpdateStatus"
       @update-entity-status="onUpdateEntityStatus"
+      @update-stage="onUpdateStage"
+      @update-date="onUpdateDate"
       @navigate="onNavigate"
       @close="selectedNode = null"
     />
@@ -121,6 +145,9 @@ import RoadmapRootNode from '~/components/roadmap/RoadmapRootNode.vue'
 import RoadmapStepNode from '~/components/roadmap/RoadmapStepNode.vue'
 import RoadmapRefNode from '~/components/roadmap/RoadmapRefNode.vue'
 import RoadmapNodePopover from '~/components/roadmap/RoadmapNodePopover.vue'
+import RoadmapViewToggle, { type RoadmapView } from '~/components/roadmap/RoadmapViewToggle.vue'
+import RoadmapStagesBoard from '~/components/roadmap/RoadmapStagesBoard.vue'
+import RoadmapTimeline from '~/components/roadmap/RoadmapTimeline.vue'
 
 const route = useRoute()
 const researchId = route.params.id as string
@@ -155,6 +182,8 @@ const {
   progress,
   refresh,
   updateNodeStatus,
+  updateNodeStage,
+  updateNodeDate,
   updateNodePosition,
   autoLayout,
   layoutDirection,
@@ -164,6 +193,21 @@ const {
 
 // Vue Flow instance
 const { fitView } = useVueFlow()
+
+// Active view: initialised from the roadmap's stored default, then local — the
+// toggle overrides ephemerally in v1 and does not persist per user.
+const view = ref<RoadmapView>('graph')
+let viewInitialised = false
+watch(roadmap, (rm) => {
+  if (rm && !viewInitialised) {
+    view.value = (rm.view as RoadmapView) || 'graph'
+    viewInitialised = true
+  }
+}, { immediate: true })
+
+// Board and timeline read the raw API roadmap, not the Vue Flow graph.
+const rawNodes = computed(() => roadmap.value?.nodes ?? [])
+const rawEdges = computed(() => roadmap.value?.edges ?? [])
 
 function fitAll() {
   fitView({ padding: 0.15, duration: 300 })
@@ -179,27 +223,49 @@ const selectedNode = ref<{
   refType?: string
   refId?: string
   refData?: any
+  stage?: string
+  node_date?: string
 } | null>(null)
+
+// Open the popover for a node by id, reading the raw node so stage/date are
+// present in every view. Shared by the graph, the board and the timeline.
+function openNode(nodeId: string) {
+  const n = roadmap.value?.nodes.find(x => x.id === nodeId)
+  if (!n) return
+  selectedNode.value = {
+    id: n.id,
+    title: n.title,
+    description: n.description || '',
+    nodeType: n.node_type || 'step',
+    status: n.status || '',
+    refType: n.ref_type,
+    refId: n.ref_id,
+    refData: n.ref_data,
+    stage: n.stage || '',
+    node_date: n.node_date || '',
+  }
+}
 
 function onNodeClick({ node }: { node: any }) {
   // Don't show modal for root node
   if (node.type === 'roadmap-root') return
-
-  selectedNode.value = {
-    id: node.id,
-    title: node.data.title,
-    description: node.data.description || '',
-    nodeType: node.data.nodeType || 'step',
-    status: node.data.status || '',
-    refType: node.data.refType,
-    refId: node.data.refId,
-    refData: node.data.refData,
-  }
+  openNode(node.id)
 }
 
 async function onUpdateStatus(nodeId: string, status: string) {
   await updateNodeStatus(nodeId, status)
   selectedNode.value = null
+}
+
+// Stage and date changes keep the popover open (you may set both) and move the
+// card optimistically. Sync the open popover so its controls reflect the change.
+async function onUpdateStage(nodeId: string, stage: string) {
+  await updateNodeStage(nodeId, stage)
+  if (selectedNode.value?.id === nodeId) selectedNode.value = { ...selectedNode.value, stage }
+}
+async function onUpdateDate(nodeId: string, date: string) {
+  await updateNodeDate(nodeId, date)
+  if (selectedNode.value?.id === nodeId) selectedNode.value = { ...selectedNode.value, node_date: date }
 }
 
 async function onUpdateEntityStatus(refType: string, refId: string, status: string) {
@@ -300,7 +366,9 @@ onMounted(() => {
 let deferredRefresh: ReturnType<typeof setTimeout> | null = null
 function refreshWhenIdle() {
   if (deferredRefresh) return
-  if (!isInteracting()) {
+  // A repaint that restacks the board out from under an open popover is as
+  // disruptive as one landing mid-drag, so both defer.
+  if (!isInteracting() && !selectedNode.value) {
     refresh(true)
     return
   }

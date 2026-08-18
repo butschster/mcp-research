@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
@@ -25,6 +27,8 @@ type CreateRoadmapNodeRequest struct {
 	RefType     string // Reference type: entry, task, session, research, question
 	RefID       string // ID of the referenced entity
 	Metadata    string // JSON blob for node-type-specific data
+	Stage       string // Stage/column for the stages view
+	NodeDate    string // ISO YYYY-MM-DD for the timeline view (or empty)
 }
 
 type CreateRoadmapEdgeRequest struct {
@@ -39,6 +43,8 @@ type CreateRoadmapRequest struct {
 	Title       string
 	Description string
 	Statuses    []string
+	Stages      []string
+	View        string
 	Nodes       []CreateRoadmapNodeRequest
 	Edges       []CreateRoadmapEdgeRequest
 }
@@ -47,6 +53,8 @@ type UpdateRoadmapRequest struct {
 	Title       *string
 	Description *string
 	Statuses    []string
+	Stages      []string
+	View        *string
 	Status      *domain.RoadmapStatus
 }
 
@@ -61,6 +69,8 @@ type UpdateRoadmapNodeRequest struct {
 	RefType     *string
 	RefID       *string
 	Metadata    *string
+	Stage       *string
+	NodeDate    *string
 }
 
 // --- Service ---
@@ -126,6 +136,14 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 	if statuses == nil {
 		statuses = []string{}
 	}
+	stages := req.Stages
+	if stages == nil {
+		stages = []string{}
+	}
+	view, err := normalizeRoadmapView(req.View)
+	if err != nil {
+		return nil, err
+	}
 
 	rm := &domain.Roadmap{
 		ID:          uuid.New().String(),
@@ -133,6 +151,8 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 		Title:       normalizeTitle(req.Title),
 		Description: normalizeContent(req.Description),
 		Statuses:    statuses,
+		Stages:      stages,
+		View:        view,
 		Status:      domain.RoadmapActive,
 	}
 
@@ -148,6 +168,10 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 		if nodeType == "" {
 			nodeType = "step"
 		}
+		nodeDate, err := normalizeNodeDate(nr.NodeDate)
+		if err != nil {
+			return nil, fmt.Errorf("node %q: %w", nr.Title, err)
+		}
 		node := &domain.RoadmapNode{
 			ID:          uuid.New().String(),
 			RoadmapID:   rm.ID,
@@ -161,6 +185,8 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 			RefType:     nr.RefType,
 			RefID:       nr.RefID,
 			Metadata:    nr.Metadata,
+			Stage:       nr.Stage,
+			NodeDate:    nodeDate,
 		}
 		if err := s.nodes.Create(ctx, node); err != nil {
 			return nil, fmt.Errorf("create node %q: %w", nr.Title, err)
@@ -527,6 +553,16 @@ func (s *RoadmapService) Update(ctx context.Context, id string, req UpdateRoadma
 	if req.Statuses != nil {
 		rm.Statuses = req.Statuses
 	}
+	if req.Stages != nil {
+		rm.Stages = req.Stages
+	}
+	if req.View != nil {
+		view, err := normalizeRoadmapView(*req.View)
+		if err != nil {
+			return nil, err
+		}
+		rm.View = view
+	}
 	if req.Status != nil {
 		rm.Status = *req.Status
 	}
@@ -579,6 +615,10 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 		if nodeType == "" {
 			nodeType = "step"
 		}
+		nodeDate, err := normalizeNodeDate(nr.NodeDate)
+		if err != nil {
+			return nil, fmt.Errorf("node %q: %w", nr.Title, err)
+		}
 		node := &domain.RoadmapNode{
 			ID:          uuid.New().String(),
 			RoadmapID:   rm.ID,
@@ -592,6 +632,8 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 			RefType:     nr.RefType,
 			RefID:       nr.RefID,
 			Metadata:    nr.Metadata,
+			Stage:       nr.Stage,
+			NodeDate:    nodeDate,
 		}
 		if err := s.nodes.Create(ctx, node); err != nil {
 			return nil, fmt.Errorf("create node %q: %w", nr.Title, err)
@@ -685,6 +727,16 @@ func (s *RoadmapService) UpdateNode(ctx context.Context, nodeID string, req Upda
 	if req.Metadata != nil {
 		node.Metadata = *req.Metadata
 	}
+	if req.Stage != nil {
+		node.Stage = *req.Stage
+	}
+	if req.NodeDate != nil {
+		nodeDate, err := normalizeNodeDate(*req.NodeDate)
+		if err != nil {
+			return nil, err
+		}
+		node.NodeDate = nodeDate
+	}
 
 	if err := s.nodes.Update(ctx, node); err != nil {
 		return nil, fmt.Errorf("update node: %w", err)
@@ -715,4 +767,40 @@ func (s *RoadmapService) RemoveNodes(ctx context.Context, roadmapID string, node
 
 	emit(ctx, s.events, Event{Type: "roadmap.updated", ResearchID: rm.ResearchID, EntityID: rm.ID, Entity: "roadmap"})
 	return nil
+}
+
+// --- View / date validation ---
+
+var (
+	// ErrInvalidRoadmapView is returned for a view outside graph/stages/timeline.
+	ErrInvalidRoadmapView = errors.New("roadmap view must be one of: graph, stages, timeline")
+	// ErrInvalidNodeDate is returned for a node_date that is not YYYY-MM-DD.
+	ErrInvalidNodeDate = errors.New("node_date must be an ISO date YYYY-MM-DD, or empty")
+)
+
+// normalizeRoadmapView defaults an empty view to graph and rejects anything not
+// in the enum. Empty is the common case — a roadmap created without a view is a
+// graph, exactly as it was before this feature existed.
+func normalizeRoadmapView(v string) (domain.RoadmapView, error) {
+	switch domain.RoadmapView(v) {
+	case "":
+		return domain.RoadmapViewGraph, nil
+	case domain.RoadmapViewGraph, domain.RoadmapViewStages, domain.RoadmapViewTimeline:
+		return domain.RoadmapView(v), nil
+	default:
+		return "", ErrInvalidRoadmapView
+	}
+}
+
+// normalizeNodeDate accepts an empty string (undated) or a strict ISO calendar
+// date. It rejects datetimes and loose forms so the timeline never has to guess
+// how to parse what it stored.
+func normalizeNodeDate(d string) (string, error) {
+	if d == "" {
+		return "", nil
+	}
+	if _, err := time.Parse("2006-01-02", d); err != nil {
+		return "", ErrInvalidNodeDate
+	}
+	return d, nil
 }

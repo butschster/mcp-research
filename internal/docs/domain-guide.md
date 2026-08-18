@@ -324,6 +324,8 @@ Visual graph for learning paths, strategy maps, decision trees, or step-by-step 
 | `description` | string | What this roadmap visualizes |
 | `statuses` | string[] | Available node statuses in order (e.g. `["not_started", "in_progress", "completed"]`) |
 | `status` | enum | `active` / `completed` / `archived` |
+| `stages` | string[] | Ordered stage/column names for the **stages** view. Empty by default. A name with no nodes is an empty column; relates to a node's `stage` as `statuses` relates to a node's `status` |
+| `view` | enum | `graph` (default) / `stages` / `timeline` — the layout the roadmap opens in. The UI toggle overrides it locally |
 | `code` | string | Auto-assigned: `RM1`, `RM2`... (per research) |
 
 **Key rules:**
@@ -358,6 +360,8 @@ A node in a roadmap graph. Represents a step, milestone, decision point, or info
 | `description` | string | Detailed text content (expandable in UI) |
 | `node_type` | string | One of the nine types below (default `step`) |
 | `status` | string | Current status (from parent roadmap's `statuses` list, or empty) |
+| `stage` | string | Which **stages**-view column the node sits in. Matched against the roadmap's `stages`; empty or unknown falls into a trailing Unassigned column |
+| `node_date` | string | ISO `YYYY-MM-DD` (or empty) placing the node on the **timeline** view. A dated `milestone` renders as a diamond on the axis |
 | `position_x` | float | X position for layout |
 | `position_y` | float | Y position for layout |
 | `parent_id` | string | Optional: parent node for hierarchical nesting |

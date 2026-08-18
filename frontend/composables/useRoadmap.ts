@@ -30,6 +30,8 @@ interface RoadmapNodeData {
   ref_type?: string
   ref_id?: string
   metadata?: string
+  stage?: string
+  node_date?: string
   ref_data?: RoadmapNodeRefData
 }
 
@@ -49,6 +51,8 @@ interface RoadmapData {
   description: string
   statuses: string[]
   status: string
+  stages: string[]
+  view: 'graph' | 'stages' | 'timeline'
   nodes: RoadmapNodeData[]
   edges: RoadmapEdgeData[]
 }
@@ -282,6 +286,32 @@ export function useRoadmap(researchId: string, roadmapId: string) {
     }
   }
 
+  // Board / timeline writers. Optimistic: patch local data so the card moves
+  // column or axis cell immediately, then confirm with the PUT and revert on
+  // failure. Board modes have no drag, so this is the only edit path there.
+  async function updateNodeField(nodeId: string, field: 'stage' | 'node_date', value: string) {
+    if (!roadmap.value) return
+    const node = roadmap.value.nodes.find(n => n.id === nodeId)
+    if (!node) return
+    const prev = field === 'stage' ? (node.stage ?? '') : (node.node_date ?? '')
+    if (field === 'stage') node.stage = value
+    else node.node_date = value
+    try {
+      await authFetch(`${base}/api/roadmap-nodes/${nodeId}`, {
+        method: 'PUT',
+        body: { [field]: value },
+      })
+    } catch (e: any) {
+      // Revert the optimistic move and surface the error.
+      if (field === 'stage') node.stage = prev
+      else node.node_date = prev
+      error.value = e?.message ?? `Failed to update node ${field}`
+    }
+  }
+
+  const updateNodeStage = (nodeId: string, stage: string) => updateNodeField(nodeId, 'stage', stage)
+  const updateNodeDate = (nodeId: string, date: string) => updateNodeField(nodeId, 'node_date', date)
+
   function updateNodePosition(nodeId: string, x: number, y: number) {
     pendingPositions.set(nodeId, { x, y })
     // Update local roadmap data immediately (so rebuild uses new positions)
@@ -381,6 +411,8 @@ export function useRoadmap(researchId: string, roadmapId: string) {
     progress,
     refresh,
     updateNodeStatus,
+    updateNodeStage,
+    updateNodeDate,
     updateNodePosition,
     autoLayout,
     layoutDirection: readonly(layoutDirection),

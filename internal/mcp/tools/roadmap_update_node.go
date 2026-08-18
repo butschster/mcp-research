@@ -20,12 +20,14 @@ type RoadmapUpdateNodeInput struct {
 	RefType     *string  `json:"ref_type" jsonschema:"Reference type: entry, task, session, research, question (empty string to clear)"`
 	RefID       *string  `json:"ref_id" jsonschema:"ID of the referenced entity (empty string to clear)"`
 	Metadata    *string  `json:"metadata" jsonschema:"JSON string with node-type-specific data"`
+	Stage       *string  `json:"stage" jsonschema:"Stage/column name for the stages view (empty string to clear)"`
+	NodeDate    *string  `json:"node_date" jsonschema:"ISO date YYYY-MM-DD for the timeline view (empty string to clear)"`
 }
 
 func RegisterRoadmapUpdateNode(srv *mcp.Server, svc *service.RoadmapService, log *slog.Logger) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "roadmap_update_node",
-		Description: "Updates a single roadmap node. Use this to change node status, content, type, or position.",
+		Description: "Updates a single roadmap node. Use this to change node status, content, type, position, stage (stages view) or node_date (timeline view).",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RoadmapUpdateNodeInput) (*mcp.CallToolResult, any, error) {
 		if input.NodeID == "" {
 			return validationErrorResult([]string{"node_id is required"})
@@ -42,6 +44,8 @@ func RegisterRoadmapUpdateNode(srv *mcp.Server, svc *service.RoadmapService, log
 			RefType:     input.RefType,
 			RefID:       input.RefID,
 			Metadata:    input.Metadata,
+			Stage:       input.Stage,
+			NodeDate:    input.NodeDate,
 		})
 		if err != nil {
 			return errorResult(err.Error())

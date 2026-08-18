@@ -14,13 +14,15 @@ type RoadmapUpdateInput struct {
 	Title       *string  `json:"title" jsonschema:"New title"`
 	Description *string  `json:"description" jsonschema:"New description"`
 	Statuses    []string `json:"statuses" jsonschema:"New list of available node statuses"`
+	Stages      []string `json:"stages" jsonschema:"New ordered stage/column names for the stages view"`
+	View        *string  `json:"view" jsonschema:"Which layout the roadmap opens in: graph, stages, or timeline"`
 	Status      *string  `json:"status" jsonschema:"Roadmap status: active, completed, archived"`
 }
 
 func RegisterRoadmapUpdate(srv *mcp.Server, svc *service.RoadmapService, log *slog.Logger) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "roadmap_update",
-		Description: "Updates roadmap metadata (title, description, statuses, status).",
+		Description: "Updates roadmap metadata (title, description, statuses, stages, view, status).",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RoadmapUpdateInput) (*mcp.CallToolResult, any, error) {
 		if input.RoadmapID == "" {
 			return validationErrorResult([]string{"roadmap_id is required"})
@@ -30,6 +32,8 @@ func RegisterRoadmapUpdate(srv *mcp.Server, svc *service.RoadmapService, log *sl
 			Title:       input.Title,
 			Description: input.Description,
 			Statuses:    input.Statuses,
+			Stages:      input.Stages,
+			View:        input.View,
 		}
 		if input.Status != nil {
 			s := domain.RoadmapStatus(*input.Status)
@@ -46,6 +50,8 @@ func RegisterRoadmapUpdate(srv *mcp.Server, svc *service.RoadmapService, log *sl
 			"title":       rm.Title,
 			"description": rm.Description,
 			"statuses":    rm.Statuses,
+			"stages":      rm.Stages,
+			"view":        rm.View,
 			"status":      rm.Status,
 		})
 	})

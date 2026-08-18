@@ -1,18 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import RoadmapNodePopover from './RoadmapNodePopover.vue'
 
+// The node detail modal (a ModalOverlay, not a positioned popover any more).
+// It shows ref-entity fields, entity/node status chips, and — new — the stage
+// and date placement controls. With auth off in Storybook canWrite is true, so
+// the placement select + date input render.
 const meta: Meta<typeof RoadmapNodePopover> = {
   title: 'Roadmap/NodePopover',
   component: RoadmapNodePopover,
   tags: ['autodocs'],
-  decorators: [
-    () => ({
-      template: '<div style="position: relative; min-height: 300px; padding: 2rem;"><story /></div>',
-    }),
-  ],
-  // Override fixed positioning for storybook display
-  parameters: {
-    layout: 'padded',
+  args: {
+    // The declared stage columns the placement <select> offers.
+    stages: ['Discovery', 'Design', 'Build', 'Launch'],
   },
 }
 export default meta
@@ -28,7 +27,22 @@ export const StepWithStatus: Story = {
       status: 'in_progress',
     },
     statuses: ['not_started', 'in_progress', 'completed'],
-    position: { x: 20, y: 20 },
+  },
+}
+
+export const WithPlacement: Story = {
+  name: 'Placement controls (stage + date)',
+  args: {
+    node: {
+      id: 'n2',
+      title: 'Wire the API',
+      description: 'Connect the frontend to the write endpoints.',
+      nodeType: 'step',
+      status: 'in_progress',
+      stage: 'Build',
+      node_date: '2026-03-10',
+    },
+    statuses: ['not_started', 'in_progress', 'completed'],
   },
 }
 
@@ -40,9 +54,10 @@ export const MilestoneCompleted: Story = {
       description: 'All core frontend skills mastered — ready to move to advanced patterns',
       nodeType: 'milestone',
       status: 'completed',
+      stage: 'Launch',
+      node_date: '2026-04-01',
     },
     statuses: ['not_started', 'in_progress', 'completed'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -56,7 +71,6 @@ export const DecisionPending: Story = {
       status: 'not_started',
     },
     statuses: ['not_started', 'evaluating', 'decided'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -70,7 +84,6 @@ export const InfoNoStatus: Story = {
       status: '',
     },
     statuses: ['not_started', 'in_progress', 'completed'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -84,7 +97,6 @@ export const NoDescription: Story = {
       status: 'completed',
     },
     statuses: ['not_started', 'completed'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -98,7 +110,6 @@ export const ManyStatuses: Story = {
       status: 'review',
     },
     statuses: ['not_started', 'planning', 'in_progress', 'review', 'testing', 'deployed'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -112,7 +123,6 @@ export const NoStatuses: Story = {
       status: '',
     },
     statuses: [],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -126,7 +136,6 @@ export const LongDescription: Story = {
       status: 'not_started',
     },
     statuses: ['not_started', 'in_progress', 'completed'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -141,7 +150,6 @@ export const CustomDomainStatuses: Story = {
       status: 'approved',
     },
     statuses: ['planned', 'approved', 'in_progress', 'launched'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -167,7 +175,6 @@ export const EntryRefPopover: Story = {
       },
     },
     statuses: ['not_started', 'in_progress', 'completed'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -191,7 +198,6 @@ export const TaskRefPopover: Story = {
       },
     },
     statuses: ['todo', 'in_progress', 'review', 'done'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -215,7 +221,6 @@ export const SessionRefPopover: Story = {
       },
     },
     statuses: ['planned', 'active', 'completed'],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -239,7 +244,6 @@ export const ResearchRefPopover: Story = {
       },
     },
     statuses: [],
-    position: { x: 20, y: 20 },
   },
 }
 
@@ -262,6 +266,5 @@ export const QuestionRefPopover: Story = {
       },
     },
     statuses: ['pending', 'answered', 'verified'],
-    position: { x: 20, y: 20 },
   },
 }
