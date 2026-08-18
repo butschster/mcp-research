@@ -20,7 +20,7 @@ research_create(..., template_slug: "technology-comparison")
 ```
 
 `template_list` takes **no arguments** — send `{}`. It never carries a body:
-eleven methodologies arriving in a kickoff that needs one is the cost this feature
+twenty-five methodologies arriving in a kickoff that needs one is the cost this feature
 exists to avoid. `template_get` takes the slug you read there (an id works too,
 but you will not have one) and is the only call that returns a body.
 
@@ -57,7 +57,7 @@ research created over REST carries no provenance and no attached skills.
 
 ## What ships
 
-Eleven, refreshed from the binary at every boot.
+Twenty-five, refreshed from the binary at every boot.
 
 | Slug | Ends in | Skills it attaches |
 |---|---|---|
@@ -72,6 +72,35 @@ Eleven, refreshed from the binary at every boot.
 | `startup-idea` | one thesis with a dated "why now", a buyer's existing workaround, and the strongest case against it | `structured-interviewing`, `evidence-grading` |
 | `agent-economics` | a job, a cost per run, a price, and the error rate at which it stops being worth buying | `evidence-grading` |
 | `personal-capital` | moves with a date, an hours cost and a downside the person's floor survives | `evidence-grading` |
+
+**Building and product:**
+
+| Slug | Ends in | Skills it attaches |
+|---|---|---|
+| `incident-postmortem` | a causal account responders sign, and at most five corrective actions that close | `structured-interviewing`, `evidence-grading` |
+| `legacy-system-decision` | leave / contain / refactor / strangle / rewrite, with named doers and a tripwire | `structured-interviewing`, `evidence-grading` |
+| `feature-discovery` | two or three candidates, each with its summoning evidence and cheapest kill test | `structured-interviewing`, `evidence-grading` |
+| `feature-kill-or-keep` | kill with a date and migration, invest with a metric, or keep with the cost accepted in writing | `structured-interviewing`, `evidence-grading` |
+| `roadmap-prioritisation` | an ordered plan with owners, explicit cuts, and criteria fixed before candidates were read | `structured-interviewing`, `evidence-grading` |
+
+**Selling and growing:**
+
+| Slug | Ends in | Skills it attaches |
+|---|---|---|
+| `channel-economics` | one channel under budget with a kill number, two declined with the arithmetic | `structured-interviewing`, `evidence-grading` |
+| `retention-diagnosis` | one leak, who it takes, an intervention with a number — or an honest "the work is upstream" | `structured-interviewing`, `evidence-grading` |
+| `churn-diagnosis` | at most three causes claiming named regretted accounts, plus the churn you keep | `structured-interviewing`, `evidence-grading` |
+| `win-loss-analysis` | why deals are really won and lost, from the buyers, with changes owned and dated | `structured-interviewing`, `evidence-grading` |
+| `live-deal-qualification` | pursue at a named cost or qualify out, on tests the buyer can refuse | `structured-interviewing`, `evidence-grading` |
+
+**Capital and career:**
+
+| Slug | Ends in | Skills it attaches |
+|---|---|---|
+| `raise-or-not` | raise / don't / raise-on-a-trigger, with the zero-raised plan as candidate zero | `evidence-grading` |
+| `business-acquisition` | buy at X under conditions or walk — and one word: machine, job, or liability | `structured-interviewing`, `evidence-grading` |
+| `stay-or-leave` | a dated decision outside any spike window, every complaint tagged and asked about | `evidence-grading` |
+| `offer-negotiation` | a derived walk-away, a justified opening, and word-for-word responses to their moves | `evidence-grading` |
 
 Each carries a correction to the obvious version of itself. They are the
 difference between the template and a section list:
@@ -119,6 +148,42 @@ difference between the template and a section list:
   two columns are never summed; every move carries the **hours** it costs, which
   is what makes this different from a company's version. The best-sounding move
   is the one that got written about because it worked.
+- **Postmortem:** "root cause" is a decision, not a discovery — the why-chain has
+  no natural end, and organisations stop at the cheapest fixable point or the most
+  junior person present. Contributing factors, plural, by construction.
+- **Legacy system:** the old system is the only complete spec you have, and the
+  comparison is rigged by memory — the imagined system on its best day against the
+  real one on its worst. Leave-it-alone is candidate zero, written seriously.
+- **Feature discovery:** users answer with solutions — record the problem they
+  were solving. And every evidence channel was built to hear the engaged, so check
+  the shortlist against the churn evidence too.
+- **Kill or keep:** "keep" pays the same evidence bill as "kill", and "keep and
+  watch" is not an outcome — date it and number it, or admit you chose keep.
+- **Roadmap:** criteria are fixed and *ordered* before any candidate is read, or
+  the matrix launders a decision the off-spreadsheet negotiation already made. A
+  plan every stakeholder likes was ordered by seniority.
+- **Channels:** the channel that worked is degrading while you scale it — record
+  CAC by spend tranche, never cumulatively; the cumulative average hides the slope.
+- **Retention:** an "improvement" is indistinguishable from an acquisition-mix
+  change until cohorts and sources are held apart.
+- **Churn:** the ex-customers who answer are the polite churn; test every
+  interview-built cause against the trail of the silent ones.
+- **Win/loss:** the buyer's stated reason is where the interview starts — "price"
+  is a symptom until you know what they bought instead. Wins get the same
+  scrutiny; a win with no rejected alternative is a renewal risk.
+- **Deal qualification:** a champion is proven by what they do without you in the
+  room; a test the buyer cannot refuse is not a test.
+- **Raise or not:** almost everyone you can consult is paid in the "raise" answer,
+  and the reference class is rigged twice — raised-and-died and never-raised-and-won
+  are both invisible.
+- **Acquisition:** after months inside a deal every problem becomes a discount
+  instead of a signal — write the walk-away conditions before the verification
+  work, as conditions, not a price.
+- **Stay or leave:** you decide in a spike and gather evidence in the flat — date
+  the trigger behind every complaint, and re-read the stay case written in
+  different weather.
+- **Negotiation:** by the time the offer arrives you have already moved in — the
+  walk-away is derived on paper before the process makes you want the job.
 
 ## Two tiers, and two kinds of global
 

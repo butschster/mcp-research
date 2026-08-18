@@ -405,7 +405,7 @@ curl -X POST https://your-server/api/templates \
 ```
 
 A methodology is what an AI reads *before* it starts a research: what to ask you
-first, what structure to propose, when the work is finished. Eleven ship with the
+first, what structure to propose, when the work is finished. Twenty-five ship with the
 app; this adds yours next to them. It survives every upgrade — what ships is
 refreshed from the binary, what you write here is not touched.
 
