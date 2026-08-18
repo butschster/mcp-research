@@ -240,6 +240,7 @@ body is not searched as text and contributes no cross-references.
 - Deleting an entry (`entry_delete`) also deletes its cross-references, its extracted external links, and its whole revision history.
 - A blocks entry is edited whole with `entry_update` or block by block with `entry_patch`; `text_replace` is refused on it.
 - URLs found in entry content are extracted into an external-links index, readable at `GET /api/entries/{id}/links` and `GET /api/researches/{id}/links`.
+- One document can be taken out on its own: `GET /api/entries/{id}/markdown` returns it as a `.md` file with YAML front matter — the vault's, minus `aliases` and `session` — named `E50 — Title.md`. The `{id}` is the entry UUID, not an `E`-code. There is no MCP tool for it (`entry_read` already gives an agent the content), the file leaves `[[E3]]` exactly as stored, and the route is not on the share sub-mux. See [Export](/llms/export.md).
 
 **Cross-reference syntax in content:**
 - `[[E3]]` — entry E3 in same research

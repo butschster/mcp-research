@@ -121,19 +121,34 @@ export function useDownload() {
   return { pending, slow, filename, error, start, reset, abort }
 }
 
+/*
+ * The messages name no noun.
+ *
+ * They were written for the vault archive and said "the archive", "export fewer
+ * parts", "this research" — which became wrong the day a second caller
+ * downloaded one document. Each caller supplies the noun in its own toast
+ * title, which is where it belongs.
+ */
+
 /** A timeout of our own making, kept apart from the statuses a server sends. */
 export const TIMED_OUT = -1
 
 function describe(status: number): string {
-  if (status === TIMED_OUT) {
-    // The UI said "still working" 48 seconds ago; blaming the connection now
+  switch (status) {
+  case TIMED_OUT:
+    // The UI said "still working" moments ago; blaming the connection now
     // would contradict it.
-    return 'the server took too long to build the archive. Try again, or export fewer parts.'
+    return 'the server took too long. Nothing was downloaded — try again.'
+  case 401:
+  case 403:
+    return 'your session expired. Sign in again to download.'
+  case 404:
+    return 'this is no longer available. Reload the page to check.'
+  case 0:
+    return 'no answer from the server. Check your connection and try again.'
+  default:
+    return 'the server could not produce the file. Nothing was downloaded.'
   }
-  if (status === 401 || status === 403) return 'your session expired. Sign in again to download.'
-  if (status === 404) return 'this research is no longer available. Reload the page to check.'
-  if (status >= 500) return 'the server could not build the archive. Nothing was downloaded.'
-  return 'no answer from the server. Check your connection and try again.'
 }
 
 /**

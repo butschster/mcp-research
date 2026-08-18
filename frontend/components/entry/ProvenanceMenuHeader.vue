@@ -2,7 +2,7 @@
   <div class="action-menu-header prov">
     <p class="prov-who">
       <EntryAuthorBadge :kind="authorKind" variant="glyph" class="prov-glyph" />
-      <span class="prov-name">{{ who }}</span>
+      <span class="prov-name" :title="who">{{ who }}</span>
     </p>
     <p class="prov-when">
       <span v-if="revision" class="prov-rev">r{{ revision }}</span>
@@ -30,6 +30,9 @@
  * page is worse than one that degrades.
  */
 import { computed } from 'vue'
+// Aliased: the prop is also called `authorKind`, and in the template the
+// import would win.
+import { authorKind as kindWords } from '~/composables/useAuthorKind'
 import { relativeTime } from '~/composables/useRelativeTime'
 
 const props = defineProps<{
@@ -41,17 +44,10 @@ const props = defineProps<{
   authorName?: string
 }>()
 
-const KIND_WORDS: Record<string, string> = {
-  human: 'A person',
-  agent: 'An agent',
-  import: 'An import',
-  restore: 'A restore',
-}
-
 // The name when there is one, the kind when there is not. The glyph already
 // carries the kind, so repeating it beside a name would spend the panel's one
 // strong line on something said twice.
-const who = computed(() => props.authorName || KIND_WORDS[props.authorKind] || props.authorKind)
+const who = computed(() => props.authorName || kindWords(props.authorKind).phrase)
 </script>
 
 <style scoped>
@@ -60,9 +56,15 @@ const who = computed(() => props.authorName || KIND_WORDS[props.authorKind] || p
 
 .prov-who {
   display: grid;
-  grid-template-columns: var(--menu-icon) 1fr;
+  /* With a fallback: outside an ActionMenu the property is undefined, and
+     an invalid grid-template-columns collapses the row to a stack. */
+  grid-template-columns: var(--menu-icon, 14px) 1fr;
   align-items: center;
-  gap: var(--space-2);
+  /* --space-3, matching `.action-menu-item`'s gap after its icon. At --space-2
+     the glyph column lined up and the text after it did not: the name sat four
+     pixels left of every verb label, which is precisely the alignment this
+     column exists to produce. */
+  gap: var(--space-3);
   font-size: var(--type-sm);
   color: var(--color-text);
 }
@@ -82,7 +84,7 @@ const who = computed(() => props.authorName || KIND_WORDS[props.authorKind] || p
 .prov-when {
   /* Indented to the text column, not to the panel, so the two lines read as one
      block rather than as two rows that happen to be adjacent. */
-  margin-left: calc(var(--menu-icon) + var(--space-2));
+  margin-left: calc(var(--menu-icon, 14px) + var(--space-3));
   margin-top: 0.1rem;
   display: flex;
   align-items: center;
@@ -90,6 +92,9 @@ const who = computed(() => props.authorName || KIND_WORDS[props.authorKind] || p
   font-size: var(--type-xs);
   color: var(--color-text-faint);
 }
-.prov-rev { font-variant-numeric: tabular-nums; }
+/* A revision number is a short code, and every short code in this product is
+   set in the mono face. `font-variant-numeric` alone was a no-op — body already
+   sets it. */
+.prov-rev { font-family: 'JetBrains Mono', monospace; }
 .prov-sep { opacity: 0.6; }
 </style>

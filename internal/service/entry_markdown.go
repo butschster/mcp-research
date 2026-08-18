@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 )
 
@@ -25,6 +26,10 @@ import (
 //   - It carries no provenance. Who wrote a document, in which session and at
 //     which revision is working process, and it is the one thing this product
 //     never lets out — a share link is refused it too.
+//   - An html block is **named, not inlined**: `> **Revenue chart** —
+//     interactive HTML, view in the web UI.` The vault writes the artifact
+//     beside the note as a real file and links it; a loose file has no beside,
+//     and a wall of markup is not markdown.
 
 // MarkdownFile is one document rendered for download.
 type MarkdownFile struct {
@@ -36,6 +41,15 @@ type MarkdownFile struct {
 // MarkdownExport renders a single entry as a markdown file with YAML front
 // matter, the same front matter the Obsidian vault writes.
 func (s *EntryService) MarkdownExport(ctx context.Context, entryID string) (*MarkdownFile, error) {
+	// A share visitor is refused here, not only by the route being absent from
+	// the shared sub-mux. The sub-mux is the boundary and stays the boundary —
+	// but this is now a second renderer of a document's whole body, reachable by
+	// id, and the next person mounting something under /api/shared/ should find
+	// the refusal in the code rather than infer it from a test.
+	if auth.ShareFromContext(ctx) != nil {
+		return nil, ErrNotFound
+	}
+
 	entry, err := s.Get(ctx, entryID)
 	if err != nil {
 		return nil, err
@@ -83,7 +97,7 @@ func (s *EntryService) MarkdownExport(ctx context.Context, entryID string) (*Mar
 	// (`autoDescription`), so printing it above the body is the same sentences
 	// twice — which is why the vault does not print it either, though it does
 	// for a task and a roadmap, whose descriptions are written by hand.
-	b.WriteString("\n" + s.markdownBody(entry))
+	b.WriteString("\n" + entryMarkdownBody(entry, MarkdownOptions{}))
 
 	return &MarkdownFile{
 		Filename: markdownFilename(entry),
@@ -91,14 +105,20 @@ func (s *EntryService) MarkdownExport(ctx context.Context, entryID string) (*Mar
 	}, nil
 }
 
-// markdownBody renders the document itself.
+// entryMarkdownBody renders a document's body for a markdown file.
 //
-// A block document stores JSON, so its markdown projection is the only readable
-// form of it. Unlike the vault, an html block is inlined rather than written
-// beside the file and linked: there is no beside. A reader who opens the file
-// in a plain markdown editor sees the source of the artifact, which is the
-// honest outcome — the alternative is a link to nothing.
-func (s *EntryService) markdownBody(entry *domain.Entry) string {
+// Shared by the vault note and the single-file download. It was written twice
+// first — same guard, same branch, same "could not be read" sentence — and the
+// compiler could not say so, because the two were methods on different
+// receivers. That is the same failure that produced a duplicate
+// contentDisposition one package over, one level down where nothing catches it.
+//
+// The options are the whole difference: the vault omits the mermaid live-editor
+// link because Obsidian draws mermaid itself, and overrides HTMLBlock to write
+// the artifact beside the note as a real file. A loose file takes the zero
+// value, whose default names an html block rather than emitting it — a wall of
+// markup is not markdown, and there is no beside to link to.
+func entryMarkdownBody(entry *domain.Entry, opts MarkdownOptions) string {
 	if entry.Content == "" {
 		return ""
 	}
@@ -109,7 +129,7 @@ func (s *EntryService) markdownBody(entry *domain.Entry) string {
 	if err != nil {
 		return "*This entry holds a block document that could not be read.*\n"
 	}
-	return strings.TrimRight(BlockDocumentToMarkdown(doc), "\n") + "\n"
+	return strings.TrimRight(BlockDocumentToMarkdownWith(doc, opts), "\n") + "\n"
 }
 
 // markdownFilename names the file after the code and the title.
