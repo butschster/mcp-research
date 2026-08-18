@@ -2,7 +2,7 @@
   <ModalOverlay :labelledby="titleId" :visible="!!node" size="sm" flush @close="$emit('close')">
     <template v-if="node">
       <!-- Header (same pattern as DetailsPanel) -->
-      <ModalHeader title="{{ node.refType || node.nodeType }}" :title-id="titleId" @close="$emit('close')" />
+      <ModalHeader :title="node.refType || node.nodeType" :title-id="titleId" @close="$emit('close')" />
 
       <div class="modal-body">
         <!-- Title + description -->
@@ -77,6 +77,51 @@
           Open {{ refLabel }}
         </button>
 
+        <!-- Placement: stage column and timeline date (for the stages/timeline views) -->
+        <div v-if="canWrite" class="statuses-section rm-placement">
+          <div class="rm-place-field">
+            <label class="field-label" :for="stageSelId">Stage</label>
+            <select
+              :id="stageSelId"
+              class="rm-place-input"
+              :value="node.stage || ''"
+              @change="$emit('update-stage', node.id, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">Unassigned</option>
+              <option v-for="st in stages" :key="st" :value="st">{{ st }}</option>
+            </select>
+          </div>
+          <div class="rm-place-field">
+            <label class="field-label" :for="dateInpId">Date</label>
+            <input
+              :id="dateInpId"
+              type="date"
+              class="rm-place-input"
+              :value="node.node_date || ''"
+              @change="$emit('update-date', node.id, ($event.target as HTMLInputElement).value)"
+            />
+          </div>
+          <div class="rm-place-field">
+            <label class="field-label" :for="endInpId">End date</label>
+            <input
+              :id="endInpId"
+              type="date"
+              class="rm-place-input"
+              :value="node.node_end_date || ''"
+              :min="node.node_date || undefined"
+              :disabled="!node.node_date || node.nodeType === 'milestone'"
+              :title="endInputTitle"
+              @change="$emit('update-end-date', node.id, ($event.target as HTMLInputElement).value)"
+            />
+          </div>
+        </div>
+        <!-- Read-only placement summary -->
+        <div v-else-if="node.stage || node.node_date || node.node_end_date" class="statuses-section rm-placement-ro">
+          <span v-if="node.stage" class="rm-place-ro"><span class="field-label">Stage</span> {{ node.stage }}</span>
+          <span v-if="node.node_date" class="rm-place-ro"><span class="field-label">Date</span> {{ node.node_date }}</span>
+          <span v-if="node.node_end_date" class="rm-place-ro"><span class="field-label">End</span> {{ node.node_end_date }}</span>
+        </div>
+
         <!-- Roadmap node status chips (only for non-ref nodes) -->
         <div v-if="statuses.length && !node.refType" class="statuses-section">
           <label class="field-label">Status</label>
@@ -120,8 +165,12 @@ const props = defineProps<{
     refType?: string
     refId?: string
     refData?: any
+    stage?: string
+    node_date?: string
+    node_end_date?: string
   } | null
-  statuses: string[]
+  statuses: readonly string[]
+  stages: readonly string[]
 }>()
 
 // Opening the entity stays; changing its status does not.
@@ -130,9 +179,22 @@ const { canWrite } = useResearchRole()
 defineEmits<{
   'update-status': [nodeId: string, status: string]
   'update-entity-status': [refType: string, refId: string, status: string]
+  'update-stage': [nodeId: string, stage: string]
+  'update-date': [nodeId: string, date: string]
+  'update-end-date': [nodeId: string, date: string]
   'navigate': [node: any]
   'close': []
 }>()
+
+const stageSelId = useId()
+const dateInpId = useId()
+const endInpId = useId()
+
+const endInputTitle = computed(() => {
+  if (!props.node?.node_date) return 'Set a date first — an end date needs a start.'
+  if (props.node?.nodeType === 'milestone') return 'A milestone is a single point in time — an end date is ignored.'
+  return ''
+})
 
 const refLabel = computed(() => {
   switch (props.node?.refType) {
@@ -278,4 +340,27 @@ const entityStatuses = computed(() => {
   border-color: rgba(239, 107, 107, 0.4);
   color: rgba(239, 107, 107, 1);
 }
+
+.rm-placement { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+.rm-place-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.rm-place-input {
+  appearance: none;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--type-xs);
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+}
+.rm-place-input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+select.rm-place-input {
+  padding-right: var(--space-5);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%238b93a5' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-2) center;
+}
+.rm-placement-ro { display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: var(--type-sm); color: var(--color-text); }
+.rm-place-ro .field-label { margin-right: var(--space-1); }
 </style>

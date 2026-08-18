@@ -18,9 +18,11 @@
         <span v-if="roadmap?.code" class="toolbar-code">{{ roadmap.code }}</span>
       </div>
       <div class="toolbar-right">
+        <RoadmapViewToggle v-model="view" />
         <div v-if="progress.total > 0" class="toolbar-progress">
           <span class="progress-text">{{ progress.completed }}/{{ progress.total }}</span>
         </div>
+        <template v-if="view === 'graph'">
         <button
           :class="['btn btn-sm', { active: layoutDirection === 'LR' }]"
           title="Left to right"
@@ -38,6 +40,7 @@
         <button class="btn btn-sm" title="Fit view" @click="fitAll">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
         </button>
+        </template>
       </div>
     </div>
 
@@ -52,7 +55,23 @@
     </div>
 
     <div v-else class="roadmap-canvas">
+      <RoadmapStagesBoard
+        v-if="view === 'stages'"
+        :stages="roadmap?.stages ?? []"
+        :nodes="rawNodes"
+        :edges="rawEdges"
+        @node-click="openNode"
+        @switch-graph="view = 'graph'"
+      />
+      <RoadmapTimeline
+        v-else-if="view === 'timeline'"
+        :nodes="rawNodes"
+        :edges="rawEdges"
+        @node-click="openNode"
+        @switch-graph="view = 'graph'"
+      />
       <VueFlow
+        v-else
         :nodes="nodes"
         :edges="edges"
         :node-types="nodeTypes"
@@ -80,6 +99,7 @@
     <RoadmapNodePopover
       :node="selectedNode"
       :statuses="[...(roadmap?.statuses ?? [])]"
+      :stages="[...(roadmap?.stages ?? [])]"
       @navigate="onNavigate"
       @close="selectedNode = null"
     />
@@ -99,6 +119,9 @@ import RoadmapRootNode from '~/components/roadmap/RoadmapRootNode.vue'
 import RoadmapStepNode from '~/components/roadmap/RoadmapStepNode.vue'
 import RoadmapRefNode from '~/components/roadmap/RoadmapRefNode.vue'
 import RoadmapNodePopover from '~/components/roadmap/RoadmapNodePopover.vue'
+import RoadmapViewToggle, { type RoadmapView } from '~/components/roadmap/RoadmapViewToggle.vue'
+import RoadmapStagesBoard from '~/components/roadmap/RoadmapStagesBoard.vue'
+import RoadmapTimeline from '~/components/roadmap/RoadmapTimeline.vue'
 
 const route = useRoute()
 const roadmapId = route.params.roadmapId as string
@@ -122,20 +145,34 @@ const { roadmap, nodes, edges, loading, error, progress, refresh, layoutDirectio
 const { fitView } = useVueFlow()
 function fitAll() { fitView({ padding: 0.15, duration: 300 }) }
 
+const view = ref<RoadmapView>('graph')
+let viewInitialised = false
+watch(roadmap, (rm) => {
+  if (rm && !viewInitialised) {
+    view.value = (rm.view as RoadmapView) || 'graph'
+    viewInitialised = true
+  }
+}, { immediate: true })
+const rawNodes = computed(() => roadmap.value?.nodes ?? [])
+const rawEdges = computed(() => roadmap.value?.edges ?? [])
+
 const selectedNode = ref<any | null>(null)
+
+// Open a node by id from any view, reading the raw node (stage/date included).
+function openNode(nodeId: string) {
+  const n = roadmap.value?.nodes.find(x => x.id === nodeId)
+  if (!n) return
+  selectedNode.value = {
+    id: n.id, title: n.title, description: n.description || '',
+    nodeType: n.node_type || 'step', status: n.status || '',
+    refType: n.ref_type, refId: n.ref_id, refData: n.ref_data,
+    stage: n.stage || '', node_date: n.node_date || '', node_end_date: n.node_end_date || '',
+  }
+}
 
 function onNodeClick({ node }: { node: any }) {
   if (node.type === 'roadmap-root') return
-  selectedNode.value = {
-    id: node.id,
-    title: node.data.title,
-    description: node.data.description || '',
-    nodeType: node.data.nodeType || 'step',
-    status: node.data.status || '',
-    refType: node.data.refType,
-    refId: node.data.refId,
-    refData: node.data.refData,
-  }
+  openNode(node.id)
 }
 
 /**
@@ -191,7 +228,10 @@ useResearchRealtime(
 .toolbar-title { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
 .toolbar-code { font-family: 'JetBrains Mono', monospace; font-size: var(--type-xs); color: var(--color-text-muted); }
 .toolbar-progress { font-size: var(--type-xs); color: var(--color-text-muted); }
-.roadmap-canvas { flex: 1; min-height: 60vh; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
+/* A definite height, not min-height: the stages board and timeline fill their
+   ancestor and scroll internally, which needs the ancestor to resolve to a real
+   height (the owner page gets that from position:fixed; here it is explicit). */
+.roadmap-canvas { flex: 1; height: 70vh; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
 .roadmap-flow { height: 100%; min-height: 60vh; }
 .roadmap-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 40vh; }
 

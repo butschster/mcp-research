@@ -97,6 +97,9 @@ func nodeFromInput(n RoadmapCreateNode) service.CreateRoadmapNodeRequest {
 		RefType:     derefStr(n.RefType),
 		RefID:       derefStr(n.RefID),
 		Metadata:    derefStr(n.Metadata),
+		Stage:       derefStr(n.Stage),
+		NodeDate:    derefStr(n.NodeDate),
+		NodeEndDate: derefStr(n.NodeEndDate),
 	}
 }
 

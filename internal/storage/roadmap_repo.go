@@ -30,10 +30,10 @@ func (r *RoadmapRepository) Create(ctx context.Context, rm *domain.Roadmap) erro
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO roadmaps (id, code, research_id, title, description, statuses, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO roadmaps (id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rm.ID, rm.Code, rm.ResearchID, rm.Title, rm.Description,
-		marshalJSON(rm.Statuses), rm.Status,
+		marshalJSON(rm.Statuses), rm.Status, marshalJSON(rm.Stages), rm.View,
 		now, now,
 	)
 	if err != nil {
@@ -48,8 +48,8 @@ func (r *RoadmapRepository) Create(ctx context.Context, rm *domain.Roadmap) erro
 func (r *RoadmapRepository) Update(ctx context.Context, rm *domain.Roadmap) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE roadmaps SET title=?, description=?, statuses=?, status=?, updated_at=? WHERE id=?`,
-		rm.Title, rm.Description, marshalJSON(rm.Statuses), rm.Status, now, rm.ID,
+		`UPDATE roadmaps SET title=?, description=?, statuses=?, status=?, stages=?, view=?, updated_at=? WHERE id=?`,
+		rm.Title, rm.Description, marshalJSON(rm.Statuses), rm.Status, marshalJSON(rm.Stages), rm.View, now, rm.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update roadmap: %w", err)
@@ -61,7 +61,7 @@ func (r *RoadmapRepository) Update(ctx context.Context, rm *domain.Roadmap) erro
 // FindByID returns a roadmap without nodes/edges.
 func (r *RoadmapRepository) FindByID(ctx context.Context, id string) (*domain.Roadmap, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, created_at, updated_at
+		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
 		 FROM roadmaps WHERE id=?`, id)
 	return r.scanRoadmap(row)
 }
@@ -69,7 +69,7 @@ func (r *RoadmapRepository) FindByID(ctx context.Context, id string) (*domain.Ro
 // FindByCode returns a roadmap by its short code (e.g. RM1).
 func (r *RoadmapRepository) FindByCode(ctx context.Context, code string) (*domain.Roadmap, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, created_at, updated_at
+		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
 		 FROM roadmaps WHERE code=?`, code)
 	return r.scanRoadmap(row)
 }
@@ -77,7 +77,7 @@ func (r *RoadmapRepository) FindByCode(ctx context.Context, code string) (*domai
 // FindByCodeAndResearch returns a roadmap by its short code scoped to a research.
 func (r *RoadmapRepository) FindByCodeAndResearch(ctx context.Context, code, researchID string) (*domain.Roadmap, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, created_at, updated_at
+		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
 		 FROM roadmaps WHERE code=? AND research_id=?`, code, researchID)
 	return r.scanRoadmap(row)
 }
@@ -85,7 +85,7 @@ func (r *RoadmapRepository) FindByCodeAndResearch(ctx context.Context, code, res
 // FindByResearch returns all roadmaps for a research.
 func (r *RoadmapRepository) FindByResearch(ctx context.Context, researchID string) ([]*domain.Roadmap, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, created_at, updated_at
+		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
 		 FROM roadmaps WHERE research_id=? ORDER BY created_at ASC`, researchID)
 	if err != nil {
 		return nil, fmt.Errorf("query roadmaps: %w", err)
@@ -112,11 +112,11 @@ func (r *RoadmapRepository) Delete(ctx context.Context, id string) error {
 func (r *RoadmapRepository) scanRoadmap(row *sql.Row) (*domain.Roadmap, error) {
 	var rm domain.Roadmap
 	var createdAt, updatedAt string
-	var statuses sql.NullString
+	var statuses, stages sql.NullString
 
 	err := row.Scan(
 		&rm.ID, &rm.Code, &rm.ResearchID, &rm.Title, &rm.Description,
-		&statuses, &rm.Status,
+		&statuses, &rm.Status, &stages, &rm.View,
 		&createdAt, &updatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -126,6 +126,7 @@ func (r *RoadmapRepository) scanRoadmap(row *sql.Row) (*domain.Roadmap, error) {
 		return nil, fmt.Errorf("scan roadmap: %w", err)
 	}
 	rm.Statuses = unmarshalStringSlice(statuses)
+	rm.Stages = unmarshalStringSlice(stages)
 	rm.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
 	rm.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
 	return &rm, nil
@@ -134,17 +135,18 @@ func (r *RoadmapRepository) scanRoadmap(row *sql.Row) (*domain.Roadmap, error) {
 func (r *RoadmapRepository) scanRoadmapRow(rows *sql.Rows) (*domain.Roadmap, error) {
 	var rm domain.Roadmap
 	var createdAt, updatedAt string
-	var statuses sql.NullString
+	var statuses, stages sql.NullString
 
 	err := rows.Scan(
 		&rm.ID, &rm.Code, &rm.ResearchID, &rm.Title, &rm.Description,
-		&statuses, &rm.Status,
+		&statuses, &rm.Status, &stages, &rm.View,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan roadmap row: %w", err)
 	}
 	rm.Statuses = unmarshalStringSlice(statuses)
+	rm.Stages = unmarshalStringSlice(stages)
 	rm.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
 	rm.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
 	return &rm, nil
@@ -188,11 +190,11 @@ func (r *RoadmapNodeRepository) Create(ctx context.Context, node *domain.Roadmap
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO roadmap_nodes (id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO roadmap_nodes (id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		node.ID, node.Code, node.RoadmapID, node.Title, node.Description,
 		node.NodeType, node.Status, node.PositionX, node.PositionY, parentID,
-		refType, refID, metadata,
+		refType, refID, metadata, node.Stage, node.NodeDate, node.NodeEndDate,
 		now, now,
 	)
 	if err != nil {
@@ -223,9 +225,9 @@ func (r *RoadmapNodeRepository) Update(ctx context.Context, node *domain.Roadmap
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE roadmap_nodes SET title=?, description=?, node_type=?, status=?, position_x=?, position_y=?, parent_id=?, ref_type=?, ref_id=?, metadata=?, updated_at=? WHERE id=?`,
+		`UPDATE roadmap_nodes SET title=?, description=?, node_type=?, status=?, position_x=?, position_y=?, parent_id=?, ref_type=?, ref_id=?, metadata=?, stage=?, node_date=?, node_end_date=?, updated_at=? WHERE id=?`,
 		node.Title, node.Description, node.NodeType, node.Status,
-		node.PositionX, node.PositionY, parentID, refType, refID, metadata, now, node.ID,
+		node.PositionX, node.PositionY, parentID, refType, refID, metadata, node.Stage, node.NodeDate, node.NodeEndDate, now, node.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update roadmap node: %w", err)
@@ -237,7 +239,7 @@ func (r *RoadmapNodeRepository) Update(ctx context.Context, node *domain.Roadmap
 // FindByID returns a single node.
 func (r *RoadmapNodeRepository) FindByID(ctx context.Context, id string) (*domain.RoadmapNode, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, created_at, updated_at
+		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at
 		 FROM roadmap_nodes WHERE id=?`, id)
 	return r.scanNode(row)
 }
@@ -245,7 +247,7 @@ func (r *RoadmapNodeRepository) FindByID(ctx context.Context, id string) (*domai
 // FindByCode returns a node by its short code (e.g. N3) within a roadmap.
 func (r *RoadmapNodeRepository) FindByCode(ctx context.Context, roadmapID, code string) (*domain.RoadmapNode, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, created_at, updated_at
+		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at
 		 FROM roadmap_nodes WHERE roadmap_id=? AND code=?`, roadmapID, code)
 	return r.scanNode(row)
 }
@@ -253,7 +255,7 @@ func (r *RoadmapNodeRepository) FindByCode(ctx context.Context, roadmapID, code 
 // FindByRoadmap returns all nodes for a roadmap.
 func (r *RoadmapNodeRepository) FindByRoadmap(ctx context.Context, roadmapID string) ([]*domain.RoadmapNode, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, created_at, updated_at
+		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at
 		 FROM roadmap_nodes WHERE roadmap_id=? ORDER BY created_at ASC`, roadmapID)
 	if err != nil {
 		return nil, fmt.Errorf("query roadmap nodes: %w", err)
@@ -285,7 +287,7 @@ func (r *RoadmapNodeRepository) scanNode(row *sql.Row) (*domain.RoadmapNode, err
 	err := row.Scan(
 		&n.ID, &n.Code, &n.RoadmapID, &n.Title, &n.Description,
 		&n.NodeType, &n.Status, &n.PositionX, &n.PositionY, &parentID,
-		&refType, &refID, &metadata,
+		&refType, &refID, &metadata, &n.Stage, &n.NodeDate, &n.NodeEndDate,
 		&createdAt, &updatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -319,7 +321,7 @@ func (r *RoadmapNodeRepository) scanNodeRow(rows *sql.Rows) (*domain.RoadmapNode
 	err := rows.Scan(
 		&n.ID, &n.Code, &n.RoadmapID, &n.Title, &n.Description,
 		&n.NodeType, &n.Status, &n.PositionX, &n.PositionY, &parentID,
-		&refType, &refID, &metadata,
+		&refType, &refID, &metadata, &n.Stage, &n.NodeDate, &n.NodeEndDate,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {

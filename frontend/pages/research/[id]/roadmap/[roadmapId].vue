@@ -11,6 +11,9 @@
         <span v-if="roadmap?.code" class="toolbar-code">{{ roadmap.code }}</span>
       </div>
       <div class="toolbar-right">
+        <!-- View toggle: governs the mode-specific controls after it -->
+        <RoadmapViewToggle v-model="view" />
+
         <!-- Progress -->
         <div v-if="progress.total > 0" class="toolbar-progress">
           <span class="progress-text">{{ progress.completed }}/{{ progress.total }}</span>
@@ -21,6 +24,7 @@
 
         <TeamViewerNotice v-if="isViewer" :team-name="researchData?.data?.research?.team_name" />
 
+        <template v-if="view === 'graph'">
         <span class="toolbar-sep"></span>
 
         <!-- Layout toggle -->
@@ -52,6 +56,7 @@
         <button class="btn btn-sm" @click="fitAll" title="Fit view">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
         </button>
+        </template>
       </div>
     </div>
 
@@ -69,7 +74,23 @@
 
     <!-- Canvas -->
     <div v-else class="roadmap-canvas">
+      <RoadmapStagesBoard
+        v-if="view === 'stages'"
+        :stages="roadmap?.stages ?? []"
+        :nodes="rawNodes"
+        :edges="rawEdges"
+        @node-click="openNode"
+        @switch-graph="view = 'graph'"
+      />
+      <RoadmapTimeline
+        v-else-if="view === 'timeline'"
+        :nodes="rawNodes"
+        :edges="rawEdges"
+        @node-click="openNode"
+        @switch-graph="view = 'graph'"
+      />
       <VueFlow
+        v-else
         :nodes="nodes"
         :edges="edges"
         :node-types="nodeTypes"
@@ -96,12 +117,22 @@
       </VueFlow>
     </div>
 
+    <!-- Inline write-error banner: a failed save surfaces here, not as a takeover -->
+    <div v-if="writeError" class="rm-write-error" role="alert">
+      <span>{{ writeError }}</span>
+      <button class="rm-write-error-dismiss" @click="clearWriteError" aria-label="Dismiss">&times;</button>
+    </div>
+
     <!-- Node detail modal -->
     <RoadmapNodePopover
       :node="selectedNode"
       :statuses="roadmap?.statuses ?? []"
+      :stages="roadmap?.stages ?? []"
       @update-status="onUpdateStatus"
       @update-entity-status="onUpdateEntityStatus"
+      @update-stage="onUpdateStage"
+      @update-date="onUpdateDate"
+      @update-end-date="onUpdateEndDate"
       @navigate="onNavigate"
       @close="selectedNode = null"
     />
@@ -121,6 +152,9 @@ import RoadmapRootNode from '~/components/roadmap/RoadmapRootNode.vue'
 import RoadmapStepNode from '~/components/roadmap/RoadmapStepNode.vue'
 import RoadmapRefNode from '~/components/roadmap/RoadmapRefNode.vue'
 import RoadmapNodePopover from '~/components/roadmap/RoadmapNodePopover.vue'
+import RoadmapViewToggle, { type RoadmapView } from '~/components/roadmap/RoadmapViewToggle.vue'
+import RoadmapStagesBoard from '~/components/roadmap/RoadmapStagesBoard.vue'
+import RoadmapTimeline from '~/components/roadmap/RoadmapTimeline.vue'
 
 const route = useRoute()
 const researchId = route.params.id as string
@@ -152,9 +186,14 @@ const {
   edges,
   loading,
   error,
+  writeError,
+  clearWriteError,
   progress,
   refresh,
   updateNodeStatus,
+  updateNodeStage,
+  updateNodeDate,
+  updateNodeEndDate,
   updateNodePosition,
   autoLayout,
   layoutDirection,
@@ -164,6 +203,21 @@ const {
 
 // Vue Flow instance
 const { fitView } = useVueFlow()
+
+// Active view: initialised from the roadmap's stored default, then local — the
+// toggle overrides ephemerally in v1 and does not persist per user.
+const view = ref<RoadmapView>('graph')
+let viewInitialised = false
+watch(roadmap, (rm) => {
+  if (rm && !viewInitialised) {
+    view.value = (rm.view as RoadmapView) || 'graph'
+    viewInitialised = true
+  }
+}, { immediate: true })
+
+// Board and timeline read the raw API roadmap, not the Vue Flow graph.
+const rawNodes = computed(() => roadmap.value?.nodes ?? [])
+const rawEdges = computed(() => roadmap.value?.edges ?? [])
 
 function fitAll() {
   fitView({ padding: 0.15, duration: 300 })
@@ -179,27 +233,55 @@ const selectedNode = ref<{
   refType?: string
   refId?: string
   refData?: any
+  stage?: string
+  node_date?: string
+  node_end_date?: string
 } | null>(null)
+
+// Open the popover for a node by id, reading the raw node so stage/date are
+// present in every view. Shared by the graph, the board and the timeline.
+function openNode(nodeId: string) {
+  const n = roadmap.value?.nodes.find(x => x.id === nodeId)
+  if (!n) return
+  selectedNode.value = {
+    id: n.id,
+    title: n.title,
+    description: n.description || '',
+    nodeType: n.node_type || 'step',
+    status: n.status || '',
+    refType: n.ref_type,
+    refId: n.ref_id,
+    refData: n.ref_data,
+    stage: n.stage || '',
+    node_date: n.node_date || '',
+    node_end_date: n.node_end_date || '',
+  }
+}
 
 function onNodeClick({ node }: { node: any }) {
   // Don't show modal for root node
   if (node.type === 'roadmap-root') return
-
-  selectedNode.value = {
-    id: node.id,
-    title: node.data.title,
-    description: node.data.description || '',
-    nodeType: node.data.nodeType || 'step',
-    status: node.data.status || '',
-    refType: node.data.refType,
-    refId: node.data.refId,
-    refData: node.data.refData,
-  }
+  openNode(node.id)
 }
 
 async function onUpdateStatus(nodeId: string, status: string) {
   await updateNodeStatus(nodeId, status)
   selectedNode.value = null
+}
+
+// Stage and date changes keep the popover open (you may set both) and move the
+// card optimistically. Sync the open popover so its controls reflect the change.
+async function onUpdateStage(nodeId: string, stage: string) {
+  await updateNodeStage(nodeId, stage)
+  if (selectedNode.value?.id === nodeId) selectedNode.value = { ...selectedNode.value, stage }
+}
+async function onUpdateDate(nodeId: string, date: string) {
+  await updateNodeDate(nodeId, date)
+  if (selectedNode.value?.id === nodeId) selectedNode.value = { ...selectedNode.value, node_date: date }
+}
+async function onUpdateEndDate(nodeId: string, date: string) {
+  await updateNodeEndDate(nodeId, date)
+  if (selectedNode.value?.id === nodeId) selectedNode.value = { ...selectedNode.value, node_end_date: date }
 }
 
 async function onUpdateEntityStatus(refType: string, refId: string, status: string) {
@@ -300,7 +382,9 @@ onMounted(() => {
 let deferredRefresh: ReturnType<typeof setTimeout> | null = null
 function refreshWhenIdle() {
   if (deferredRefresh) return
-  if (!isInteracting()) {
+  // A repaint that restacks the board out from under an open popover is as
+  // disruptive as one landing mid-drag, so both defer.
+  if (!isInteracting() && !selectedNode.value) {
     refresh(true)
     return
   }
@@ -327,6 +411,34 @@ useResearchRealtime(
 </script>
 
 <style scoped>
+.rm-write-error {
+  position: fixed;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: calc(var(--z-overlay) + 1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: min(90vw, 32rem);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid rgba(239, 107, 107, 0.5);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+  font-size: var(--type-sm);
+  color: var(--color-text);
+}
+.rm-write-error-dismiss {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-lg);
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
 .roadmap-page {
   position: fixed;
   inset: 0;

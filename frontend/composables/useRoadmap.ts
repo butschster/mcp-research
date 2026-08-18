@@ -30,6 +30,9 @@ interface RoadmapNodeData {
   ref_type?: string
   ref_id?: string
   metadata?: string
+  stage?: string
+  node_date?: string
+  node_end_date?: string
   ref_data?: RoadmapNodeRefData
 }
 
@@ -49,6 +52,8 @@ interface RoadmapData {
   description: string
   statuses: string[]
   status: string
+  stages: string[]
+  view: 'graph' | 'stages' | 'timeline'
   nodes: RoadmapNodeData[]
   edges: RoadmapEdgeData[]
 }
@@ -76,6 +81,9 @@ export function useRoadmap(researchId: string, roadmapId: string) {
   const edges = ref<Edge[]>([])
   const loading = ref(true)
   const error = ref<string | null>(null)
+  // A failed optimistic write (a bad date, a network blip) must not blank the
+  // whole canvas the way a load failure does — it surfaces inline and clears.
+  const writeError = ref<string | null>(null)
   const layoutDirection = ref<'LR' | 'TB'>('TB')
 
   // Debounced position saves
@@ -282,6 +290,44 @@ export function useRoadmap(researchId: string, roadmapId: string) {
     }
   }
 
+  // Board / timeline writers. Optimistic: patch local data so the card moves
+  // column or axis cell immediately, then confirm with the PUT and revert on
+  // failure. Board modes have no drag, so this is the only edit path there.
+  async function updateNodeField(nodeId: string, field: 'stage' | 'node_date' | 'node_end_date', value: string) {
+    if (!roadmap.value) return
+    const node = roadmap.value.nodes.find(n => n.id === nodeId)
+    if (!node) return
+    // Guard the range client-side so an obvious end-before-start never round-trips
+    // to a 400 (which would otherwise surface as an error). The server still has
+    // the final say for anything the client can't see.
+    const start = field === 'node_date' ? value : (node.node_date ?? '')
+    const end = field === 'node_end_date' ? value : (node.node_end_date ?? '')
+    if (start && end && end < start) {
+      writeError.value = 'End date must be on or after the start date.'
+      return
+    }
+    const prev = field === 'stage' ? (node.stage ?? '') : field === 'node_date' ? (node.node_date ?? '') : (node.node_end_date ?? '')
+    if (field === 'stage') node.stage = value
+    else if (field === 'node_date') node.node_date = value
+    else node.node_end_date = value
+    try {
+      await authFetch(`${base}/api/roadmap-nodes/${nodeId}`, {
+        method: 'PUT',
+        body: { [field]: value },
+      })
+    } catch (e: any) {
+      // Revert the optimistic move and surface the error inline (not a takeover).
+      if (field === 'stage') node.stage = prev
+      else if (field === 'node_date') node.node_date = prev
+      else node.node_end_date = prev
+      writeError.value = e?.message ?? `Couldn't save the change.`
+    }
+  }
+
+  const updateNodeStage = (nodeId: string, stage: string) => updateNodeField(nodeId, 'stage', stage)
+  const updateNodeDate = (nodeId: string, date: string) => updateNodeField(nodeId, 'node_date', date)
+  const updateNodeEndDate = (nodeId: string, date: string) => updateNodeField(nodeId, 'node_end_date', date)
+
   function updateNodePosition(nodeId: string, x: number, y: number) {
     pendingPositions.set(nodeId, { x, y })
     // Update local roadmap data immediately (so rebuild uses new positions)
@@ -378,9 +424,14 @@ export function useRoadmap(researchId: string, roadmapId: string) {
     edges,
     loading,
     error,
+    writeError,
+    clearWriteError: () => { writeError.value = null },
     progress,
     refresh,
     updateNodeStatus,
+    updateNodeStage,
+    updateNodeDate,
+    updateNodeEndDate,
     updateNodePosition,
     autoLayout,
     layoutDirection: readonly(layoutDirection),

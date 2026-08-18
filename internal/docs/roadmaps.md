@@ -2,6 +2,14 @@
 
 Roadmaps are visual directed graphs within a research — learning paths, strategy maps, decision trees, or step-by-step guides. Unlike the auto-generated mindmap (which visualizes all research data), roadmaps are deliberately designed and their nodes can track progress with custom statuses.
 
+The same nodes can be laid out three ways, switchable from a toggle in the UI:
+
+- **Graph** — the free node-edge graph (the default).
+- **Stages** — nodes grouped into ordered phase columns by `node.stage`, kanban-style.
+- **Timeline** — nodes placed on a month axis by `node.node_date`.
+
+Set `view` on the roadmap to choose which one it opens in; set `stages` (an ordered list of column names) and put a node in a column with `stage`; give a node a `node_date` (ISO `YYYY-MM-DD`) to place it on the timeline. These are all optional — a roadmap with none of them is a graph exactly as before. Dependency edges are not drawn in the stages and timeline views (columns and cells scroll independently); each card instead lists the predecessors it depends on. The view is a display choice, not stored per node — the graph, the columns and the timeline are three renderings of one set of nodes and edges.
+
 ## MCP Tools
 
 | Tool | Description |
@@ -9,10 +17,10 @@ Roadmaps are visual directed graphs within a research — learning paths, strate
 | `roadmap_create` | Create a complete roadmap with nodes and edges in one call |
 | `roadmap_get` | Get a roadmap with all its nodes and edges |
 | `roadmap_list` | List roadmaps for a research (metadata only) |
-| `roadmap_update` | Update roadmap title, description, statuses, or status |
+| `roadmap_update` | Update roadmap title, description, statuses, stages, view, or status |
 | `roadmap_delete` | Delete a roadmap and all its nodes/edges |
 | `roadmap_add_nodes` | Add new nodes and edges to an existing roadmap |
-| `roadmap_update_node` | Update a single node (status, title, description, type, position) |
+| `roadmap_update_node` | Update a single node (status, title, description, type, position, stage, node_date) |
 | `roadmap_remove_nodes` | Remove nodes by ID (connected edges auto-delete) |
 
 ## When to Create a Roadmap
@@ -49,6 +57,38 @@ Use sections and entries instead when:
 | `metric` | KPI or numeric indicator — put the value in `metadata` | Plain node |
 
 `node_type` is a free-form string in storage; these nine are the values the tools document and the UI knows about. `metadata` is a JSON string, stored verbatim and returned as-is.
+
+## Views: stages and timeline
+
+Three fields turn a plain graph into a staged board or a dated timeline. All are optional and default to the graph.
+
+| Field | On | Meaning |
+|-------|----|---------|
+| `view` | roadmap | `graph` (default) / `stages` / `timeline` — the layout it opens in. The UI toggle overrides this locally; it is the default, not a lock. |
+| `stages` | roadmap | Ordered list of column names for the stages view, e.g. `["Discovery","Design","Build","Launch"]`. A name here with no nodes is a legitimately empty column — the ordering is the column order. Relates to a node's `stage` exactly as `statuses` relates to a node's `status`. |
+| `stage` | node | Which stage column the node sits in. Matched by string against the roadmap's `stages`; a value that is empty or not in the list falls into a trailing **Unassigned** column rather than erroring. |
+| `node_date` | node | ISO `YYYY-MM-DD` (or empty). The node's point — or the **start** of a range — on the timeline. Empty means undated (set aside in a tray). A `milestone` with a date is a diamond marker. |
+| `node_end_date` | node | Optional ISO `YYYY-MM-DD`. With `node_date` set, the node renders as a **bar** from start to end (a Gantt bar); empty means a point. Rejected with `400` if it precedes `node_date`. Ignored for a `milestone` (a milestone is an instant). |
+
+`view` is validated (one of the three); `node_date` and `node_end_date` are validated (strict `YYYY-MM-DD`, or empty), and an end before the start is a `400` on `node_end_date`. `stage` is free-form like `status` — an unknown stage is tolerated, not rejected.
+
+The timeline reads durations, not only points: a node with `node_date` + `node_end_date` is a bar spanning its months, greedily laned so overlaps don't stack; a node with only `node_date` stays a point. A local **Month / Quarter / Year** zoom control compresses a multi-year plan (the opening zoom is picked from the span), and it is display-only — no data, nothing stored.
+
+```javascript
+roadmap_create({
+  research_id: "<uuid>",
+  title: "Launch plan",
+  view: "stages",
+  stages: ["Discovery", "Design", "Build", "Launch"],
+  statuses: ["todo", "doing", "done"],
+  nodes: [
+    { temp_id: "n1", title: "Market research", stage: "Discovery", node_date: "2026-01-15", status: "done" },
+    { temp_id: "n2", title: "Spec",            stage: "Design",    node_date: "2026-02-10" },
+    { temp_id: "n3", title: "GA", node_type: "milestone", stage: "Launch", node_date: "2026-04-01" }
+  ],
+  edges: [{ source: "n1", target: "n2" }]
+})
+```
 
 ## Entity References (ref_type + ref_id)
 
