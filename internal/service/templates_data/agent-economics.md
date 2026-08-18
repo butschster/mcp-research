@@ -3,7 +3,7 @@ slug: agent-economics
 name: What an AI agent can be sold to do
 description: Work out which real work an agent can be paid to do, what a run costs, what it can be charged, and at what error rate it stops being worth buying.
 when_to_use: Use when deciding whether an AI agent or model capability can be sold as a product or a service, and the answer has to survive real customer inputs and a real invoice.
-when_not_to_use: Not for choosing a model, a framework or a vendor — that is a comparison. Not when which business to start is undecided, which is venture discovery. Not for pricing proven value — that is monetisation readiness.
+when_not_to_use: Not for choosing a model, a framework or a vendor — that is a comparison. Not when which business to start is undecided (venture discovery, or startup idea if it must become large). Not for pricing proven value.
 skills: [evidence-grading]
 ---
 

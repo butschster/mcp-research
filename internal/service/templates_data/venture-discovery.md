@@ -2,8 +2,8 @@
 slug: venture-discovery
 name: Finding a venture worth starting
 description: Go from "I want to start something" to one venture with a named buyer, a channel, and the cheapest test that could kill it.
-when_to_use: Use when somebody wants to start a business and has not settled on which one, and the output has to be one thing to try next week rather than a list of ideas.
-when_not_to_use: Not when the venture is chosen and the question is how to price or build it. Not for whether one specific agent can be sold — that is agent economics. Not for hours and money in general, which is personal capital.
+when_to_use: Use when somebody wants to start a business that will pay them, has not settled on which one, and the output has to be one thing to try next week rather than a list of ideas.
+when_not_to_use: Not when it has to become a large company — that is startup idea. Not when the venture is chosen and the question is how to price or build it, nor for one agent (agent economics) or money in general (personal capital).
 skills: [structured-interviewing, evidence-grading]
 ---
 

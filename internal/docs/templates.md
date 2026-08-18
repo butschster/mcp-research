@@ -20,7 +20,7 @@ research_create(..., template_slug: "technology-comparison")
 ```
 
 `template_list` takes **no arguments** — send `{}`. It never carries a body:
-ten methodologies arriving in a kickoff that needs one is the cost this feature
+eleven methodologies arriving in a kickoff that needs one is the cost this feature
 exists to avoid. `template_get` takes the slug you read there (an id works too,
 but you will not have one) and is the only call that returns a body.
 
@@ -57,7 +57,7 @@ research created over REST carries no provenance and no attached skills.
 
 ## What ships
 
-Ten, refreshed from the binary at every boot.
+Eleven, refreshed from the binary at every boot.
 
 | Slug | Ends in | Skills it attaches |
 |---|---|---|
@@ -69,6 +69,7 @@ Ten, refreshed from the binary at every boot.
 | `audience-definition` | one segment served first, at least two declined with the reason, and a trigger somebody could detect | `structured-interviewing`, `evidence-grading` |
 | `monetisation-readiness` | a metric, what stays free, a price per package, and three real accounts' new bills | `evidence-grading` |
 | `venture-discovery` | one venture with a named buyer and a channel, and the cheapest test that could kill it | `structured-interviewing`, `evidence-grading` |
+| `startup-idea` | one thesis with a dated "why now", a buyer's existing workaround, and the strongest case against it | `structured-interviewing`, `evidence-grading` |
 | `agent-economics` | a job, a cost per run, a price, and the error rate at which it stops being worth buying | `evidence-grading` |
 | `personal-capital` | moves with a date, an hours cost and a downside the person's floor survives | `evidence-grading` |
 
@@ -107,6 +108,13 @@ difference between the template and a section list:
   capability, and the demo measures your taste in examples — run it on inputs you
   did not choose. The whole business lives in the fraction it gets wrong, and the
   worst failures are the ones the customer cannot detect.
+- **Startup idea:** you are looking for a **change** that has not been priced in
+  yet, not for an idea — a candidate whose "why now" is *"AI is getting better"*
+  has not answered the question. Every candidate records why smart people think
+  it is a bad idea, and whether they are wrong for a nameable reason; without one
+  there is no secret and the race is decided on money. And building got cheap, so
+  *"I could build that"* stopped being information — the survivors of that filter
+  are the ideas everybody with your skills is having this month.
 - **Personal capital:** income that stops when you stop is not capital, so the
   two columns are never summed; every move carries the **hours** it costs, which
   is what makes this different from a company's version. The best-sounding move

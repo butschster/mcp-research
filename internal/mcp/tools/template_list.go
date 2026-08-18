@@ -22,7 +22,7 @@ func RegisterTemplateList(srv *mcp.Server, templateSvc *service.TemplateService,
 			return errorResult(err.Error())
 		}
 
-		// Matching criteria only, never a body. Ten methodologies arriving in
+		// Matching criteria only, never a body. Eleven methodologies arriving in
 		// a kickoff that needs one is the cost this whole feature exists to
 		// avoid.
 		//
