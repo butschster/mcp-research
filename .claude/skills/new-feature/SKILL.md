@@ -100,6 +100,7 @@ about. A vague brief gets a vague review.
 | `code-reviewer` | Correctness of the diff, across layers | never |
 | `access-auditor` | Every read and write path for cross-user leaks | never |
 | `llms-docs` | `llms.txt` and `internal/docs/` against the code | never |
+| `readme-keeper` | `README.md` — the page a person reads before running anything | nothing user-visible, no new entity, no route/flag/default changed |
 | `usability-reviewer` | Whether the feature is workable end to end, and what it still cannot do | never |
 | `ux-tester` | UI states, keyboard, focus, responsiveness, edge-case data | no frontend change |
 | `story-writer` | Storybook stories for new and changed components | no component added or changed |
@@ -108,7 +109,7 @@ about. A vague brief gets a vague review.
 `ui-designer` is not in this table — it runs in step 2, before the code exists.
 Reviewing a design after the UI is built is how a redesign gets scheduled.
 
-The three conditional rows are skipped only when their subject genuinely is not
+The four conditional rows are skipped only when their subject genuinely is not
 in the diff, and the skip is stated in your report with the reason. Everything
 else runs on every feature.
 

@@ -135,6 +135,34 @@ research to another server, and imports back.
 
 ![Export page with the full research rendered](docs/images/export.webp)
 
+### The first five minutes are not improvised
+
+The quality of a research is decided before a single entry exists, by whatever
+structure the model invented that day — and nothing kept it. **Twenty-five
+methodologies ship with the binary**: technology comparison, competitive
+landscape, incident postmortem, literature review, win/loss analysis, churn
+diagnosis, raise-or-not, and more.
+
+Crucially, a methodology does not dictate a shape. It is prose the model reads
+first, and the model still designs the research — so a comparison gets its
+criteria fixed before any candidate is named, and a postmortem is asked why
+detection took as long as it did, without either being poured into a template's
+mould. Browse them at `/templates`; a team can write its own.
+
+### Skills the agent opens when it needs them
+
+A research's `instruction` says what *this research* is, and it is loaded on
+every call. Methodology is the wrong size for that: how to grade a source or run
+a structured interview runs to a page each, a research needs one or two of them
+at the moment of use, and none of it is reusable next time.
+
+So a **skill** is a document with a trigger line. The skills a research follows
+arrive as an index — a name and one line saying *when to use this* — and the
+bodies stay one `skill_load` call away, read when the work actually happens.
+They belong to a team and are reused across its researches, with a
+research-private tier for a rule that applies to one and a built-in tier that
+ships with the app.
+
 ### Everything else that makes it a product
 
 - **Revision history on every entry** — who wrote it (agent, human, import,
@@ -156,7 +184,8 @@ research to another server, and imports back.
 ```mermaid
 flowchart TD
     A["You: 'research which vector store we should use'"] --> B["research/initialize prompt"]
-    B --> C["AI proposes goal + 3-7 sections<br/>you approve or adjust"]
+    B --> B2["template_list — is there a methodology for this?<br/>template_get — read it"]
+    B2 --> C["AI proposes goal + sections, following it<br/>you correct what is wrong"]
     C --> D["research_create — R1 exists, web UI live"]
     D --> E["research/conduct prompt<br/>session SS1 opens"]
     E --> F{Interview loop}
@@ -178,8 +207,10 @@ In a client, it is about this short:
 You:  Use the research/initialize prompt. Topic: which vector store for our
       support assistant.
 
-AI:   [asks about corpus size, latency budget, who operates it]
-      [proposes: Context & constraints, Candidates, Benchmarks, Cost & operations, Decision]
+AI:   [reads the Technology comparison methodology]
+      [asks what disqualifies a candidate outright, and who signs off]
+      [proposes: Constraints & disqualifiers, Criteria & weights, Candidates,
+       Evidence & spikes, Head-to-head, Decision]
       Created R1. Open http://localhost:8088/research/R1
 
 You:  Good. Conduct it.
@@ -281,7 +312,7 @@ same process and the same database.
 ### 1. Local MCP client over stdio
 
 Claude Code, Claude Desktop and Cursor spawn the binary themselves. The assistant
-gets **36 tools** and **2 research prompts**.
+gets **39 tools** and **2 research prompts**.
 
 **Claude Code** — `~/.claude/mcp.json`:
 
@@ -363,11 +394,13 @@ access rules, and an index of deeper guides that are served as plain markdown at
 | Document | What it covers |
 |---|---|
 | `/llms.txt` | Entry point — data model, short codes, `[[refs]]`, entry types, index |
-| `/llms/mcp-client-guide.md` | All 36 tools, the input-schema contract, nullable fields, common pitfalls |
+| `/llms/mcp-client-guide.md` | All 39 tools, the input-schema contract, nullable fields, common pitfalls |
 | `/llms/domain-guide.md` | Every entity in full: fields, statuses, lifecycle, the role matrix, the real-time event stream |
 | `/llms/conducting-research.md` | The workflow itself — initialize, interview, write entries, complete |
 | `/llms/tasks.md` | When to open a task, statuses, tasks vs questions |
 | `/llms/roadmaps.md` | Node and edge types, custom statuses, building a graph step by step |
+| `/llms/templates.md` | The methodologies — what a template is, the built-in set, writing your own |
+| `/llms/skills.md` | Skills: the tiers, the index, `skill_load`, and how to write a trigger line |
 | `/llms/blocks.md` | The block document format and all block types |
 | `/llms/artifacts.md` | Writing the HTML that goes inside an artifact, and the sandbox rules |
 | `/llms/revisions.md` | History, diffs, restore, and what does not create a revision |
@@ -498,7 +531,7 @@ Short codes are assigned automatically and accepted wherever an id is:
 
 ## MCP tools
 
-36 tools, 2 prompts.
+39 tools, 2 prompts.
 
 | Category | Tools |
 |---|---|
