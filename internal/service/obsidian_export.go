@@ -460,20 +460,7 @@ func (b *vaultBuilder) writeEntry(
 	// reader scanning two notes sees the same shape twice. Keys are refused at
 	// declaration time when they collide with one of those, which is why
 	// nothing here has to guard against overwriting them.
-	if sec != nil {
-		for _, f := range sec.FieldSpec {
-			v, recorded := e.Metadata[f.Key]
-			// A declared field nobody answered emits null, so a vault query for
-			// "documents missing this" can find it. A field answered with an
-			// explicit unknown emits the word, because somebody did look and
-			// that document is not the one you are looking for.
-			if recorded && v == nil {
-				fm.addDeclared(f.Key, "unknown")
-				continue
-			}
-			fm.addDeclared(f.Key, metadataForFrontmatter(f, v))
-		}
-	}
+	addMetadataFrontmatter(fm, sec, e)
 	if len(revs) > 0 {
 		// The newest revision leads the list, which is what makes this the
 		// entry's current provenance rather than its first.
@@ -1279,6 +1266,35 @@ func standaloneHTML(title, html string) string {
 func htmlEscape(s string) string {
 	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;")
 	return r.Replace(s)
+}
+
+// addMetadataFrontmatter writes a document's declared fields, in the order the
+// section declares them.
+//
+// Shared by the vault and the single-file download, because these are the rules
+// that drift: two copies would disagree about an unfilled field or an explicit
+// unknown, and the disagreement would be invisible until somebody diffed two
+// exports of the same document.
+//
+// It goes last, after the system keys, so a reader scanning two notes sees the
+// same shape twice. Keys are refused at declaration time when they collide with
+// one of those, which is why nothing here guards against overwriting them.
+func addMetadataFrontmatter(fm *frontmatter, sec *domain.Section, e *domain.Entry) {
+	if sec == nil {
+		return
+	}
+	for _, f := range sec.FieldSpec {
+		v, recorded := e.Metadata[f.Key]
+		// A declared field nobody answered emits null, so a query for "documents
+		// missing this" can find it. A field answered with an explicit unknown
+		// emits the word, because somebody did look and that document is not the
+		// one you are looking for.
+		if recorded && v == nil {
+			fm.addDeclared(f.Key, "unknown")
+			continue
+		}
+		fm.addDeclared(f.Key, metadataForFrontmatter(f, v))
+	}
 }
 
 // metadataForFrontmatter renders one value the way a vault query expects it.

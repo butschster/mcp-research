@@ -18,11 +18,16 @@ type EntryHandler struct {
 	researchSvc *service.ResearchService
 	entries     *storage.EntryRepository
 	research    *storage.ResearchRepository
-	log         *slog.Logger
+	// users resolves the name behind a revision's user id, for the one line the
+	// page shows about who wrote a document. Optional: with `auth_enabled:
+	// false` there are no users at all, and the provenance line falls back to
+	// the author kind it has always shown.
+	users *storage.UserRepository
+	log   *slog.Logger
 }
 
-func NewEntryHandler(entry *service.EntryService, researchSvc *service.ResearchService, entries *storage.EntryRepository, research *storage.ResearchRepository, log *slog.Logger) *EntryHandler {
-	return &EntryHandler{entry: entry, researchSvc: researchSvc, entries: entries, research: research, log: log}
+func NewEntryHandler(entry *service.EntryService, researchSvc *service.ResearchService, entries *storage.EntryRepository, research *storage.ResearchRepository, users *storage.UserRepository, log *slog.Logger) *EntryHandler {
+	return &EntryHandler{entry: entry, researchSvc: researchSvc, entries: entries, research: research, users: users, log: log}
 }
 
 func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +57,7 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context()))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), h.authorName))
 }
 
 func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +78,7 @@ func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context()))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), h.authorName))
 }
 
 func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +131,7 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context()))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), h.authorName))
 }
 
 // ResolveResearchCode resolves a research short code to its ID and metadata.
@@ -204,7 +209,7 @@ func entryPayload(entry *domain.Entry) map[string]any {
 // without opening the history. `rev` here is the document hash a blocks entry
 // carries; `revision` is the numbered snapshot — different things, and the two
 // names sit side by side in this payload precisely because clients confuse them.
-func withProvenance(payload map[string]any, rev *domain.EntryRevision, ctx context.Context) map[string]any {
+func withProvenance(payload map[string]any, rev *domain.EntryRevision, ctx context.Context, nameOf func(context.Context, string) string) map[string]any {
 	if rev == nil {
 		return payload
 	}
@@ -222,6 +227,13 @@ func withProvenance(payload map[string]any, rev *domain.EntryRevision, ctx conte
 	payload["revision"] = rev.Revision
 	payload["author_kind"] = rev.AuthorKind
 	payload["revised_at"] = rev.CreatedAt
+	// The name, when there is one. "Written by a person" answers the question
+	// only halfway, and in a team the other half is the whole point of asking.
+	if nameOf != nil && rev.UserID != "" {
+		if name := nameOf(ctx, rev.UserID); name != "" {
+			payload["author_name"] = name
+		}
+	}
 	if rev.SessionCode != "" {
 		payload["revision_session"] = map[string]any{
 			"code": rev.SessionCode, "title": rev.SessionTitle, "id": rev.SessionID,
@@ -239,4 +251,24 @@ func shareResearchID(ctx context.Context) string {
 		return sc.ResearchID
 	}
 	return ""
+}
+
+// authorName resolves a revision's user id to something a reader recognises.
+//
+// It fails quietly: a deleted user, a database hiccup or auth being switched
+// off all mean "no name", and the provenance line has always been able to stand
+// without one. Nothing about a document should fail to render because the
+// person who wrote it can no longer be looked up.
+func (h *EntryHandler) authorName(ctx context.Context, userID string) string {
+	if h.users == nil || userID == "" {
+		return ""
+	}
+	user, err := h.users.FindByID(ctx, userID)
+	if err != nil || user == nil {
+		return ""
+	}
+	if user.Name != "" {
+		return user.Name
+	}
+	return user.Email
 }

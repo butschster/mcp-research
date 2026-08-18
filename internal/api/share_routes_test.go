@@ -1008,3 +1008,21 @@ func TestShareRoutes_ExportsCarryNoDocumentMetadata(t *testing.T) {
 		}
 	}
 }
+
+// TestShareRoutes_EntryMarkdownIsNotReachable asserts at the boundary that
+// actually holds it.
+//
+// The service cannot refuse this one: a share resolves to viewer on its
+// research, so `EntryService.Get` succeeds and the file would be rendered. What
+// keeps a document from leaving as a file is that the route is not on this
+// mux — which makes the routing the whole guarantee, and therefore the thing
+// worth a test.
+func TestShareRoutes_EntryMarkdownIsNotReachable(t *testing.T) {
+	s := newShareServer(t)
+	token := s.newShare(domain.ShareInclude{Sessions: true, Tasks: true, Roadmaps: true, Export: true})
+
+	code, _ := s.get("/api/shared/" + token + "/entries/" + s.entry.ID + "/markdown")
+	if code != http.StatusNotFound {
+		t.Fatalf("a share reached the per-document download: %d", code)
+	}
+}

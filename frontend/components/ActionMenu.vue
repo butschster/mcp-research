@@ -15,7 +15,7 @@
       <div
         v-if="open"
         class="action-menu-list"
-        :class="`action-menu-list--${props.align}`"
+        :class="[`action-menu-list--${props.align}`, `action-menu-list--${props.width}`]"
         @click="open = false"
       >
         <slot />
@@ -41,8 +41,14 @@ const props = withDefaults(
     title?: string
     /** Which edge the panel is anchored to. */
     align?: 'left' | 'right'
+    /**
+     * `wide` is 232px, measured rather than guessed: the text column is then
+     * 182px, which holds a Russian full name on one line of a two-line clamp.
+     * At the default 180 every one of them ellipsises.
+     */
+    width?: 'default' | 'wide'
   }>(),
-  { title: 'More actions', align: 'right' }
+  { title: 'More actions', align: 'right', width: 'default' }
 )
 
 const open = ref(false)
@@ -71,7 +77,23 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
 })
 
-defineExpose({ close: () => (open.value = false) })
+function focusTrigger() {
+  rootRef.value?.querySelector('button')?.focus()
+}
+
+defineExpose({
+  close: () => (open.value = false),
+  /**
+   * Puts focus back on the `⋯`.
+   *
+   * A menu item unmounts the moment the menu closes, so anything that saved the
+   * active element on open — a modal restoring focus, for one — is holding a
+   * detached node by the time it tries to return there, and the reader is
+   * dropped at the top of the page. The trigger is the only element still
+   * standing, so it is where focus belongs.
+   */
+  focusTrigger,
+})
 </script>
 
 <style scoped>
@@ -81,7 +103,16 @@ defineExpose({ close: () => (open.value = false) })
   position: absolute;
   top: calc(100% + var(--space-1));
   min-width: 180px;
-  background: var(--color-surface);
+  /* Raised, not surface. The token exists for exactly this — "a floating layer
+     so it separates from a card behind it instead of matching it" — and was
+     used nowhere, so every panel in the product floated over a card of its own
+     colour, and everything inside was being judged against a background that
+     was not doing its job. */
+  background: var(--color-surface-raised);
+  /* One column for the glyphs and icons, shared by the header and the items, so
+     a name and a label start at the same x. That alignment is most of the
+     difference between "designed" and "pasted in". */
+  --menu-icon: 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-2);
@@ -91,6 +122,7 @@ defineExpose({ close: () => (open.value = false) })
   z-index: var(--z-overlay);
   padding: var(--space-1) 0;
 }
+.action-menu-list--wide { min-width: 232px; }
 .action-menu-list--right { right: 0; }
 .action-menu-list--left { left: 0; }
 
@@ -116,6 +148,24 @@ defineExpose({ close: () => (open.value = false) })
   color: var(--color-text);
   text-decoration: none;
 }
+/* A non-interactive block at the top of a panel: who wrote this, when.
+   Inset rather than full-bleed, because the panel's own top padding would
+   otherwise leave a 4px strip of raised colour above it and read as a mistake;
+   and recessed rather than lightened, because hover in this product goes
+   lighter and a lighter tile reads as already-hovered.
+
+   It has no hover and no pointer on purpose. Inertness is carried by the
+   absence of feedback, which is what a person actually tests with. */
+.action-menu-list :slotted(.action-menu-header) {
+  display: block;
+  margin: 0 var(--space-1) var(--space-1);
+  padding: var(--space-2) calc(0.75rem - var(--space-1));
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  white-space: normal;
+  line-height: var(--line-tight);
+}
+
 .action-menu-list :slotted(.action-menu-item:disabled) {
   opacity: 0.5;
   cursor: not-allowed;
@@ -123,10 +173,15 @@ defineExpose({ close: () => (open.value = false) })
 .action-menu-list :slotted(.action-menu-item--danger) {
   color: var(--color-error);
 }
+/* A rule between two rows is a divider; a rule at the edge of a list is an
+   edge, and an edge belongs to whatever frames the list. So this is a border on
+   the row below it rather than a floating 1px block with air on both sides —
+   three items separated by two full-bleed rules read as more scaffolding than
+   content. */
 .action-menu-list :slotted(.action-menu-divider) {
-  height: 1px;
-  margin: var(--space-1) 0;
-  background: var(--color-border);
+  height: 0;
+  margin: var(--space-1) 0 0;
+  border-top: 1px solid var(--color-border);
 }
 
 .action-menu-enter-active,
