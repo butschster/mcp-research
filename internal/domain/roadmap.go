@@ -99,6 +99,9 @@ type RoadmapNode struct {
 	// NodeDate places the node on the timeline view. ISO 'YYYY-MM-DD' or empty;
 	// empty means undated and the timeline sets it aside rather than guessing.
 	NodeDate string `json:"node_date,omitempty"`
+	// NodeEndDate is the optional end of a timeline range. With NodeDate set and
+	// this set, the node is a bar from start to end; empty means a point.
+	NodeEndDate string `json:"node_end_date,omitempty"`
 	// Resolved reference data (populated at read time, not stored)
 	RefData   *RoadmapNodeRefData `json:"ref_data,omitempty"`
 	CreatedAt time.Time           `json:"created_at"`

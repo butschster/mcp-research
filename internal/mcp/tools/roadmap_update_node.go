@@ -21,7 +21,8 @@ type RoadmapUpdateNodeInput struct {
 	RefID       *string  `json:"ref_id" jsonschema:"ID of the referenced entity (empty string to clear)"`
 	Metadata    *string  `json:"metadata" jsonschema:"JSON string with node-type-specific data"`
 	Stage       *string  `json:"stage" jsonschema:"Stage/column name for the stages view (empty string to clear)"`
-	NodeDate    *string  `json:"node_date" jsonschema:"ISO date YYYY-MM-DD for the timeline view (empty string to clear)"`
+	NodeDate    *string  `json:"node_date" jsonschema:"ISO date YYYY-MM-DD for the timeline view / range start (empty string to clear)"`
+	NodeEndDate *string  `json:"node_end_date" jsonschema:"ISO date YYYY-MM-DD end of a timeline range; with node_date set the node renders as a bar from start to end, and must not be before node_date (empty string to clear); ignored for milestone nodes"`
 }
 
 func RegisterRoadmapUpdateNode(srv *mcp.Server, svc *service.RoadmapService, log *slog.Logger) {
@@ -46,6 +47,7 @@ func RegisterRoadmapUpdateNode(srv *mcp.Server, svc *service.RoadmapService, log
 			Metadata:    input.Metadata,
 			Stage:       input.Stage,
 			NodeDate:    input.NodeDate,
+			NodeEndDate: input.NodeEndDate,
 		})
 		if err != nil {
 			return errorResult(err.Error())

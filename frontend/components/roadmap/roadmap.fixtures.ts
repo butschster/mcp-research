@@ -100,12 +100,66 @@ export const NODES: RawRoadmapNode[] = [
   },
 ]
 
+// Ranged nodes — both node_date and node_end_date, so the timeline draws them as
+// Gantt bars rather than point markers. N4 overlaps N1 in Q1, exercising the
+// lane-stacking; N5 spans a full quarter.
+export const RANGED_NODES: RawRoadmapNode[] = [
+  {
+    id: 'r1',
+    code: 'N4',
+    title: 'Component system',
+    description: 'Design the shared card, badges, and layout primitives.',
+    node_type: 'step',
+    status: 'in_progress',
+    stage: 'Design',
+    node_date: '2026-01-20',
+    node_end_date: '2026-03-15',
+  },
+  {
+    id: 'r2',
+    code: 'N5',
+    title: 'Wire the API',
+    description: 'Connect the frontend to the write endpoints.',
+    node_type: 'step',
+    status: 'pending',
+    stage: 'Build',
+    node_date: '2026-03-10',
+    node_end_date: '2026-05-05',
+    ref_type: 'task',
+    ref_id: 'task-uuid-1',
+    ref_data: {
+      title: 'Configure GitHub Actions CI/CD pipeline',
+      status: 'in_progress',
+      code: 'T5',
+      priority: 'high',
+      result: 'Build, test and deploy stages green. Average build time 3m 20s.',
+    },
+  },
+]
+
+// A roadmap that mixes ranged bars (N4, N5) with point nodes (N1, N2) and a
+// milestone (N6) — the timeline's bars, lanes and undated tray all in one view,
+// and the span drives autoUnit's opening zoom.
+export const MIXED_NODES: RawRoadmapNode[] = [
+  ...NODES.filter(n => ['n1', 'n2', 'n3'].includes(n.id)), // N1/N2 points, N3 undated decision
+  ...RANGED_NODES, // N4, N5 — bars
+  ...NODES.filter(n => n.id === 'n6'), // N6 — milestone marker
+]
+
 export const EDGES: RawRoadmapEdge[] = [
   { id: 'e1', source_node_id: 'n1', target_node_id: 'n2', label: '', edge_type: 'depends' },
   { id: 'e2', source_node_id: 'n2', target_node_id: 'n3', label: '', edge_type: 'depends' },
   { id: 'e3', source_node_id: 'n3', target_node_id: 'n4', label: '', edge_type: 'depends' },
   { id: 'e4', source_node_id: 'n4', target_node_id: 'n5', label: '', edge_type: 'depends' },
   { id: 'e5', source_node_id: 'n5', target_node_id: 'n6', label: '', edge_type: 'depends' },
+]
+
+// Edges over MIXED_NODES (the ranged nodes have ids r1/r2) so the timeline draws
+// dependency chips on the bars: N1 → N4, N4 → N5, N5 → N6.
+export const MIXED_EDGES: RawRoadmapEdge[] = [
+  { id: 'me1', source_node_id: 'n1', target_node_id: 'r1', label: '', edge_type: 'depends' },
+  { id: 'me2', source_node_id: 'r1', target_node_id: 'r2', label: '', edge_type: 'depends' },
+  { id: 'me3', source_node_id: 'r2', target_node_id: 'n6', label: '', edge_type: 'depends' },
 ]
 
 // Every node with an empty / unknown stage — drives the board's "all unassigned"

@@ -57,7 +57,7 @@ const emptyText = computed(() =>
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 100%;
+  height: 100%;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);

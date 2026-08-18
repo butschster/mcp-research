@@ -117,6 +117,12 @@
       </VueFlow>
     </div>
 
+    <!-- Inline write-error banner: a failed save surfaces here, not as a takeover -->
+    <div v-if="writeError" class="rm-write-error" role="alert">
+      <span>{{ writeError }}</span>
+      <button class="rm-write-error-dismiss" @click="clearWriteError" aria-label="Dismiss">&times;</button>
+    </div>
+
     <!-- Node detail modal -->
     <RoadmapNodePopover
       :node="selectedNode"
@@ -126,6 +132,7 @@
       @update-entity-status="onUpdateEntityStatus"
       @update-stage="onUpdateStage"
       @update-date="onUpdateDate"
+      @update-end-date="onUpdateEndDate"
       @navigate="onNavigate"
       @close="selectedNode = null"
     />
@@ -179,11 +186,14 @@ const {
   edges,
   loading,
   error,
+  writeError,
+  clearWriteError,
   progress,
   refresh,
   updateNodeStatus,
   updateNodeStage,
   updateNodeDate,
+  updateNodeEndDate,
   updateNodePosition,
   autoLayout,
   layoutDirection,
@@ -225,6 +235,7 @@ const selectedNode = ref<{
   refData?: any
   stage?: string
   node_date?: string
+  node_end_date?: string
 } | null>(null)
 
 // Open the popover for a node by id, reading the raw node so stage/date are
@@ -243,6 +254,7 @@ function openNode(nodeId: string) {
     refData: n.ref_data,
     stage: n.stage || '',
     node_date: n.node_date || '',
+    node_end_date: n.node_end_date || '',
   }
 }
 
@@ -266,6 +278,10 @@ async function onUpdateStage(nodeId: string, stage: string) {
 async function onUpdateDate(nodeId: string, date: string) {
   await updateNodeDate(nodeId, date)
   if (selectedNode.value?.id === nodeId) selectedNode.value = { ...selectedNode.value, node_date: date }
+}
+async function onUpdateEndDate(nodeId: string, date: string) {
+  await updateNodeEndDate(nodeId, date)
+  if (selectedNode.value?.id === nodeId) selectedNode.value = { ...selectedNode.value, node_end_date: date }
 }
 
 async function onUpdateEntityStatus(refType: string, refId: string, status: string) {
@@ -395,6 +411,34 @@ useResearchRealtime(
 </script>
 
 <style scoped>
+.rm-write-error {
+  position: fixed;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: calc(var(--z-overlay) + 1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: min(90vw, 32rem);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid rgba(239, 107, 107, 0.5);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+  font-size: var(--type-sm);
+  color: var(--color-text);
+}
+.rm-write-error-dismiss {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-lg);
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
 .roadmap-page {
   position: fixed;
   inset: 0;

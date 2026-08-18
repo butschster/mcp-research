@@ -99,6 +99,7 @@ func nodeFromInput(n RoadmapCreateNode) service.CreateRoadmapNodeRequest {
 		Metadata:    derefStr(n.Metadata),
 		Stage:       derefStr(n.Stage),
 		NodeDate:    derefStr(n.NodeDate),
+		NodeEndDate: derefStr(n.NodeEndDate),
 	}
 }
 

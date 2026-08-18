@@ -12,6 +12,7 @@ export interface RawRoadmapNode {
   status: string
   stage?: string
   node_date?: string
+  node_end_date?: string
   ref_type?: string
   ref_id?: string
   ref_data?: RoadmapCardData['refData']
@@ -103,69 +104,154 @@ export function bucketByStage(nodes: readonly RawRoadmapNode[], stages: readonly
   return cols
 }
 
-// --- Timeline month axis ---
+// --- Timeline axis: month / quarter / year, with range bars ---
 
-export interface TimelineMonth {
-  key: string // 'YYYY-MM'
-  label: string // 'Jan'
-  quarterLabel: string // 'Q1 2026' on the first month of a quarter, else ''
-  nodes: RawRoadmapNode[]
-}
+export type TimeUnit = 'month' | 'quarter' | 'year'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function monthKey(iso: string): string | null {
-  // Expect 'YYYY-MM-DD'; take the year-month. Reject anything malformed.
-  const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(iso)
-  return m ? `${m[1]}-${m[2]}` : null
+function parseISO(iso: string | undefined): { y: number; m: number } | null {
+  if (!iso) return null
+  const mm = /^(\d{4})-(\d{2})-\d{2}$/.exec(iso)
+  return mm ? { y: Number(mm[1]), m: Number(mm[2]) } : null
 }
 
-// buildMonthAxis returns the contiguous run of months from the earliest to the
-// latest dated node (inclusive), each carrying the nodes that fall in it, plus
-// the undated nodes set aside. A gap month in the middle still renders (an empty
-// cell) so the axis reads as continuous time, not a list of populated months.
-export function buildMonthAxis(nodes: readonly RawRoadmapNode[]): {
-  months: TimelineMonth[]
+function unitIndex(y: number, m: number, unit: TimeUnit): number {
+  if (unit === 'year') return y
+  if (unit === 'quarter') return y * 4 + Math.floor((m - 1) / 3)
+  return y * 12 + (m - 1)
+}
+
+export interface TimeCell {
+  key: string
+  label: string
+  band: string
+  count: number
+}
+
+function cellMeta(index: number, unit: TimeUnit): { key: string; label: string; band: string } {
+  if (unit === 'year') return { key: `${index}`, label: `${index}`, band: '' }
+  if (unit === 'quarter') {
+    const y = Math.floor(index / 4)
+    const q = index % 4
+    return { key: `${y}-Q${q + 1}`, label: `Q${q + 1}`, band: `${y}` }
+  }
+  const y = Math.floor(index / 12)
+  const m = (index % 12) + 1
+  return { key: `${y}-${String(m).padStart(2, '0')}`, label: MONTHS[m - 1] ?? '', band: `Q${Math.floor((m - 1) / 3) + 1} ${y}` }
+}
+
+export interface TimelineBar {
+  node: RawRoadmapNode
+  startIdx: number
+  endIdx: number
+  lane: number
+  invalid: boolean
+}
+
+export interface TimelinePoint {
+  node: RawRoadmapNode
+  idx: number
+  invalid: boolean
+}
+
+export interface TimeAxis {
+  units: TimeCell[]
+  first: number
+  bars: TimelineBar[]
+  points: TimelinePoint[]
   undated: RawRoadmapNode[]
-} {
-  const undated: RawRoadmapNode[] = []
-  const dated: { key: string; node: RawRoadmapNode }[] = []
+  laneCount: number
+}
+
+// autoUnit picks the opening zoom from the dated span in months, so a multi-year
+// plan does not open as dozens of month columns. Mobile biases one step coarser.
+export function autoUnit(nodes: readonly RawRoadmapNode[], narrow = false): TimeUnit {
+  let min = Infinity
+  let max = -Infinity
   for (const n of nodes) {
-    const key = n.node_date ? monthKey(n.node_date) : null
-    if (key) dated.push({ key, node: n })
-    else undated.push(n)
+    const s = parseISO(n.node_date)
+    if (!s) continue
+    const si = unitIndex(s.y, s.m, 'month')
+    const e = parseISO(n.node_end_date)
+    const ei = e ? unitIndex(e.y, e.m, 'month') : si
+    min = Math.min(min, si)
+    max = Math.max(max, Math.max(si, ei))
   }
-  if (dated.length === 0) return { months: [], undated }
+  if (min === Infinity) return narrow ? 'quarter' : 'month'
+  const months = max - min + 1
+  let unit: TimeUnit = months <= 12 ? 'month' : months <= 36 ? 'quarter' : 'year'
+  if (narrow) unit = unit === 'month' ? 'quarter' : 'year'
+  return unit
+}
 
-  const keys = dated.map(d => d.key).sort()
-  const [firstY, firstM] = keys[0]!.split('-').map(Number) as [number, number]
-  const [lastY, lastM] = keys[keys.length - 1]!.split('-').map(Number) as [number, number]
+// buildTimeAxis buckets nodes into cells of the chosen unit and splits them into
+// range bars (start + valid end, not a milestone) and points (everything else,
+// undated set aside). Gap cells still render so time reads continuously; bars are
+// greedily laned so overlaps do not stack on top of each other.
+export function buildTimeAxis(nodes: readonly RawRoadmapNode[], unit: TimeUnit): TimeAxis {
+  const undated: RawRoadmapNode[] = []
+  const rawBars: { node: RawRoadmapNode; startIdx: number; endIdx: number }[] = []
+  const points: TimelinePoint[] = []
 
-  const months: TimelineMonth[] = []
-  const byKey = new Map<string, TimelineMonth>()
-  let y = firstY
-  let m = firstM
-  // Bounded walk: at most a few hundred months even for absurd inputs.
-  for (let guard = 0; guard < 1200; guard++) {
-    const key = `${y}-${String(m).padStart(2, '0')}`
-    // The very first month always carries its quarter caption, even mid-quarter,
-    // so the axis never opens with an unlabelled band.
-    const quarterStart = m === 1 || m === 4 || m === 7 || m === 10 || months.length === 0
-    const tm: TimelineMonth = {
-      key,
-      label: MONTHS[m - 1] ?? '',
-      quarterLabel: quarterStart ? `Q${Math.floor((m - 1) / 3) + 1} ${y}` : '',
-      nodes: [],
+  for (const n of nodes) {
+    const s = parseISO(n.node_date)
+    if (!s) {
+      undated.push(n)
+      continue
     }
-    months.push(tm)
-    byKey.set(key, tm)
-    if (y === lastY && m === lastM) break
-    m++
-    if (m > 12) {
-      m = 1
-      y++
+    const startIdx = unitIndex(s.y, s.m, unit)
+    const e = parseISO(n.node_end_date)
+    const isMilestone = n.node_type === 'milestone'
+    if (e && !isMilestone) {
+      const endIdx = unitIndex(e.y, e.m, unit)
+      const startsBefore = s.y < e.y || (s.y === e.y && s.m <= e.m)
+      if (startsBefore) {
+        rawBars.push({ node: n, startIdx, endIdx: Math.max(endIdx, startIdx) })
+        continue
+      }
+      points.push({ node: n, idx: startIdx, invalid: true })
+      continue
     }
+    points.push({ node: n, idx: startIdx, invalid: false })
   }
-  for (const d of dated) byKey.get(d.key)?.nodes.push(d.node)
-  return { months, undated }
+
+  if (rawBars.length === 0 && points.length === 0) {
+    return { units: [], first: 0, bars: [], points: [], undated, laneCount: 0 }
+  }
+
+  let min = Infinity
+  let max = -Infinity
+  for (const b of rawBars) {
+    min = Math.min(min, b.startIdx)
+    max = Math.max(max, b.endIdx)
+  }
+  for (const p of points) {
+    min = Math.min(min, p.idx)
+    max = Math.max(max, p.idx)
+  }
+
+  const units: TimeCell[] = []
+  for (let i = min; i <= max; i++) units.push({ ...cellMeta(i, unit), count: 0 })
+  const countAt = (idx: number) => {
+    const cell = units[idx - min]
+    if (cell) cell.count++
+  }
+  for (const b of rawBars) countAt(b.startIdx)
+  for (const p of points) countAt(p.idx)
+
+  const sorted = [...rawBars].sort((a, b) => a.startIdx - b.startIdx || a.endIdx - b.endIdx)
+  const laneEnds: number[] = []
+  const bars: TimelineBar[] = sorted.map(b => {
+    let lane = laneEnds.findIndex(end => end < b.startIdx)
+    if (lane === -1) {
+      lane = laneEnds.length
+      laneEnds.push(b.endIdx)
+    } else {
+      laneEnds[lane] = b.endIdx
+    }
+    return { node: b.node, startIdx: b.startIdx, endIdx: b.endIdx, lane, invalid: false }
+  })
+
+  return { units, first: min, bars, points, undated, laneCount: laneEnds.length }
 }

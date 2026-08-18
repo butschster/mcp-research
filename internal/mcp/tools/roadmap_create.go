@@ -21,7 +21,8 @@ type RoadmapCreateNode struct {
 	RefID       *string  `json:"ref_id" jsonschema:"ID of the referenced entity (entry ID, task ID, etc.)"`
 	Metadata    *string  `json:"metadata" jsonschema:"JSON string with node-type-specific data (e.g. checklist items, URL for link nodes, metric value)"`
 	Stage       *string  `json:"stage" jsonschema:"Stage/column name for the stages view. Should match one of the roadmap's stages"`
-	NodeDate    *string  `json:"node_date" jsonschema:"ISO date YYYY-MM-DD for the timeline view. Leave empty for an undated node"`
+	NodeDate    *string  `json:"node_date" jsonschema:"ISO date YYYY-MM-DD placing the node on the timeline (its start). Leave empty for an undated node"`
+	NodeEndDate *string  `json:"node_end_date" jsonschema:"Optional ISO date YYYY-MM-DD end of a timeline range. With node_date set, the node renders as a bar from start to end; leave empty for a point; ignored for milestone nodes"`
 }
 
 type RoadmapCreateEdge struct {

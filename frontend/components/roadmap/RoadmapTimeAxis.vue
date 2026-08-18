@@ -1,48 +1,50 @@
 <template>
   <div class="rm-axis">
-    <!-- Quarter band row: a label spanning the months of each quarter -->
-    <div class="rm-axis-quarters">
+    <!-- Coarser-unit band row (Q for months, year for quarters, hidden at year) -->
+    <div v-if="hasBands" class="rm-axis-bands" :style="gridStyle">
       <div
-        v-for="band in quarterBands"
+        v-for="band in bands"
         :key="band.label + band.start"
-        class="rm-axis-quarter"
-        :style="{ gridColumn: `span ${band.span}` }"
+        class="rm-axis-band"
+        :style="{ gridColumn: `${band.start + 1} / span ${band.span}` }"
       >
         {{ band.label }}
       </div>
     </div>
-    <!-- Month cells -->
-    <div class="rm-axis-months" :style="gridStyle">
-      <div v-for="m in months" :key="m.key" class="rm-axis-month">
-        <span class="rm-axis-month-label">{{ m.label }}</span>
-        <span class="rm-axis-month-count" v-if="m.nodes.length">{{ m.nodes.length }}</span>
+    <!-- Unit cells (month / quarter / year) -->
+    <div class="rm-axis-cells" :style="gridStyle">
+      <div v-for="c in units" :key="c.key" class="rm-axis-cell">
+        <span class="rm-axis-cell-label">{{ c.label }}</span>
+        <span v-if="c.count" class="rm-axis-cell-count">{{ c.count }}</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { TimelineMonth } from '~/utils/roadmap'
+import type { TimeCell } from '~/utils/roadmap'
 
-const props = defineProps<{ months: TimelineMonth[]; cellWidth: number }>()
+const props = defineProps<{ units: TimeCell[]; cellWidth: number }>()
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${props.months.length}, ${props.cellWidth}px)`,
+  gridTemplateColumns: `repeat(${props.units.length}, ${props.cellWidth}px)`,
 }))
 
-// Group contiguous months into quarter bands so the label ("Q1 2026") spans its
-// months. A quarterLabel is set only on the first month of each quarter.
-const quarterBands = computed(() => {
-  const bands: { label: string; span: number; start: number }[] = []
-  props.months.forEach((m, i) => {
-    if (m.quarterLabel || bands.length === 0) {
-      bands.push({ label: m.quarterLabel || '', span: 1, start: i })
+const hasBands = computed(() => props.units.some(c => c.band !== ''))
+
+// Group contiguous cells that share a band caption ("Q1 2026", "2026") so the
+// label spans its cells. Year zoom has no band and this is skipped.
+const bands = computed(() => {
+  const out: { label: string; span: number; start: number }[] = []
+  props.units.forEach((c, i) => {
+    const last = out[out.length - 1]
+    if (last && last.label === c.band) {
+      last.span++
     } else {
-      const last = bands[bands.length - 1]
-      if (last) last.span++
+      out.push({ label: c.band, span: 1, start: i })
     }
   })
-  return bands
+  return out
 })
 </script>
 
@@ -50,15 +52,16 @@ const quarterBands = computed(() => {
 .rm-axis {
   position: sticky;
   top: 0;
-  z-index: 1;
+  /* Above the point cards AND their absolutely-positioned warn badge (z-index 1),
+     so nothing bleeds over the sticky header while the points row scrolls. */
+  z-index: 2;
   background: var(--color-bg);
 }
-.rm-axis-quarters {
+.rm-axis-bands {
   display: grid;
-  grid-auto-flow: column;
   border-bottom: 1px solid var(--color-border);
 }
-.rm-axis-quarter {
+.rm-axis-band {
   font-size: 0.5625rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -67,10 +70,10 @@ const quarterBands = computed(() => {
   border-right: 1px solid var(--color-border);
   white-space: nowrap;
 }
-.rm-axis-months {
+.rm-axis-cells {
   display: grid;
 }
-.rm-axis-month {
+.rm-axis-cell {
   display: flex;
   align-items: center;
   gap: 0.3rem;
@@ -78,12 +81,12 @@ const quarterBands = computed(() => {
   border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
 }
-.rm-axis-month-label {
+.rm-axis-cell-label {
   font-size: var(--type-xs);
   font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
 }
-.rm-axis-month-count {
+.rm-axis-cell-count {
   font-size: 0.5625rem;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-faint);

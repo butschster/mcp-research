@@ -166,7 +166,7 @@ function openNode(nodeId: string) {
     id: n.id, title: n.title, description: n.description || '',
     nodeType: n.node_type || 'step', status: n.status || '',
     refType: n.ref_type, refId: n.ref_id, refData: n.ref_data,
-    stage: n.stage || '', node_date: n.node_date || '',
+    stage: n.stage || '', node_date: n.node_date || '', node_end_date: n.node_end_date || '',
   }
 }
 

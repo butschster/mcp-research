@@ -19,6 +19,8 @@ func writeRoadmapError(w http.ResponseWriter, err error) {
 		writeFieldError(w, err.Error(), "view")
 	case errors.Is(err, service.ErrInvalidNodeDate):
 		writeFieldError(w, err.Error(), "node_date")
+	case errors.Is(err, service.ErrInvalidNodeEndDate), errors.Is(err, service.ErrNodeEndBeforeStart):
+		writeFieldError(w, err.Error(), "node_end_date")
 	default:
 		writeServiceError(w, err)
 	}
@@ -102,6 +104,7 @@ func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
 			Metadata    string  `json:"metadata"`
 			Stage       string  `json:"stage"`
 			NodeDate    string  `json:"node_date"`
+			NodeEndDate string  `json:"node_end_date"`
 		} `json:"nodes"`
 		Edges []struct {
 			Source   string `json:"source"`
@@ -125,7 +128,7 @@ func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
 			NodeType: n.NodeType, Status: n.Status,
 			PositionX: n.PositionX, PositionY: n.PositionY, ParentID: n.ParentID,
 			RefType: n.RefType, RefID: n.RefID, Metadata: n.Metadata,
-			Stage: n.Stage, NodeDate: n.NodeDate,
+			Stage: n.Stage, NodeDate: n.NodeDate, NodeEndDate: n.NodeEndDate,
 		})
 	}
 
@@ -208,6 +211,7 @@ func (h *RoadmapHandler) UpdateNode(w http.ResponseWriter, r *http.Request) {
 		Metadata    *string  `json:"metadata"`
 		Stage       *string  `json:"stage"`
 		NodeDate    *string  `json:"node_date"`
+		NodeEndDate *string  `json:"node_end_date"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -219,7 +223,7 @@ func (h *RoadmapHandler) UpdateNode(w http.ResponseWriter, r *http.Request) {
 		PositionX: input.PositionX, PositionY: input.PositionY,
 		ParentID: input.ParentID,
 		RefType:  input.RefType, RefID: input.RefID, Metadata: input.Metadata,
-		Stage: input.Stage, NodeDate: input.NodeDate,
+		Stage: input.Stage, NodeDate: input.NodeDate, NodeEndDate: input.NodeEndDate,
 	})
 	if err != nil {
 		writeRoadmapError(w, err)

@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import RoadmapTimeline from './RoadmapTimeline.vue'
 import type { RawRoadmapNode } from '~/utils/roadmap'
-import { NODES, EDGES, UNDATED_NODES } from './roadmap.fixtures'
+import { NODES, EDGES, MIXED_NODES, MIXED_EDGES, UNDATED_NODES } from './roadmap.fixtures'
 
-// The timeline places dated nodes on a month axis (buildMonthAxis), renders
-// milestones as diamond markers rather than cards, and sets undated nodes aside
-// in a tray. With nothing dated it shows an EmptyState and lists every node.
+// The timeline places dated nodes on a unit axis (month / quarter / year, chosen
+// by autoUnit and switchable from the zoom toolbar), draws ranged nodes (both
+// node_date and node_end_date) as laned Gantt bars, renders milestones as
+// markers rather than cards, and sets undated nodes aside in a tray. With nothing
+// dated it shows an EmptyState and lists every node.
 const meta: Meta<typeof RoadmapTimeline> = {
   title: 'Roadmap/Timeline',
   component: RoadmapTimeline,
@@ -20,6 +22,14 @@ type Story = StoryObj<typeof RoadmapTimeline>
 export const Dated: Story = {
   name: 'Dated nodes across months (with milestone)',
   args: { nodes: NODES, edges: EDGES },
+}
+
+export const RangedBars: Story = {
+  name: 'Ranged bars + points + milestone',
+  // N4/N5 carry node_end_date → Gantt bars (N4 overlaps N1's span, so they lane
+  // separately); N1/N2 are points, N6 a milestone, N3 undated. The dated span
+  // sets autoUnit's opening zoom, and the toolbar can switch it.
+  args: { nodes: MIXED_NODES, edges: MIXED_EDGES },
 }
 
 export const SomeUndated: Story = {

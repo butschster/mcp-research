@@ -67,9 +67,12 @@ Three fields turn a plain graph into a staged board or a dated timeline. All are
 | `view` | roadmap | `graph` (default) / `stages` / `timeline` — the layout it opens in. The UI toggle overrides this locally; it is the default, not a lock. |
 | `stages` | roadmap | Ordered list of column names for the stages view, e.g. `["Discovery","Design","Build","Launch"]`. A name here with no nodes is a legitimately empty column — the ordering is the column order. Relates to a node's `stage` exactly as `statuses` relates to a node's `status`. |
 | `stage` | node | Which stage column the node sits in. Matched by string against the roadmap's `stages`; a value that is empty or not in the list falls into a trailing **Unassigned** column rather than erroring. |
-| `node_date` | node | ISO `YYYY-MM-DD` (or empty). Places the node on the timeline's month axis. Empty means undated — the timeline sets those aside in a tray rather than guessing. A `milestone` node with a date renders as a diamond marker on the axis rather than a full card. |
+| `node_date` | node | ISO `YYYY-MM-DD` (or empty). The node's point — or the **start** of a range — on the timeline. Empty means undated (set aside in a tray). A `milestone` with a date is a diamond marker. |
+| `node_end_date` | node | Optional ISO `YYYY-MM-DD`. With `node_date` set, the node renders as a **bar** from start to end (a Gantt bar); empty means a point. Rejected with `400` if it precedes `node_date`. Ignored for a `milestone` (a milestone is an instant). |
 
-`view` is validated (one of the three); `node_date` is validated (strict `YYYY-MM-DD`, or empty). A bad value is a `400` naming the field. `stage` is free-form like `status` — an unknown stage is tolerated, not rejected.
+`view` is validated (one of the three); `node_date` and `node_end_date` are validated (strict `YYYY-MM-DD`, or empty), and an end before the start is a `400` on `node_end_date`. `stage` is free-form like `status` — an unknown stage is tolerated, not rejected.
+
+The timeline reads durations, not only points: a node with `node_date` + `node_end_date` is a bar spanning its months, greedily laned so overlaps don't stack; a node with only `node_date` stays a point. A local **Month / Quarter / Year** zoom control compresses a multi-year plan (the opening zoom is picked from the span), and it is display-only — no data, nothing stored.
 
 ```javascript
 roadmap_create({

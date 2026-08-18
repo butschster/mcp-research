@@ -29,6 +29,7 @@ type CreateRoadmapNodeRequest struct {
 	Metadata    string // JSON blob for node-type-specific data
 	Stage       string // Stage/column for the stages view
 	NodeDate    string // ISO YYYY-MM-DD for the timeline view (or empty)
+	NodeEndDate string // ISO YYYY-MM-DD end of a timeline range (or empty)
 }
 
 type CreateRoadmapEdgeRequest struct {
@@ -71,6 +72,7 @@ type UpdateRoadmapNodeRequest struct {
 	Metadata    *string
 	Stage       *string
 	NodeDate    *string
+	NodeEndDate *string
 }
 
 // --- Service ---
@@ -168,7 +170,7 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 		if nodeType == "" {
 			nodeType = "step"
 		}
-		nodeDate, err := normalizeNodeDate(nr.NodeDate)
+		nodeDate, nodeEnd, err := normalizeNodeRange(nr.NodeDate, nr.NodeEndDate)
 		if err != nil {
 			return nil, fmt.Errorf("node %q: %w", nr.Title, err)
 		}
@@ -187,6 +189,7 @@ func (s *RoadmapService) Create(ctx context.Context, req CreateRoadmapRequest) (
 			Metadata:    nr.Metadata,
 			Stage:       nr.Stage,
 			NodeDate:    nodeDate,
+			NodeEndDate: nodeEnd,
 		}
 		if err := s.nodes.Create(ctx, node); err != nil {
 			return nil, fmt.Errorf("create node %q: %w", nr.Title, err)
@@ -615,7 +618,7 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 		if nodeType == "" {
 			nodeType = "step"
 		}
-		nodeDate, err := normalizeNodeDate(nr.NodeDate)
+		nodeDate, nodeEnd, err := normalizeNodeRange(nr.NodeDate, nr.NodeEndDate)
 		if err != nil {
 			return nil, fmt.Errorf("node %q: %w", nr.Title, err)
 		}
@@ -634,6 +637,7 @@ func (s *RoadmapService) AddNodes(ctx context.Context, roadmapID string, nodeReq
 			Metadata:    nr.Metadata,
 			Stage:       nr.Stage,
 			NodeDate:    nodeDate,
+			NodeEndDate: nodeEnd,
 		}
 		if err := s.nodes.Create(ctx, node); err != nil {
 			return nil, fmt.Errorf("create node %q: %w", nr.Title, err)
@@ -730,12 +734,25 @@ func (s *RoadmapService) UpdateNode(ctx context.Context, nodeID string, req Upda
 	if req.Stage != nil {
 		node.Stage = *req.Stage
 	}
+	// Apply the two dates, then validate the resulting range as a whole — a
+	// caller may set only the start, only the end, or both, and end-before-start
+	// has to be caught against the final pair, not each field in isolation.
 	if req.NodeDate != nil {
 		nodeDate, err := normalizeNodeDate(*req.NodeDate)
 		if err != nil {
 			return nil, err
 		}
 		node.NodeDate = nodeDate
+	}
+	if req.NodeEndDate != nil {
+		nodeEnd, err := normalizeNodeDate(*req.NodeEndDate)
+		if err != nil {
+			return nil, ErrInvalidNodeEndDate
+		}
+		node.NodeEndDate = nodeEnd
+	}
+	if err := validateNodeRange(node.NodeDate, node.NodeEndDate); err != nil {
+		return nil, err
 	}
 
 	if err := s.nodes.Update(ctx, node); err != nil {
@@ -776,6 +793,10 @@ var (
 	ErrInvalidRoadmapView = errors.New("roadmap view must be one of: graph, stages, timeline")
 	// ErrInvalidNodeDate is returned for a node_date that is not YYYY-MM-DD.
 	ErrInvalidNodeDate = errors.New("node_date must be an ISO date YYYY-MM-DD, or empty")
+	// ErrInvalidNodeEndDate is returned for a node_end_date that is not YYYY-MM-DD.
+	ErrInvalidNodeEndDate = errors.New("node_end_date must be an ISO date YYYY-MM-DD, or empty")
+	// ErrNodeEndBeforeStart is returned when a range ends before it starts.
+	ErrNodeEndBeforeStart = errors.New("node_end_date must not be before node_date")
 )
 
 // normalizeRoadmapView defaults an empty view to graph and rejects anything not
@@ -803,4 +824,32 @@ func normalizeNodeDate(d string) (string, error) {
 		return "", ErrInvalidNodeDate
 	}
 	return d, nil
+}
+
+// normalizeNodeRange validates a start/end pair for a create. Each must be an
+// ISO date or empty, and a present end must not precede a present start. An end
+// with no start is allowed through and simply never renders as a bar — the
+// timeline needs a start to place anything.
+func normalizeNodeRange(start, end string) (string, string, error) {
+	s, err := normalizeNodeDate(start)
+	if err != nil {
+		return "", "", err
+	}
+	e, err := normalizeNodeDate(end)
+	if err != nil {
+		return "", "", ErrInvalidNodeEndDate
+	}
+	if err := validateNodeRange(s, e); err != nil {
+		return "", "", err
+	}
+	return s, e, nil
+}
+
+// validateNodeRange rejects an end before a start when both are present. Both
+// are already-normalized ISO dates, so a lexical compare is a date compare.
+func validateNodeRange(start, end string) error {
+	if start != "" && end != "" && end < start {
+		return ErrNodeEndBeforeStart
+	}
+	return nil
 }

@@ -101,11 +101,25 @@
               @change="$emit('update-date', node.id, ($event.target as HTMLInputElement).value)"
             />
           </div>
+          <div class="rm-place-field">
+            <label class="field-label" :for="endInpId">End date</label>
+            <input
+              :id="endInpId"
+              type="date"
+              class="rm-place-input"
+              :value="node.node_end_date || ''"
+              :min="node.node_date || undefined"
+              :disabled="!node.node_date || node.nodeType === 'milestone'"
+              :title="endInputTitle"
+              @change="$emit('update-end-date', node.id, ($event.target as HTMLInputElement).value)"
+            />
+          </div>
         </div>
         <!-- Read-only placement summary -->
-        <div v-else-if="node.stage || node.node_date" class="statuses-section rm-placement-ro">
+        <div v-else-if="node.stage || node.node_date || node.node_end_date" class="statuses-section rm-placement-ro">
           <span v-if="node.stage" class="rm-place-ro"><span class="field-label">Stage</span> {{ node.stage }}</span>
           <span v-if="node.node_date" class="rm-place-ro"><span class="field-label">Date</span> {{ node.node_date }}</span>
+          <span v-if="node.node_end_date" class="rm-place-ro"><span class="field-label">End</span> {{ node.node_end_date }}</span>
         </div>
 
         <!-- Roadmap node status chips (only for non-ref nodes) -->
@@ -153,6 +167,7 @@ const props = defineProps<{
     refData?: any
     stage?: string
     node_date?: string
+    node_end_date?: string
   } | null
   statuses: readonly string[]
   stages: readonly string[]
@@ -166,12 +181,20 @@ defineEmits<{
   'update-entity-status': [refType: string, refId: string, status: string]
   'update-stage': [nodeId: string, stage: string]
   'update-date': [nodeId: string, date: string]
+  'update-end-date': [nodeId: string, date: string]
   'navigate': [node: any]
   'close': []
 }>()
 
 const stageSelId = useId()
 const dateInpId = useId()
+const endInpId = useId()
+
+const endInputTitle = computed(() => {
+  if (!props.node?.node_date) return 'Set a date first — an end date needs a start.'
+  if (props.node?.nodeType === 'milestone') return 'A milestone is a single point in time — an end date is ignored.'
+  return ''
+})
 
 const refLabel = computed(() => {
   switch (props.node?.refType) {

@@ -85,13 +85,13 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `roadmap_create` | Create a full roadmap with nodes and edges. Set `view` (graph / stages / timeline) and `stages` for the non-graph layouts; nodes take `stage` and `node_date` |
+| `roadmap_create` | Create a full roadmap with nodes and edges. Set `view` (graph / stages / timeline) and `stages` for the non-graph layouts; nodes take `stage`, `node_date`, and `node_end_date` (with `node_date`, a timeline range bar) |
 | `roadmap_get` | Load roadmap with all nodes, edges, and reference data |
 | `roadmap_list` | List roadmaps for a research |
 | `roadmap_update` | Update title, description, statuses, stages, view, status |
 | `roadmap_delete` | Delete a roadmap and all its nodes/edges |
-| `roadmap_add_nodes` | Add nodes and edges to an existing roadmap (new nodes take `stage` and `node_date`) |
-| `roadmap_update_node` | Update a single node — status, title, description, type, position, `stage`, `node_date` |
+| `roadmap_add_nodes` | Add nodes and edges to an existing roadmap (new nodes take `stage`, `node_date`, and `node_end_date`) |
+| `roadmap_update_node` | Update a single node — status, title, description, type, position, `stage`, `node_date`, `node_end_date` |
 | `roadmap_remove_nodes` | Remove nodes (edges auto-cascade) |
 
 ## Access: You Can See More Than You Can Write

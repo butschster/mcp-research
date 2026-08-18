@@ -31,7 +31,7 @@ export const StepWithStatus: Story = {
 }
 
 export const WithPlacement: Story = {
-  name: 'Placement controls (stage + date)',
+  name: 'Placement controls (stage + date range)',
   args: {
     node: {
       id: 'n2',
@@ -41,6 +41,7 @@ export const WithPlacement: Story = {
       status: 'in_progress',
       stage: 'Build',
       node_date: '2026-03-10',
+      node_end_date: '2026-05-05',
     },
     statuses: ['not_started', 'in_progress', 'completed'],
   },
