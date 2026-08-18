@@ -58,17 +58,25 @@
               <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               Copy
             </button>
+            <span class="sr-only" role="status" aria-live="polite">{{ copied ? 'Copied to the clipboard' : '' }}</span>
             <div class="doc-more">
               <ActionMenu ref="docMenu" title="Document actions" width="wide" class="no-print">
                 <!-- The fact, then the verbs. It renders with or without a
                      revision: a document nobody has revised still has an author
                      and a timestamp, and one menu that degrades beats two menus
                      that differ. -->
+                <!-- Only when somebody recorded it. Falling back to `agent`
+                     stated a fact about authorship that nobody had established
+                     — and in a product whose point is telling an agent from a
+                     person, that is the one default that must not be silent.
+                     Documents written before the revisions migration have no
+                     row at all, and the deployed database holds some. -->
                 <EntryProvenanceMenuHeader
-                  :revision="provenance?.revision"
-                  :author-kind="provenance?.author_kind || 'agent'"
-                  :revised-at="provenance?.revised_at || entry.updated_at"
-                  :author-name="provenance?.author_name"
+                  v-if="provenance"
+                  :revision="provenance.revision"
+                  :author-kind="provenance.author_kind"
+                  :revised-at="provenance.revised_at"
+                  :author-name="provenance.author_name"
                 />
                 <button class="action-menu-item" @click="openHistory">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
@@ -172,7 +180,11 @@
           :entry-id="entry?.id"
         />
         <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
-        <pre v-else class="source-view"><code v-if="sourceFrontmatter" class="source-frontmatter">{{ sourceFrontmatter }}</code><code v-html="highlightedSource"></code></pre>
+        <!-- No header over a block document. Its body here is the stored JSON,
+             while the header comes from the markdown rendering of the same
+             document — a file that exists nowhere, under a header that is
+             evidence for what a download would produce. -->
+        <pre v-else class="source-view"><code v-if="sourceFrontmatter && !isBlocks" class="source-frontmatter">{{ sourceFrontmatter }}</code><code v-html="highlightedSource"></code></pre>
       </div>
 
       <!-- Cross-references -->
@@ -254,7 +266,7 @@
     <!-- Delete confirmation -->
     <ConfirmModal
       :visible="showDeleteConfirm"
-      title="Delete Entry"
+      title="Delete document"
       :message="`Are you sure you want to delete &quot;${entry.title}&quot;? This action cannot be undone.`"
       confirm-label="Delete"
       variant="danger"
@@ -585,8 +597,34 @@ const copied = ref(false)
 
 async function copyMarkdown() {
   if (!entry.value?.content) return
+
+  // The document's prose, never the file: a clipboard paste goes into a message
+  // or an editor, and ten lines of YAML in front of it are not what the button
+  // promises. What it must not paste is the *stored* string, which on a blocks
+  // document is JSON — the one-click control was handing over
+  // `{"version":1,"blocks":[…]}` while the two-click Download produced
+  // something readable, in a function called copyMarkdown.
+  let text = entry.value.content
+  if (isBlocks.value) {
+    try {
+      const file = await loadMarkdownFile()
+      const end = file.startsWith('---\n') ? file.indexOf('\n---\n', 4) : -1
+      text = end === -1 ? file : file.slice(end + 5).trimStart()
+    } catch {
+      // A failed fetch is not a clipboard problem and must not be reported as
+      // one — the advice would be "use Download instead", which hits the same
+      // route and fails the same way.
+      useToasts().push({
+        variant: 'error',
+        title: 'Could not copy',
+        message: 'The document could not be rendered as markdown. Try again.',
+      })
+      return
+    }
+  }
+
   try {
-    await navigator.clipboard.writeText(entry.value.content)
+    await navigator.clipboard.writeText(text)
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
   } catch {
@@ -619,13 +657,25 @@ async function downloadMarkdown() {
     `${entry.value.code || 'entry'}.md`,
   )
   useToasts().dismiss(pendingId)
+  // Leaving the page aborts the request, and an abort returns false with no
+  // error — so without this guard, navigating away planted a permanent red
+  // toast on the next page blaming the server for something the reader did.
+  // The export page has always guarded this; the new caller had not.
+  if (!ok && !downloadError.value) return
   if (ok) {
+    // The filename goes in the message, not the title: that is the slot with
+    // `overflow-wrap: anywhere`, and its own comment says why — "a filename has
+    // no spaces to break at". The caveat rides with it, and only for a document
+    // that actually holds a reference; on one that has none it was a warning
+    // about nothing, three deep if you downloaded three documents.
+    const carriesRefs = (entry.value.content || '').includes('[[')
     useToasts().push({
       variant: 'success',
-      title: downloadedName.value || 'Downloaded',
-      // The caveat is delivered here rather than buried in a guide, because
-      // this is the moment somebody is about to put the file somewhere else.
-      message: 'References like [[E3]] are written exactly as stored, so they will not resolve in another vault.',
+      title: 'Downloaded',
+      message: [
+        downloadedName.value || '',
+        carriesRefs ? 'References like [[E3]] are written exactly as stored, so they will not resolve in another vault.' : '',
+      ].filter(Boolean).join(' — '),
     })
     return
   }
@@ -633,8 +683,21 @@ async function downloadMarkdown() {
     variant: 'error',
     title: 'Download failed',
     message: downloadError.value?.message || 'The server did not return the document.',
+    action: retryDownload(downloadError.value?.status),
     timeout: 0,
   })
+}
+
+// The two export pages both attach one of these; a failed download here offered
+// nothing at all, so a 401 said "sign in again" and gave you no way to.
+function retryDownload(status?: number) {
+  if (status === 401 || status === 403) {
+    return { label: 'Sign in', onClick: () => { navigateTo('/login') } }
+  }
+  if (status === 404) {
+    return { label: 'Reload', onClick: () => { refresh() } }
+  }
+  return { label: 'Try again', onClick: () => { downloadMarkdown() } }
 }
 
 // Opening the history from a menu item is a focus problem: the item unmounts
@@ -678,16 +741,39 @@ const rtBase = useRuntimeConfig().public.apiBase || ''
  * header off the front of it. What you read is what you would get.
  */
 const sourceFrontmatter = ref('')
-const frontmatterFor = ref('')
+const markdownFile = ref('')
+const markdownFor = ref('')
+
+/**
+ * The document as a file, fetched once per version and shared by everything
+ * that needs it: the source view's header and the Copy button.
+ *
+ * Nothing here renders markdown. A second serializer on the client would drift
+ * from the one that writes the file — on a list of one, on an unfilled field,
+ * on a block type added later — and it would drift invisibly, which is the
+ * whole reason the header is fetched rather than composed.
+ *
+ * Keyed on the document *and its version*: keyed on the id alone, the guard
+ * rejected the one case the watcher exists for — a metadata edit changes
+ * updated_at, the watcher fires, and the header kept showing the values from
+ * before the save while the body below re-rendered with the new ones.
+ */
+async function loadMarkdownFile(): Promise<string> {
+  const id = entry.value?.id
+  if (!id) return ''
+  const key = `${id}:${entry.value?.updated_at ?? ''}`
+  if (markdownFor.value === key) return markdownFile.value
+  const file = await authFetch<string>(`${rtBase}/api/entries/${id}/markdown`, { responseType: 'text' })
+  markdownFile.value = typeof file === 'string' ? file : ''
+  markdownFor.value = key
+  return markdownFile.value
+}
 
 async function loadFrontmatter() {
-  const id = entry.value?.id
-  if (!id || frontmatterFor.value === id) return
   try {
-    const file = await authFetch<string>(`${rtBase}/api/entries/${id}/markdown`, { responseType: 'text' })
-    const end = typeof file === 'string' && file.startsWith('---\n') ? file.indexOf('\n---\n', 4) : -1
+    const file = await loadMarkdownFile()
+    const end = file.startsWith('---\n') ? file.indexOf('\n---\n', 4) : -1
     sourceFrontmatter.value = end === -1 ? '' : file.slice(0, end + 5)
-    frontmatterFor.value = id
   } catch {
     // The body is the point; a header we could not fetch simply does not show.
     sourceFrontmatter.value = ''
@@ -699,8 +785,9 @@ async function loadFrontmatter() {
 watch(
   () => [viewMode.value, entry.value?.id, entry.value?.updated_at],
   () => {
-    if (viewMode.value === 'source') loadFrontmatter()
-    else frontmatterFor.value = ''
+    if (viewMode.value === 'source' && !isBlocks.value) loadFrontmatter()
+    // Nothing to clear: the cache is keyed by version, so a return to source
+    // either reuses a current file or fetches a fresh one.
   },
   { immediate: true },
 )

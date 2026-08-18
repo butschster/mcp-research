@@ -307,7 +307,16 @@ value is written as an explicit `null`, not omitted — a vault query for
 worth finding would be exactly the invisible ones. A `ref` value is emitted in
 its `"[[E47]]"` bracket form so Obsidian treats the property as a link; a
 repeated field is a real YAML sequence even with one element, so a membership
-filter works; a number stays unquoted so it sorts numerically.
+filter works; a number stays unquoted so it sorts numerically. A field answered
+with an explicit `null` emits the word `unknown` rather than a blank — somebody
+looked, and that is a different fact from nobody having looked.
+
+**One document downloaded as a file** (`GET /api/entries/{id}/markdown`) carries
+the same front matter from the same builder: declared keys after the system ones,
+`null` for an unanswered field, `unknown` for an explicit one. Two of the vault's
+system keys are absent there (`aliases` and `session`), and nothing else differs —
+one builder, because two would drift and nobody would notice until they diffed
+two exports of one document. See [Export](/llms/export.md).
 
 **Portable export/import** carries both `field_spec` on the section and
 `metadata` on the entry, and an import restores them. Values are re-validated

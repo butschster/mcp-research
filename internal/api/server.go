@@ -65,7 +65,7 @@ func NewServer(
 	mux := http.NewServeMux()
 
 	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, log)
-	eh := handlers.NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, storage.NewUserRepository(db), log)
+	eh := handlers.NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, storage.NewUserRepository(db), storage.NewTeamRepository(db), log)
 	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)

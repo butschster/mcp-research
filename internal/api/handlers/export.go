@@ -138,7 +138,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("format") == "md" {
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 		w.Header().Set("Content-Disposition",
-			fmt.Sprintf(`attachment; filename="%s.md"`, sanitizeFilename(research.Name)))
+			contentDisposition(sanitizeFilename(research.Name)+".md"))
 		w.Write([]byte(md))
 		return
 	}
@@ -235,7 +235,7 @@ func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("format") == "md" {
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 		w.Header().Set("Content-Disposition",
-			fmt.Sprintf(`attachment; filename="%s.md"`, sanitizeFilename(sess.Session.Title)))
+			contentDisposition(sanitizeFilename(sess.Session.Title)+".md"))
 		w.Write([]byte(md))
 		return
 	}
@@ -266,7 +266,7 @@ func (h *ExportHandler) ExportPortable(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Disposition",
-		fmt.Sprintf(`attachment; filename="%s.json"`, sanitizeFilename(data.Research.Name)))
+		contentDisposition(sanitizeFilename(data.Research.Name)+".json"))
 	writeJSON(w, http.StatusOK, data)
 }
 

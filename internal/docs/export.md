@@ -1,6 +1,6 @@
 # Export
 
-How to export research data as documents. Two scopes exist: a whole research, and a single session. Both come in a JSON form (structured data + pre-rendered markdown) and a raw `.md` download. A whole research has two further forms: an **Obsidian vault** (`?format=obsidian`, a zip of linked notes — a document to read) and the **portable JSON** (a research to move to another server). Everything here is a read endpoint; only the portable import writes.
+How to export research data as documents. Three scopes exist: a whole research, a single session, and a single document. The first two come in a JSON form (structured data + pre-rendered markdown) and a raw `.md` download; a document leaves only as a `.md` file, with YAML front matter. A whole research has two further forms: an **Obsidian vault** (`?format=obsidian`, a zip of linked notes — a document to read) and the **portable JSON** (a research to move to another server). Everything here is a read endpoint; only the portable import writes.
 
 ## Export Pages (Web UI)
 
@@ -21,6 +21,9 @@ The session page renders: parent research name, session title, focus, code, stat
 ### Print Individual Entries
 
 Open any entry page and use Ctrl+P / Cmd+P. The entry page has print-optimized CSS that hides navigation, action buttons, cross-references, and related entries, showing only the breadcrumb path and document content.
+
+The same page's `⋯` menu offers **Download .md** — the document as a file with
+YAML front matter, described in [One Document as a File](#one-document-as-a-file).
 
 ## Research Export API
 
@@ -214,12 +217,14 @@ from the current titles, so renaming an entry cannot leave a stale link behind.
   declared field with **no value is written as an explicit `null`** rather than
   dropped, because a vault query for "documents missing this field" would
   otherwise find nothing and the documents worth finding would be exactly the
-  invisible ones; a `ref` value is emitted in its `"[[E47]]"` bracket form so
-  Obsidian treats the property as a link; a repeated field is a real YAML
+  invisible ones; a field answered with an explicit unknown emits the word
+  `unknown`, because somebody did look; a `ref` value is emitted in its
+  `"[[E47]]"` bracket form so Obsidian treats the property as a link; a repeated field is a real YAML
   sequence even with one element, so a membership filter matches. Numbers stay
   unquoted and sort numerically. See [Document Metadata](/llms/metadata.md).
 - **Filenames** are `E1 — Title` and keep Cyrillic and other non-ASCII. What a
-  filesystem refuses is removed (`: * ? " < > |`), a path separator becomes `-`,
+  filesystem refuses is removed (`: * ? " < > |`), and so is what would cut a
+  wikilink short (`# ^ [ ]`); a path separator becomes `-`,
   newlines and control characters become spaces, Windows reserved names get a
   trailing `_`, and a component longer than 100 bytes is cut on a rune boundary.
   The code leads the name, so two entries with the same title cannot collide.
@@ -288,6 +293,112 @@ instead:
 **The vault does not travel back.** It is a document format; use the portable
 JSON below to move a research between servers.
 
+## One Document as a File
+
+```
+GET /api/entries/{id}/markdown
+```
+
+Every other export here answers "give me everything". This answers "give me this
+one", which until now had no answer at all: a document could leave inside a
+research or a session export and in no other way.
+
+`{id}` is the entry **UUID**. This route resolves no `E`-code and accepts no
+`?research=`, unlike `GET /api/entries/{id}`, which does both. It is a read
+endpoint on the usual terms — unauthenticated by default, bearer token when
+`auth_enabled` is set, and a `viewer` may download exactly as an `editor` can.
+
+The response is `text/markdown; charset=utf-8` with `Content-Disposition:
+attachment` carrying the filename twice: an ASCII `filename=` in which every
+non-ASCII rune became `_`, and the RFC 5987 `filename*=UTF-8''…`. A client that
+reads the second gets `E50 — SPEC-01 · Payload состояния площадки.md`; one that
+reads only the first still gets a distinguishable name instead of a mangled one.
+
+The name is the code, an em dash, and the title, sanitised by the vault's own
+function — so a downloaded file and the same document's note in a vault are named
+alike. Non-ASCII stays; `: * ? " < > |` and `# ^ [ ]` are dropped, a path
+separator becomes `-`, newlines and control characters become spaces, a Windows
+reserved name gets a trailing `_`, and each part is cut to 100 bytes on a rune
+boundary. The code leads because a folder of downloads then sorts into the order
+the research issued them, and two documents with the same title cannot collide.
+
+### Front matter
+
+Built by the code that builds the vault's, deliberately: two copies of these
+rules drift, and the drift is invisible until somebody diffs two exports of the
+same document.
+
+```yaml
+---
+code: E50
+title: SPEC-01 · Payload состояния площадки
+research: R21
+section: Specifications
+type: markdown
+status: active
+tags: [spec, contract]
+created: "2026-08-18T09:12:44Z"
+updated: "2026-08-19T07:03:10Z"
+stage: in-review
+produces: [scanner-watchdog]
+owner: null
+---
+```
+
+Nine system keys — `code`, `title`, `research`, `section`, `type`, `status`,
+`tags`, `created`, `updated` — then the fields the section declares, in
+declaration order. Two of the vault's eleven are absent on purpose: `aliases`,
+which exists so Obsidian's quick switcher finds a sibling note, and `session`,
+which is provenance. Timestamps are RFC 3339 in UTC.
+
+An empty **system** value is dropped rather than written blank. A **declared**
+field is always written: unanswered as `null`, because a query for "documents
+missing this field" would otherwise find nothing and the documents worth finding
+would be exactly the invisible ones; answered with an explicit unknown as the
+word `unknown`, because somebody did look and this document is not the one you
+are looking for. A `ref` value comes out in its `"[[E47]]"` bracket form, a
+repeated field as a real YAML sequence even with one element, a number unquoted.
+The field types and the eleven reserved keys are in
+[Document Metadata](/llms/metadata.md).
+
+`research: R21` is the entire identity guarantee. `code: E50` means nothing
+outside the research that issued it; the file says where it came from and claims
+nothing more.
+
+Below the front matter comes the body and nothing else — no title heading is
+prepended, no footer, no link home. A loose file has nowhere to link home to.
+
+### What it deliberately does not do
+
+- **It does not rewrite `[[E3]]`.** The vault retargets a reference at the note
+  that answers it (`[[E3 — Pricing model|E3]]`) because Obsidian matches a
+  wikilink against filenames. A loose file has no siblings, so the same rewrite
+  would point at a note that exists nowhere; the reference is emitted exactly as
+  stored, and in a foreign vault it resolves to nothing. That is accepted rather
+  than overlooked: the file is offered at the user's own risk, and this product
+  does not undertake to make the round trip lossless.
+- **It carries no provenance.** No `session`, no `revision`, no author. Who wrote
+  a document, during which interview and at which revision, is working process —
+  the one thing this product never lets out, and the same reason a share link is
+  refused it.
+- **It carries no description.** An entry's description is derived from the
+  opening lines of its own content when nobody writes one, so printing it above
+  the body is the same sentences twice. The vault does not print it either,
+  though it does for a task and a roadmap, whose descriptions are written by hand.
+- **A block document renders as its markdown projection**, the same one the
+  `.md` export uses, with none of the vault's overrides: a checklist keeps its
+  ticks, and a `mermaid` block stays a fence with the mermaid.live link under it
+  (the vault is the one target that drops that link, because Obsidian draws the
+  fence itself). An `html` block is **named, not emitted** — `> **Revenue chart**
+  — interactive HTML, view in the web UI.` Writing the artifact beside the note
+  and linking it is the vault's move, and a single file has no beside. A document
+  that cannot be parsed yields the same one-line notice every other export uses.
+- **There is no MCP tool.** An agent that wants the content calls `entry_read`;
+  putting a file on a disk is a human act, and nothing about the tool list
+  changes because this route exists.
+- **It is not on the share sub-mux.** A visitor holding a share link cannot take
+  a document away as a file, whatever the link's include flags say — see below.
+
 ## Portable Export / Import
 
 The markdown/JSON exports above are for reading. To move a research to another server, use the portable format instead — it carries sections, entries, sessions, questions, tasks, and roadmaps in a versioned envelope (`version`, `exported_at`, `research`):
@@ -336,6 +447,7 @@ Same handler, same payload shape as the authenticated route above, with four dif
 - **A share sees neither document metadata nor the declaration behind it.** `field_spec` is stripped from every section a share reads and `metadata` from every entry, so the shared markdown renders no metadata block and the shared vault emits no user front-matter keys — both render *from* the declaration, and a share has none. A list of field labels with nothing in them still says what a team decided to track. See [Document Metadata](/llms/metadata.md).
 - `sessions` is empty unless the link includes sessions, and `tasks` unless it includes tasks. An export that carried the interview transcript would hand over in one file exactly what the creator chose to leave out of the pages.
 - `/export/portable` is not mounted under the prefix at all: it is a re-importable copy of the record rather than a reading of it. **Session export is not shared either** — only the research-scoped route is mounted.
+- **The per-document download is not mounted either.** `GET /api/entries/{id}/markdown` has no shared twin, and no include flag turns one on. The service cannot refuse that route on a visitor's behalf — a share resolves to viewer on its research, so the document reads fine and the file would render — so the route list *is* the guarantee, which is why a test drives the real mux and asserts the `404`.
 
 ### The vault through a share
 
@@ -357,7 +469,7 @@ Without `include.export` the route answers the same `404 this link is no longer 
 
 ## Auth
 
-Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, or the Obsidian vault, exactly as an `editor` can. `POST /api/researches/import` is a write endpoint: it always requires the bearer token when `api_token` or `auth_enabled` is configured, and it needs editor or owner rights in whichever team it imports into.
+Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, the Obsidian vault, or one document as a file, exactly as an `editor` can. `POST /api/researches/import` is a write endpoint: it always requires the bearer token when `api_token` or `auth_enabled` is configured, and it needs editor or owner rights in whichever team it imports into.
 
 A share token is not a bearer token. It authenticates nothing on the routes above — it only opens the mirrored, redacted export under `/api/shared/{token}/…`, and only when the link includes it.
 
@@ -367,9 +479,9 @@ An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
 [Block Documents](/llms/blocks.md)), so every export has to render it rather than write
 `content` out:
 
-- **Markdown export** (`?format=md`, and the `markdown` field of the JSON
-  responses) serializes the blocks: headings, lists, tables, quotes and code
-  become their markdown equivalents, a `callout` becomes a labelled blockquote, a
+- **Markdown export** (`?format=md`, the `markdown` field of the JSON responses,
+  and the single-document download) serializes the blocks: headings, lists,
+  tables, quotes and code become their markdown equivalents, a `callout` becomes a labelled blockquote, a
   `mermaid` block becomes a ```mermaid fence with a link to mermaid.live below it, and a `checklist` becomes a GitHub
   task list carrying the ticks as they stand.
 - **An `html` block is named, not emitted.** The export gets
@@ -401,3 +513,5 @@ An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
 Cross-references (`[[E3]]`, `[[R2:E5]]`, `[[RM1]]`) are preserved as-is in markdown export. In the web export pages, they are rendered as clickable links.
 
 The Obsidian vault is the one export that rewrites them: each reference is retargeted at the note's filename and keeps its code as the display text (`[[E3]]` becomes `[[E3 — Pricing model|E3]]`), because Obsidian matches a wikilink against filenames and an `aliases` entry does not resolve a hand-written one. See [Obsidian Vault Export](#obsidian-vault-export) above for the full rule and what happens to a reference pointing outside the export.
+
+The [single-document download](#one-document-as-a-file) is the case worth stating twice: it produces an Obsidian-shaped file, front matter and all, and still does **not** rewrite its references — the notes they would name are not there. Dropped into a foreign vault, every `[[E3]]` in it resolves to nothing.

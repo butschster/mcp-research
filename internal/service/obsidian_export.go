@@ -496,29 +496,16 @@ func (b *vaultBuilder) writeEntry(
 
 // entryBody renders the entry's content for a note.
 //
-// A blocks entry stores JSON, so its markdown projection is the only readable
-// form. An html block is the one thing markdown cannot carry: it is written
-// beside the vault as a real file and linked, because Obsidian sanitizes inline
-// HTML and never runs scripts — inlining an artifact would show a broken shell
-// of it.
+// The vault's two differences from a loose file live here and nowhere else: it
+// omits the mermaid live-editor link, because Obsidian draws mermaid itself and
+// the link is a kilobyte of base64 in the middle of a note; and it writes an
+// html block beside the vault as a real file and links it, because Obsidian
+// sanitizes inline HTML and would show a broken shell of an artifact.
 func (b *vaultBuilder) entryBody(e *domain.Entry) string {
-	if e.Content == "" {
-		return ""
-	}
-	if e.Type != domain.EntryBlocks {
-		return strings.TrimRight(normalizeContent(e.Content), "\n") + "\n"
-	}
-	doc, err := ParseStoredBlockDocument(e.Content)
-	if err != nil {
-		return "*This entry holds a block document that could not be read.*\n"
-	}
-	md := BlockDocumentToMarkdownWith(doc, MarkdownOptions{
-		// Obsidian draws mermaid itself, so the live-editor link would be a
-		// kilobyte of base64 sitting in the middle of a note.
+	return entryMarkdownBody(e, MarkdownOptions{
 		OmitMermaidLink: true,
 		HTMLBlock:       func(blk domain.Block) string { return b.htmlBlock(e, blk) },
 	})
-	return strings.TrimRight(md, "\n") + "\n"
 }
 
 func (b *vaultBuilder) htmlBlock(e *domain.Entry, blk domain.Block) string {

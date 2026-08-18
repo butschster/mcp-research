@@ -199,8 +199,9 @@ entry back returns `entry_type: blocks`.
 
 ## Export and import
 
-- **Markdown export** (`?format=md`, research and session): blocks are serialized
-  to markdown. A `callout` becomes a labelled blockquote, a `checklist` becomes a
+- **Markdown export** (`?format=md` for a research or a session, and the
+  single-document download `GET /api/entries/{id}/markdown`): blocks are
+  serialized to markdown. A `callout` becomes a labelled blockquote, a `checklist` becomes a
   GitHub task list with the ticks as they stand, a `mermaid` block becomes a
   ```mermaid fence — which GitHub and this app both draw — and an `html` block
   becomes a named note saying to view it in the web UI, its document being the one

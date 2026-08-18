@@ -38,7 +38,7 @@ func TestResolveCode_DoesNotCrossUsers(t *testing.T) {
 
 	researchSvc := service.NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), service.NewAccess(storage.NewTeamRepository(db)), nopNotifier{}, log)
 	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, service.NewAccess(storage.NewTeamRepository(db)), nil, blockRepo, storage.NewEntryRevisionRepository(db), crossrefRepo, nil, nopNotifier{}, log)
-	handler := NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, storage.NewUserRepository(db), log)
+	handler := NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, storage.NewUserRepository(db), storage.NewTeamRepository(db), log)
 
 	teamRepo := storage.NewTeamRepository(db)
 	alice := &domain.User{ID: uuid.New().String(), Email: "alice@test.com", PasswordHash: "x", Name: "Alice"}
