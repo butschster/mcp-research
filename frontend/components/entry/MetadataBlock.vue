@@ -5,12 +5,12 @@
       <span v-if="versionLabel" class="metadata-version" :title="versionTitle">{{ versionLabel }}</span>
       <div v-if="editable" class="metadata-actions no-print">
         <template v-if="editing">
-          <button class="btn-sm btn-primary" :disabled="saving" @click="save">
+          <button class="btn btn-sm btn-primary" :disabled="saving" @click="save">
             {{ saving ? 'Saving...' : 'Save' }}
           </button>
-          <button class="btn-sm" :disabled="saving" @click="cancel">Cancel</button>
+          <button class="btn btn-sm" :disabled="saving" @click="cancel">Cancel</button>
         </template>
-        <button v-else class="btn-sm" @click="startEditing">Edit values</button>
+        <button v-else ref="editButton" class="btn btn-sm" @click="startEditing">Edit values</button>
       </div>
     </div>
 
@@ -37,6 +37,7 @@
               v-if="inputKind(f) === 'select'"
               v-model="draft[f.key]"
               class="select metadata-input"
+              :disabled="saving"
             >
               <option value="">not filled</option>
               <!-- A stored value outside the vocabulary rendered as nothing
@@ -60,8 +61,10 @@
             </select>
             <input
               v-else
+              ref="valueInputs"
               v-model="draft[f.key]"
               class="text-input metadata-input"
+              :disabled="saving"
               :type="editorInputType(f)"
               :placeholder="f.repeated ? 'comma, separated' : ''"
             />
@@ -69,7 +72,9 @@
               v-if="f.required"
               type="button"
               class="metadata-unknown"
-              :class="{ 'is-on': draft[f.key] === UNKNOWN }"
+              :disabled="saving"
+              :class="{ 'is-on': unknown[f.key] }"
+              :aria-pressed="!!unknown[f.key]"
               title="Record that nobody knows. This answers the field without inventing a value."
               @click="toggleUnknown(f.key)"
             >unknown</button>
@@ -120,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { renderRefs } from '~/composables/useCrossRefs'
 import {
   displayValue, fieldLabel, formatValue, inputKind, isFilled, isUnknown, orphanedKeys, parseInput,
@@ -153,15 +158,37 @@ const props = defineProps<{
 // the same rule its content editor already follows.
 const emit = defineEmits<{ (e: 'editing', open: boolean): void }>()
 
-// The sentinel a person picks to say "we looked and cannot say". It starts with
-// a space so nothing a person could type collides with it.
-const UNKNOWN = ' unknown'
+/*
+ * "We looked and cannot say" is held as its own flag, never as text in the box.
+ *
+ * It was a sentinel string once, and the box then literally read `unknown`:
+ * indistinguishable from having typed the word, and one keystroke away from
+ * silently becoming the string "unknow".
+ */
 
 const editing = ref(false)
+const editButton = ref<HTMLElement | null>(null)
+const valueInputs = ref<HTMLElement[]>([])
+
+/*
+ * Both transitions unmount the button that was focused, and focus then falls to
+ * <body> — so the next Tab restarts at the top of the page, on a screen the
+ * person is in the middle of editing.
+ */
+async function focusFirstInput() {
+  await nextTick()
+  valueInputs.value?.[0]?.focus()
+}
+
+async function focusEditButton() {
+  await nextTick()
+  editButton.value?.focus()
+}
 const saving = ref(false)
 const error = ref('')
 const draft = reactive<Record<string, string>>({})
 const multi = reactive<Record<string, string[]>>({})
+const unknown = reactive<Record<string, boolean>>({})
 
 const values = computed(() => props.values ?? {})
 const specs = computed(() => props.specs ?? [])
@@ -197,10 +224,12 @@ function startEditing() {
       multi[f.key] = Array.isArray(v) ? (v as string[]) : (v ? [String(v)] : [])
       continue
     }
-    draft[f.key] = v === null ? UNKNOWN : formatValue(v)
+    unknown[f.key] = v === null
+    draft[f.key] = v === null ? '' : formatValue(v)
   }
   editing.value = true
   emit('editing', true)
+  focusFirstInput()
 }
 
 /**
@@ -213,7 +242,7 @@ function startEditing() {
 function strayValue(f: FieldSpec): string {
   if (f.type !== 'enum' || f.repeated) return ''
   const current = draft[f.key]
-  if (!current || current === UNKNOWN) return ''
+  if (!current) return ''
   return (f.options ?? []).includes(current) ? '' : current
 }
 
@@ -221,10 +250,12 @@ function cancel() {
   editing.value = false
   emit('editing', false)
   error.value = ''
+  focusEditButton()
 }
 
 function toggleUnknown(key: string) {
-  draft[key] = draft[key] === UNKNOWN ? '' : UNKNOWN
+  unknown[key] = !unknown[key]
+  if (unknown[key]) draft[key] = ''
 }
 
 async function save() {
@@ -237,11 +268,11 @@ async function save() {
         out[f.key] = multi[f.key] ?? []
         continue
       }
-      const raw = draft[f.key] ?? ''
-      if (raw === UNKNOWN) {
+      if (unknown[f.key]) {
         out[f.key] = null
         continue
       }
+      const raw = draft[f.key] ?? ''
       // An empty box clears the field, and is sent rather than omitted: the map
       // replaces what is stored, so an omitted key would read as "leave it".
       out[f.key] = parseInput(f, raw)
@@ -253,6 +284,7 @@ async function save() {
     await props.onSave?.(out)
     editing.value = false
     emit('editing', false)
+    focusEditButton()
   } catch (e: any) {
     error.value = e?.data?.error || e?.message || 'Could not save'
   } finally {

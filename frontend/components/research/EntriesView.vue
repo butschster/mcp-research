@@ -77,12 +77,14 @@
                   <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
                   <h3 class="card-title">{{ entry.title }}</h3>
                 </div>
-                <span
-                  v-if="missingIn(group.section, entry)"
-                  class="badge badge-draft"
-                  :title="`${missingIn(group.section, entry)} required ${missingIn(group.section, entry) === 1 ? 'field is' : 'fields are'} unanswered`"
-                >{{ missingIn(group.section, entry) }} missing</span>
-                <StatusBadge :status="entry.status" />
+                <div class="entry-card-flags">
+                  <span
+                    v-if="missingIn(group.section, entry)"
+                    class="badge badge-draft"
+                    :title="`${missingIn(group.section, entry)} required ${missingIn(group.section, entry) === 1 ? 'field is' : 'fields are'} unanswered`"
+                  >{{ missingIn(group.section, entry) }} missing</span>
+                  <StatusBadge :status="entry.status" />
+                </div>
               </div>
               <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
               <div v-if="entry.tags?.length" class="entry-tags">
@@ -145,7 +147,10 @@
       <!-- The table is the point of declaring fields at all: a blank cell beside
            filled ones is the strongest force there is on whether an optional
            field ever gets answered. -->
-      <div v-else-if="view === 'table' && filteredEntries.length" class="meta-table-wrap">
+      <!-- Gated on the declaration, not only on the toggle: the component
+           instance is reused across sections, so a section with no fields
+           inherited the table and had no control to leave it with. -->
+      <div v-else-if="view === 'table' && fieldSpec.length && filteredEntries.length" class="meta-table-wrap">
         <table class="meta-table">
           <thead>
             <tr>
@@ -205,12 +210,14 @@
               <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
               <h3 class="card-title">{{ entry.title }}</h3>
             </div>
-            <span
-              v-if="missingCount(entry)"
-              class="badge badge-draft"
-              :title="`${missingCount(entry)} required ${missingCount(entry) === 1 ? 'field is' : 'fields are'} unanswered`"
-            >{{ missingCount(entry) }} missing</span>
-            <StatusBadge :status="entry.status" />
+            <div class="entry-card-flags">
+              <span
+                v-if="missingCount(entry)"
+                class="badge badge-draft"
+                :title="`${missingCount(entry)} required ${missingCount(entry) === 1 ? 'field is' : 'fields are'} unanswered`"
+              >{{ missingCount(entry) }} missing</span>
+              <StatusBadge :status="entry.status" />
+            </div>
           </div>
           <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
           <div v-if="entry.tags?.length" class="entry-tags">
@@ -440,15 +447,25 @@ const groupedEntries = computed(() => {
   flex-shrink: 0;
 }
 
-.section-view-toggle { margin-left: var(--space-2); }
+/* No auto margins here. `.section-header` is space-between with no gap, and an
+   auto margin is resolved first — it absorbed all the free space, so the title
+   and the status badge packed flush together and a section that declares fields
+   looked broken next to one that does not. */
+.section-header { gap: var(--space-3); }
+.section-view-toggle { margin-left: auto; }
 .section-fields-link {
-  margin-left: auto;
   font-size: var(--type-xs);
   color: var(--color-text-muted);
+  white-space: nowrap;
 }
 .section-fields-link:hover { color: var(--color-primary); }
 
 .meta-table-wrap {
+  /* Without this the wrapper takes its min-content width from the table and
+     blows out the `1fr` grid track it sits in, which scrolls the page body
+     rather than the table. */
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   /* The page body must never scroll sideways; a wide table scrolls inside its
@@ -483,5 +500,8 @@ const groupedEntries = computed(() => {
 .meta-table td.is-missing { color: var(--color-warning); }
 .meta-table td.is-invalid { color: var(--color-danger); text-decoration: underline dotted; }
 .meta-req { color: var(--color-warning); margin-left: 0.15em; }
+/* The chip and the status badge are one group, or the header's space-between
+   distributes free space between them and the chip floats mid-row. */
+.entry-card-flags { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 
 </style>

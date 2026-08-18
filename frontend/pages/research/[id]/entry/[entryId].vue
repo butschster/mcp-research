@@ -154,7 +154,16 @@
       </div>
 
       <!-- Cross-references -->
-      <EntryCrossReferencesBlock
+      <ConfirmModal
+      :visible="incompleteFields.length > 0"
+      title="Required fields are unanswered"
+      :message="`This document does not answer ${incompleteFields.join(', ')}. Completing it now records that somebody decided to anyway.`"
+      confirm-label="Complete anyway"
+      @confirm="completeAnyway"
+      @cancel="incompleteFields = []"
+    />
+
+    <EntryCrossReferencesBlock
         :outgoing="outgoingRefs"
         :incoming="incomingRefs"
         :research-slug="researchSlug"
@@ -667,7 +676,43 @@ async function changeStatus(newStatus: string) {
   } catch (e: any) {
     // Rollback on error
     data.value.data = { ...entry.value, status: prev }
-    console.error('Failed to change status:', e)
+    // The server refuses `completed` while required metadata is unanswered and
+    // names the fields. Without this the badge flipped and flipped back with no
+    // message at all — the one refusal in this product that the user can act on
+    // was the one they were never told about.
+    if (e?.data?.code === 'metadata_incomplete') {
+      incompleteFields.value = e.data.missing_required ?? []
+      return
+    }
+    useToasts().push({
+      variant: 'error',
+      title: 'Status not changed',
+      message: e?.data?.error || e?.message || 'The server refused it.',
+    })
+  }
+}
+
+// The fields the server named, held while the user decides. Completing anyway
+// is a decision, so it is asked for rather than retried.
+const incompleteFields = ref<string[]>([])
+
+async function completeAnyway() {
+  if (!entry.value) return
+  const fields = incompleteFields.value
+  incompleteFields.value = []
+  try {
+    await authFetch(`${rtBase}/api/entries/${entry.value.id}`, {
+      method: 'PUT',
+      body: { status: 'completed', allow_incomplete: true },
+    })
+    await refresh()
+  } catch (e: any) {
+    incompleteFields.value = fields
+    useToasts().push({
+      variant: 'error',
+      title: 'Status not changed',
+      message: e?.data?.error || e?.message || 'The server refused it.',
+    })
   }
 }
 

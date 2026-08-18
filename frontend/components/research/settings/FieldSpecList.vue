@@ -49,7 +49,7 @@
             <input v-model="f.repeated" type="checkbox" />
             list
           </label>
-          <button class="btn-sm spec-remove" :aria-label="`Remove field ${i + 1}`" @click="removeField(section.id, i)">Remove</button>
+          <button class="btn btn-sm spec-remove" :aria-label="`Remove field ${i + 1}`" @click="removeField(section.id, i)">Remove</button>
 
           <input
             v-if="f.type === 'enum'"
@@ -68,15 +68,15 @@
 
         <div class="spec-actions">
           <button
-            class="btn-sm"
+            class="btn btn-sm"
             :disabled="(drafts[section.id]?.length ?? 0) >= caps.fields"
             :title="(drafts[section.id]?.length ?? 0) >= caps.fields ? `A section may declare at most ${caps.fields} fields` : ''"
             @click="addField(section.id)"
           >Add field</button>
-          <button class="btn-sm btn-primary" :disabled="busy === section.id" @click="save(section)">
+          <button class="btn btn-sm btn-primary" :disabled="busy === section.id" @click="save(section)">
             {{ busy === section.id ? 'Saving...' : 'Save' }}
           </button>
-          <button class="btn-sm" :disabled="busy === section.id" @click="closeEditor(section.id)">Cancel</button>
+          <button class="btn btn-sm" :disabled="busy === section.id" @click="closeEditor(section.id)">Cancel</button>
         </div>
         <p class="spec-hint">
           Reserved: {{ reservedKeys.join(', ') }} &mdash; the export already emits those,
@@ -94,7 +94,7 @@
           </li>
         </ul>
         <div v-if="editable" class="spec-actions">
-          <button class="btn-sm" @click="openEditor(section)">
+          <button class="btn btn-sm" @click="openEditor(section)">
             {{ countFor(section) ? 'Edit fields' : 'Declare fields' }}
           </button>
         </div>
@@ -254,7 +254,10 @@ async function save(section: any) {
   font-size: var(--type-xs); color: var(--color-text-muted);
   white-space: nowrap;
 }
-.spec-remove { flex-shrink: 0; }
+/* Stated, like every other control in the row. `.btn.btn-sm` comes out at
+   26.6px from its own padding, and a row of 30, 30, 30, 30, 30 and 26.6 is the
+   difference that is visible and hard to name. */
+.spec-remove { flex-shrink: 0; height: var(--control-h); }
 
 .spec-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
