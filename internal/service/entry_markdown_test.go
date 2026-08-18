@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -100,5 +101,51 @@ func TestMarkdownExport_RendersABlockDocumentAsMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(file.Content, "## Payload") || !strings.Contains(file.Content, "One line.") {
 		t.Fatalf("the block document did not render:\n%s", file.Content)
+	}
+}
+
+// A document leaving as a file is a decision nobody made for share visitors,
+// and the routing is not the only place that says so.
+func TestMarkdownExport_IsRefusedToAShareVisitor(t *testing.T) {
+	k := newShareKit(t)
+	owner, _, research, section, _ := k.sharedResearch(t, domain.TeamViewer)
+	entry, err := k.entry.Create(owner, CreateEntryRequest{
+		ResearchID: research.ID, SectionID: section.ID,
+		Title: "Internal", Content: "the body",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	result, err := k.shares.Create(owner, research.ID, CreateShareRequest{Include: allIncluded()})
+	if err != nil {
+		t.Fatalf("share: %v", err)
+	}
+
+	if _, err := k.entry.MarkdownExport(visit(t, k, result.Token), entry.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a share rendered a document as a file: %v", err)
+	}
+	// And the owner still can, so the refusal is about the capability rather
+	// than about the document.
+	if _, err := k.entry.MarkdownExport(owner, entry.ID); err != nil {
+		t.Fatalf("the owner was refused too: %v", err)
+	}
+}
+
+// A stranger cannot render somebody else's document, and cannot tell the
+// refusal apart from the document not existing.
+func TestMarkdownExport_IsRefusedAcrossUsers(t *testing.T) {
+	k := newShareKit(t)
+	owner, _, research, section, _ := k.sharedResearch(t, domain.TeamViewer)
+	entry, err := k.entry.Create(owner, CreateEntryRequest{
+		ResearchID: research.ID, SectionID: section.ID,
+		Title: "Internal", Content: "the body",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	stranger := userCtx(createTestUser(t, k.db, "stranger-md@test.com", "Stranger"))
+	if _, err := k.entry.MarkdownExport(stranger, entry.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a stranger rendered the document: %v", err)
 	}
 }

@@ -16,7 +16,7 @@
         v-if="open"
         class="action-menu-list"
         :class="[`action-menu-list--${props.align}`, `action-menu-list--${props.width}`]"
-        @click="open = false"
+        @click="onPanelClick"
       >
         <slot />
       </div>
@@ -42,9 +42,10 @@ const props = withDefaults(
     /** Which edge the panel is anchored to. */
     align?: 'left' | 'right'
     /**
-     * `wide` is 232px, measured rather than guessed: the text column is then
-     * 182px, which holds a Russian full name on one line of a two-line clamp.
-     * At the default 180 every one of them ellipsises.
+     * `wide` is 232px, for a panel whose content does not ellipsise well. It
+     * buys 52px: a text column of 180px rather than 128px, which is roughly a
+     * 19-character name instead of a 13-character one. Long names still
+     * truncate — the caller owns saying so.
      */
     width?: 'default' | 'wide'
   }>(),
@@ -76,6 +77,16 @@ onUnmounted(() => {
   document.removeEventListener('click', onClickOutside)
   document.removeEventListener('keydown', onKeydown)
 })
+
+// The panel closes when an item is used, and only then. It used to close on any
+// click inside it, which meant the deliberately inert header — the most
+// tile-like thing in the list — answered a press by making everything vanish
+// with nothing having happened. Inertness that responds is not inertness.
+function onPanelClick(e: MouseEvent) {
+  const el = e.target as HTMLElement | null
+  if (el?.closest('.action-menu-header, .action-menu-divider')) return
+  open.value = false
+}
 
 function focusTrigger() {
   rootRef.value?.querySelector('button')?.focus()

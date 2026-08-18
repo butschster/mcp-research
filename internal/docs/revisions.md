@@ -124,6 +124,15 @@ POST /api/entries/{id}/revisions/{n}/restore   restore, as a new revision
 GET  /api/sessions/{id}/changes                everything a session created or changed
 ```
 
+`GET /api/entries/{id}` needs none of these to say who last touched the document:
+it carries the newest revision beside `data`, as `revision`, `author_kind`,
+`revised_at`, `revision_session` and `author_name` — the writer's name, or their
+email when they have set no name, resolved from the credential that wrote the
+revision and therefore present for an `agent` write as much as a `human` one.
+It is absent when there was no user (auth off) or the account is gone; nothing
+about a document fails to render because its author can no longer be looked up.
+**A share visitor gets none of that block**, the name least of all.
+
 `{id}` on the entry routes is the entry **UUID** — unlike `GET /api/entries/{id}`,
 they do not resolve an `E`-code. The session route takes a UUID or an `SS` code.
 The four `GET`s are read endpoints: unauthenticated by default, bearer token

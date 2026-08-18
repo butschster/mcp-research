@@ -42,6 +42,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `entry_history` | List an entry's revisions: who wrote each one (agent, human, import, restore), in which session, and what it changed. Read it before rewriting an entry another session wrote |
 | `entry_diff` | Unified diff between two revisions; with no numbers, the most recent change. Block documents are compared as markdown, not JSON |
 
+**Taking one document out is not a tool.** A document can be downloaded as a markdown file with YAML front matter — `GET /api/entries/{id}/markdown`, or the **Download .md** item in the `⋯` menu on an entry page — and no MCP tool does it: you already have the content from `entry_read`, and putting a file on someone's disk is a human act. If a user asks for one, point them at the entry page. The file carries no provenance and does not rewrite `[[E3]]` for a foreign vault. [Export](/llms/export.md).
+
 ### Sessions & Questions
 
 | Tool | Purpose |

@@ -7,6 +7,7 @@
 </template>
 
 <script setup lang="ts">
+import { authorKind } from '~/composables/useAuthorKind'
 /**
  * Who wrote a revision — the one signal in this feature a reader looks for
  * first, because "a person wrote this" and "a model wrote this" are different
@@ -26,14 +27,9 @@ const props = withDefaults(defineProps<{
   variant?: 'inline' | 'glyph'
 }>(), { variant: 'inline' })
 
-const KINDS: Record<string, { glyph: string; word: string; label: string }> = {
-  human: { glyph: '●', word: 'person', label: 'written by a person' },
-  restore: { glyph: '↺', word: 'restore', label: 'restored from an earlier revision' },
-  agent: { glyph: '◇', word: 'agent', label: 'written by an agent' },
-  import: { glyph: '⇩', word: 'import', label: 'written by an import' },
-}
-
-const meta = computed(() => KINDS[props.kind] ?? { glyph: '◇', word: props.kind, label: `written by ${props.kind}` })
+// The vocabulary lives in a composable because a menu header needs the same
+// four words and cannot import them from inside a `<script setup>`.
+const meta = computed(() => authorKind(props.kind))
 </script>
 
 <style scoped>

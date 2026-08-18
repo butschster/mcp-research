@@ -23,11 +23,15 @@ type EntryHandler struct {
 	// false` there are no users at all, and the provenance line falls back to
 	// the author kind it has always shown.
 	users *storage.UserRepository
+	// teams answers whether the caller's research and the revision's author
+	// still belong together. Without it the name is handed to anybody who can
+	// read the document, which is a wider audience than the team.
+	teams *storage.TeamRepository
 	log   *slog.Logger
 }
 
-func NewEntryHandler(entry *service.EntryService, researchSvc *service.ResearchService, entries *storage.EntryRepository, research *storage.ResearchRepository, users *storage.UserRepository, log *slog.Logger) *EntryHandler {
-	return &EntryHandler{entry: entry, researchSvc: researchSvc, entries: entries, research: research, users: users, log: log}
+func NewEntryHandler(entry *service.EntryService, researchSvc *service.ResearchService, entries *storage.EntryRepository, research *storage.ResearchRepository, users *storage.UserRepository, teams *storage.TeamRepository, log *slog.Logger) *EntryHandler {
+	return &EntryHandler{entry: entry, researchSvc: researchSvc, entries: entries, research: research, users: users, teams: teams, log: log}
 }
 
 func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +61,7 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), h.authorName))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), entry.ResearchID, h.teamOf, h.authorName))
 }
 
 func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +82,7 @@ func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), h.authorName))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), entry.ResearchID, h.teamOf, h.authorName))
 }
 
 func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +135,7 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), h.authorName))
+	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), entry.ResearchID, h.teamOf, h.authorName))
 }
 
 // ResolveResearchCode resolves a research short code to its ID and metadata.
@@ -209,7 +213,7 @@ func entryPayload(entry *domain.Entry) map[string]any {
 // without opening the history. `rev` here is the document hash a blocks entry
 // carries; `revision` is the numbered snapshot — different things, and the two
 // names sit side by side in this payload precisely because clients confuse them.
-func withProvenance(payload map[string]any, rev *domain.EntryRevision, ctx context.Context, nameOf func(context.Context, string) string) map[string]any {
+func withProvenance(payload map[string]any, rev *domain.EntryRevision, ctx context.Context, researchID string, teamOf func(context.Context, string) string, nameOf func(context.Context, string, string) string) map[string]any {
 	if rev == nil {
 		return payload
 	}
@@ -227,10 +231,14 @@ func withProvenance(payload map[string]any, rev *domain.EntryRevision, ctx conte
 	payload["revision"] = rev.Revision
 	payload["author_kind"] = rev.AuthorKind
 	payload["revised_at"] = rev.CreatedAt
-	// The name, when there is one. "Written by a person" answers the question
-	// only halfway, and in a team the other half is the whole point of asking.
-	if nameOf != nil && rev.UserID != "" {
-		if name := nameOf(ctx, rev.UserID); name != "" {
+	// The name, when the caller is entitled to it. "Written by a person" answers
+	// the question only halfway, and in a team the other half is the point of
+	// asking — but only inside that team.
+	// Both lookups are behind the guards above, so a share visitor and a
+	// document with no revision cost nothing — the team query used to run and
+	// be discarded.
+	if nameOf != nil && teamOf != nil && rev.UserID != "" {
+		if name := nameOf(ctx, teamOf(ctx, researchID), rev.UserID); name != "" {
 			payload["author_name"] = name
 		}
 	}
@@ -253,22 +261,47 @@ func shareResearchID(ctx context.Context) string {
 	return ""
 }
 
-// authorName resolves a revision's user id to something a reader recognises.
+// teamOf is the team that owns the research a document lives in — the scope
+// within which knowing who wrote it is ordinary rather than a disclosure.
+func (h *EntryHandler) teamOf(ctx context.Context, researchID string) string {
+	if h.research == nil {
+		return ""
+	}
+	research, err := h.research.FindByID(ctx, researchID)
+	if err != nil || research == nil {
+		return ""
+	}
+	return research.TeamID
+}
+
+// authorName resolves a revision's user id to something a reader recognises —
+// but only for somebody entitled to recognise it.
 //
-// It fails quietly: a deleted user, a database hiccup or auth being switched
-// off all mean "no name", and the provenance line has always been able to stand
-// without one. Nothing about a document should fail to render because the
-// person who wrote it can no longer be looked up.
-func (h *EntryHandler) authorName(ctx context.Context, userID string) string {
-	if h.users == nil || userID == "" {
+// The right to read a document does not carry the right to know who wrote it.
+// Those two come apart through ordinary use: a research moves to another team
+// and every member of the new one inherits entries written by people they have
+// never shared a team with; a member leaves and the people who join afterwards
+// read their name off every document they touched. Membership in the team that
+// owns the research now is the boundary, and it is checked here rather than
+// assumed from the entry read that got us this far.
+//
+// The email is deliberately not a fallback. It would fire for exactly the
+// accounts that never set a name — API keys, OAuth clients, --default-user —
+// turning a display nicety into a bulk address disclosure. A person with no
+// name is "a person", which is what the glyph already says.
+//
+// Everything else fails quietly: a deleted user, a database hiccup or auth
+// being off all mean "no name", and the line has always stood without one.
+func (h *EntryHandler) authorName(ctx context.Context, teamID, userID string) string {
+	if h.users == nil || h.teams == nil || userID == "" || teamID == "" {
+		return ""
+	}
+	if _, ok, err := h.teams.FindRole(ctx, teamID, userID); err != nil || !ok {
 		return ""
 	}
 	user, err := h.users.FindByID(ctx, userID)
 	if err != nil || user == nil {
 		return ""
 	}
-	if user.Name != "" {
-		return user.Name
-	}
-	return user.Email
+	return user.Name
 }
