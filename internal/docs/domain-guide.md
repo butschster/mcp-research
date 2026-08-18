@@ -23,13 +23,16 @@ Top-level container for an investigation project. Owned by a [team](#team) when 
 | `team_name` | string | Read-only, resolved per request |
 | `team_is_personal` | bool | Read-only: true when the owning team is a single user's own |
 | `role` | enum | Read-only: **your** role on this research — `viewer` / `editor` / `owner` |
+| `template_slug` | string | The [template](#template) this research was started from, or absent. Provenance — nothing reads it back to steer the work |
+| `template_version` | int | Which version of that template was followed. Stamped because built-ins are refreshed from the binary at every boot, so the text behind a slug changes under an upgrade |
 
 **Key rules:**
 - One research per topic. Don't mix unrelated investigations.
 - `instruction` governs all future sessions — set it during initialization. It says what **this research** is; how a **kind of work** is done belongs in a [skill](#skill), which other researches can follow too.
 - `memory` survives across sessions. Use `add_memory` to append, not replace.
 - `goal` is a success criterion, not a question. "Identify top 3 competitive threats" not "What are the threats?"
-- A new research lands in the creator's personal team. `research_create` has no team parameter; `POST /api/researches` takes an optional `team_id`, and `research_import` / `POST /api/researches/import?team=` take one too.
+- A new research lands in the creator's personal team unless another is named: `research_create` and `research_import` take an optional `team_id`, as do `POST /api/researches` and `POST /api/researches/import?team=`.
+- `template_slug` and `template_version` are written once, by `research_create` with a `template_slug`, and never again — no tool or route updates them, and `POST /api/researches` has no such field. They record what was followed, not what governs: the methodology text lives in the [template](#template) and the how-to-work text in the [skills](#skill) it attached.
 - `team_name`, `team_is_personal` and `role` are computed per request and returned by `research_get`, `GET /api/researches/{id}` and `GET /api/researches`. They are not stored and are ignored on input.
 - Moving a research between teams is `POST /api/researches/{id}/transfer` — there is no MCP tool for it, and it is the only way a research changes audience.
 
@@ -159,6 +162,7 @@ That list is the whole surface. Anything else under the prefix — another metho
 - `user_id`, `team_id`, `team_name`, `team_is_personal` — a share is about one research, not about the organisation behind it. `role` survives and is always `viewer`.
 - Any other research. There is no list route under the prefix, and the listing service itself answers empty for a share rather than falling through to "no user in context, so no filter" — which would have returned every research on the server.
 - The Obsidian vault and the portable JSON. The vault builds its payload from the repository rather than from the redacted read path, so it is refused outright; the portable route is not mounted.
+- Any [template](#template) — no list, no body, and no stamp. `TemplateService` refuses a share context before it resolves anything, and `template_slug` / `template_version` are blanked on the research alongside `instruction`: a slug is a name a team chose, and it would read back as that name.
 - Revision history, the knowledge graph, the mindmap and search — none of those routes exist under the prefix.
 - Every write, without exception. `Access.Write` refuses a share context before it looks at any role, so this does not depend on the `viewer` it resolves to.
 
@@ -493,7 +497,7 @@ A methodology document — how to run an interview, how to grade a source, how t
 
 **No short code.** A skill is never referenced from content, so there is no `[[…]]` form for one.
 
-**One MCP tool, `skill_load`.** The index — slug, name, tier, description, no bodies — rides in `research_get`, and only when the research follows at least one skill. Everything else (attach, detach, write, fork, copy, promote) is REST or the web UI: eleven routes under `/api/researches/{id}/skills…`, `/api/teams/{id}/skills` and `/api/skills/{skillId}`.
+**One MCP tool, `skill_load`.** The index — slug, name, tier, description, no bodies — rides in `research_get`, and only when the research follows at least one skill. Everything else (attach, detach, write, fork, copy, promote) is REST or the web UI: thirteen routes under `/api/researches/{id}/skills…`, `/api/teams/{id}/skills` and `/api/skills/{skillId}`.
 
 **A share link never exposes a skill** — not the index, not a body. Which methodology a team follows is working process, the same class as `instruction` and `memory`. There are no skills routes under `/api/shared/{token}/`, `SkillService.Load` refuses a share context before it resolves the slug, and the index is empty for one — so a route added later still fails closed.
 
@@ -501,10 +505,52 @@ Full reference, including the route table and the conflict codes: [Skills](/llms
 
 ---
 
+### Template
+
+A **kickoff methodology**, read once before a research exists. It carries no sections, no questions and no rows: only the criteria an agent matches on and a markdown body saying what to ask the person before proposing anything, what structure to suggest, what good work looks like here, and when the research is finished. The model then designs the research itself. A template says how a kind of research is **started**; a [skill](#skill) says how a kind of work is **done**; `instruction` says what **this** research is.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | The address for management. A slug is not one: a fork keeps its parent's slug |
+| `slug` | string | Derived from `name`. How a template is addressed at kickoff, and what `research_create` stamps |
+| `name` | string | Required |
+| `tier` | enum | `global` / `team` — ownership, not precedence: exactly one template is chosen and then it is done |
+| `source` | enum | `builtin` / `user`. Splits the global tier: `builtin` ships in the binary and is rewritten at every boot, `user` was written on this instance and the refresh never touches it |
+| `description` | string | One line for a picker |
+| `when_to_use` | string | **Required.** What an agent matches on before it has read anything else. Max 240 characters (runes) |
+| `when_not_to_use` | string | Same cap. Knowing when a methodology is wrong is what stops it being applied to everything |
+| `body` | string | Markdown, required, max 24000 characters (runes). **Omitted from every list**; carried only by `template_get` and `GET /api/templates/{slug}` |
+| `skills` | string[] | Slugs of the skills a research started this way should follow |
+| `skills_resolved` | object[] | Single reads only: each slug as `{slug, name, description, ambient}`, or `{slug, missing: true}` when it resolves to nothing — shortening the list would hide a broken methodology |
+| `team_id` / `user_id` | string | Empty for a global one. `user_id` records who wrote it and is never a permission |
+| `forked_from` | string | The global slug this copies, when it is a fork |
+| `research_count` | int | How many researches it has started, counted only among those **you** can read — a global template is everybody's, and an unscoped count would report one team's activity to another |
+| `body_words` | int | Size hint, derived at read time, never stored |
+| `version` | int | Bumped on every edit. What `research_create` stamps alongside the slug |
+
+**Two tiers, and there is no third — but the global tier holds two kinds.** `team` belongs to one team and is theirs alone. `global` is visible to every team on the instance and is either `source: builtin`, shipped with the binary and refreshed at every boot, or `source: user`, added here through `POST /api/templates`. **A team still cannot publish server-wide**: a body steers a model, and lending one team's instructions to another team's kickoff needs a trust story this product does not have. Only the **operator** can, proved by the instance `api_token` — not a role, since no role grants it and a team `owner` is refused with `operator_required`.
+
+**Editing what ships forks it.** `PUT` on a `source: builtin` template is `not_allowed` for everybody, the operator included — the next boot would rewrite the row, so permitting the edit would be permitting it to vanish. The fork route copies it into a team with the edit applied. A `source: user` global *is* editable, by the operator alone. The fork **keeps its parent's slug** — it is the same methodology, edited — and **shadows** the global in every list that team sees, so the same slug is never offered twice and resolution finds the team's copy first. Boot-time refresh only ever touches rows with no team **and `source: builtin`**, so an upgrade can overwrite neither a team's fork nor a global the operator wrote — if a shipped file ever takes a slug the operator already used, that one file is reported as a problem and skipped while the rest still load.
+
+**Visibility is your memberships, never your request.** The list is the global set plus the libraries of the teams you belong to; a slug can never resolve into a team you are not in, and a lookup by id obeys the same rule rather than bypassing it. With `auth_enabled: false` there is nobody to scope to and everything on the instance is visible. The **operator reads less, not more**: a caller holding the `api_token` sees the global tier alone on `GET /api/templates` and `GET /api/templates/{slug}`, because the token proves who runs the server and never membership of a team — enough to hold the id of a global and edit or delete it, and no route into anybody's private library.
+
+**Two MCP tools, `template_list` and `template_get`** — criteria for all, body for one. Everything else (write, fork, edit, delete, draft) is REST: nine routes under `/api/templates…`, `/api/teams/{id}/templates` and `/api/researches/{id}/templates/draft`. The web UI is **read-only**: `/templates` lists them grouped by origin and `/templates/{id}` shows one with its body. No MCP tool writes a template and no screen does either — every write is REST.
+
+**No short code.** A template is never referenced from content, so there is no `[[…]]` form for one; at kickoff it is addressed by slug and everywhere else by id.
+
+**A share link exposes no template** — not the list, not a body, not the stamp. `TemplateService` refuses a share context before it resolves anything, no template route is mounted under `/api/shared/{token}/`, and `redactForShare` blanks `template_slug` and `template_version` on the research a visitor reads, next to `instruction` and `memory`.
+
+**Templates emit no events.** Writing, forking, editing or deleting one sends nothing over `/ws` — re-read `GET /api/templates`. Nor do the attachments a template makes: the skills `research_create` attaches from a `template_slug` are written without a `skill.attached` event, so a client that watches the socket to keep a skills index fresh must re-read it after creating a research from a template.
+
+Full reference, including the route table, the draft skeleton and the conflict codes: [Templates](/llms/templates.md).
+
+---
+
 ## Workflow Summary
 
 ```
-1. research_create → Research + Sections
+0. template_list → template_get → the methodology to follow (optional, but read it before you design anything)
+1. research_create → Research + Sections (+ template_slug: stamps provenance, attaches that methodology's skills)
 2. research_update → Set instruction + seed memory
 3. session_create → Session + initial Questions
 4. question_update → Record answers
@@ -530,7 +576,7 @@ Full reference, including the route table and the conflict codes: [Skills](/llms
 | Roadmap | `RM1`, `RM2` | Per research | `/research/R2/roadmap/RM1` |
 | Node | `N1`, `N2` | Per roadmap | — |
 
-A revision has no short code: it is a plain number, 1-based per entry. A [share](#share) has none either — it is addressed by its token and never referenced from content. Nor does a [skill](#skill): inside a research it is addressed by slug, and everywhere else by id.
+A revision has no short code: it is a plain number, 1-based per entry. A [share](#share) has none either — it is addressed by its token and never referenced from content. Nor does a [skill](#skill) or a [template](#template): both are addressed by slug where they are used and by id where they are managed.
 
 ## Real-time Events
 
@@ -581,6 +627,8 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | `access.changed` | `team` | team | directed. `reason: role_changed`. The new role is deliberately not in the event — read it back from the API rather than trusting a value pushed at you |
 | `access.revoked` | `team` or `research` | team or research | directed. `reason: removed_from_team` (entity `team`) or `research_transferred` (entity `research`, with `research_id`) |
 | `share.created`, `share.revoked` | `share` | share | a read-only link was handed out or taken back. Delivered by the ordinary research rule, so any member who may read the research learns a link exists — and never to a share visitor, who has no use for the news and, in the revoked case, is being disconnected by it |
+
+There is no `template.*` event of any kind: a [template](#template) belongs to a team rather than to a research, is read once at kickoff, and nothing on screen goes stale when one changes — re-read `GET /api/templates`. The skills a template attaches at `research_create` are written without a `skill.attached` event too.
 
 There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps and teams can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`. A skill can be deleted (`DELETE /api/skills/{skillId}`) but emits nothing when it is: the row is addressed by id and the researches that were following it are not known to that call — re-read the attached list rather than waiting for a message.
 

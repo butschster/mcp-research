@@ -206,6 +206,14 @@ func redactForShare(ctx context.Context, research *domain.Research) {
 	// The role survives, and is a viewer's. It is what the UI reads to decide
 	// whether to draw an editing control at all.
 	research.Role = domain.TeamViewer
+	// Which methodology a team follows is working process, exactly like the
+	// instruction above it. The slug is Slugify(a name the team chose), so it
+	// reads back as that name — "acme-q4-layoff-diligence" is not something a
+	// client holding a read-only link should learn. The version leaks too: for
+	// a research started from a shipped template it is a number about our
+	// releases, not about them.
+	research.TemplateSlug = ""
+	research.TemplateVersion = 0
 }
 
 // ResolveID resolves a UUID or short code to a research UUID.

@@ -84,9 +84,10 @@ func newShareServer(t *testing.T) *shareServer {
 		researchRepo, events, log)
 	shareSvc := service.NewShareService(shareRepo, access, events, log)
 	skillSvc := service.NewSkillService(storage.NewSkillRepository(db), researchRepo, teamRepo, access, events, log)
+	templateSvc := service.NewTemplateService(storage.NewTemplateRepository(db), storage.NewSkillRepository(db), teamRepo, access, log)
 
 	srv := NewServer(ServerConfig{Port: 0}, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc,
-		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, access, nil, db,
+		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, access, nil, db,
 		entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 
 	// Auth is off in this fixture, which is the harder case: with nobody in the
@@ -867,5 +868,54 @@ func TestShareRoutes_SkillServiceRefusesAShareContext(t *testing.T) {
 	}
 	if index := skills.Index(visitor, s.research.ID); len(index) != 0 {
 		t.Errorf("a share visitor was handed a skills index of %d", len(index))
+	}
+}
+
+// Which methodology a team follows is working process, the same class as the
+// instruction beside it. The stamp rides on the research payload rather than on
+// a template route, which is why the two service-level refusals and the absent
+// sub-mux routes did not catch it: nothing template-shaped was ever asked for.
+func TestShareRoutes_TheTemplateStampIsNotOnAShare(t *testing.T) {
+	s := newShareServer(t)
+	if _, err := s.db.Exec(
+		`UPDATE researches SET template_slug='acme-q4-layoff-diligence', template_version=7 WHERE id=?`,
+		s.research.ID); err != nil {
+		t.Fatalf("stamp: %v", err)
+	}
+	token := s.newShare(domain.ShareInclude{Export: true})
+
+	for _, path := range []string{
+		"/api/shared/" + token + "/",
+		"/api/shared/" + token + "/researches/" + s.research.ID,
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/export?format=json",
+	} {
+		code, body := s.get(path)
+		if code != http.StatusOK {
+			continue
+		}
+		// The slug is Slugify of a name the team chose, so it reads back as
+		// that name — which is the disclosure, not the number beside it.
+		if strings.Contains(body, "acme-q4-layoff-diligence") {
+			t.Errorf("%s leaked the template a team follows", path)
+		}
+		if strings.Contains(body, `"template_version":7`) {
+			t.Errorf("%s leaked the template version", path)
+		}
+	}
+}
+
+// And no template route exists on the public prefix at all.
+func TestShareRoutes_TemplatesAreNotReachableThroughAShare(t *testing.T) {
+	s := newShareServer(t)
+	token := s.newShare(domain.ShareInclude{Sessions: true, Tasks: true, Roadmaps: true, Export: true})
+
+	for _, path := range []string{
+		"/api/shared/" + token + "/templates",
+		"/api/shared/" + token + "/templates/literature-review",
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/templates/draft",
+	} {
+		if code, body := s.get(path); code != http.StatusNotFound {
+			t.Errorf("%s: got %d (%s), want 404", path, code, body)
+		}
 	}
 }

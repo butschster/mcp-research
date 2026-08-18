@@ -387,6 +387,34 @@ To let a non-MCP client write, give it a token:
 Read endpoints stay open (unless `auth_enabled`); writes require
 `Authorization: Bearer my-secret-token`.
 
+The same token is what identifies **you, the operator** — as distinct from any
+user or team on the instance. It unlocks one thing no account can do: adding a
+**kickoff methodology that every team on this server sees**.
+
+```bash
+curl -X POST https://your-server/api/templates \
+  -H "Authorization: Bearer my-secret-token" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "House diligence",
+    "when_to_use": "Use when a supplier or partnership is assessed here and the answer goes to the committee.",
+    "when_not_to_use": "Not for a technical evaluation.",
+    "body": "## Before you propose anything\n\nAsk who signs it off. ...",
+    "skills": ["evidence-grading"]
+  }'
+```
+
+A methodology is what an AI reads *before* it starts a research: what to ask you
+first, what structure to propose, when the work is finished. Twenty-five ship with the
+app; this adds yours next to them. It survives every upgrade — what ships is
+refreshed from the binary, what you write here is not touched.
+
+A team can write its own too, at `POST /api/teams/{id}/templates`, and that one
+stays private to the team. Only the `api_token` reaches the server-wide list, and
+without an `api_token` configured, nothing does. Everybody can browse the result
+at `/templates` in the web UI. Full reference: `/llms/templates.md` on your own
+server.
+
 ---
 
 ## Teams, roles and share links
@@ -443,6 +471,7 @@ Priority: **CLI flags > env vars > `config.yaml` > defaults.**
 | Database path | `--db` | `MCP_RESEARCH_DB` | in-memory |
 | Log level | `--log-level` | `MCP_RESEARCH_LOG_LEVEL` | `info` |
 | Write API token | `--api-token` | `MCP_RESEARCH_API_TOKEN` | write API disabled |
+| ↳ also the **operator** credential — the only way to add a server-wide methodology | | | |
 | Auth | `--auth-enabled` | `MCP_RESEARCH_AUTH_ENABLED` | `false` |
 | JWT secret | `--jwt-secret` | `MCP_RESEARCH_JWT_SECRET` | auto-generated |
 | Registration | `--allow-registration` | `MCP_RESEARCH_ALLOW_REGISTRATION` | `true` |

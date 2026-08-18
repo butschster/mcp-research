@@ -284,6 +284,8 @@ Import re-creates entities from scratch: new UUIDs, new short codes, cross-refer
 
 **No skills travel with an export either.** Which [skills](/llms/skills.md) a research follows is not in the portable payload and not in any of the reading formats, so an imported research follows nothing and its team library is not reconstructed. Re-attach them on the destination server.
 
+**No template provenance either.** `template_slug` and `template_version` are on the research record but not in `ExportResearch`, so an import lands with no methodology recorded — and could not honour one anyway: a slug names a row in *this* server's template library, and the destination may have a different set, a fork under the same slug, or none. The stamp says which methodology this research was started from on this server; it is not a portable reference. If it matters to the reader, write it into `instruction` or an entry, which do travel. See [Templates](/llms/templates.md).
+
 **No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server. The vault's `_history/` tables (`revisions=true`) are a readable record, not a transferable one — nothing imports them back.
 
 ## Export Through a Share Link

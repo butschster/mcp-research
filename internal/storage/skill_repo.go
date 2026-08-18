@@ -492,3 +492,34 @@ func (r *SkillRepository) ListByTeam(ctx context.Context, teamID string) ([]*dom
 	}
 	return result, rows.Err()
 }
+
+// BuiltinSkillExists answers whether a slug names a skill we ship. It is the
+// boot-time check behind a template's skill list: a template naming a skill that
+// does not exist is a broken methodology, and finding that out at startup is
+// worth more than finding it out from somebody's kickoff.
+func (r *SkillRepository) BuiltinSkillExists(ctx context.Context, slug string) (bool, error) {
+	var one int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT 1 FROM skills WHERE slug=? AND team_id IS NULL AND research_id IS NULL`, slug).Scan(&one)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check builtin skill: %w", err)
+	}
+	return true, nil
+}
+
+// FindForTemplate resolves a skill slug the way a template means it: the owning
+// team's copy if there is one, otherwise the built-in. There is no research
+// here — a template is read before one exists — so the research tier is out of
+// scope by construction.
+func (r *SkillRepository) FindForTemplate(ctx context.Context, teamID, slug string) (*domain.Skill, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT `+skillColumns+` FROM skills s
+		  WHERE s.slug = ? AND s.research_id IS NULL
+		    AND (s.team_id IS NULL OR s.team_id = ?)
+		  ORDER BY CASE WHEN s.team_id IS NULL THEN 1 ELSE 0 END
+		  LIMIT 1`, slug, teamID)
+	return scanSkill(row)
+}

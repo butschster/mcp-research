@@ -375,6 +375,12 @@ func visibleToShare(share *auth.Share, event Event) bool {
 		// A visitor does not need to be told that another link was made, and
 		// being told their own was revoked is what the closed socket says.
 		return false
+	case "template":
+		// Templates emit nothing today. The case is here anyway, because the
+		// default below is `return true` and the day somebody adds a
+		// template.* event carrying a research id, this file is not where they
+		// will think to look.
+		return false
 	case "skill":
 		// Never. Which methodology a team follows is working process — the same
 		// class as `instruction` and `memory`, which no share has ever carried.

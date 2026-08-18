@@ -5,6 +5,12 @@ web_port: 8088       # REST API + Web UI port
 db: "/data/research.db"  # SQLite path (mounted volume)
 log_level: info
 
+# The operator credential. Enables the write REST API, and it is the only way to
+# add a kickoff methodology that every team on this server sees:
+#   POST /api/templates  -H "Authorization: Bearer <this>"
+# Without it that route answers 403 operator_required on an auth-enabled server.
+# api_token: "a-long-random-string"
+
 # Authentication
 auth_enabled: true
 allow_registration: true

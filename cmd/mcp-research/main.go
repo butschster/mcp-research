@@ -72,6 +72,7 @@ func main() {
 	teamInviteRepo := storage.NewTeamInviteRepository(db)
 	shareRepo := storage.NewShareRepository(db)
 	skillRepo := storage.NewSkillRepository(db)
+	templateRepo := storage.NewTemplateRepository(db)
 	userRepo := storage.NewUserRepository(db)
 
 	// Every service asks the same guard what the caller may do, so there is one
@@ -110,6 +111,17 @@ func main() {
 		log.Error("failed to load built-in skills", "error", err)
 	} else if n > 0 {
 		log.Info("loaded built-in skills", "count", n)
+	}
+
+	// Templates load after skills, and not by accident: a template names the
+	// skills it attaches, and the loader refuses one naming a skill that does
+	// not exist. Reversing the order would fail every boot.
+	templateSvc := service.NewTemplateService(templateRepo, skillRepo, teamRepo, access, log)
+	templateSvc.SetSkillService(skillSvc)
+	if n, err := templateSvc.LoadBuiltinTemplates(context.Background()); err != nil {
+		log.Error("failed to load built-in templates", "error", err)
+	} else if n > 0 {
+		log.Info("loaded built-in templates", "count", n)
 	}
 
 	// A shared page watches the research update live, which is the single most
@@ -162,7 +174,7 @@ func main() {
 	}
 
 	// MCP Server
-	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, skillSvc, log, version)
+	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, skillSvc, templateSvc, log, version)
 	srv.SetBaseURL(cfg.BaseURL)
 
 	log.Info("mcp-research started",
@@ -188,7 +200,7 @@ func main() {
 		MCPHandler:     srv.StreamableHTTPHandler(),
 		Version:        version,
 	}
-	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)
