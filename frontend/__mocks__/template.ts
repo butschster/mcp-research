@@ -55,7 +55,7 @@ export interface MockTemplate {
 
 const at = (day: number) => `2025-08-${String(day).padStart(2, '0')}T09:14:00Z`
 
-/** What ships. Two of the seven — enough to see a list, not a catalogue dump.
+/** What ships. Two of the ten — enough to see a list, not a catalogue dump.
  *  No `user_id`: the loader wrote these, not a person. */
 export const mockGlobalTemplates: MockTemplate[] = [
   {

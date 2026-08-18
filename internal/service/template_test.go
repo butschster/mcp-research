@@ -185,6 +185,19 @@ func TestTemplate_ShippedTemplatesRespectTheirOwnRules(t *testing.T) {
 		if !strings.Contains(body, "Before you propose anything") {
 			t.Errorf("%s: body does not tell the agent to ask before proposing", slug)
 		}
+		// The two halves of the defect that made the first four methodologies
+		// cost eight or nine turns against a stated budget of three.
+		//
+		// Every body must say the kickoff already asked its four questions and
+		// must not be asked again — without that line the agent re-opens the
+		// whole interview — and none may tell it to ask "one at a time", which
+		// turns four gaps into four turns on its own.
+		if !strings.Contains(body, "again") || !strings.Contains(body, "kickoff") {
+			t.Errorf("%s: body does not tell the agent what the kickoff already asked", slug)
+		}
+		if strings.Contains(body, "one at a time") {
+			t.Errorf("%s: body asks its questions one at a time, which detonates the three-turn kickoff", slug)
+		}
 	}
 	if seen < 4 {
 		t.Fatalf("want at least 4 shipped templates, got %d", seen)

@@ -3,7 +3,7 @@ slug: financial-position
 name: Improving financial position
 description: Find where the money is actually made and lost, and end with actions somebody can execute by a date.
 when_to_use: Use when a company needs its profit, margin or cash position measurably better by a known date, and the work has to end in actions an owner can execute rather than an analysis.
-when_not_to_use: Not for a valuation, a fundraise narrative or a budget cycle. Not when the decision is a single investment — that is a comparison. Not when the answer is chosen and what is wanted is justification.
+when_not_to_use: Not for one person's own money — that is personal capital. Not for a valuation, a fundraise or a budget cycle, not for a single investment (a comparison), and not when the answer is chosen and justification is wanted.
 skills: [evidence-grading]
 ---
 
@@ -16,8 +16,8 @@ Optimise for actions with owners and dates, not for a diagnosis.
 
 The kickoff already covered the decision, who makes it, what they believe and
 when they need it. **Do not ask any of it again.** Ask these together, in one
-message, and propose no structure until you have the first two — both are worth
-a turn of their own.
+message, and propose no structure until you have the first two. All four go in
+that one message: spending a turn each is how a three-turn kickoff becomes six.
 
 1. **"When do you run out of cash, and by what date does the number have to be
    different?"**

@@ -20,7 +20,7 @@ research_create(..., template_slug: "technology-comparison")
 ```
 
 `template_list` takes **no arguments** — send `{}`. It never carries a body:
-seven methodologies arriving in a kickoff that needs one is the cost this feature
+ten methodologies arriving in a kickoff that needs one is the cost this feature
 exists to avoid. `template_get` takes the slug you read there (an id works too,
 but you will not have one) and is the only call that returns a body.
 
@@ -57,7 +57,7 @@ research created over REST carries no provenance and no attached skills.
 
 ## What ships
 
-Seven, refreshed from the binary at every boot.
+Ten, refreshed from the binary at every boot.
 
 | Slug | Ends in | Skills it attaches |
 |---|---|---|
@@ -68,6 +68,9 @@ Seven, refreshed from the binary at every boot.
 | `financial-position` | actions with an owner, a date and a cash effect that reach a stated target | `evidence-grading` |
 | `audience-definition` | one segment served first, at least two declined with the reason, and a trigger somebody could detect | `structured-interviewing`, `evidence-grading` |
 | `monetisation-readiness` | a metric, what stays free, a price per package, and three real accounts' new bills | `evidence-grading` |
+| `venture-discovery` | one venture with a named buyer and a channel, and the cheapest test that could kill it | `structured-interviewing`, `evidence-grading` |
+| `agent-economics` | a job, a cost per run, a price, and the error rate at which it stops being worth buying | `evidence-grading` |
+| `personal-capital` | moves with a date, an hours cost and a downside the person's floor survives | `evidence-grading` |
 
 Each carries a correction to the obvious version of itself. They are the
 difference between the template and a section list:
@@ -94,6 +97,20 @@ difference between the template and a section list:
   easiest thing to meter. A price set too low never announces itself — too high
   produces objections and churn, too low produces cheerful customers and a
   company that dies slowly.
+- **Venture discovery:** a candidate is a problem, a buyer **and a channel** —
+  the third is the one that goes missing. And a model will generate a hundred
+  plausible ventures, none of them yours: what it generates is the average of
+  what has been written about, which is the set with the most competition and the
+  least of your unfair advantage. Generate to *attack* a candidate, never to
+  produce one.
+- **Agent economics:** the unit is a job somebody already pays for, never a
+  capability, and the demo measures your taste in examples — run it on inputs you
+  did not choose. The whole business lives in the fraction it gets wrong, and the
+  worst failures are the ones the customer cannot detect.
+- **Personal capital:** income that stops when you stop is not capital, so the
+  two columns are never summed; every move carries the **hours** it costs, which
+  is what makes this different from a company's version. The best-sounding move
+  is the one that got written about because it worked.
 
 ## Two tiers, and two kinds of global
 

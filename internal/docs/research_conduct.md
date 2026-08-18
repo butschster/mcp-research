@@ -30,6 +30,7 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 | Add notes or update session status                     | `session_update`                     |
 | Add follow-up questions to a session                   | `question_create`                    |
 | Record an answer, mark question status                 | `question_update`                    |
+| Record work that is not a question — something to look up, verify or do next | `task_create`, `task_list`, `task_update` |
 | Append insight to research memory                      | `research_update` (use `add_memory`) |
 | Mark a section as completed                            | `section_update`                     |
 
