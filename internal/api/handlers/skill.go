@@ -53,7 +53,7 @@ func (h *SkillHandler) ListAttached(w http.ResponseWriter, r *http.Request) {
 		// skills, which are on by definition and outside the budget. A count
 		// called `attached` sitting over seven rows and reading 6 is the sort of
 		// thing a reader assumes is a bug in the list.
-		"chosen": countChosen(list),
+		"chosen": service.CountChosen(list),
 	})
 }
 
@@ -263,19 +263,17 @@ func (h *SkillHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // is already on", and picking between them by matching on prose is how a
 // message edit silently changes behaviour.
 func writeSkillError(w http.ResponseWriter, err error) {
+	// The code itself comes from the service, because the MCP tools answer with
+	// the same vocabulary and two switches over the same errors drift.
+	switch code := service.SkillErrorCode(err); code {
+	case "skill_cap_reached", "already_attached", "slug_taken", "skill_in_use":
+		writeCodedError(w, http.StatusConflict, err.Error(), code)
+		return
+	case "not_allowed":
+		writeCodedError(w, http.StatusForbidden, err.Error(), code)
+		return
+	}
 	switch {
-	case errors.Is(err, service.ErrSkillCapReached):
-		writeCodedError(w, http.StatusConflict, err.Error(), "skill_cap_reached")
-	case errors.Is(err, service.ErrSkillAlreadyAttached):
-		writeCodedError(w, http.StatusConflict, err.Error(), "already_attached")
-	case errors.Is(err, service.ErrSkillSlugTaken):
-		writeCodedError(w, http.StatusConflict, err.Error(), "slug_taken")
-	case errors.Is(err, service.ErrSkillInUse):
-		writeCodedError(w, http.StatusConflict, err.Error(), "skill_in_use")
-	case errors.Is(err, service.ErrSkillAmbient),
-		errors.Is(err, service.ErrSkillBuiltinWrite),
-		errors.Is(err, service.ErrSkillNotPrivate):
-		writeCodedError(w, http.StatusForbidden, err.Error(), "not_allowed")
 	case errors.Is(err, service.ErrSkillNameEmpty):
 		writeFieldError(w, err.Error(), "name")
 	case errors.Is(err, service.ErrSkillDescriptionLong),
@@ -296,16 +294,6 @@ func writeCodedError(w http.ResponseWriter, status int, msg, code string) {
 // message under it rather than at the bottom of the page.
 func writeFieldError(w http.ResponseWriter, msg, field string) {
 	writeJSON(w, http.StatusBadRequest, map[string]any{"error": msg, "field": field})
-}
-
-func countChosen(list []*domain.Skill) int {
-	var n int
-	for _, sk := range list {
-		if !sk.Ambient {
-			n++
-		}
-	}
-	return n
 }
 
 // emptyIfNil keeps a JSON array out of `null`, which every list consumer in the

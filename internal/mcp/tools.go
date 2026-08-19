@@ -58,6 +58,15 @@ func (s *Server) registerTools() {
 
 	// Skill tools
 	tools.RegisterSkillLoad(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillList(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillAttach(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillDetach(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillCreate(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillUpdate(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillFork(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillCopy(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillPromote(s.server, s.skill, s.research, s.log)
+	tools.RegisterSkillDelete(s.server, s.skill, s.research, s.log)
 
 	// Team tools
 	tools.RegisterTeamList(s.server, s.team, s.log)

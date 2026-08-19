@@ -53,7 +53,9 @@ tell the user which part of the methodology will not be backed by a skill.
 Two things `template_slug` does **not** do. It does not create sections,
 questions or tasks — you design those from the conversation. And it is an **MCP
 argument only**: `POST /api/researches` has no `template_slug` field, so a
-research created over REST carries no provenance and no attached skills.
+research created over REST starts with no provenance and no attached skills. The
+provenance cannot be added afterwards; the skills can — `skill_attach` or
+`POST /api/researches/{id}/skills` takes them up one at a time.
 
 ## What ships
 

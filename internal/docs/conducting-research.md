@@ -63,9 +63,10 @@ See [Templates](/llms/templates.md).
 
 ### Note the Skills, Load Them Late
 
-`research_get` may return a `skills` array — each entry a name, a tier and one
-line saying **when** to use it. The bodies are not there, and the key is absent
-entirely when the research follows nothing, which is normal.
+`research_get` returns a `skills` array — each entry a name, a tier and one line
+saying **when** to use it. The bodies are not there. The array is populated even
+for a research nobody has curated, because the product skills are in every
+index; a missing key means the built-ins failed to load.
 
 Read the lines when you load the research; do not load the bodies then. When you
 are about to do the work one of them names — start an interview, grade a source
@@ -77,6 +78,24 @@ Where two skills conflict, the higher tier wins: research-private over team over
 built-in, which is why the index arrives in that order. `instruction` is not part
 of that ordering — it answers a different question, what this research is, and
 still governs tone and depth. See [Skills](/llms/skills.md).
+
+When the index does not cover the work in front of you, you can change it.
+`skill_list` shows what this research could attach and how many of its six slots
+are spent; `skill_attach` takes one up, `skill_create` writes a new one. Do it
+when a methodology is missing or wrong, not as a warm-up — a research whose
+skills were curated by an agent that had not yet done any of the work is a
+research following guesses. And say what you changed: which skills a research
+follows is the user's decision to review.
+
+Three refusals to expect. **Six chosen skills** is the whole budget, and a
+seventh — attached or newly written, since writing a private one attaches it —
+is `skill_cap_reached`; free a slot before you retry, and not by dropping a
+product skill, which is outside the budget and refuses with `not_allowed`.
+**`skill_detach` deletes a research-private skill** rather than shelving it: it
+exists nowhere else, and the answer says `deleted: true`. And **a slug is fixed
+when the skill is created** — `skill_update` renames it without ever changing the
+slug, so a `slug_taken` is cleared by editing or deleting whatever holds the
+name, never by picking a new one.
 
 ### Create a Session
 

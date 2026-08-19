@@ -767,3 +767,141 @@ func TestAccessControl_ListQuestions(t *testing.T) {
 		}
 	})
 }
+
+// Skills are the newest thing a research owns, and the only entity whose write
+// methods are addressed by id as well as by slug — so a stranger holding an id
+// is a shape none of the tests above cover. Everything here must be
+// indistinguishable from a research and a skill that do not exist.
+func TestAccessControl_Skill(t *testing.T) {
+	db := setupTestDB(t)
+	notifier := &mockNotifier{}
+	log := slog.Default()
+	access := testAccess(db)
+
+	researchRepo := storage.NewResearchRepository(db)
+	teamRepo := storage.NewTeamRepository(db)
+	skillRepo := storage.NewSkillRepository(db)
+	researchSvc := NewResearchService(researchRepo, storage.NewSectionRepository(db), teamRepo, access, notifier, log)
+	skillSvc := NewSkillService(skillRepo, researchRepo, teamRepo, access, notifier, log)
+
+	userA, userB := setupTwoUsers(t, db)
+	ctxA, ctxB := userCtx(userA), userCtx(userB)
+
+	research, _, err := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Testing access control",
+	})
+	if err != nil {
+		t.Fatalf("create research: %v", err)
+	}
+	private, err := skillSvc.CreatePrivate(ctxA, research.ID, SkillInput{
+		Name:        "House rule",
+		Description: "Use when writing anything into Alice's research.",
+		Body:        "Alice's methodology, which Bob must not read.",
+	})
+	if err != nil {
+		t.Fatalf("create private skill: %v", err)
+	}
+	aliceTeam, err := researchSvc.Get(ctxA, research.ID)
+	if err != nil {
+		t.Fatalf("read research: %v", err)
+	}
+	teamSkill, err := skillSvc.CreateTeam(ctxA, aliceTeam.TeamID, SkillInput{
+		Name:        "Team method",
+		Description: "Use when Alice's team needs one way of doing this.",
+		Body:        "Alice's team's methodology.",
+	})
+	if err != nil {
+		t.Fatalf("create team skill: %v", err)
+	}
+
+	// Bob's own research, so the "point a stolen slug at somewhere I can write"
+	// cases have somewhere to be pointed.
+	bobs, _, err := researchSvc.Create(ctxB, CreateResearchRequest{Name: "Bob's Research", Goal: "His own"})
+	if err != nil {
+		t.Fatalf("create bob's research: %v", err)
+	}
+
+	notFound := func(name string, err error) {
+		t.Helper()
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("%s: got %v, want ErrNotFound — anything else confirms the row exists", name, err)
+		}
+	}
+
+	t.Run("a stranger reads nothing", func(t *testing.T) {
+		_, err := skillSvc.ListAttached(ctxB, research.ID)
+		notFound("ListAttached", err)
+		_, err = skillSvc.ListLibrary(ctxB, research.ID, "")
+		notFound("ListLibrary", err)
+		_, err = skillSvc.Load(ctxB, research.ID, private.Slug)
+		notFound("Load", err)
+		_, err = skillSvc.ResolveSlug(ctxB, research.ID, private.Slug)
+		notFound("ResolveSlug", err)
+		_, err = skillSvc.ListTeam(ctxB, aliceTeam.TeamID)
+		notFound("ListTeam", err)
+		if idx := skillSvc.Index(ctxB, research.ID); len(idx) != 0 {
+			t.Errorf("Index returned %d skills to a stranger", len(idx))
+		}
+	})
+
+	t.Run("a stranger holding an id reads nothing", func(t *testing.T) {
+		// The id is the address Update and Delete take, and skill_list now
+		// hands ids out — so a stranger holding one is a real shape, not a
+		// hypothetical.
+		for name, id := range map[string]string{"private": private.ID, "team": teamSkill.ID} {
+			sk, err := skillSvc.Read(ctxB, id)
+			notFound("Read "+name, err)
+			if sk != nil {
+				t.Errorf("Read %s returned a skill to a stranger", name)
+			}
+		}
+	})
+
+	t.Run("a stranger writes nothing", func(t *testing.T) {
+		_, err := skillSvc.Attach(ctxB, research.ID, private.Slug, false)
+		notFound("Attach", err)
+		notFound("Detach", skillSvc.Detach(ctxB, research.ID, private.Slug))
+		_, err = skillSvc.CreatePrivate(ctxB, research.ID, SkillInput{
+			Name: "Bob's rule", Description: "Use when Bob wants in.", Body: "x",
+		})
+		notFound("CreatePrivate", err)
+		_, err = skillSvc.CreateTeam(ctxB, aliceTeam.TeamID, SkillInput{
+			Name: "Bob's method", Description: "Use when Bob wants in.", Body: "x",
+		})
+		notFound("CreateTeam", err)
+		_, err = skillSvc.CopyHere(ctxB, research.ID, private.Slug)
+		notFound("CopyHere", err)
+		_, err = skillSvc.Promote(ctxB, research.ID, private.Slug)
+		notFound("Promote", err)
+		for name, id := range map[string]string{"private": private.ID, "team": teamSkill.ID} {
+			_, err := skillSvc.Update(ctxB, id, SkillInput{
+				Name: "Rewritten", Description: "Use when Bob has taken over.", Body: "mine now",
+			})
+			notFound("Update "+name, err)
+			notFound("Delete "+name, skillSvc.Delete(ctxB, id))
+		}
+	})
+
+	t.Run("a stolen slug pointed at the stranger's own research finds nothing", func(t *testing.T) {
+		// Bob has full write here, so the only thing standing between him and
+		// Alice's methodology is that the slug does not resolve in his scope.
+		for _, slug := range []string{private.Slug, teamSkill.Slug} {
+			_, err := skillSvc.Load(ctxB, bobs.ID, slug)
+			notFound("Load "+slug, err)
+			_, err = skillSvc.Attach(ctxB, bobs.ID, slug, false)
+			notFound("Attach "+slug, err)
+			_, err = skillSvc.CopyHere(ctxB, bobs.ID, slug)
+			notFound("CopyHere "+slug, err)
+		}
+	})
+
+	t.Run("Alice still has everything she started with", func(t *testing.T) {
+		sk, err := skillSvc.Load(ctxA, research.ID, private.Slug)
+		if err != nil {
+			t.Fatalf("owner load: %v", err)
+		}
+		if !strings.Contains(sk.Body, "Bob must not read") {
+			t.Errorf("body = %q, want the original", sk.Body)
+		}
+	})
+}

@@ -82,7 +82,14 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 | Tool | Purpose |
 |------|---------|
-| `skill_load` | Open **one** skill and return its full text, by `slug`. There is no batch form and no other skill tool |
+| `skill_load` | Open **one** skill and return its full text, by `research_id` + `slug` or by `skill_id`. No batch form, and the only skill tool that returns a body |
+| `skill_list` | What this research follows, what it may attach, and how much of the six-slot budget is spent. The call to make before changing anything. Pass `team_id` instead of `research_id` for a team's whole library |
+| `skill_attach` / `skill_detach` | Start or stop following a skill, by `slug`. Detaching a **research-private** skill deletes it |
+| `skill_create` | Write one: `research_id` for a skill private to this research (attached at once, spends a slot), `team_id` for the team library (attached to nothing) |
+| `skill_update` | Edit name, trigger line or body in place; omitted fields are inherited. A built-in is refused — editing one is `skill_fork` |
+| `skill_fork` / `skill_copy` | Take an editable copy: a built-in into the team library (`fork`), a team or built-in into this research (`copy`). The attachment moves in the same call |
+| `skill_promote` | A research-private skill into the team library; the attachment follows and the private original is deleted |
+| `skill_delete` | Remove a team or private skill from existence — as opposed to detaching it from one research |
 
 ### Teams
 
@@ -163,7 +170,8 @@ appears when empty, and neither failure ever fails the creation.
 before the person has said what they are deciding anchors them to it. And nothing
 re-reads the body later: it steers the research only through the structure you
 design and the skills it attached. **You cannot write, fork or delete a
-template** — those are REST acts, like share links and skill management. The web
+template** — those are REST acts, like share links. (Skills are not: since the
+skill tools landed, every skill act has an MCP equivalent.) The web
 UI reads them and never writes one: point a person at `/templates` to see what is
 available and `/templates/{id}` to read a body, not to edit one.
 [Templates](/llms/templates.md),
@@ -173,16 +181,24 @@ available and `/templates/{id}` to read a body, not to edit one.
 
 A research may **follow** skills — methodology documents saying how a kind of work is done (running an interview, grading a source, building a roadmap), as opposed to `instruction`, which says what this particular research is.
 
-`research_get` returns them as `skills`: `slug`, `name`, `tier` and a `description` that says **when** to use each one. No bodies. Alongside it comes `skills_hint`. **Both keys are absent when the research follows nothing**, which is the normal state of a new research — absence is not an error and there is nothing to retry.
+`research_get` returns them as `skills`: `slug`, `name`, `tier` and a `description` that says **when** to use each one. No bodies. Alongside it comes `skills_hint`. **The index is never empty in a working install** — the four product skills are in it whether or not anybody attached anything — so a missing `skills` key means the built-ins failed to load, not that this research follows nothing.
 
 When you are about to do the work one of those lines names, call `skill_load(research_id, slug)` and read the body then. Not while orienting, and not all of them up front: that is the cost this design exists to avoid, which is also why the tool takes one slug and has no batch form.
 
 - Both parameters are plain required strings — no `null`, and both must be non-empty.
 - `research_id` accepts either the UUID or the short code (`R1`) — it is resolved, precisely because the slug you are passing came out of a `research_get` you may have made with a code.
 - The response is `{slug, name, tier, description, body, precedence}`. `precedence` restates the one rule about conflicts: a skill attached to this research directly beats a team skill, which beats a built-in.
-- A slug you invent, or one belonging to another research's private skill, is `not found`.
+- A slug you invent, or one belonging to another research's private skill, is `not_found` — with the slug quoted and a pointer to `skill_list`, because a slug is fixed at creation and cannot be derived from a name.
+- Pass `skill_id` instead of `research_id` + `slug` for a team skill attached to no research yet, which has nothing to be looked up through. By id, "no such skill" and "not yours" are one refusal and it invites you nowhere.
 
-**You cannot change which skills a research follows.** Attaching, writing, editing, forking and detaching are REST or web-UI acts, like share links; there is no tool for any of them. If a user wants a skill added, the call is `POST /api/researches/{id}/skills` with `{"slug": "..."}` — give them that rather than looking for a tool. The four product skills need no attaching: they are in the index of every research already. [Skills](/llms/skills.md), [Domain Guide → Skill](/llms/domain-guide.md#skill).
+**You can change which skills a research follows**, and nine tools do it: `skill_list`, `skill_attach`, `skill_detach`, `skill_create`, `skill_update`, `skill_fork`, `skill_copy`, `skill_promote`, `skill_delete`. Each takes the research UUID or the `R1` code. Start with `skill_list(research_id, query?)` — one read gives `following`, `available`, `chosen`, `cap`, and `cap_reached: true` with a `cap_hint` when the budget is spent — then act. Pass `team_id` instead for a team's whole library, including what no research follows yet. Four things to know before you call one:
+
+- **Six chosen skills per research.** The seventh attach is refused with `skill_cap_reached`, and so is writing a seventh private skill, because a private skill is attached the moment it is created. Detach something first. The product skills are outside the budget, so they are not what you drop.
+- **`skill_detach` on a research-private skill deletes it** — it exists nowhere else, the answer says `deleted: true`, and nothing restores it. A team or built-in skill only stops being followed.
+- **A slug is fixed at creation.** `skill_update` changes the name and never the slug, so renaming is not a way around `slug_taken`; edit or delete whatever already holds the slug.
+- **A refusal leads with its machine-readable code** — `skill_cap_reached`, `already_attached`, `slug_taken`, `skill_in_use`, `not_allowed` — the same vocabulary the REST API uses. Match on the code, not the sentence: `skill_cap_reached` means drop something first, `already_attached` means carry on.
+
+The four product skills need no attaching: they are in the index of every research already, and detaching one is `not_allowed`. [Skills](/llms/skills.md), [Domain Guide → Skill](/llms/domain-guide.md#skill).
 
 ## Nullable and Optional Fields
 
@@ -199,8 +215,9 @@ Read this before composing any tool call. Input schemas are generated from Go st
 Consequences:
 
 - **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
-- **Five exceptions**, the only tools whose schema does not require everything: `entry_history` requires `entry_id` alone (`limit` may be omitted), `entry_diff` requires `entry_id` alone (`from` and `to` may be omitted), `research_export` requires `research_id` alone (`format` may be omitted), `research_import` requires `data` alone (`team_id` may be omitted), and `research_create` requires everything except `team_id` and `template_slug`. Sending `null` for those seven properties works as well, so "send every property as `null`" is still a correct strategy everywhere.
-- **One tool takes no input at all**: `template_list`. Its schema is an empty object — send `{}`.
+- **Eleven exceptions**, the only tools whose schema does not require everything: `entry_history` (`limit`), `entry_diff` (`from`, `to`), `research_export` (`format`), `research_import` (`team_id`), `research_create` (`team_id`, `template_slug`), `skill_create` (`research_id`, `team_id`), `skill_fork` (`name`, `description`, `body`), and `skill_list`, `skill_load`, `skill_update` and `skill_delete` (every property — each is addressed two ways and validates that itself). All of them are nullable too, so "send every property as `null`" is still a correct strategy everywhere.
+- **A schema that requires nothing is not a tool that accepts nothing.** `skill_update` and `skill_delete` require no property because the skill may be addressed two ways — `research_id` + `slug`, or `skill_id` — and the tool checks that itself: give one form or the other, never both and never neither. `skill_create` is the same shape for ownership, `research_id` or `team_id`. `skill_update` also refuses a call that changes nothing: send at least one of `name`, `description`, `body`.
+- **Two tools take no input at all**: `template_list` and `team_list`. Their schemas are empty objects — send `{}`.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
 - **`null` and empty are different for a replacing field.** `metadata` (`entry_update`) and `field_spec` (`section_update`) are nullable but not "empty means empty": `null` leaves what is stored alone, while `{}` clears every value and `[]` removes every declared field. Send `null` unless you mean to erase.
@@ -226,6 +243,9 @@ Consequences:
 | `format` (`research_export`) | `portable` — the JSON `research_import` takes. `obsidian` returns a vault download link instead; `json` / `vault` / `zip` are accepted aliases, anything else is a validation error |
 | `team_id` (`research_create`, `research_import`) | Your personal team |
 | `template_slug` (`research_create`) | No methodology recorded and no skills attached — the research is created either way |
+| `query` (`skill_list`) | No filter — the whole library this research may attach. Ignored with `team_id` |
+| `research_id` / `team_id` (`skill_create`) | Neither is a default: exactly one must carry a value, and it decides whether the skill is research-private or a team's |
+| `name`, `description`, `body` (`skill_update`, `skill_fork`) | Inherited from the stored skill. `null` leaves a field alone; it is not a way to blank one |
 | `to` (`entry_diff`) | The newest revision |
 | `from` (`entry_diff`) | The revision before `to` — so a call with neither shows the most recent change |
 
@@ -442,7 +462,9 @@ Beyond schema validation, each create tool checks a few fields for non-empty val
 | `question_create` | `session_id`, at least one question with `text` |
 | `task_create` | `research_id`, `title` |
 | `roadmap_create` | `research_id`, `title` |
-| `skill_load` | `research_id`, `slug` |
+| `skill_load`, `skill_list`, `skill_attach`, `skill_detach`, `skill_copy`, `skill_promote`, `skill_fork` | `research_id` (`slug` too, except `skill_list`; `skill_load` and `skill_list` take an id form instead) |
+| `skill_create` | `name`, `description`, `body`, and exactly one of `research_id` / `team_id` |
+| `skill_update`, `skill_delete` | `skill_id`, **or** `research_id` with `slug` |
 
 ### 2. Confusing tool errors with protocol errors
 
@@ -561,6 +583,6 @@ Where codes are accepted as tool input:
 
 | Accepts UUID **or** code | Accepts UUID only |
 |--------------------------|-------------------|
-| `research_get`, `research_update`, `research_export` (`research_id`), `skill_load` (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
+| `research_get`, `research_update`, `research_export` (`research_id`), every `skill_*` tool (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
 
 So keep the UUIDs returned by create calls. Short codes are for humans, URLs, and `[[...]]` cross-references — REST routes resolve them in `{id}` / `{sessionId}` / `{entryId}` / `{roadmapId}` path segments, MCP tools mostly do not.
