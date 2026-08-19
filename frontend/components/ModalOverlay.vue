@@ -90,10 +90,13 @@ function trapFocus(event: KeyboardEvent) {
 }
 
 /* The page behind a dialog scrolled under the wheel, which reads as the dialog
-   having lost its grip on the page. */
+   having lost its grip on the page.
+   The class, not `body.style.overflow`: an inline release writes a blanket `''`
+   and would clear a lock somebody else had taken. `body.scroll-locked` lives in
+   base.css and is shared with ArtifactFrame's fullscreen overlay. */
 function lockScroll(on: boolean) {
   if (import.meta.server) return
-  document.body.style.overflow = on ? 'hidden' : ''
+  document.body.classList.toggle('scroll-locked', on)
 }
 
 watch(

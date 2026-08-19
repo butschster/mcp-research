@@ -412,7 +412,49 @@ button.tag {
 }
 
 .entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
-.entry-content { padding: var(--space-8); border-radius: var(--radius-lg); }
+.entry-content {
+  /* A custom property rather than a bare value: the artifact rules below and
+     the page's own breakpoint override both depend on it, and three copies of
+     one padding is how they drift. */
+  --entry-pad: var(--space-8);
+  padding: var(--entry-pad);
+  border-radius: var(--radius-lg);
+}
+
+/* A document that is nothing but an artifact fills the card.
+
+   The padding is a margin for prose. An artifact is a document somebody else
+   authored, with its own margins inside its own frame, so ours only takes width
+   away from it — and width is the difference between a chart you can read in
+   place and one you have to enlarge.
+
+   The card keeps its border and its rounding and clips the frame to them, so
+   the corners match without the frame having to carry a copy of the radius.
+   Only the frame goes flush: the metadata block and the html block's title and
+   caption take the padding back, because those are our chrome and belong where
+   the prose would be. */
+.entry-content.is-artifact {
+  padding: 0;
+  overflow: hidden;
+}
+.entry-content.is-artifact .artifact-iframe {
+  /* The card's border is already there, a pixel away; the frame's own would
+     read as a double rule, and its smaller radius as a mistake. */
+  border: none;
+  border-radius: 0;
+}
+.entry-content.is-artifact > .metadata-block,
+.entry-content.is-artifact .b-figure > figcaption {
+  margin-inline: var(--entry-pad);
+}
+.entry-content.is-artifact > .metadata-block,
+.entry-content.is-artifact .b-html-title {
+  margin-top: var(--entry-pad);
+}
+.entry-content.is-artifact .b-figure > figcaption:last-child {
+  margin-bottom: var(--entry-pad);
+}
+
 
 /* The measure is applied to the card, not to the blocks inside it.
    Capping each block instead was the first attempt and it looked broken: the

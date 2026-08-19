@@ -6,6 +6,7 @@ import ModalOverlay from '../components/ModalOverlay.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ActivityIndicator from '../components/ActivityIndicator.vue'
 import BlocksBlockRenderer from '../components/blocks/BlockRenderer.vue'
+import EntryArtifactFrame from '../components/entry/ArtifactFrame.vue'
 import CopyableSecret from '../components/CopyableSecret.vue'
 import ResearchShareRowList from '../components/research/ShareRowList.vue'
 import EntryDiffView from '../components/entry/DiffView.vue'
@@ -75,6 +76,9 @@ setup((app) => {
   app.component('SegmentedToggle', SegmentedToggle)
   app.component('ActivityIndicator', ActivityIndicator)
   app.component('BlocksBlockRenderer', BlocksBlockRenderer)
+  // BlockRenderer reaches for this by name for an `html` block, so without it
+  // the WithHtmlBlock story rendered an unresolved component and showed nothing.
+  app.component('EntryArtifactFrame', EntryArtifactFrame)
   app.component('CopyableSecret', CopyableSecret)
   app.component('ResearchShareRowList', ResearchShareRowList)
 })

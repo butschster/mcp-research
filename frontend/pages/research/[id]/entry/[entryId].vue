@@ -156,7 +156,11 @@
       </div>
 
       <!-- Content -->
-      <div class="entry-content card">
+      <!-- Only in the rendered view: the source view is a `pre` of stored JSON,
+             and a code block running to the card's border reads as a layout
+             fault. The condition is in the template rather than folded into the
+             computed because `viewMode` is declared further down this file. -->
+        <div class="entry-content card" :class="{ 'is-artifact': isArtifactOnly && viewMode === 'rendered' }">
         <!-- Inside the content card rather than above it. A second bordered box
              would read as chrome, and chrome is exactly what the stored status
              was when authors started typing the real one into the prose. -->
@@ -447,6 +451,16 @@ const blocks = computed<any[]>(() => {
     return []
   }
 })
+
+// A document that is nothing but one artifact. The card gives up its padding
+// for these — see `.entry-content.is-artifact` in system.css — because an
+// artifact brings its own margins inside its own frame and ours only makes it
+// narrower. Strictly one block: a document with prose around the artifact still
+// needs the prose to sit where prose sits.
+const isArtifactOnly = computed(
+  () => isBlocks.value && blocks.value.length === 1 && blocks.value[0]?.type === 'html',
+)
+
 const blockBridgeData = computed(() => {
   if (!isBlocks.value) return null
   return {
@@ -1292,12 +1306,12 @@ const nextEntry = computed(() =>
 
 @media (max-width: 768px) {
   .title-with-code { flex-wrap: wrap; gap: var(--space-2); }
-  .entry-content { padding: var(--space-4); }
+  .entry-content { --entry-pad: var(--space-4); }
 }
 
 /* Print */
 @media print {
-  .entry-content { padding: 0; border: none; }
+  .entry-content { --entry-pad: 0; border: none; }
   .entry-tags { margin-bottom: var(--space-2); }
 }
 </style>
