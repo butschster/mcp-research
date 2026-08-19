@@ -137,6 +137,7 @@
           mode="section"
           :section-info="currentSection"
           :tags="[]"
+          @imported="onImported"
         />
 
         <!-- External links view -->
@@ -460,6 +461,14 @@ async function reloadEntries() {
     tagsData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tags`)
   }
 }
+// An imported document is a write this tab made, so the WebSocket event comes
+// back stamped with this client id and is deliberately ignored — which is right
+// for a change already on screen and wrong for this one, because the list and
+// the sidebar count are not.
+async function onImported() {
+  await Promise.all([reloadEntries(), reloadResearch()])
+}
+
 async function reloadLinks() {
   if (isLinksView.value) researchLinksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/links`)
 }

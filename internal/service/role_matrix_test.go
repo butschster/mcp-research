@@ -204,6 +204,21 @@ func TestRoles_ViewerCannotWriteAnything(t *testing.T) {
 			_, err := k.entry.RebuildCrossRefs(ctx, research.ID)
 			return err
 		},
+		// Both halves of the markdown import. The preview writes nothing, and it
+		// is still a write for permission purposes: it is reachable only from a
+		// section the caller may add a document to, and telling a viewer what
+		// their file would have become is offering them a control they do not
+		// have.
+		"import preview": func(ctx context.Context) error {
+			_, err := k.entry.PreviewMarkdownImport(ctx, section.ID, "note.md", []byte("# Hi\n\nBody.\n"))
+			return err
+		},
+		"import commit": func(ctx context.Context) error {
+			_, err := k.entry.ImportMarkdown(ctx, ImportEntryRequest{
+				SectionID: section.ID, Title: "Imported", Body: "Body.",
+			})
+			return err
+		},
 		"session create": func(ctx context.Context) error {
 			_, _, err := k.session.Create(ctx, CreateSessionRequest{ResearchID: research.ID, Title: "S2"})
 			return err

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -78,6 +79,10 @@ const (
 	MaxFieldLabelLen = 60
 	MaxFieldHelpLen  = 200
 	MaxFieldKeyLen   = 32
+	// MaxImportFileBytes caps one dropped markdown file. Generous next to any
+	// document somebody wrote by hand, and small enough that a mis-drop of a
+	// database dump is refused before it is read into memory.
+	MaxImportFileBytes = 1 << 20
 	// MaxRepeatedValues bounds a repeated field so one entry cannot make the
 	// section table unreadable on its own.
 	MaxRepeatedValues = 20
@@ -205,7 +210,14 @@ func ValidateFieldSpecs(specs []FieldSpec) []string {
 
 // MetadataIssue names one key the write could not honour as given.
 type MetadataIssue struct {
-	Key    string `json:"key"`
+	Key string `json:"key"`
+	// Value is what the writer actually sent, when a caller fills it in.
+	//
+	// Set by the markdown import and by nothing else. An agent that sent a bad
+	// value still has it; a person looking at a file they did not write does
+	// not, and "stage is not one of the options" without saying what the file
+	// said is a report they have to go and check by hand.
+	Value  string `json:"value,omitempty"`
 	Reason string `json:"reason"`
 }
 
@@ -476,12 +488,15 @@ func oneLineValue(s string) string {
 }
 
 // sortStrings keeps the domain package free of a sort import in one place only.
+// sortStrings was an insertion sort, which is Θ(n²) on the input it actually
+// gets: ValidateMetadata builds its key slice by ranging a map, so every call
+// hands it a fresh random permutation. That was invisible while the only writer
+// was an agent sending a dozen declared keys. A markdown file can carry a
+// hundred thousand of them under the one-megabyte cap, and the preview route
+// runs the validator before anything is refused — measured at over two minutes
+// of CPU for a 1 MB file, from one request, on the caller's own section.
 func sortStrings(s []string) {
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && s[j] < s[j-1]; j-- {
-			s[j], s[j-1] = s[j-1], s[j]
-		}
-	}
+	sort.Strings(s)
 }
 
 // MetadataIssues re-checks stored values against the declaration, so a reader
@@ -547,6 +562,12 @@ func FieldSchema() FieldSchemaInfo {
 			"help_max":    MaxFieldHelpLen,
 			"key_max":     MaxFieldKeyLen,
 			"key_pattern": fieldKeyPattern.String(),
+			// Import's caps ride here rather than in a payload of their own:
+			// the drop hint, the refusal and the title counter all quote one of
+			// them, and a number hard-coded in the frontend is a lie the day it
+			// changes on the server.
+			"import_max_bytes":  MaxImportFileBytes,
+			"import_extensions": []string{".md", ".markdown"},
 		},
 	}
 }

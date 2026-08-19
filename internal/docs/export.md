@@ -1,6 +1,6 @@
 # Export
 
-How to export research data as documents. Three scopes exist: a whole research, a single session, and a single document. The first two come in a JSON form (structured data + pre-rendered markdown) and a raw `.md` download; a document leaves only as a `.md` file, with YAML front matter. A whole research has two further forms: an **Obsidian vault** (`?format=obsidian`, a zip of linked notes — a document to read) and the **portable JSON** (a research to move to another server). Everything here is a read endpoint; only the portable import writes.
+How to export research data as documents. Three scopes exist: a whole research, a single session, and a single document. The first two come in a JSON form (structured data + pre-rendered markdown) and a raw `.md` download; a document leaves only as a `.md` file, with YAML front matter. A whole research has two further forms: an **Obsidian vault** (`?format=obsidian`, a zip of linked notes — a document to read) and the **portable JSON** (a research to move to another server). Everything here is a read endpoint except the two imports, the only writes on this page: the **portable JSON**, which re-creates a whole research on another server, and a **markdown file dropped into one section** (`POST /api/sections/{id}/import`), which is the other half of the single-document download.
 
 ## Export Pages (Web UI)
 
@@ -24,6 +24,10 @@ Open any entry page and use Ctrl+P / Cmd+P. The entry page has print-optimized C
 
 The same page's `⋯` menu offers **Download .md** — the document as a file with
 YAML front matter, described in [One Document as a File](#one-document-as-a-file).
+
+The reverse lives on the section view of a research page: an **Import .md**
+button beside the view toggle, and a drag-and-drop target over the entry list.
+Both are absent for a `viewer`. See [One File into a Section](#one-file-into-a-section).
 
 ## Research Export API
 
@@ -332,6 +336,7 @@ same document.
 ---
 code: E50
 title: SPEC-01 · Payload состояния площадки
+description: What the scanner sends when a site changes hands.
 research: R21
 section: Specifications
 type: markdown
@@ -346,8 +351,8 @@ owner: null
 ```
 
 Nine system keys — `code`, `title`, `research`, `section`, `type`, `status`,
-`tags`, `created`, `updated` — then the fields the section declares, in
-declaration order. Two of the vault's eleven are absent on purpose: `aliases`,
+`tags`, `created`, `updated` — plus `description` when a person wrote one, then
+the fields the section declares, in declaration order. Two of the vault's eleven are absent on purpose: `aliases`,
 which exists so Obsidian's quick switcher finds a sibling note, and `session`,
 which is provenance. Timestamps are RFC 3339 in UTC.
 
@@ -381,10 +386,16 @@ prepended, no footer, no link home. A loose file has nowhere to link home to.
   a document, during which interview and at which revision, is working process —
   the one thing this product never lets out, and the same reason a share link is
   refused it.
-- **It carries no description.** An entry's description is derived from the
-  opening lines of its own content when nobody writes one, so printing it above
-  the body is the same sentences twice. The vault does not print it either,
-  though it does for a task and a roadmap, whose descriptions are written by hand.
+- **It does not repeat a derived description.** An entry's description is
+  derived from lines 2-5 of its own content when nobody supplies one, and
+  printing that above the body is the same sentences twice. A description
+  somebody wrote by hand is the other case — it appears nowhere in the body, and
+  omitting it meant the download dropped it silently and a re-import invented a
+  different one from the prose. So `description` is emitted **only when the
+  stored value differs from what the derivation would produce**. The vault
+  writes none at all, which is why a note taken out of a vault loses a
+  hand-written one; it does print a task's and a roadmap's, which are always
+  written by hand.
 - **A block document renders as its markdown projection**, the same one the
   `.md` export uses, with none of the vault's overrides: a checklist keeps its
   ticks, and a `mermaid` block stays a fence with the mermaid.live link under it
@@ -398,6 +409,200 @@ prepended, no footer, no link home. A loose file has nowhere to link home to.
   changes because this route exists.
 - **It is not on the share sub-mux.** A visitor holding a share link cannot take
   a document away as a file, whatever the link's include flags say — see below.
+
+## One File into a Section
+
+The other half of the download above. One markdown file becomes one entry, in
+two calls:
+
+```
+POST /api/sections/{id}/import/preview    multipart, the file in the `file` part   -> a parse, writes nothing
+POST /api/sections/{id}/import            JSON fields                              -> one entry, 201
+```
+
+`{id}` is the section **UUID**; no `S`-code is resolved here. Both calls are
+**writes** for permission purposes — `editor` or `owner` in the owning team. A
+viewer is refused the preview as well as the commit: telling somebody what their
+file would have become is offering them a control they do not have. A non-member
+gets `404`, a member without the right `403`. **Neither route is on the share
+sub-mux**, and the service refuses a share context on top of that, because this
+is the only write in the product addressed by a bare section id.
+
+### Two calls, on purpose
+
+The preview writes nothing and returns what it made of the file. The commit takes
+**fields, not the file** — so an edit somebody makes in the preview survives, and
+so the commit has no parameter through which a refused key could come back. The
+commit body is exactly `title`, `description`, `status`, `tags`, `body`,
+`metadata`; there is no `session`, no `author`, no `code`, no timestamps, and
+nowhere to put them.
+
+### What the preview returns
+
+```json
+{"data": {
+  "filename": "E50 — Pricing model.md",
+  "title": "Pricing model",
+  "title_source": "frontmatter",
+  "description": "How we price, in one paragraph.",
+  "status": "active",
+  "tags": ["pricing", "модель"],
+  "body": "…the document with its front matter removed…",
+  "body_lines": 84,
+  "metadata": { "stage": "review" },
+  "metadata_report": { "spec_version": 3, "stored": ["stage"], "unknown_keys": [], "invalid_values": [], "missing_required": [] },
+  "fields":  [{ "key": "status", "value": "shipped", "applied": false, "reason": "not one of draft, active, completed or archived — importing as a draft" }],
+  "ignored": [{ "key": "code", "value": "E50", "reason": "a code is assigned by the research…" }],
+  "refused": [{ "key": "session", "value": "SS2", "reason": "which session produced a document is recorded here, never claimed by a file" }],
+  "unresolved_refs": [{ "ref": "E9999", "count": 3 }],
+  "warnings": ["The file says it came from R99; you are importing it into R21. …"]
+}}
+```
+
+- `title_source` is `frontmatter`, `heading` or `filename`, in that order of
+  preference: the front matter `title`, else the document's first ATX heading at
+  **any** level, else the filename with its extension and any leading `E50 — `
+  stripped back off — which is literally "everything before the first ` — `", so
+  a file named `Notes — draft.md` with neither a front matter title nor a heading
+  imports as `draft`. A title from the filename is reported in `fields` even
+  though nothing went wrong — it is the one the person will want to change.
+- `fields` covers the four keys that become the entry itself (`title`,
+  `description`, `status`, `tags`). It is a separate channel because a value the
+  parser read and could not use is neither a metadata problem nor a key declined
+  by policy: a misspelled `status` is silently replaced by `draft`, and that is
+  exactly the loss the preview exists to surface. `applied` says whether the
+  value in the payload came from the file.
+- `metadata_report` is the ordinary one, from the same validator every other
+  write uses — with one addition: its `unknown_keys` and `invalid_values` entries
+  carry a `value`, filled by the import and by nothing else. An agent that sent a
+  bad value still has it; a person holding a file they did not write does not.
+  Every reported `value`, here and in `fields` / `ignored` / `refused`, is one
+  line clamped to 120 runes, so a key holding a paragraph cannot push its reason
+  off the screen. The values that become the entry are **not** clamped.
+- `unresolved_refs` are the `[[…]]` codes that name nothing in **this** research,
+  with how often each appears. They are listed and left exactly as written.
+- `warnings` are true but not actionable by us — the file naming a different
+  research or section than the one it was dropped on. Never a refusal: moving a
+  document between researches on purpose is the ordinary case.
+
+### The three closed key sets
+
+Every front matter key falls into exactly one of four buckets. The three closed
+sets are matched **case-insensitively**; a metadata key is matched **exactly**
+against the section's declaration, so `Stage:` is an unknown key where `stage:`
+is a value.
+
+| Bucket | Keys | What happens |
+|---|---|---|
+| **Accepted** | `title`, `description`, `status`, `tags` | become the entry; remarks land in `fields` |
+| **Ignored** | `code`, `created`, `updated`, `research`, `section`, `type`, `aliases` | read, reported in `ignored`, dropped — each is a fact the system owns, and a file asserting it is stale at best and a collision at worst |
+| **Refused** | `session`, `author`, `author_kind`, `revision`, `revisions`, `history` | read, reported in `refused`, never used — provenance is this product's own assertion and the whole history model rests on that |
+| anything else | — | a candidate metadata value, validated against the section's `field_spec` |
+
+The distinction between ignored and refused is not fidelity, it is trust. A
+degraded file is the user's problem; a file that could **corrupt our records** is
+ours. Accepting `session:` or an author out of a text file would let anybody
+fabricate provenance.
+
+`type` is ignored, so **a dropped file always lands as a `markdown` entry**. A
+block document is written, not uploaded — see [Block Documents](/llms/blocks.md).
+
+### Caps and refusals
+
+| Cap | Value |
+|---|---|
+| file size | 1 MiB (`1048576` bytes) |
+| extensions | `.md`, `.markdown` |
+
+Both are served on `GET /api/metadata/schema` as `import_max_bytes` and
+`import_extensions`, so a client never hard-codes a number that changes on the
+server.
+
+**Import is the one write in this product that refuses rather than reports.**
+Everywhere else the author is a model in the middle of an interview and a
+rejection destroys answers a person has already given; here a person is standing
+over the file with an undo. Each refusal is `400`:
+
+| Message stem | When |
+|---|---|
+| `only a .md or .markdown file can be imported` | the extension is anything else |
+| `that file is larger than 1024 KB` | over the cap, whether the service sees the bytes or the request reader stops the upload first — checked before the extension, so an oversized `.pdf` is refused for its size |
+| `that file has no content once its front matter is removed` | nothing but front matter |
+| `the front matter could not be read: …` | malformed YAML. The parser's own message is carried through, **renumbered** so the line it names is the line in the file the person is looking at — the opening `---` is line 1. An unterminated block reads `it opens with --- but never closes the block` |
+| `this document cannot be imported as given: …` | commit only: no title, no body, an invalid status, or metadata the preview had already shown to be wrong |
+
+That last one is the only strict metadata path in the product: the commit refuses
+on any `unknown_keys` or `invalid_values`, because the preview already showed the
+person exactly that. `missing_required` is not a refusal — an imported document
+may be incomplete like any other. See [Document Metadata](/llms/metadata.md).
+
+The upload itself has three more `400`s, before any of the above: *expected a
+multipart upload with one file in the `file` field*, *no file in the `file`
+field*, and *that file could not be read*. The commit answers *invalid JSON body*
+to a body it cannot decode.
+
+### How the file is read
+
+- A file with **no front matter at all is the ordinary case**, not an error —
+  most markdown in the world has none. A leading BOM is stripped, CRLF becomes
+  LF, and the closing fence is a line of exactly `---` or `...`.
+- The body is stored **verbatim**. Every other write expands a literal `\n`,
+  because MCP clients really do send escaped newlines inside JSON strings; a file
+  has no such problem, and expanding them would rewrite the code block the
+  document was written to explain.
+- `tags` accepts a YAML sequence, and also the `tags: a, b` line people write by
+  hand — split on commas, with the guess admitted to in `fields`.
+- `status` outside `draft` / `active` / `completed` / `archived` imports as
+  `draft`, reported in `fields`.
+- Metadata is validated against the target section's declaration, so a value the
+  import accepts is one the section would have accepted anyway. YAML resolves an
+  unquoted scalar to a type, so `due: 2024-01-02` arrives as a date and is handed
+  to the validator as `2024-01-02` — the shape a `date` field expects and the
+  shape the download writes. Numbers stay numbers, because `number` is the one
+  type checked numerically; everything else is rendered as a string.
+- The entry is created by the ordinary path, so its cross-references are
+  extracted from the stored content as usual and **revision 1 is attributed to
+  `import`** — the first time that author kind is written at document
+  granularity. See [Revisions](/llms/revisions.md).
+
+### What survives the round trip, and what does not
+
+Download a document with `GET /api/entries/{id}/markdown`, drop the file back in,
+and this is the contract:
+
+| Survives | Does not, on purpose |
+|---|---|
+| `title` | the `E`-code — codes are issued by the research and are unique inside it, so the copy gets a new one |
+| `description`, when a person wrote one (a derived one is re-derived from the body) | `[[E3]]` and every other cross-reference — the text is preserved exactly, but it resolves against the **destination** research, not the source |
+| `status` | provenance: session, author, revision history. The copy starts at revision 1, authored `import` |
+| `tags` | `created` / `updated` — the copy is a new document and says so |
+| declared `metadata`, revalidated against the destination section's `field_spec` | the section and research the file names, which are only a `warnings` line |
+
+**The asymmetry is the design, not a bug.** A code means nothing outside the
+research that issued it, so honouring `code: E50` would either collide with a
+real E50 or invent an identity. A `[[E3]]` written in R99 names R99's third
+entry; repairing it here would mean guessing what it meant somewhere else. So the
+import lists the dead references and repairs nothing. Import into the **same**
+research and the references resolve again, because the codes they name are still
+there — that, and not identity, is what makes a round trip look lossless.
+
+A note taken out of an **Obsidian vault** is a worse round trip and worth stating
+separately: the vault rewrites `[[E3]]` to `[[E3 — Pricing model|E3]]` for
+Obsidian's benefit, and nothing here reverses that, so each one arrives as an
+unresolved reference. The vault also writes no `description` and does write
+`aliases` and `session`, which are ignored and refused respectively.
+
+### There is no MCP tool
+
+Deliberately, and this is the note an agent is meant to find here rather than go
+hunting for a tool. **An agent writes with `entry_create`** — it already has the
+content, and it can pass `title`, `description`, `status`, `tags` and `metadata`
+directly, with none of the parsing, none of the guessing and none of the
+refusals. Dropping a file is a human act: the file is on a person's disk, and
+the preview exists so *they* can see what would be lost before committing. If a
+user asks, point them at the section page — the **Import .md** button beside the
+view toggle, or a drag-and-drop onto the entry list. Nothing about the tool list
+changes because these routes exist.
 
 ## Portable Export / Import
 
@@ -469,7 +674,7 @@ Without `include.export` the route answers the same `404 this link is no longer 
 
 ## Auth
 
-Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, the Obsidian vault, or one document as a file, exactly as an `editor` can. `POST /api/researches/import` is a write endpoint: it always requires the bearer token when `api_token` or `auth_enabled` is configured, and it needs editor or owner rights in whichever team it imports into.
+Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, the Obsidian vault, or one document as a file, exactly as an `editor` can. The two import endpoints are writes: they always require the bearer token when `api_token` or `auth_enabled` is configured. `POST /api/researches/import` needs editor or owner rights in whichever team it imports into; `POST /api/sections/{id}/import` and its `/preview` need them in the team that owns the research holding that section — the preview included, even though it writes nothing.
 
 A share token is not a bearer token. It authenticates nothing on the routes above — it only opens the mirrored, redacted export under `/api/shared/{token}/…`, and only when the link includes it.
 

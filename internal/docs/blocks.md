@@ -216,6 +216,11 @@ entry back returns `entry_type: blocks`.
   `content`, so a reader does not need to know the block format.
 - **Portable export/import**: `entry_type` travels in the file. A file written
   before block documents existed has no `entry_type` and imports as markdown.
+- **A dropped markdown file is never a block document.** `POST /api/sections/{id}/import`
+  takes one `.md` file and always writes a `markdown` entry; `type: blocks` in its
+  front matter is read, reported as ignored and dropped. A block document is
+  written with `entry_create` / `entry_patch`, not uploaded — its structure is
+  JSON, and a file cannot ask for it. See [Export](/llms/export.md).
 
 ## Changing type
 

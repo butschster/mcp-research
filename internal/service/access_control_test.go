@@ -905,3 +905,86 @@ func TestAccessControl_Skill(t *testing.T) {
 		}
 	})
 }
+
+// A list of what did NOT resolve is a list of what did.
+//
+// The import preview reports unresolvable `[[...]]` codes, and short codes are
+// global: resolving them reaches every research on the instance. Reporting the
+// raw resolution bit turned a file full of `[[R1]] [[R1:E1]] [[R1:E2]]…`,
+// uploaded into the caller's own section, into an enumeration of somebody
+// else's code space. VisibleCrossRefs exists to close this and the preview was
+// the one consumer that skipped it.
+func TestAccessControl_ImportPreviewDoesNotOracleForeignCodes(t *testing.T) {
+	db := setupTestDB(t)
+	log := slog.Default()
+	access := testAccess(db)
+	notifier := &mockNotifier{}
+
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), access, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, access, storage.NewSessionRepository(db),
+		storage.NewBlockRepository(db), storage.NewEntryRevisionRepository(db),
+		storage.NewCrossRefRepository(db), storage.NewExternalLinkRepository(db), notifier, log)
+
+	alice, mallory := setupTwoUsers(t, db)
+	ctxA, ctxM := userCtx(alice), userCtx(mallory)
+
+	hers, herSections, err := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Private",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	if err != nil {
+		t.Fatalf("create alice's research: %v", err)
+	}
+	secret, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: hers.ID, SectionID: herSections[0].ID,
+		Title: "Private findings", Content: "Nothing Mallory may see.",
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+
+	// Mallory's own research, where she legitimately has write access.
+	mine, mySections, err := researchSvc.Create(ctxM, CreateResearchRequest{
+		Name: "Mallory's Research", Goal: "Probing",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	if err != nil {
+		t.Fatalf("create mallory's research: %v", err)
+	}
+	_ = mine
+
+	probe := "# probe\n\n" +
+		"[[" + hers.Code + "]] " +
+		"[[" + hers.Code + ":" + secret.Code + "]] " +
+		"[[R9999]] [[R9999:E1]]\n"
+	got, err := entrySvc.PreviewMarkdownImport(ctxM, mySections[0].ID, "probe.md", []byte(probe))
+	if err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+
+	reported := map[string]bool{}
+	for _, r := range got.UnresolvedRefs {
+		reported[r.Ref] = true
+	}
+	// Everything Mallory cannot read must come back as unresolved, exactly as
+	// unresolved as the codes that genuinely name nothing.
+	for _, ref := range []string{hers.Code, hers.Code + ":" + secret.Code, "R9999", "R9999:E1"} {
+		if !reported[ref] {
+			t.Errorf("%q was not reported as unresolved, so its existence leaked", ref)
+		}
+	}
+
+	// And the owner still gets the truth: her own codes resolve.
+	ownerView, err := entrySvc.PreviewMarkdownImport(ctxA, herSections[0].ID, "probe.md", []byte(probe))
+	if err != nil {
+		t.Fatalf("owner preview: %v", err)
+	}
+	for _, r := range ownerView.UnresolvedRefs {
+		if r.Ref == hers.Code || r.Ref == hers.Code+":"+secret.Code {
+			t.Errorf("the owner's own %q was reported unresolved", r.Ref)
+		}
+	}
+}

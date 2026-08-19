@@ -60,11 +60,38 @@ function handleLogout() {
   logout()
 }
 
+/**
+ * A file dropped anywhere but a real target does nothing.
+ *
+ * The browser's default for a dropped file is to navigate to it, which in a
+ * single-page app means the whole application is gone and replaced by
+ * `file:///…`. That was live the moment section import shipped: the drop zone
+ * covers the entries list, and the sidebar section name — the most natural
+ * place to aim "put this document in that section" — is not it.
+ *
+ * Capture phase and a `defaultPrevented` check, so a real target still wins:
+ * `ImportDropZone` calls `preventDefault` on its own handlers, and this only
+ * refuses what nothing else claimed.
+ */
+function swallowStrayDrop(e: DragEvent) {
+  if (e.defaultPrevented) return
+  e.preventDefault()
+  if (e.type === 'drop' && e.dataTransfer) e.dataTransfer.dropEffect = 'none'
+}
+
 onMounted(() => {
   document.addEventListener('click', (e) => {
     const el = (e.target as HTMLElement).closest('.user-menu')
     if (!el) userMenuOpen.value = false
   })
+  // Bubble phase, so a zone that handled it has already marked the event.
+  window.addEventListener('dragover', swallowStrayDrop)
+  window.addEventListener('drop', swallowStrayDrop)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('dragover', swallowStrayDrop)
+  window.removeEventListener('drop', swallowStrayDrop)
 })
 </script>
 

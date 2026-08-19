@@ -39,6 +39,15 @@ type CreateEntryRequest struct {
 	// Metadata is values keyed by the field keys the target section declares.
 	// Anything else is reported and dropped — the vocabulary is closed.
 	Metadata map[string]any
+	// Verbatim says the content arrived as a file rather than as a JSON string,
+	// so its escape sequences are content and must not be expanded.
+	//
+	// normalizeContent turns a literal `\n` into a newline because MCP clients
+	// really do send escaped newlines inside JSON strings. A file has no such
+	// problem: two characters in it are two characters, and they are most often
+	// inside a code block, where expanding them rewrites the code the document
+	// was written to explain.
+	Verbatim bool
 }
 
 type UpdateEntryRequest struct {
@@ -140,7 +149,7 @@ func (s *EntryService) Create(ctx context.Context, req CreateEntryRequest) (*dom
 	// Content normalization depends on the type and must happen after it is known:
 	// normalizeContent expands a literal \n, which inside a block document's JSON
 	// strings would produce a real newline and make the JSON unparseable.
-	content, entryType, err := s.normalizeEntryContent(req.Content, entryType)
+	content, entryType, err := s.normalizeEntryContent(req.Content, entryType, req.Verbatim)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +432,10 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 		entry.Title = normalizeTitle(*req.Title)
 	}
 	if req.Content != nil {
-		content, stored, err := s.normalizeEntryContent(*req.Content, targetType)
+		// Update has no verbatim form: an update arrives as a JSON string from
+		// an MCP client or a form, never as a file. Importing never updates —
+		// a file has no identity we trust, so there is nothing to match on.
+		content, stored, err := s.normalizeEntryContent(*req.Content, targetType, false)
 		if err != nil {
 			return nil, err
 		}
@@ -697,7 +709,20 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 	if s.crossrefs == nil || text == "" {
 		return
 	}
+	refs := s.resolveRefs(ctx, sourceType, sourceID, researchID, text)
+	if err := s.crossrefs.ReplaceForSource(ctx, sourceType, sourceID, refs); err != nil {
+		s.log.Error("failed to update crossrefs", "source_type", sourceType, "source_id", sourceID, "error", err)
+	}
+}
 
+// resolveRefs finds every [[...]] in the text and says what each one points at,
+// storing nothing.
+//
+// Split out of parseCrossRefs for the markdown import, which needs the question
+// "does this reference resolve here" answered before it decides whether to
+// write anything at all. Keeping one resolver means the answer the preview
+// gives and the rows the write stores cannot disagree.
+func (s *EntryService) resolveRefs(ctx context.Context, sourceType, sourceID, researchID, text string) []domain.CrossRef {
 	matches := refPattern.FindAllStringSubmatch(text, -1)
 	var refs []domain.CrossRef
 
@@ -778,10 +803,7 @@ func (s *EntryService) parseCrossRefs(ctx context.Context, sourceType, sourceID,
 
 		refs = append(refs, cr)
 	}
-
-	if err := s.crossrefs.ReplaceForSource(ctx, sourceType, sourceID, refs); err != nil {
-		s.log.Error("failed to update crossrefs", "source_type", sourceType, "source_id", sourceID, "error", err)
-	}
+	return refs
 }
 
 // parseRef splits references:
@@ -924,7 +946,7 @@ func (s *EntryService) convertStoredContent(entry *domain.Entry, target domain.E
 // normalizeEntryContent applies the normalization the type calls for and resolves
 // the `artifact` input alias. It returns the content to store and the type to
 // store it under — never EntryArtifact, which is an input shape only.
-func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (string, domain.EntryType, error) {
+func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType, verbatim bool) (string, domain.EntryType, error) {
 	switch t {
 	case domain.EntryArtifact:
 		// Sugar: a bare HTML document becomes a blocks document with one html
@@ -947,6 +969,10 @@ func (s *EntryService) normalizeEntryContent(raw string, t domain.EntryType) (st
 		return out, domain.EntryBlocks, nil
 
 	default:
+		if verbatim {
+			// Sanitised, never expanded. See CreateEntryRequest.Verbatim.
+			return sanitizeUTF8(raw), domain.EntryMarkdown, nil
+		}
 		return normalizeContent(raw), domain.EntryMarkdown, nil
 	}
 }

@@ -42,6 +42,7 @@ type shareServer struct {
 	// through the graph.
 	roadmapID string
 	sessionID string
+	sectionID string
 }
 
 func newShareServer(t *testing.T) *shareServer {
@@ -161,7 +162,7 @@ func newShareServer(t *testing.T) *shareServer {
 	return &shareServer{
 		t: t, mux: srv.mux, db: db, research: research, entry: entry,
 		other: other, shares: shareSvc, ownerCtx: ctx, roadmapID: roadmap.ID,
-		sessionID: sess.ID,
+		sessionID: sess.ID, sectionID: sections[0].ID,
 	}
 }
 
@@ -316,6 +317,11 @@ func TestShareRoutes_OwnerRoutesRejectAShareToken(t *testing.T) {
 		{http.MethodDelete, "/api/shared/" + token + "/entries/" + s.entry.ID, ``},
 		{http.MethodPost, "/api/shared/" + token + "/researches/" + s.research.ID + "/shares", `{}`},
 		{http.MethodPost, "/api/shared/" + token + "/researches/" + s.research.ID + "/crossrefs/rebuild", ``},
+		// Importing a markdown file is the newest write and the only one
+		// addressed by a bare section id, so the sub-mux has never seen the
+		// shape before.
+		{http.MethodPost, "/api/shared/" + token + "/sections/" + s.sectionID + "/import", `{"title":"x","body":"y"}`},
+		{http.MethodPost, "/api/shared/" + token + "/sections/" + s.sectionID + "/import/preview", ``},
 	}
 	for _, w := range writes {
 		code, body := s.do(w.method, w.path, w.body)

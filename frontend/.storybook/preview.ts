@@ -20,6 +20,9 @@ import TeamRoleSelect from '../components/team/RoleSelect.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
 import SegmentedToggle from '../components/SegmentedToggle.vue'
+import ResearchImportDropZone from '../components/research/ImportDropZone.vue'
+import ResearchImportPreviewDialog from '../components/research/ImportPreviewDialog.vue'
+import ResearchImportNoteGroup from '../components/research/ImportNoteGroup.vue'
 import { resetMockApiData } from '../__mocks__/api'
 import '../assets/css/tokens.css'
 import '../assets/css/base.css'
@@ -81,6 +84,11 @@ setup((app) => {
   app.component('EntryArtifactFrame', EntryArtifactFrame)
   app.component('CopyableSecret', CopyableSecret)
   app.component('ResearchShareRowList', ResearchShareRowList)
+  // EntriesView reaches for both of these by name.
+  app.component('ResearchImportDropZone', ResearchImportDropZone)
+  app.component('ResearchImportPreviewDialog', ResearchImportPreviewDialog)
+  app.component('ResearchImportNoteGroup', ResearchImportNoteGroup)
+  // BUG, not a Storybook quirk: ImportPreviewDialog's template says
 })
 
 const preview: Preview = {

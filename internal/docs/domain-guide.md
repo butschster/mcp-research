@@ -241,6 +241,7 @@ body is not searched as text and contributes no cross-references.
 - A blocks entry is edited whole with `entry_update` or block by block with `entry_patch`; `text_replace` is refused on it.
 - URLs found in entry content are extracted into an external-links index, readable at `GET /api/entries/{id}/links` and `GET /api/researches/{id}/links`.
 - One document can be taken out on its own: `GET /api/entries/{id}/markdown` returns it as a `.md` file with YAML front matter — the vault's, minus `aliases` and `session` — named `E50 — Title.md`. The `{id}` is the entry UUID, not an `E`-code. There is no MCP tool for it (`entry_read` already gives an agent the content), the file leaves `[[E3]]` exactly as stored, and the route is not on the share sub-mux. See [Export](/llms/export.md).
+- One document can also be put in on its own: `POST /api/sections/{id}/import/preview` parses an uploaded `.md` file and writes nothing, `POST /api/sections/{id}/import` commits the accepted fields as one entry. `{id}` is the section UUID. Both need `editor` or `owner`, the preview included; neither is on the share sub-mux. The file always lands as a `markdown` entry with a new `E`-code and revision 1 authored `import`; title, description, status, tags and declared metadata survive the round trip from the download, codes and cross-references deliberately do not. There is no MCP tool — an agent writes with `entry_create`. See [Export → One File into a Section](/llms/export.md).
 
 **Cross-reference syntax in content:**
 - `[[E3]]` — entry E3 in same research
