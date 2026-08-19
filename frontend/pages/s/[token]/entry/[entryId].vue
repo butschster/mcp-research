@@ -40,7 +40,7 @@
       </div>
     </div>
 
-    <div class="entry-content card">
+    <div class="entry-content card" :class="{ 'is-artifact': isArtifactOnly }">
       <BlocksBlockRenderer
         v-if="isBlocks"
         :blocks="blocks"
@@ -176,6 +176,16 @@ const blocks = computed<any[]>(() => {
     return []
   }
 })
+
+// A document that is nothing but one artifact. The card gives up its padding
+// for these — see `.entry-content.is-artifact` in system.css — because an
+// artifact brings its own margins inside its own frame and ours only makes it
+// narrower. Strictly one block: a document with prose around the artifact still
+// needs the prose to sit where prose sits.
+const isArtifactOnly = computed(
+  () => isBlocks.value && blocks.value.length === 1 && blocks.value[0]?.type === 'html',
+)
+
 
 const contentEl = ref<HTMLElement | null>(null)
 const renderedContent = computed(() => {

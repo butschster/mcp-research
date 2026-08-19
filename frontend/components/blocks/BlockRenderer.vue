@@ -93,7 +93,7 @@
         <figcaption v-if="b.data.title" class="b-html-title">{{ b.data.title }}</figcaption>
         <EntryArtifactFrame
           :html="b.data.html"
-          :title="b.data.title || 'Artifact'"
+          :title="b.data.title"
           :bridge-data="bridgeData"
         />
         <figcaption v-if="b.data.caption" v-html="inline(b.data.caption)"></figcaption>

@@ -37,6 +37,40 @@ html { scroll-behavior: smooth; }
 
 /* --- Noise Overlay (subtle texture) ------------------------------------- */
 
+/* Something is covering the page: a modal, or an artifact filling the screen
+   without the Fullscreen API. The page underneath still scrolls otherwise,
+   which reads as the thing on top having come loose rather than covering.
+
+   A class rather than an inline `body.style.overflow`, and deliberately named
+   for the state and not for the feature: ModalOverlay had its own inline
+   version, and two mechanisms means the one that writes a blanket `''` on
+   release eventually clears the other one's lock. Known limit of the class
+   form too — two lockers at once, and the first release unlocks. Nothing in
+   this product opens two, and a counter would be a state machine for a case
+   that does not exist. */
+body.scroll-locked {
+  overflow: hidden;
+}
+
+/* A card is a containing block for `position: fixed`, so an overlay inside one
+   fills the card instead of the screen. Two separate causes, and the second is
+   the one that makes this unconditional:
+
+     - `.card:hover` lifts by 2px, and the pointer is over the card by
+       definition, having just clicked the control inside it;
+     - `.card` runs the `fade-up` animation with `animation-fill-mode: both`,
+       whose last keyframe is `transform: translateY(0)`. Identity, but not
+       `none` — and it sticks for the life of the page. Measured on the shipped
+       bundle: an overlay inside an entry card resolves to a 143px box.
+
+   `!important` because the second one is an animation, and animation-origin
+   declarations beat ordinary author rules; only author-important outranks them.
+   Set by ArtifactFrame before the overlay paints. */
+body.scroll-locked .card {
+  animation: none !important;
+  transform: none !important;
+}
+
 body::before {
   content: '';
   position: fixed;
