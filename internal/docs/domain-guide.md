@@ -513,7 +513,9 @@ A methodology document — how to run an interview, how to grade a source, how t
 
 **No short code.** A skill is never referenced from content, so there is no `[[…]]` form for one.
 
-**One MCP tool, `skill_load`.** The index — slug, name, tier, description, no bodies — rides in `research_get`, and only when the research follows at least one skill. Everything else (attach, detach, write, fork, copy, promote) is REST or the web UI: thirteen routes under `/api/researches/{id}/skills…`, `/api/teams/{id}/skills` and `/api/skills/{skillId}`.
+**Ten MCP tools, and thirteen REST routes over the same service.** The index — slug, name, tier, description, no bodies — rides in `research_get`, and the product skills are unioned into it, so it is populated even for a research nobody has curated. `skill_load` is the only tool that returns a body; `skill_list`, `skill_attach`, `skill_detach`, `skill_create`, `skill_update`, `skill_fork`, `skill_copy`, `skill_promote` and `skill_delete` do over MCP what the routes under `/api/researches/{id}/skills…`, `/api/teams/{id}/skills` and `/api/skills/{skillId}` do over HTTP, refusing with the same codes from the same `service.SkillErrorCode` switch. Both transports go through `SkillService`, so the cap, the ambient rule and the tier checks are enforced once.
+
+**A slug is fixed at creation.** `Slugify(name)` runs in `build` and nowhere else: `Update` rewrites the name, the description and the body, and never the slug. Uniqueness is per tier scope, which is why a fork keeps its parent's slug and a second fork in the same team is `slug_taken`.
 
 **A share link never exposes a skill** — not the index, not a body. Which methodology a team follows is working process, the same class as `instruction` and `memory`. There are no skills routes under `/api/shared/{token}/`, `SkillService.Load` refuses a share context before it resolves the slug, and the index is empty for one — so a route added later still fails closed.
 
@@ -638,7 +640,8 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | `roadmap.created`, `roadmap.updated`, `roadmap.deleted` | `roadmap` | roadmap | adding, changing or removing nodes and edges all report as `roadmap.updated` on the roadmap |
 | `skill.attached`, `skill.detached` | `skill` | skill | this research started or stopped following a skill. The index `research_get` returns has changed |
 | `skill.created` | `skill` | skill | a research-private skill was written, or a team/built-in one was copied into this research. A **team** skill being written emits nothing — it belongs to no research yet |
-| `skill.updated` | `skill` | skill | the body or trigger line changed. A fork and a promotion report as this too, on the **new** row — its `entity_id` is not the one you were following. Editing a team skill directly emits nothing, because it names no single research |
+| `skill.updated` | `skill` | skill | the body or trigger line changed. A fork and a promotion report as this too, on the **new** row — its `entity_id` is not the one you were following. Editing a team skill sends one of these **per research following it**, since the row itself names no single research |
+| `skill.deleted` | `skill` | skill | the row is gone. Sent to every research that was following it, read before the delete because the attachments cascade away with it |
 | `team.created`, `team.updated`, `team.deleted`, `team.invited`, `team.invite_revoked`, `team.member_added`, `team.member_removed`, `team.member_role_changed` | `team` | team | no `research_id` |
 | `access.changed` | `team` | team | directed. `reason: role_changed`. The new role is deliberately not in the event — read it back from the API rather than trusting a value pushed at you |
 | `access.revoked` | `team` or `research` | team or research | directed. `reason: removed_from_team` (entity `team`) or `research_transferred` (entity `research`, with `research_id`) |
@@ -646,7 +649,7 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 
 There is no `template.*` event of any kind: a [template](#template) belongs to a team rather than to a research, is read once at kickoff, and nothing on screen goes stale when one changes — re-read `GET /api/templates`. The skills a template attaches at `research_create` are written without a `skill.attached` event too.
 
-There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps and teams can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`. A skill can be deleted (`DELETE /api/skills/{skillId}`) but emits nothing when it is: the row is addressed by id and the researches that were following it are not known to that call — re-read the attached list rather than waiting for a message.
+There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps, teams and skills can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`. A skill deleted by `skill_delete` or `DELETE /api/skills/{skillId}` sends `skill.deleted` to each research that was following it — the follower list is read before the row goes, because the attachment rows cascade with it and afterwards there would be nobody left to tell. Detaching a research-private skill deletes it too, and reports as `skill.detached`.
 
 ### Who receives what
 

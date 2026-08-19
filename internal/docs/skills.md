@@ -56,9 +56,71 @@ Two rules the tool enforces rather than suggests:
 - **Load at the point of use**, not while orienting. A skill read three steps
   before the work it describes has usually been forgotten by the time it matters.
 
-`skill_load` is the **only** MCP tool for skills. Attaching, writing, editing and
-detaching are REST or web-UI acts — see below — so nothing an agent does over MCP
-changes which skills a research follows.
+`skill_load` is the only tool that returns a body. Everything else a skill tool
+does is listed under [Managing them](#managing-them) — the same acts the web UI
+performs, over the same service.
+
+## Managing them
+
+Ten tools, and only one of them returns a body.
+
+| Tool | Does |
+|---|---|
+| `skill_load(research_id + slug \| skill_id)` | the full text of one skill. The only tool that returns a body |
+| `skill_list(research_id \| team_id, query?)` | with `research_id`: `following`, `available`, `chosen`, `cap` — and `cap_reached: true` with a `cap_hint` when the budget is spent. The call to make before changing anything: what is on, what could be, how much is left. `query` filters `available` by name or trigger line. With `team_id` instead: that team's whole `library`, including skills no research follows yet, and no budget — the cap belongs to a research |
+| `skill_attach(research_id, slug)` | make this research follow an existing skill. Attaching one it already follows is `already_attached`, not an error to work around |
+| `skill_detach(research_id, slug)` | stop following it. A research-private skill is **deleted** by this, and the answer says so: `deleted: true` with the tier and name of what went |
+| `skill_create(research_id \| team_id, name, description, body)` | write one. `research_id` makes it research-private and attaches it (spending a slot); `team_id` — the id from `team_list` — puts it in the library, attached to nothing, and the answer says to attach it separately. Exactly one of the two |
+| `skill_update(research_id + slug \| skill_id, name?, description?, body?)` | edit in place. Omitted fields are inherited, so fixing a trigger line does not mean resending the body. Send at least one; all three omitted is refused. A built-in is `not_allowed` and the message names `skill_fork` |
+| `skill_fork(research_id, slug, name?, description?, body?)` | **built-in only** → an editable team copy keeping the same slug, attachment moved in one step. Every field may be omitted: a bare fork copies the built-in as it is, to edit later. A team or private slug here is `not found` — for those, edit it or `skill_copy` it |
+| `skill_copy(research_id, slug)` | team or built-in → a research-private copy, attachment moved in one step. A slug that is already private answers `copied: false` and changes nothing |
+| `skill_promote(research_id, slug)` | research-private → the team library, attachment follows, the private original is deleted. Anything that is not private is `not_allowed` |
+| `skill_delete(research_id + slug \| skill_id)` | remove a team or private skill from existence — as opposed to `skill_detach`, which removes it from one research. A team skill any research still follows is `skill_in_use`; a built-in is `not_allowed` |
+
+Every one of them takes the research **UUID or the `R1` short code**.
+
+Three of them are addressed twice over, by `research_id` + `slug` or by
+`skill_id`, and that is not redundancy: an agent working inside a research holds
+slugs and nothing else, while one that has just written a team skill holds the
+id it was handed back and has no research to look it up through. Give one form
+or the other, never both.
+
+Addressed by **slug**, a miss says so and says why: `not_found` with the slug
+quoted and a pointer to `skill_list`. Addressed by **id**, a skill that does not
+exist and one that belongs to somebody else are deliberately the same refusal,
+and it invites you nowhere.
+
+**A refusal leads with its code**, the same vocabulary the REST API answers with
+and from the same switch — `skill_cap_reached: this research already follows…`.
+Read the code, not the sentence: `skill_cap_reached` means drop something first,
+`already_attached` means carry on, and prose alone does not separate them.
+
+| Code | What to do |
+|---|---|
+| `skill_cap_reached` | Six chosen skills are already on. Detach one before attaching or writing another — and not a product skill, which is outside the budget and cannot be dropped anyway. Retrying unchanged never succeeds |
+| `already_attached` | Nothing to do: the research follows it already. Carry on |
+| `slug_taken` | Something in the same tier scope holds that slug. **Renaming does not help** — see below. Find that row and edit it with `skill_update`; for the `skill_promote` case it is a team skill, so `skill_list(team_id)` gives you its `skill_id`. Do **not** reach for `skill_delete(research_id, slug)` there: a slug resolves to what the research follows first, which is the private copy you were trying to save |
+| `skill_in_use` | A team skill other researches still follow; the count is in the message. Detach it from them, or leave it and detach it here instead |
+| `not_allowed` | The act is refused by kind, not by state: detaching a product skill, writing to a built-in, promoting something that is not private. There is no retry — the message names the tool that does work |
+
+**A slug is fixed at creation.** It is derived from `name` when the skill is
+written and nothing changes it afterwards: `skill_update` renames the skill and
+leaves the slug alone, and a fork or a copy keeps the slug of what it came from.
+So `slug_taken` is never cleared by choosing a different name — it is cleared by
+dealing with the row already holding the slug. `skill_promote` hits this most
+often, when the team library already holds a fork of the same built-in the
+private copy came from.
+
+**The cap counts what somebody chose.** Six per research, and writing a
+research-private skill spends a slot because it is attached the moment it exists
+— so the seventh `skill_create` is refused exactly like the seventh
+`skill_attach`. `skill_fork` and `skill_copy` move an existing attachment and
+cost nothing extra, unless the source was in the library and not yet attached
+here, in which case they take a slot and can be refused for it too.
+
+Nothing here writes at the built-in tier. Those rows are rewritten from the
+binary on every boot, so an edit there would be destroyed by the next upgrade —
+which is why editing one is `skill_fork` and why `skill_delete` refuses.
 
 ## Tiers, and what wins
 
@@ -93,13 +155,11 @@ the API.
 **They need no attaching.** The always-on set is unioned into every index and
 every attached list, so a research nobody has curated still gets them — and the
 agent still learns from the first `research_get` that skills exist. Their bodies
-load without an attachment too. Everything else does have to be attached, and
-there is still no MCP tool for attaching one. There is exactly one way an agent
-attaches a skill: `research_create` with a `template_slug` attaches the skills
-that [template](/llms/templates.md) names, at creation and once. Those rows carry
-`via_template: true` in the attached listing, so a reader can tell a methodology's
-choice from a person's. Everything after that — attach, detach, fork, copy,
-promote — is REST or the web UI.
+load without an attachment too. Everything else does have to be attached, either
+by a person, by `skill_attach`, or by `research_create` with a `template_slug`,
+which attaches the skills that [template](/llms/templates.md) names at creation
+and once. Rows attached that last way carry `via_template: true` in the attached
+listing, so a reader can tell a methodology's choice from a person's.
 
 Everything non-ambient counts. A research may follow **six** chosen skills; the
 seventh is refused with `skill_cap_reached`, and so is writing a seventh private
@@ -209,3 +269,6 @@ prose:
 
 Validation failures are `400` and carry a `field`: `name` (empty),
 `description` (over 200), `body` (empty or over 16000).
+
+The MCP tools answer with the same codes, prefixed to the message rather than
+carried in a status — there is no status to carry them in.

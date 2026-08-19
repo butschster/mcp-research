@@ -99,7 +99,7 @@ func RegisterResearchGet(srv *mcp.Server, researchSvc *service.ResearchService, 
 		}
 		if len(skillIndex) > 0 {
 			out["skills"] = skillIndex
-			out["skills_hint"] = "Each skill says when to use it. Call skill_load with its slug when you are about to do that work — one at a time, not up front."
+			out["skills_hint"] = "Each skill says when to use it. Call skill_load with its slug when you are about to do that work — one at a time, not up front. This is what the research follows, not everything it could: skill_list shows the rest, and skill_attach or skill_create adds one when the work in front of you has no methodology here."
 		}
 		return successResult(out)
 	})

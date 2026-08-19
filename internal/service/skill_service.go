@@ -57,6 +57,17 @@ type SkillInput struct {
 	Name        string
 	Description string
 	Body        string
+	// DescriptionUntouched says the caller never supplied a description and the
+	// one in this struct was read back out of the row.
+	//
+	// It exists for the partial write the MCP tools make. Update clears
+	// NeedsTrigger on the reasoning that anybody sending a description has
+	// looked at it — true of the REST form, which puts the field in front of a
+	// person every time. An agent changing nothing but a body has not looked at
+	// it, and clearing the flag there removes the only prompt telling somebody
+	// that a migration invented that trigger line, while the invented line is
+	// still there.
+	DescriptionUntouched bool
 }
 
 // ListAttached is what the research follows, in precedence order.
@@ -328,8 +339,11 @@ func (s *SkillService) Update(ctx context.Context, id string, in SkillInput) (*d
 	sk.Name = normalizeTitle(in.Name)
 	sk.Description = normalizeContent(in.Description)
 	sk.Body = normalizeContent(in.Body)
-	// A person has now written the trigger line, whatever a migration put there.
-	sk.NeedsTrigger = false
+	// A person has now written the trigger line, whatever a migration put there
+	// — unless they never sent one, in which case nothing about it was reviewed.
+	if !in.DescriptionUntouched {
+		sk.NeedsTrigger = false
+	}
 	if err := s.skills.Update(ctx, sk); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -410,7 +424,7 @@ func (s *SkillService) Fork(ctx context.Context, researchID, slug string, in Ski
 	if err := s.skills.Create(ctx, forked); err != nil {
 		return nil, err
 	}
-	if err := s.replaceOrAttach(ctx, researchID, src.ID, forked.ID); err != nil {
+	if err := s.attachOrUnmake(ctx, researchID, src.ID, forked.ID); err != nil {
 		return nil, err
 	}
 	emit(ctx, s.events, Event{Type: "skill.updated", ResearchID: researchID, EntityID: forked.ID, Entity: "skill"})
@@ -463,11 +477,42 @@ func (s *SkillService) CopyHere(ctx context.Context, researchID, slug string) (*
 	if err := s.skills.Create(ctx, copied); err != nil {
 		return nil, err
 	}
-	if err := s.replaceOrAttach(ctx, researchID, src.ID, copied.ID); err != nil {
+	if err := s.attachOrUnmake(ctx, researchID, src.ID, copied.ID); err != nil {
 		return nil, err
 	}
 	emit(ctx, s.events, Event{Type: "skill.created", ResearchID: researchID, EntityID: copied.ID, Entity: "skill"})
 	return copied, nil
+}
+
+// attachOrUnmake is replaceOrAttach with the copy removed when it fails.
+//
+// Fork and CopyHere both write the new row before attaching it, and the attach
+// can be refused — replaceOrAttach falls back to a plain attach when the source
+// was never attached here, and that fallback goes through the cap. A refusal
+// used to leave the copy behind, and the wreckage was worse than the failure:
+//
+//   - the row holds the source's slug, and a slug resolves in this research's
+//     scope before it resolves to a built-in, so `skill_load evidence-grading`
+//     started answering with a private copy the caller never made;
+//   - it is attached to nothing, so no listing shows it and nothing offers to
+//     remove it;
+//   - and CopyHere short-circuits on an already-private source, so retrying
+//     after freeing a slot answers "already private, nothing copied" forever.
+//
+// One refused call, and that slug is unusable for the life of the research.
+// CreatePrivate has cleaned up after itself since it was written; these two did
+// not, and an agent driving them at a full cap is how it surfaced.
+func (s *SkillService) attachOrUnmake(ctx context.Context, researchID, oldID, newID string) error {
+	err := s.replaceOrAttach(ctx, researchID, oldID, newID)
+	if err == nil {
+		return nil
+	}
+	if delErr := s.skills.Delete(ctx, newID); delErr != nil && !errors.Is(delErr, sql.ErrNoRows) {
+		// The original refusal is what the caller needs to hear; a failed
+		// cleanup is ours to notice.
+		s.log.Error("orphaned skill copy after failed attach", "skill_id", newID, "error", delErr)
+	}
+	return err
 }
 
 // replaceOrAttach swaps one attachment for another, and falls back to a plain
@@ -653,8 +698,18 @@ func (s *SkillService) announce(ctx context.Context, eventType, skillID string, 
 // It answers with nothing rather than an error, because a research page must
 // not fail to load because the skills query did, and because a share visitor
 // gets no index at all.
+//
+// It checks Read like every other listing here. It used to reach the repository
+// directly, on the reasoning that its only caller had already resolved the
+// research through an access-checked Get — which was true, and is exactly the
+// kind of reasoning this codebase decided not to rely on. Every skill listing
+// asks; a method that returns rows for any research id an argument can name is
+// one careless caller away from being the leak.
 func (s *SkillService) Index(ctx context.Context, researchID string) []*domain.Skill {
 	if auth.ShareFromContext(ctx) != nil {
+		return nil
+	}
+	if err := s.access.Read(ctx, researchID); err != nil {
 		return nil
 	}
 	list, err := s.skills.ListAttached(ctx, researchID)
@@ -882,3 +937,77 @@ func Slugify(name string) string {
 // SkillCap is the budget a client is told about, so the frontend never carries
 // its own copy of the number the server enforces.
 func SkillCap() int { return domain.SkillsPerResearch }
+
+// SkillErrorCode is the machine-readable name of a refusal, and it exists
+// because two transports now have to tell the same two 409s apart.
+//
+// The REST handler needs it because the UI writes a different sentence for
+// "six are already attached" than for "that one is already on". The MCP tools
+// need it because an agent is even worse at matching on prose than a frontend
+// is: it will retry a cap error forever if the only difference from
+// already-attached is the wording. One switch, so an edit to a message cannot
+// silently change what either of them does.
+//
+// An empty string means this is not a skill-specific refusal — the caller falls
+// back to its ordinary error mapping.
+func SkillErrorCode(err error) string {
+	switch {
+	case errors.Is(err, ErrSkillCapReached):
+		return "skill_cap_reached"
+	case errors.Is(err, ErrSkillAlreadyAttached):
+		return "already_attached"
+	case errors.Is(err, ErrSkillSlugTaken):
+		return "slug_taken"
+	case errors.Is(err, ErrSkillInUse):
+		return "skill_in_use"
+	case errors.Is(err, ErrSkillAmbient),
+		errors.Is(err, ErrSkillBuiltinWrite),
+		errors.Is(err, ErrSkillNotPrivate):
+		return "not_allowed"
+	default:
+		return ""
+	}
+}
+
+// ResolveSlug turns the name an agent holds into the row the write methods
+// take.
+//
+// Update and Delete are addressed by id, because a slug is only unique inside a
+// scope and those two are reachable from a team's library as well as from a
+// research. Over MCP there is no id in circulation: everything the agent has
+// came out of an index that carries slugs. Rather than teach every tool to read
+// before it writes, the resolution is one exported method that applies the same
+// scoping rule Load does — what the research follows first, then what it could
+// attach.
+//
+// It is a read, so it checks Read. The write methods it feeds check Write on
+// whatever they resolve to, which is not always this research: promoting or
+// deleting a team skill is a team act.
+func (s *SkillService) ResolveSlug(ctx context.Context, researchID, slug string) (*domain.Skill, error) {
+	if auth.ShareFromContext(ctx) != nil {
+		return nil, ErrNotFound
+	}
+	if err := s.access.Read(ctx, researchID); err != nil {
+		return nil, err
+	}
+	sk, err := s.resolveInResearch(ctx, researchID, slug)
+	if err != nil {
+		return nil, err
+	}
+	if sk == nil {
+		return nil, ErrNotFound
+	}
+	return sk, nil
+}
+
+// CountChosen is how much of the budget is spent by a list of skills. Ambient
+// product skills are outside it, so a list of seven can legitimately read 6.
+func CountChosen(list []*domain.Skill) int {
+	var n int
+	for _, sk := range list {
+		if !sk.Ambient {
+			n++
+		}
+	}
+	return n
+}
