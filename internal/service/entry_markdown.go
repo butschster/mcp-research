@@ -73,6 +73,23 @@ func (s *EntryService) MarkdownExport(ctx context.Context, entryID string) (*Mar
 	fm := &frontmatter{}
 	fm.add("code", entry.Code)
 	fm.add("title", entry.Title)
+	// The description, whatever its provenance.
+	//
+	// This file used to emit none, on the reasoning that a description is
+	// derived from lines 2-5 of the body and printing it above them is the same
+	// sentences twice. That is true of a derived one and false of one somebody
+	// wrote, which appears nowhere in the body — so the download silently
+	// dropped it and a re-import invented a different one from the prose.
+	//
+	// The first fix was to emit it only when it differed from what the
+	// derivation would produce. That does not work: `update` never re-derives a
+	// description when the content changes, so after the first content edit the
+	// stored description is derived from prose that is no longer there and the
+	// comparison says "hand-written" about nearly every entry in the product.
+	// A test that cannot distinguish the two cases should not pretend to, so
+	// this emits what is stored and says so — which is also the only shape that
+	// makes the round trip honest.
+	fm.add("description", strings.TrimSpace(entry.Description))
 	// `research` is the entire identity guarantee. A code means nothing outside
 	// the research that issued it, so the file says which one it came from and
 	// claims nothing more.
@@ -93,10 +110,6 @@ func (s *EntryService) MarkdownExport(ctx context.Context, entryID string) (*Mar
 
 	var b strings.Builder
 	b.WriteString(fm.render())
-	// No description. An entry's is derived from lines 2-5 of its own content
-	// (`autoDescription`), so printing it above the body is the same sentences
-	// twice — which is why the vault does not print it either, though it does
-	// for a task and a roadmap, whose descriptions are written by hand.
 	b.WriteString("\n" + entryMarkdownBody(entry, MarkdownOptions{}))
 
 	return &MarkdownFile{

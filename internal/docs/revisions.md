@@ -34,7 +34,7 @@ not tell them apart. The credential is the evidence:
 |------|-----------|
 | `agent` | Every MCP write, and a REST write carrying an API key, an OAuth token or the legacy write token |
 | `human` | A REST write from a browser session (a JWT) — and one with no credential at all, where the only thing on that port is the web UI |
-| `import` | `research_import` / `POST /api/researches/import` |
+| `import` | Either import: a whole research (`research_import` / `POST /api/researches/import`) or one markdown file dropped into a section (`POST /api/sections/{id}/import`) |
 | `restore` | The system putting an earlier revision back |
 
 In the MCP result the field is called `author`, and the session comes back as
@@ -60,7 +60,7 @@ Created:
 - `entry_create` — revision 1, the entry as it was first written
 - `entry_update` — any change to title, description, content, type, status, tags or document metadata. A write that touches only metadata still appends a revision: without metadata in the snapshot such an edit would be judged a no-op and disappear rather than merely go unrecorded
 - `entry_patch` — any structural change to a block document
-- import — revision 1, attributed to `import`
+- import — revision 1, attributed to `import`, whether the whole research was imported or a single markdown file was dropped into a section
 - restore — a new revision holding the restored content
 
 Not created:
@@ -176,9 +176,18 @@ what the entry looked like when it was created — but nothing switches it on.
 Deleting an entry deletes its history with it (the rows cascade), and so does
 deleting the research. History does not travel: a portable export carries no
 revisions, and every entry an import creates starts again at revision 1,
-attributed to `import`. The Obsidian vault export can write history out as a
-readable table per entry (`?format=obsidian&revisions=true`, one `_history/{code}.md`
-each), but nothing reads it back — see [Export](/llms/export.md).
+attributed to `import` — the same is true of a single document downloaded as a
+`.md` file and imported back, which is a new document with a new code and no
+history rather than the original returning. The Obsidian vault export can write
+history out as a readable table per entry (`?format=obsidian&revisions=true`, one
+`_history/{code}.md` each), but nothing reads it back — see
+[Export](/llms/export.md).
+
+A file cannot bring history with it either. The markdown import **refuses**
+`session`, `author`, `author_kind`, `revision`, `revisions` and `history` in
+front matter, reporting each one rather than using it: front matter is text and
+can assert anything, and everything this product says about who did what and when
+is its own record. That is a trust rule, not a fidelity one.
 
 A **share link never carries history**, and `revisions=true` on a shared vault is
 ignored rather than honoured. There is no include flag that turns it on: who

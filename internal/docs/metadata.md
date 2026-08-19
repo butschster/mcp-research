@@ -119,7 +119,11 @@ cap people start encoding structure in field names (`contact_1`, `contact_2`) an
 metadata begins carrying content.
 
 `GET /api/metadata/schema` serves this table, the type catalogue and the reserved
-keys as JSON, so a client never carries a second copy that drifts.
+keys as JSON, so a client never carries a second copy that drifts. Two caps that
+belong to no field ride along in the same payload — `import_max_bytes` and
+`import_extensions`, the limits on a markdown file dropped into a section — for
+the same reason: a number hard-coded in the frontend is a lie the day it changes
+on the server. See [Export](/llms/export.md).
 
 ### Reserved keys
 
@@ -173,11 +177,14 @@ sections are overwritten in place and would otherwise silently restate history.
   graph for free, and every vault that added a second copy ended with the two
   disagreeing. Same for a hand-typed date next to a derived `updated`.
 
-## Nothing fails a write
+## Nothing fails a write on the interview path
 
-No metadata problem refuses a write. The author is usually a model in the middle
-of an interview, and a rejection there destroys answers a person has already
-given. Instead the response carries `metadata_report`:
+No metadata problem refuses a write on the interview path — every MCP tool, every
+REST entry write, every portable import. The author is usually a model in the
+middle of an interview, and a rejection there destroys answers a person has
+already given. (The two exceptions are both outside it: completing a document
+with required fields unanswered, and importing a markdown file — see below.)
+Instead the response carries `metadata_report`:
 
 A write against the declaration above that sent a `stage` outside the vocabulary,
 a good `produces`, an undeclared `owner` and no `spec_ref` at all comes back with:
@@ -211,7 +218,8 @@ the same reason as `block_report` on a blocks entry.
 ## The one gate: `completed`
 
 Moving an entry to `status: completed` while required fields are unanswered is
-refused. Every other write is accepted.
+refused. Every other write is accepted — with one exception outside the
+interview, below.
 
 - MCP: `entry_update` returns an error result — `cannot complete: required
   metadata is unanswered: stage, spec_ref`.
@@ -226,6 +234,19 @@ The gate is on the transition. It does not fire when the entry is already
 `completed`, and it is checked against the section's declaration **as it stands
 now**, not the version the entry was written under: whether a document may be
 called finished is a question about the rules in force today.
+
+### The exception: importing a file
+
+`POST /api/sections/{id}/import` is the one write that **refuses** on metadata:
+any `unknown_keys` or `invalid_values` and the commit comes back `400 this
+document cannot be imported as given: …`. The asymmetry is about who is holding
+the keyboard, not about the data. Everywhere else the author is a model in the
+middle of an interview and a rejection destroys answers a person has already
+given; there, a person is standing over the file with an undo, and the preview
+step has already shown them exactly these problems. `missing_required` is **not**
+a refusal even there — an imported document may be incomplete like any other. The
+preview's report carries a `value` on each issue, saying what the file actually
+claimed, which no other write does. See [Export](/llms/export.md).
 
 ## Reading it back
 
@@ -314,9 +335,12 @@ looked, and that is a different fact from nobody having looked.
 **One document downloaded as a file** (`GET /api/entries/{id}/markdown`) carries
 the same front matter from the same builder: declared keys after the system ones,
 `null` for an unanswered field, `unknown` for an explicit one. Two of the vault's
-system keys are absent there (`aliases` and `session`), and nothing else differs —
-one builder, because two would drift and nobody would notice until they diffed
-two exports of one document. See [Export](/llms/export.md).
+system keys are absent there (`aliases` and `session`), and one the vault does not
+write is present — `description`, and only when a person wrote one rather than it
+being derived from the body. Nothing else differs; one builder, because two would
+drift and nobody would notice until they diffed two exports of one document.
+Dropping that file back into a section revalidates its declared keys against
+whatever the destination section declares. See [Export](/llms/export.md).
 
 **Portable export/import** carries both `field_spec` on the section and
 `metadata` on the entry, and an import restores them. Values are re-validated

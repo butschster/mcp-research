@@ -106,6 +106,10 @@
     <!-- Single section view -->
     <template v-else-if="sectionInfo">
       <div class="section-header">
+        <!-- Grouped, because `space-between` over three loose children put the
+             status badge 292px from the title it describes on a section that
+             declares no fields — there was nothing else to absorb the row. -->
+        <div class="section-identity">
         <h2 class="section-title">{{ sectionInfo.display_name || sectionInfo.name }}</h2>
         <StatusBadge :status="sectionInfo.status" />
         <!-- Offered only where there is something to tabulate. A toggle over a
@@ -124,10 +128,44 @@
           class="section-view-toggle"
           @update:model-value="view = $event as 'cards' | 'table'"
         />
+        </div>
+        <!-- Removed for a viewer rather than disabled: the house rule, and the
+             drop handler still runs for them so a dropped file cannot navigate
+             the browser away from the app. -->
+        <button v-if="canImport" type="button" class="btn btn-sm section-import" @click="dropZone?.open()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Import .md
+        </button>
       </div>
       <p v-if="sectionInfo.description" class="card-meta mb-4">
         {{ sectionInfo.description }}
       </p>
+
+      <p v-if="importer.refusal.value" class="inline-error import-refusal">
+        <span>{{ importer.refusal.value.message }}</span>
+        <button
+          v-if="importer.refusal.value.retryable && importer.file.value"
+          type="button"
+          class="btn btn-sm"
+          @click="importer.reread()"
+        >Try again</button>
+        <button type="button" class="btn btn-sm" @click="importer.dismissRefusal()">Dismiss</button>
+      </p>
+      <!-- Mounted always, text swapped — a `role` on an element that does not
+           exist until it should speak is announced unreliably. Same pattern as
+           ToastHost. -->
+      <p class="sr-only" role="status">{{ importAnnouncement }}</p>
+
+      <ResearchImportDropZone
+        ref="dropZone"
+        :enabled="canImport"
+        :section-name="sectionInfo.display_name || sectionInfo.name"
+        :max-bytes="maxBytes"
+        :extensions="extensions"
+        :reading="importer.phase.value === 'reading'"
+        @file="importer.read"
+        @refuse="onRefuse"
+      >
 
       <!-- Tag filter for entries -->
       <div v-if="sectionTags.length" class="tags-panel mb-4">
@@ -231,6 +269,25 @@
         icon="&#x1F4C4;"
         :title="shareActive() ? 'No entries in this section' : 'No entries yet'"
         :description="emptyDescription('section')"
+      >
+        <button v-if="canImport" type="button" class="btn btn-sm" @click="dropZone?.open()">
+          Import .md
+        </button>
+      </EmptyState>
+      </ResearchImportDropZone>
+
+
+      <ResearchImportPreviewDialog
+        :visible="importer.phase.value === 'previewing' || importer.phase.value === 'committing'"
+        :file-bytes="importer.file.value?.size ?? 0"
+        :section-name="sectionInfo.display_name || sectionInfo.name"
+        :preview="importer.preview.value"
+        :committing="importer.phase.value === 'committing'"
+        :error="importer.commitError.value"
+        :stale-spec="importer.staleSpec.value"
+        @commit="onCommit"
+        @reread="importer.reread"
+        @close="importer.reset"
       />
     </template>
     </template>
@@ -244,6 +301,8 @@ import { renderRefs } from '~/composables/useCrossRefs'
 import { entryPath } from '~/composables/useResearchPaths'
 import { shareActive } from '~/composables/useShare'
 import { displayValue, fieldLabel, isFilled, isUnknown, missingRequired } from '~/composables/useFieldSpec'
+import { useSectionImport } from '~/composables/useSectionImport'
+import { useMetadataSchema } from '~/composables/useMetadataSchema'
 
 const props = defineProps<{
   entries: any[]
@@ -263,6 +322,73 @@ const props = defineProps<{
    class of bug as a stored status disagreeing with the prose. */
 const fieldSpec = computed<any[]>(() => props.sectionInfo?.field_spec ?? [])
 const view = ref<'cards' | 'table'>('cards')
+
+/* Dropping a markdown file into this section.
+   The state machine is in the composable: this component already owns the
+   search, the tag filter, the view toggle and the grouping. */
+const emit = defineEmits<{ imported: [{ id: string; code: string }] }>()
+
+const dropZone = ref<{ open: () => void } | null>(null)
+const sectionId = computed(() => props.sectionInfo?.id ?? '')
+const importer = useSectionImport(sectionId)
+const { maxBytes, extensions, load: loadCaps } = useMetadataSchema()
+const { canWrite } = useResearchRole()
+const toasts = useToasts()
+
+// Never on a share, never for a viewer, and never in the all-entries mode where
+// there is no one section to drop onto.
+const canImport = computed(() => props.mode === 'section' && !shareActive() && canWrite.value)
+
+onMounted(() => {
+  if (canImport.value) loadCaps()
+})
+
+// A file half-read into one section must not survive a move to another.
+watch(sectionId, () => importer.reset())
+
+// The section's declaration can change under an open dialog: the page reloads
+// the research on any `section` event, and what the preview was validated
+// against is then no longer what the commit will be checked by. Watching the
+// spec here rather than being told by the page keeps the knowledge where the
+// dialog is.
+watch(
+  () => JSON.stringify(fieldSpec.value),
+  (next, prev) => {
+    if (next !== prev) importer.markSpecStale()
+  },
+)
+
+function onRefuse(r: { message: string; retryable: boolean }) {
+  importer.refusal.value = r
+}
+
+// One live region, mounted for the life of the pane, whose text changes.
+const importAnnouncement = computed(() => {
+  if (importer.refusal.value) return importer.refusal.value.message
+  if (importer.phase.value === 'reading') return `Reading ${importer.file.value?.name ?? 'the file'}…`
+  if (importer.phase.value === 'previewing') return 'The file was read. Review it before creating the document.'
+  return ''
+})
+
+async function onCommit(overrides: { title: string }) {
+  const created = await importer.commit(overrides)
+  if (!created) return
+  toasts.push({
+    variant: 'success',
+    message: `${created.code} created from the file.`,
+    action: {
+      label: `Open ${created.code}`,
+      onClick: () => {
+        navigateTo(entryPath(props.researchSlug, created.code || created.id))
+      },
+    },
+  })
+  // The entries list and the sidebar counts belong to the page.
+  // Deliberately staying in the section rather than navigating to the entry:
+  // multi-file import is out of scope, so importing five documents is five
+  // rounds of this, and leaving the page each time makes that loop miserable.
+  emit('imported', created)
+}
 
 const viewOptions = [
   { value: 'cards', label: 'Cards' },
@@ -343,8 +469,9 @@ onUnmounted(() => { if (timer) clearTimeout(timer) })
  */
 function emptyDescription(scope: 'research' | 'section') {
   if (shareActive()) return "There's nothing here yet."
-  return scope === 'research'
-    ? 'Claude will populate this research with entries.'
+  if (scope === 'research') return 'Claude will populate this research with entries.'
+  return canImport.value
+    ? 'Claude will populate this section with research entries. You can also drop a markdown file here.'
     : 'Claude will populate this section with research entries.'
 }
 
@@ -400,7 +527,25 @@ const groupedEntries = computed(() => {
 .entries-search { margin-bottom: var(--space-4); }
 .entries-search-input { flex: 1; min-width: 12rem; }
 
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+/* Wrapping, because a fourth control overflows the row at the widths this pane
+   actually gets. */
+.section-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+/* `.btn-sm` already declares `min-height: var(--control-h-sm)`, so the row
+   cannot come out at three heights; this only adds the icon layout. */
+.section-import { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+.section-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+/* Above the list, beside the control that caused it. Below it was two screens
+   away on a section of any size. */
+.import-refusal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.import-refusal span { min-width: 0; overflow-wrap: anywhere; }
+.import-refusal .btn { flex: none; }
 .section-title { font-size: var(--type-xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; }
 .tags-panel { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .tag-active { background: var(--color-primary-muted); color: var(--color-primary); }

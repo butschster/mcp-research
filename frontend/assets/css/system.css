@@ -53,6 +53,23 @@
     transform var(--transition-base);
   position: relative;
 }
+/* A small count beside a label — a tab, a column header, a ledger row.
+   Five components carried their own copy of this, differing only in padding,
+   which was drift rather than intent. New callers use this; the four older ones
+   (`.task-counter`, `.tab-count`, `.kanban-column-count`, `.foldable-count`)
+   convert when they are next touched. */
+.count-chip {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  font-size: var(--type-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
 .card::before {
   content: '';
   position: absolute;

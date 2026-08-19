@@ -59,7 +59,15 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		errors.Is(err, service.ErrQuestionDepthLimit),
 		errors.Is(err, service.ErrTextReplaceNotFound),
 		errors.Is(err, service.ErrTextReplaceOnBlocks),
-		errors.Is(err, service.ErrInvalidFieldSpec):
+		errors.Is(err, service.ErrInvalidFieldSpec),
+		// Import is the one write in this product that refuses rather than
+		// reports, because a person is standing over the file with an undo.
+		// See the comment at the top of import_markdown.go.
+		errors.Is(err, service.ErrImportNotMarkdown),
+		errors.Is(err, service.ErrImportTooLarge),
+		errors.Is(err, service.ErrImportEmpty),
+		errors.Is(err, service.ErrImportBadFrontMatter),
+		errors.Is(err, service.ErrImportRejected):
 		writeError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeError(w, http.StatusInternalServerError, err.Error())

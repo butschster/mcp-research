@@ -136,6 +136,14 @@ explicit unknown and it answers a required field. Read the section's existing
 documents first — the first few entries set the pattern for every one after. See
 [Document Metadata](/llms/metadata.md).
 
+**If the user has the document already, do not ask them for a file.** Paste it
+into `entry_create` — you can set `title`, `description`, `status`, `tags` and
+`metadata` in the same call. Dropping a `.md` file into a section is a separate,
+human path (the **Import .md** button on the section view), it has no MCP tool,
+and it guesses at the fields you would otherwise state outright. Point a user at
+it only when the file is on their disk and not in the conversation. See
+[Export → One File into a Section](/llms/export.md).
+
 ### Build on What Exists, Don't Overwrite It
 
 Before rewriting an entry a previous session produced:

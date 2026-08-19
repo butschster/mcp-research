@@ -44,6 +44,8 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 
 **Taking one document out is not a tool.** A document can be downloaded as a markdown file with YAML front matter — `GET /api/entries/{id}/markdown`, or the **Download .md** item in the `⋯` menu on an entry page — and no MCP tool does it: you already have the content from `entry_read`, and putting a file on someone's disk is a human act. If a user asks for one, point them at the entry page. The file carries no provenance and does not rewrite `[[E3]]` for a foreign vault. [Export](/llms/export.md).
 
+**Putting one in is not a tool either.** A markdown file can be dropped into a section — `POST /api/sections/{id}/import/preview` then `POST /api/sections/{id}/import`, or the **Import .md** button on the section view — and again no MCP tool does it. **Use `entry_create`**: you already have the text, and you can set `title`, `description`, `status`, `tags` and `metadata` directly instead of hiding them in YAML front matter that the importer then has to guess at, ignore or refuse. The import exists for a file on a person's disk, and its preview step exists so *they* can see what would be lost before committing. If a user asks, point them at the section page. Do not go looking for `entry_import`; there is none. [Export → One File into a Section](/llms/export.md).
+
 ### Sessions & Questions
 
 | Tool | Purpose |

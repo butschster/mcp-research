@@ -268,6 +268,13 @@ func NewServer(
 	// leaving the route off that list.
 	mux.Handle("GET /api/entries/{id}/markdown", wrapRead(exportHandler.EntryMarkdown))
 	mux.Handle("POST /api/researches/import", wrap(importHandler.Import))
+	// One markdown file into one section — the other half of the single-document
+	// download, and a different act from the whole-research dump above. Both
+	// writes, both resolved through Access on the research that owns the
+	// section, and neither on the share sub-mux: a visitor reads.
+	mdImportHandler := handlers.NewMarkdownImportHandler(entrySvc, log)
+	mux.Handle("POST /api/sections/{id}/import/preview", wrap(mdImportHandler.Preview))
+	mux.Handle("POST /api/sections/{id}/import", wrap(mdImportHandler.Commit))
 	mux.Handle("GET /api/entries/{id}", wrapRead(eh.Get))
 	mux.Handle("GET /api/researches/{id}/entries/by-code/{code}", wrapRead(eh.ResolveCode))
 	mux.Handle("GET /api/resolve/research/{code}", wrapRead(eh.ResolveResearchCode))
