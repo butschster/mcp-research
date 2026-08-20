@@ -80,8 +80,9 @@ fullscreen, reopen in mermaid.live).
 
 Cross-references use a wiki syntax the assistant is taught to write: `[[E3]]`
 links to another entry, `[[R2:E5]]` reaches into another research, `[[RM1]]`
-points at a roadmap. They render as real links everywhere — entries, answers,
-task results, session notes — and they build a graph you can query.
+points at a roadmap, `[[T4]]` opens that task on the board. They render as real
+links everywhere — entries, answers, task results, session notes — and they build
+a graph you can query.
 
 ![Entry with a table, cross-references and a Mermaid diagram](docs/images/entry.webp)
 
@@ -91,6 +92,15 @@ When prose is the wrong shape, an entry can be a **block document** instead:
 typed blocks — paragraphs, callouts, tables, checklists, Mermaid, code — that an
 agent can patch one block at a time without rewriting the page. A checklist keeps
 the boxes a human ticked even when the agent rewrites the text around them.
+
+Two of the blocks reach outside the document. A **task list** projects tasks that
+already exist onto the page: tick one there and the task moves on the board, so
+there is no second todo list drifting out of step with the first. A
+**transcript** holds a call or a meeting that happened somewhere else, kept as
+turns with a speaker and a timestamp rather than pasted into a code block — so a
+line is searchable by who said it, carries `[[E3]]` references like any other
+prose, and can be marked like any other sentence. Fourteen block types in all:
+`/llms/blocks.md`.
 
 ![Block document with a callout, table and checklist](docs/images/blocks.webp)
 

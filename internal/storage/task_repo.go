@@ -75,6 +75,16 @@ func (r *TaskRepository) FindByID(ctx context.Context, id string) (*domain.Task,
 	return r.scanTask(row)
 }
 
+// FindByCode resolves a short code inside one research. Codes are scoped to a
+// research, so both halves are needed — `T1` names a different task in every
+// research that has one.
+func (r *TaskRepository) FindByCode(ctx context.Context, researchID, code string) (*domain.Task, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
+		 FROM tasks WHERE research_id=? AND code=?`, researchID, code)
+	return r.scanTask(row)
+}
+
 func (r *TaskRepository) FindByResearch(ctx context.Context, researchID string, filter TaskFilter) ([]*domain.Task, error) {
 	query := `SELECT id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
 		 FROM tasks WHERE research_id=?`

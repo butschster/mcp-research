@@ -93,6 +93,7 @@ func main() {
 	sectionSvc := service.NewSectionService(sectionRepo, entryRepo, researchRepo, access, events, log)
 	entrySvc := service.NewEntryService(entryRepo, sectionRepo, researchRepo, access, sessionRepo, blockRepo, revisionRepo, crossrefRepo, externalLinkRepo, events, log)
 	entrySvc.SetRoadmapRepos(roadmapRepo, roadmapNodeRepo)
+	entrySvc.SetTaskRepo(taskRepo)
 	entrySvc.SetRevisionLimit(cfg.RevisionLimit)
 	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, access, entrySvc, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, access, entrySvc, events, log)

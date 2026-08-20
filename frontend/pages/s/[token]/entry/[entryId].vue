@@ -47,6 +47,9 @@
         :research-slug="slug"
         :bridge-data="null"
         :entry-id="entry.id"
+        :tasks="tasks"
+        :tasks-status="tasksStatus"
+        @retry-tasks="loadTasks"
       />
       <div v-else ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
     </div>
@@ -92,7 +95,7 @@ import { tagHue } from '~/composables/useTagHue'
 const route = useRoute()
 const entryCode = computed(() => route.params.entryId as string)
 
-const { shareFetch, research, sections, researchId, researchCode, slug } = useShare()
+const { shareFetch, research, sections, researchId, researchCode, slug, include } = useShare()
 const researchName = computed(() => research.value?.name || 'Research')
 
 const entry = ref<any | null>(null)
@@ -185,6 +188,45 @@ const blocks = computed<any[]>(() => {
 const isArtifactOnly = computed(
   () => isBlocks.value && blocks.value.length === 1 && blocks.value[0]?.type === 'html',
 )
+
+/* ------------------------------------------------------------ task_ref ---
+ *
+ * The same resolution the owner's page does, through the share prefix and with
+ * one extra outcome: a link created without tasks has no route to ask, so the
+ * block is told `excluded` and says so, rather than retrying a 404 forever.
+ *
+ * Nothing is ticked here — `shareLocked` turns every checkbox off — so this is
+ * a read and only a read.
+ */
+const tasks = ref<any[]>([])
+const tasksStatus = ref<'idle' | 'loading' | 'ready' | 'error' | 'excluded'>('idle')
+const hasTaskRef = computed(() => blocks.value.some((b: any) => b?.type === 'task_ref'))
+
+async function loadTasks() {
+  if (!hasTaskRef.value) return
+  if (!include.value?.tasks) {
+    tasksStatus.value = 'excluded'
+    return
+  }
+  // 'error' counts as a first load: a reader who pressed Try again is owed
+  // some sign that something is happening.
+  if (tasksStatus.value === 'idle' || tasksStatus.value === 'error') tasksStatus.value = 'loading'
+  try {
+    const res = await shareFetch<{ data: any[] }>(`/researches/${researchId.value}/tasks`)
+    tasks.value = res.data ?? []
+    tasksStatus.value = 'ready'
+  } catch (e: any) {
+    // The route is gated by the same flag `include` reports, so a 404 here means
+    // the link does not publish tasks — the visitor should be told that, not
+    // offered a retry that cannot succeed.
+    const status = e?.response?.status ?? e?.statusCode
+    tasksStatus.value = status === 404 ? 'excluded' : 'error'
+  }
+}
+
+watch([hasTaskRef, researchId], () => {
+  if (hasTaskRef.value && tasksStatus.value === 'idle') void loadTasks()
+}, { immediate: true })
 
 
 const contentEl = ref<HTMLElement | null>(null)

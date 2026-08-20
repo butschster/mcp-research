@@ -112,6 +112,7 @@ func TestBuildSessionMarkdown_HTMLIsNamedNotInlined(t *testing.T) {
 			Content: artifactDoc, Status: domain.EntryActive,
 		}},
 		map[string]string{"s1": "main"},
+		nil,
 	)
 
 	if strings.Contains(md, "<!doctype html>") || strings.Contains(md, "```html") {
@@ -133,6 +134,7 @@ func TestBuildSessionMarkdown_BlockDocumentIsSerialized(t *testing.T) {
 			Content: blockDoc, Status: domain.EntryActive,
 		}},
 		map[string]string{"s1": "main"},
+		nil,
 	)
 
 	if !strings.Contains(md, "## Findings") {
@@ -149,7 +151,7 @@ func TestExportEntries_SuppliesContentMarkdown(t *testing.T) {
 	out := exportEntries([]*domain.Entry{
 		{ID: "e1", Type: domain.EntryBlocks, Content: blockDoc},
 		{ID: "e2", Type: domain.EntryMarkdown, Content: "# plain"},
-	})
+	}, nil)
 
 	if len(out) != 2 {
 		t.Fatalf("got %d entries, want 2", len(out))

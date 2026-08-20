@@ -73,6 +73,13 @@ function refLink(ref: any, direction: 'outgoing' | 'incoming'): string {
       if (shared && !shareInclude().roadmaps) return ''
       return roadmapPath(rCode, targetRef.split(':')[0])
     }
+    // Task references: [[T4]]. Checked before the entry fallthrough, which would
+    // otherwise send the row to /entry/T4 — a document that does not exist —
+    // while the same reference in the prose above links to the board.
+    if (/^T\d+$/.test(targetRef)) {
+      if (shared && !shareInclude().tasks) return ''
+      return taskPath(rCode, targetRef)
+    }
     // Inert because the target is outside the link — not because the stored
     // reference happens to be stale. Inerting on `resolved` made the same
     // `[[E2]]` a working link in the entry's prose and a dead row in the panel

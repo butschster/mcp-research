@@ -45,6 +45,27 @@ const researchName = computed(() => research.value?.name || 'Research')
 const tasks = ref<any[]>([])
 const detailTask = ref<any | null>(null)
 
+/**
+ * `?task=T4` opens that task, the same as on the owner's board.
+ *
+ * A `[[T4]]` inside a shared document links here — but only when the link
+ * publishes tasks at all, which `linkRefs` decides before producing the href.
+ * A code naming nothing is ignored: the deep link is a convenience. The
+ * parameter is dropped once honoured, or every task event would reopen a modal
+ * the visitor had closed.
+ */
+const shareRoute = useRoute()
+const shareRouter = useRouter()
+watch([() => shareRoute.query.task, tasks], ([code]) => {
+  if (!code) return
+  const want = String(code).toUpperCase()
+  const found = (tasks.value as any[]).find((t: any) => t.code?.toUpperCase() === want || t.id === code)
+  if (found && !detailTask.value) detailTask.value = found
+  if (!tasks.value.length) return
+  const { task: _dropped, ...rest } = shareRoute.query
+  void shareRouter.replace({ query: rest })
+}, { immediate: true })
+
 // The same four the owner's board uses, so a visitor and the person who shared
 // it are looking at the same board.
 const columns = [

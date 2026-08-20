@@ -120,6 +120,35 @@ function openTaskDetail(task: any) {
   detailTask.value = task
 }
 
+/**
+ * `?task=T4` opens that task.
+ *
+ * A task has no page of its own — it is a card and a modal — so this is the
+ * only address one can be linked to. A `task_ref` row links here from its code
+ * chip, and so does a bare `[[T4]]` written in prose; both used to land on a
+ * board with nothing selected, which reads as a link that lost its target.
+ *
+ * A code naming nothing is ignored rather than reported: the deep link is a
+ * convenience, and an error dialog over a board is not the answer to a task
+ * somebody deleted.
+ *
+ * The parameter is dropped from the URL as soon as it is honoured, and that is
+ * the whole of the second half of this. The list is replaced on every `task`
+ * event — an agent, a colleague dragging a card, this tab creating one — and a
+ * parameter left in the address bar made each of those pop the modal back open
+ * over a board the reader had closed it on.
+ */
+const router = useRouter()
+watch([() => route.query.task, tasks], ([code]) => {
+  if (!code) return
+  const want = String(code).toUpperCase()
+  const found = tasks.value.find((t: any) => t.code?.toUpperCase() === want || t.id === code)
+  if (found && !detailTask.value) detailTask.value = found
+  if (!tasks.value.length) return // nothing loaded yet; the code may still resolve
+  const { task: _dropped, ...rest } = route.query
+  void router.replace({ query: rest })
+}, { immediate: true })
+
 const { authFetch } = useAuth()
 const rtBase = useRuntimeConfig().public.apiBase || ''
 

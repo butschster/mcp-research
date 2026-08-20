@@ -6,6 +6,9 @@ import ModalOverlay from '../components/ModalOverlay.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ActivityIndicator from '../components/ActivityIndicator.vue'
 import BlocksBlockRenderer from '../components/blocks/BlockRenderer.vue'
+import BlocksTaskRefBlock from '../components/blocks/TaskRefBlock.vue'
+import BlocksTranscriptBlock from '../components/blocks/TranscriptBlock.vue'
+import ProgressBar from '../components/ProgressBar.vue'
 import EntryArtifactFrame from '../components/entry/ArtifactFrame.vue'
 import CopyableSecret from '../components/CopyableSecret.vue'
 import ResearchShareRowList from '../components/research/ShareRowList.vue'
@@ -28,7 +31,7 @@ import AnnotationsKindChip from '../components/annotations/KindChip.vue'
 import AnnotationsAnchorBadge from '../components/annotations/AnchorBadge.vue'
 import AnnotationsAnnotationRow from '../components/annotations/AnnotationRow.vue'
 import AnnotationsAnnotationList from '../components/annotations/AnnotationList.vue'
-import { resetMockApiData } from '../__mocks__/api'
+import { resetMockApi, resetMockApiData } from '../__mocks__/api'
 import '../assets/css/tokens.css'
 import '../assets/css/base.css'
 import '../assets/css/system.css'
@@ -84,6 +87,14 @@ setup((app) => {
   app.component('SegmentedToggle', SegmentedToggle)
   app.component('ActivityIndicator', ActivityIndicator)
   app.component('BlocksBlockRenderer', BlocksBlockRenderer)
+  // BlockRenderer delegates two block types to components it looks up by the
+  // folder-prefixed name Nuxt derives — a `task_ref` and a `transcript`. Both
+  // are the ea31ebb failure if left unregistered: the branch matches, Vue
+  // resolves nothing, and the document renders with the block simply absent.
+  app.component('BlocksTaskRefBlock', BlocksTaskRefBlock)
+  app.component('BlocksTranscriptBlock', BlocksTranscriptBlock)
+  // TaskRefBlock draws its completion count with this and imports nothing.
+  app.component('ProgressBar', ProgressBar)
   // BlockRenderer reaches for this by name for an `html` block, so without it
   // the WithHtmlBlock story rendered an unresolved component and showed nothing.
   app.component('EntryArtifactFrame', EntryArtifactFrame)
@@ -151,8 +162,14 @@ const preview: Preview = {
       // component's — so this clears the `useApi` routing table in time for a
       // story to install its own, and in time for a story that installs none to
       // see nothing. Module state that outlives one story is how a catalogue
-      // starts depending on the order it was clicked through in.
-      setup: () => resetMockApiData(),
+      // starts depending on the order it was clicked through in. `authFetch`'s
+      // table is cleared here for the same reason: a story that routes a write
+      // to a request which never settles used to leave every later story's
+      // checkbox hanging.
+      setup: () => {
+        resetMockApi()
+        resetMockApiData()
+      },
       template: `
         <div style="background: var(--color-bg); color: var(--color-text); padding: 1.5rem; font-family: 'Outfit', system-ui, sans-serif;">
           <story />

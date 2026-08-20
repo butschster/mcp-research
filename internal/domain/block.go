@@ -30,6 +30,16 @@ const (
 	MaxCodeText      = 100000
 	MaxMermaidText   = 20000
 	MaxLanguageIdent = 40
+	// A task_ref is a working list, not a project plan: past a few dozen rows
+	// nobody reads it, and every row costs a resolution.
+	MaxTaskRefs = 50
+	// A one-hour call is a few hundred turns. The cap is generous enough that a
+	// real transcript survives it whole and low enough that a runaway paste
+	// cannot bloat the row.
+	MaxTranscriptTurns    = 500
+	MaxTranscriptSpeaker  = 120
+	MaxTranscriptStamp    = 40
+	MaxTranscriptTurnText = 5000
 )
 
 // BlockType enumerates the block kinds the renderer knows. An unknown type is
@@ -60,6 +70,25 @@ const (
 	// iframe. This is what the standalone `artifact` entry type became: as a
 	// block it composes with prose instead of taking over the whole entry.
 	BlockHTML BlockType = "html"
+	// BlockTaskRef projects existing tasks into a document as a checklist.
+	//
+	// It holds REFERENCES and nothing else. The product already has Task — a
+	// status, a priority, a board, four MCP tools — and a checklist with state of
+	// its own would create a second place where "what has to be done" lives, with
+	// neither authoritative: the board would not know what was ticked in an
+	// article, and an agent reading tasks over MCP would not see it either. So a
+	// tick here is a status change on the task, and the document is a view.
+	//
+	// Contrast BlockChecklist, whose state genuinely belongs to the document.
+	BlockTaskRef BlockType = "task_ref"
+	// BlockTranscript stores a conversation that happened outside the tool — a
+	// call, a meeting, an interview — as structured turns.
+	//
+	// The product models the interview it runs itself as sessions and questions.
+	// This is the other kind: dropped into a code block a transcript would be
+	// stored and lose everything — speakers unsearchable, no single line to quote
+	// or link, nothing for "make a task out of what he said at 14:32" to point at.
+	BlockTranscript BlockType = "transcript"
 )
 
 // Callout variants.

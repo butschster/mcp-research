@@ -68,6 +68,8 @@
           v-if="blocksOf(entry)"
           :blocks="blocksOf(entry) || []"
           :research-slug="researchSlug"
+          :tasks="data.tasks || []"
+          :tasks-status="tasksStatus"
           readonly
         />
         <div v-else class="markdown-content" v-html="renderMarkdown(entryBody(entry))"></div>
@@ -136,6 +138,18 @@ const props = defineProps<{
   data: any
   researchSlug: string
 }>()
+
+/**
+ * Whether this payload's task list is authoritative.
+ *
+ * `Export` leaves `tasks` null when a share link does not publish them, and an
+ * empty list asserted as `ready` makes every task_ref announce that the tasks
+ * were deleted — to a visitor whose link simply withheld them. Null is not
+ * empty, here as on the server.
+ */
+const tasksStatus = computed<'ready' | 'excluded'>(() =>
+  Array.isArray(props.data?.tasks) ? 'ready' : 'excluded',
+)
 
 const totalEntries = computed(() =>
   (props.data?.sections ?? []).reduce((sum: number, s: any) => sum + (s.entries?.length || 0), 0),

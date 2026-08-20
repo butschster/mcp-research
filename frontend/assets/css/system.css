@@ -366,6 +366,18 @@ button.tag {
   flex-shrink: 0;
   line-height: 1;
 }
+/* A code chip that is a link. It reads as a chip either way, so it has to say
+   on hover and on focus that it goes somewhere — otherwise the only affordance
+   is the cursor, which a keyboard reader never sees. */
+a.short-code:hover {
+  background: var(--color-primary-muted);
+  filter: brightness(1.15);
+  text-decoration: none;
+}
+a.short-code:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
 .task-counter {
   font-size: var(--type-xs);
   color: var(--color-text-muted);

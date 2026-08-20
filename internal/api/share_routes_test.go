@@ -124,6 +124,23 @@ func newShareServer(t *testing.T) *shareServer {
 		t.Fatalf("create task: %v", err)
 	}
 
+	// A second entry whose document PROJECTS that task. Without it every
+	// "internal todo" assertion in this file passed over a plain markdown body
+	// and proved nothing about the one block that renders a task title inside a
+	// document — which is a second way out of the research, on routes the
+	// `tasks` flag was written for.
+	if _, err := entrySvc.Create(ctx, service.CreateEntryRequest{
+		ResearchID: research.ID, SectionID: sections[0].ID,
+		Type:  domain.EntryBlocks,
+		Title: "What is left",
+		Content: `{"version":1,"blocks":[
+			{"type":"paragraph","data":{"text":"Still open."}},
+			{"type":"task_ref","data":{"tasks":["` + task.Code + `"],"note":"before the call"}}
+		]}`,
+	}); err != nil {
+		t.Fatalf("create task_ref entry: %v", err)
+	}
+
 	sess, _, err := sessionSvc.Create(ctx, service.CreateSessionRequest{
 		ResearchID: research.ID, Title: "Initial exploration", Focus: "pricing",
 	})
@@ -467,6 +484,16 @@ func TestShareRoutes_ExportHonoursTheFlagsAndRedacts(t *testing.T) {
 	}
 	if strings.Contains(body, "internal todo") {
 		t.Error("the export carried tasks the link does not include")
+	}
+	// The assertion above only means something if the document that projects
+	// that task is in this body at all. Its note is the proof it is.
+	if !strings.Contains(body, "before the call") {
+		t.Error("the entry holding the task_ref block is missing from the export, so the assertion above proved nothing")
+	}
+	// And with tasks switched off the block must degrade to its reference, not
+	// claim the task was deleted.
+	if strings.Contains(body, "every reference in this list has been removed") {
+		t.Error("the export told a share visitor the task was deleted; it is simply not published")
 	}
 
 	// The portable dump is not mounted under the prefix at all: it is a
