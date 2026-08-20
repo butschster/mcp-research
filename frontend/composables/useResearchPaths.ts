@@ -44,6 +44,18 @@ export function tasksPath(slug: string) {
 }
 
 /**
+ * One task, on the board that holds it.
+ *
+ * The board has no page of its own per task — a task is a card and a modal — so
+ * this is the board with that card opened, which is what `?task=T4` means there.
+ * A `task_ref` row links here from its code chip, and so does a bare `[[T4]]`
+ * in prose.
+ */
+export function taskPath(slug: string, code: string) {
+  return `${tasksPath(slug)}?task=${encodeURIComponent(code)}`
+}
+
+/**
  * The queue of marks.
  *
  * Empty under a share, like `foreignResearchPath`: annotations are working

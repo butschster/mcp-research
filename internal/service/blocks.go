@@ -30,18 +30,20 @@ import (
 type blockNormalizer func(data map[string]any) (map[string]any, bool)
 
 var blockNormalizers = map[domain.BlockType]blockNormalizer{
-	domain.BlockParagraph: normParagraph,
-	domain.BlockHeading:   normHeading,
-	domain.BlockList:      normList,
-	domain.BlockTable:     normTable,
-	domain.BlockQuote:     normQuote,
-	domain.BlockCode:      normCode,
-	domain.BlockCallout:   normCallout,
-	domain.BlockDivider:   normDivider,
-	domain.BlockImage:     normImage,
-	domain.BlockChecklist: normChecklist,
-	domain.BlockMermaid:   normMermaid,
-	domain.BlockHTML:      normHTML,
+	domain.BlockParagraph:  normParagraph,
+	domain.BlockHeading:    normHeading,
+	domain.BlockList:       normList,
+	domain.BlockTable:      normTable,
+	domain.BlockQuote:      normQuote,
+	domain.BlockCode:       normCode,
+	domain.BlockCallout:    normCallout,
+	domain.BlockDivider:    normDivider,
+	domain.BlockImage:      normImage,
+	domain.BlockChecklist:  normChecklist,
+	domain.BlockMermaid:    normMermaid,
+	domain.BlockHTML:       normHTML,
+	domain.BlockTaskRef:    normTaskRef,
+	domain.BlockTranscript: normTranscript,
 }
 
 // ParseStoredBlockDocument reads a document the server itself wrote, without
@@ -403,6 +405,153 @@ func normHTML(d map[string]any) (map[string]any, bool) {
 	}
 	if cap := clampStr(normalizeContent(str(d, "caption")), domain.MaxCaptionText); cap != "" {
 		out["caption"] = cap
+	}
+	return out, true
+}
+
+// taskRefPattern is a task short code. Codes are per-research and the block
+// lives in an entry, so the research is implied — a bare `T4` is the whole
+// reference and there is no cross-research form on purpose: a document that
+// checks off somebody else's task would be a write across a boundary the rest of
+// the product keeps closed.
+var taskRefPattern = regexp.MustCompile(`^T[0-9]{1,9}$`)
+
+// uuidPattern accepts the other spelling of a task reference. An agent that has
+// just called task_create holds the id and not the code, and making it fetch the
+// code first buys nothing.
+var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// normTaskRef keeps the references and nothing else.
+//
+// It validates the SHAPE of a reference and never whether the task exists:
+// normalization is pure — it takes a document and returns a document, touching
+// no other table — and a reference that resolves today may not tomorrow anyway.
+// Resolution happens where the block is read, and a reference that resolves to
+// nothing is dropped from the render rather than shown as a ghost.
+func normTaskRef(d map[string]any) (map[string]any, bool) {
+	raw, _ := d["tasks"].([]any)
+	seen := make(map[string]bool, len(raw))
+	refs := make([]any, 0, len(raw))
+	// Say what was cut. A cap that drops silently reads to both the writer and
+	// the reader as a document that is simply shorter than the one that was
+	// sent — the create returns 200 and the page draws a confident list.
+	dropped := 0
+	for _, it := range raw {
+		s, ok := it.(string)
+		if !ok {
+			continue
+		}
+		ref := strings.TrimSpace(s)
+		// A code is upper-case, a uuid is lower-case, and an author types either.
+		if up := strings.ToUpper(ref); taskRefPattern.MatchString(up) {
+			ref = up
+		} else if low := strings.ToLower(ref); uuidPattern.MatchString(low) {
+			ref = low
+		} else {
+			continue
+		}
+		if seen[ref] {
+			continue // the same task twice is one row, and two checkboxes for one
+		}
+		seen[ref] = true
+		// Counted past the cap but not kept: a runaway payload must not be held
+		// in memory to be told how long it was.
+		if len(refs) >= domain.MaxTaskRefs {
+			dropped++
+			continue
+		}
+		refs = append(refs, ref)
+	}
+	if len(refs) == 0 {
+		return nil, false
+	}
+	out := map[string]any{
+		"tasks": refs,
+		// Stamped rather than carried through: absent means "yes" for an author
+		// who did not think about it, and the renderer should not have to know
+		// that a missing key and a false are different things.
+		"show_progress": boolOr(d, "show_progress", true),
+	}
+	if note := clampStr(normalizeContent(str(d, "note")), domain.MaxCaptionText); note != "" {
+		out["note"] = note
+	}
+	if n := carriedTruncation(d, dropped); n > 0 {
+		out[truncatedKey] = n
+	}
+	return out, true
+}
+
+// truncatedKey counts what a cap threw away.
+//
+// Carried forward rather than recomputed, because normalization runs TWICE on a
+// create — once on the author's payload and once on the document that produced —
+// and a second pass over 500 stored turns drops nothing and would erase the
+// first pass's count. Idempotence is the property that matters: normalizing an
+// already-normal document must give the same document back.
+//
+// The cost is that an author can assert a `truncated` nobody earned. It buys
+// them nothing: the field only ever makes a document claim to be LESS complete
+// than it is, which is the safe direction for a number whose whole job is to
+// stop a document from looking finished when it is not.
+const truncatedKey = "truncated"
+
+// carriedTruncation is what this pass dropped plus what a previous one recorded.
+func carriedTruncation(d map[string]any, dropped int) int {
+	prior := intOr(d, truncatedKey, 0)
+	if prior < 0 {
+		prior = 0
+	}
+	return dropped + prior
+}
+
+// normTranscript clamps a conversation into turns.
+//
+// A turn with no text is dropped: a speaker who said nothing is not a turn, and
+// an empty line in a rendered transcript reads as a transcription failure. A
+// transcript with no turns left is dropped whole, like every other empty block.
+func normTranscript(d map[string]any) (map[string]any, bool) {
+	raw, _ := d["turns"].([]any)
+	turns := make([]any, 0, len(raw))
+	dropped := 0
+	for _, it := range raw {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		text := clampStr(normalizeContent(str(m, "text")), domain.MaxTranscriptTurnText)
+		if text == "" {
+			continue
+		}
+		turn := map[string]any{"text": text}
+		// The speaker is a label, not an entity: one line, plain text, indexed.
+		// Binding it to a user would make a transcript an audit log, which it is
+		// not — the person quoted may not have an account here at all.
+		if sp := clampStr(normalizeTitle(str(m, "speaker")), domain.MaxTranscriptSpeaker); sp != "" {
+			turn["speaker"] = sp
+		}
+		// Displayed, never parsed: `00:03:12`, `14:32` and an ISO stamp are all
+		// legitimate, and deciding which one this is would only create a class of
+		// transcript the product refuses.
+		if ts := clampStr(normalizeTitle(str(m, "ts")), domain.MaxTranscriptStamp); ts != "" {
+			turn["ts"] = ts
+		}
+		if len(turns) >= domain.MaxTranscriptTurns {
+			dropped++
+			continue
+		}
+		turns = append(turns, turn)
+	}
+	if len(turns) == 0 {
+		return nil, false
+	}
+	out := map[string]any{"turns": turns}
+	// A one-hour call runs past this cap, and a transcript that stops mid-sentence
+	// while the header says "500 turns" is a document that lies about itself.
+	if n := carriedTruncation(d, dropped); n > 0 {
+		out[truncatedKey] = n
+	}
+	if t := clampStr(normalizeTitle(str(d, "title")), domain.MaxHeadingText); t != "" {
+		out["title"] = t
 	}
 	return out, true
 }

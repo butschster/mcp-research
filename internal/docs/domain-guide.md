@@ -208,8 +208,8 @@ Logical division within a research. Organizes entries by topic.
 
 A document containing research findings. Lives in a section. Holds either markdown
 or, when `entry_type` is `blocks`, a JSON document of typed blocks — prose next to
-tables, callouts, checklists, mermaid diagrams and self-contained HTML rendered in
-a sandboxed iframe. See [Block Documents](/llms/blocks.md). `entry_type: artifact`
+tables, callouts, checklists, mermaid diagrams, projected tasks, conversation
+transcripts and self-contained HTML rendered in a sandboxed iframe. See [Block Documents](/llms/blocks.md). `entry_type: artifact`
 is an input alias for a block document holding one `html` block; it is never
 stored, and such an entry reads back as `blocks`. A `code`, `mermaid` or `html`
 body is not searched as text and contributes no cross-references.
@@ -328,6 +328,10 @@ Todo item for tracking work within a research.
 - Always fill `result` when completing a task.
 - Results support markdown and cross-references.
 - Use `blocked` status with reason in description when waiting on something.
+- A task can be projected into a `blocks` entry with a `task_ref` block, which
+  stores the reference and reads the title and status from here. A tick in the
+  document is a `status` change on the task, so there is still one place the state
+  lives. See [Block Documents](/llms/blocks.md).
 
 ---
 

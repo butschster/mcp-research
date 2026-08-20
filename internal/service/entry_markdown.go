@@ -7,6 +7,7 @@ import (
 
 	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/butschster/mcp-research/internal/storage"
 )
 
 // One document, as a file.
@@ -110,7 +111,7 @@ func (s *EntryService) MarkdownExport(ctx context.Context, entryID string) (*Mar
 
 	var b strings.Builder
 	b.WriteString(fm.render())
-	b.WriteString("\n" + entryMarkdownBody(entry, MarkdownOptions{}))
+	b.WriteString("\n" + entryMarkdownBody(entry, MarkdownOptions{Tasks: s.taskRefResolver(ctx, entry.ResearchID)}))
 
 	return &MarkdownFile{
 		Filename: markdownFilename(entry),
@@ -156,4 +157,22 @@ func markdownFilename(entry *domain.Entry) string {
 		return title + ".md"
 	}
 	return sanitizeSegment(entry.Code, "entry") + " — " + title + ".md"
+}
+
+// taskRefResolver reads the research's tasks so a task_ref block exports as a
+// checklist. Nil whenever it cannot — no repository wired, or the read failed —
+// and a nil resolver is a supported answer rather than an error: a task list
+// that would not load is no reason to refuse the document.
+//
+// There is no share gate here because there is no share here: MarkdownExport
+// refuses a share visitor outright, at the top, before anything is read.
+func (s *EntryService) taskRefResolver(ctx context.Context, researchID string) TaskRefResolver {
+	if s.tasks == nil {
+		return nil
+	}
+	tasks, err := s.tasks.FindByResearch(ctx, researchID, storage.TaskFilter{})
+	if err != nil || len(tasks) == 0 {
+		return nil
+	}
+	return NewTaskRefResolver(tasks)
 }

@@ -1097,3 +1097,83 @@ func TestAccessControl_Annotation(t *testing.T) {
 		}
 	})
 }
+
+// TestAccessControl_EntryMarkdownExport covers the second whole-body renderer.
+//
+// `GET /api/entries/{id}/markdown` returns a complete document by entry id, and
+// with `task_ref` it now reads a SECOND table — the research's tasks — to turn
+// references into titled rows. The repository read has no check of its own; it
+// is safe only because `s.Get` has already asked `Access.Read` about the same
+// research. Pin that here, so moving the read above the check fails a test
+// rather than a share link.
+func TestAccessControl_EntryMarkdownExport(t *testing.T) {
+	db := setupTestDB(t)
+	notifier := &mockNotifier{}
+	log := slog.Default()
+
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	blockRepo := storage.NewBlockRepository(db)
+	crossrefRepo := storage.NewCrossRefRepository(db)
+	sessionRepo := storage.NewSessionRepository(db)
+	revisionRepo := storage.NewEntryRevisionRepository(db)
+	taskRepo := storage.NewTaskRepository(db)
+
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), sessionRepo, blockRepo, revisionRepo, crossrefRepo, nil, notifier, log)
+	entrySvc.SetTaskRepo(taskRepo)
+	taskSvc := NewTaskService(taskRepo, researchRepo, testAccess(db), entrySvc, notifier, log)
+
+	userA, userB := setupTwoUsers(t, db)
+	ctxA, ctxB := userCtx(userA), userCtx(userB)
+
+	research, sections, _ := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Test",
+		Sections: []CreateSectionRequest{{Name: "s1", DisplayName: "S1"}},
+	})
+	task, err := taskSvc.Create(ctxA, CreateTaskRequest{ResearchID: research.ID, Title: "Alice's private task"})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+	entry, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: research.ID, SectionID: sections[0].ID,
+		Type: domain.EntryBlocks, Title: "Plan",
+		Content: `{"version":1,"blocks":[{"type":"task_ref","data":{"tasks":["` + task.Code + `"]}}]}`,
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+
+	t.Run("the owner gets the file, with the task resolved", func(t *testing.T) {
+		f, err := entrySvc.MarkdownExport(ctxA, entry.ID)
+		if err != nil {
+			t.Fatalf("owner cannot export: %v", err)
+		}
+		if !strings.Contains(f.Content, "Alice's private task") {
+			t.Errorf("the task_ref did not resolve for its owner:\n%s", f.Content)
+		}
+	})
+
+	t.Run("another user gets nothing", func(t *testing.T) {
+		f, err := entrySvc.MarkdownExport(ctxB, entry.ID)
+		if err == nil {
+			t.Fatalf("exported another user's document:\n%s", f.Content)
+		}
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("got %v, want ErrNotFound — a 403 would confirm the entry exists", err)
+		}
+	})
+
+	t.Run("a share visitor gets nothing", func(t *testing.T) {
+		// Refused at the top of MarkdownExport rather than only by the route
+		// being absent from the shared sub-mux — the file is a second way to a
+		// whole document, and provenance is never shared.
+		visitor := auth.WithShare(context.Background(), &auth.Share{ID: "s1", ResearchID: research.ID})
+		if f, err := entrySvc.MarkdownExport(visitor, entry.ID); err == nil {
+			t.Fatalf("a share link downloaded a document file:\n%s", f.Content)
+		} else if !errors.Is(err, ErrNotFound) {
+			t.Errorf("got %v, want ErrNotFound", err)
+		}
+	})
+}

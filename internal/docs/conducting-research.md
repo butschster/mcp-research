@@ -199,6 +199,10 @@ See [Annotations](/llms/annotations.md).
 - Use `research_update` with `add_memory` to record key insights
 - Update session notes with `session_update` using `add_note`
 - Use tasks (`task_create`) to track work items
+- When a document *is* the plan, show those tasks in it with a `task_ref` block
+  (`entry_type: blocks`) instead of retyping them as a checklist — it references
+  the tasks by their `task_id`, so the document and the board cannot drift apart.
+  See [Block Documents](/llms/blocks.md)
 - Mark sections as completed when they have sufficient coverage
 
 ### Build Roadmaps

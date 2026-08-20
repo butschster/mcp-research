@@ -55,6 +55,29 @@ pending → in_progress → completed
 
 Tasks are listed sorted by priority (high first), then by creation time within the same priority level.
 
+## A task inside a document
+
+A `blocks` entry can show tasks with a `task_ref` block — a plan, a handover note
+or a meeting summary that carries the work it names instead of describing it:
+
+```json
+{ "type": "task_ref",
+  "data": { "tasks": ["3f1c0b6a-6a2e-4b1c-9a77-1f2e3d4c5b6a"], "note": "Before the next call" } }
+```
+
+- **It references, never copies.** The block stores ids; the titles, statuses and
+  priorities are read from the tasks each time the document is rendered, so a
+  renamed or completed task is right everywhere at once.
+- **A tick in the document is a status change on the task** — the board,
+  `task_list` and the document cannot disagree, because there is one place the
+  state lives. `entry_patch`'s `set_state` is refused here; use `task_update`.
+- **Reference the uuid.** `task_create` returns `task_id` and `task_list` returns
+  `id`; the short code `T4` is accepted too but no MCP tool hands it to you.
+- Create the tasks first: the block does not create them, and a reference to
+  nothing simply draws no row.
+
+Field-by-field rules are in [Block Documents](/llms/blocks.md).
+
 ## Best Practices
 
 - **Always set `result` when completing or failing** — it captures the outcome and becomes part of the research record

@@ -42,11 +42,12 @@ field names did not match this catalog.
 ## Text fields
 
 Text in `paragraph`, `heading`, `list`, `table`, `quote.text`, `callout.text`,
-`checklist` item text, `image.caption`, `mermaid.caption` and `html.caption`
-carries a restricted inline markdown subset: `**bold**`, `*italic*`, `` `code` ``,
-`[label](url)`. Anything else is shown literally. The labels around them —
-`quote.cite`, `callout.title`, `checklist.title`, `html.title`, `image.alt` — are
-shown as plain text but are indexed like the rest.
+`checklist` item text, `task_ref.note`, a `transcript` turn's `text`,
+`image.caption`, `mermaid.caption` and `html.caption` carries a restricted inline
+markdown subset: `**bold**`, `*italic*`, `` `code` ``, `[label](url)`. Anything
+else is shown literally. The labels around them — `quote.cite`, `callout.title`,
+`checklist.title`, `transcript.title`, a turn's `speaker` and `ts`, `html.title`,
+`image.alt` — are shown as plain text but are indexed like the rest.
 
 `[[E3]]`, `[[R2:E5]]`, `[[RM1]]` work inside these fields and **are indexed** —
 they land in the `crossrefs` table and become links in the web UI, exactly as in
@@ -55,11 +56,11 @@ indexed: a snippet mentioning a code is not a citation.
 
 Literal `\n` in a prose field becomes a real newline. It does not in the one-line
 fields above (`heading.text`, `quote.cite`, `callout.title`, `checklist.title`,
-`html.title`, `image.alt`), where a real newline is collapsed to a space and a
-backslash stays data, nor in `code`, `mermaid` and `html` bodies, which are stored
-verbatim.
+`transcript.title`, a turn's `speaker` and `ts`, `html.title`, `image.alt`),
+where a real newline is collapsed to a space and a backslash stays data, nor in
+`code`, `mermaid` and `html` bodies, which are stored verbatim.
 
-## Block catalog (12 types)
+## Block catalog (14 types)
 
 | `type` | `data` |
 |---|---|
@@ -75,10 +76,96 @@ verbatim.
 | `divider` | `{}` — always kept |
 | `image` | `{ url, alt?, caption? }` — `url` must be `http(s)://` or a domain-relative `/path`; anything else (including `javascript:`, `data:` and protocol-relative `//host`) ⇒ dropped |
 | `html` | `{ html, title?, caption? }` — a complete self-contained HTML document rendered in a sandboxed iframe sized to its own height. `html` required |
+| `task_ref` | `{ tasks: string[], note?, show_progress? (default true) }` — projects **existing** tasks into the document as a checklist; ticking changes the task. A reference is a task code (`T4`, any case, stored upper) or a task uuid (any case, stored lower) — **over MCP use the uuid**, see below. A reference in any other shape is dropped, duplicates collapse, max 50 (`truncated` counts what the cap dropped); no references left ⇒ block dropped. `note` is prose, max 1000. There is no state field here — see below |
+| `transcript` | `{ turns: [{speaker?, text, ts?}], title? }` — a conversation held outside the tool. `text` is required, max 5000, and is indexed together with its `speaker`; a turn with no text is dropped, max 500 turns (`truncated` counts what the cap dropped), no turns left ⇒ block dropped. `speaker` (max 120) is a label, not a user. `ts` (max 40) is free-form — `00:03:12`, `14:32`, an ISO stamp — displayed and never parsed. `title` max 300 |
 
 Every block sits in the reading column. There is no width tier: a `width` field in
 a payload is simply not stored, and a wide table scrolls inside its own container
 rather than breaking the column.
+
+## The task_ref block
+
+`task_ref` holds **references and nothing else**. The tick is a status change on
+the task itself — ticking sets `completed` — so the board, `task_list` over MCP
+and the document all read the same state. There is no second todo list, and no
+`state` field: `checklist` is the block whose state belongs to the document, and
+the two are not interchangeable.
+
+```json
+{ "type": "task_ref",
+  "data": { "tasks": ["3f1c0b6a-6a2e-4b1c-9a77-1f2e3d4c5b6a", "T4"],
+            "note": "Before the next call", "show_progress": true } }
+```
+
+- **Reference tasks that already exist.** The block does not create them: call
+  `task_create` first, then put what it returns in `tasks`. Declaring tasks here
+  would make writing a document write to the task table, and normalization stays
+  pure — it never reads another table, so it never checks that a reference exists.
+  Shape is checked on write, existence only where the block is read.
+- **Over MCP, reference the uuid.** `task_create` returns `task_id` and
+  `task_list` returns `id`; neither returns the short code, so `T4` is a spelling
+  you can only get from the web UI or the REST API. Both spellings resolve to the
+  same row and the rendered list shows the code either way.
+- **A reference resolves against this research's tasks only.** A bare `T4` is the
+  whole reference — there is no cross-research form, because a document that ticks
+  another research's task would write across a boundary the rest of the product
+  keeps closed.
+- **A reference that resolves to nothing is dropped from the render**, not shown
+  as a ghost row. A deleted task is not an unfinished one. The reference stays in
+  the document — nothing rewrites your payload — it simply draws no row, and the
+  web UI names the unresolved ones under the list for whoever may write.
+- **A status a checkbox cannot express is shown beside it.** A task can be
+  `in_progress`, `blocked`, `failed` or `deferred`, and none of those is a box.
+  Any of them can still be ticked, and ticking sets `completed`. Unticking in the
+  web UI puts back the status the row held before the tick — `pending` once the
+  page no longer remembers it — so unticking a `failed` task does not quietly
+  erase the failure.
+- `show_progress` draws a "3 of 5 done" line above the list. Send `false` to leave
+  it out. The denominator counts the rows actually drawn, never the references you
+  sent — otherwise a list holding one deleted task could never reach the end.
+- **The task titles are not indexed here.** Only your `note` and the references
+  themselves land in the search text: a title copied at write time would go stale
+  the moment somebody renamed the task, and the titles are searchable where they
+  live. Put in the `note` whatever the document should be findable by. For the
+  same reason a reader can annotate the `note` but not the rows: their text
+  belongs to the tasks, not to this document.
+- **`truncated` is server-owned and says what a cap threw away.** Send 57
+  references and the block stores 50 and reports `"truncated": 7`. It is stamped
+  by the normalizer, never read from your payload, and it disappears on the next
+  write that fits — so a document is never silently shorter than the one you
+  sent. The web UI and the exports both say so in words.
+- **In an export** the block becomes a GitHub task list — `- [x] T4 — Title`,
+  under an `*1 of 3 done*` line — when the exporter can see the tasks, and a plain
+  list of `- [[T4]]` references when it has no task list to resolve against: a
+  revision diff, a `blocks` → `markdown` conversion, the Obsidian vault or a
+  session export through a share link that publishes no tasks. An unresolved
+  reference is printed as you stored it, so a list of uuids exports as uuids. An
+  export never draws empty boxes it did not verify, and a list whose every
+  reference is gone says so in one line rather than emitting nothing.
+
+## The transcript block
+
+A call, a meeting, an interview that happened somewhere else. Sessions and
+questions model the interview *this product runs*; this is the other kind.
+
+```json
+{ "type": "transcript",
+  "data": { "title": "Infrastructure call, 12 August",
+            "turns": [ { "speaker": "Peter", "text": "The perimeter is closed.", "ts": "00:03:12" },
+                       { "speaker": "Anna",  "text": "Then the scanner goes inside — see [[E4]]." } ] } }
+```
+
+- Every turn's `speaker` and `text` are **indexed together**, so "who said the
+  thing about the gateway" is answerable, and `[[E3]]` inside a turn resolves like
+  any other reference.
+- `speaker` is free text with no user entity behind it, on purpose: a transcript
+  is not an audit log, and the person quoted may have no account here.
+- Consecutive turns by the same speaker are grouped under one name, and a
+  transcript of more than 36 turns renders its first 30 with an expander for the
+  rest. Neither changes what you send: one turn per thing that was said.
+- **In an export** the `title` is a bold line and each turn is one paragraph:
+  `**Peter** *(00:03:12)*: text`. A turn missing both `speaker` and `ts` is just
+  its text.
 
 ## The html block
 
@@ -153,7 +240,9 @@ addressing blocks by `id`:
   see [Revisions](/llms/revisions.md). Similar words, different jobs: a `rev` never
   goes into a history or diff call, and a revision number is never accepted here.
 - `set_state` sets an absolute value, never a toggle, and only on a `checklist`
-  block whose item key exists.
+  block whose item key exists. It does **not** work on `task_ref`: that block has
+  no state to set — tick it by updating the task, with `task_update` or
+  `PUT /api/tasks/{id}`.
 - The tool refuses an entry that is not `entry_type: blocks`, and `entry_update`'s
   `text_replace` refuses a blocks entry — running a string replacement over the
   stored JSON is how a document stops parsing. Patch it, or send the whole
@@ -221,11 +310,12 @@ to be discovered from the queue. [Annotations](/llms/annotations.md).
 
 ## Entry title and description
 
-Omit `title` and it is taken from the first `heading`, else the first sentence of
-the first `paragraph`, else a lone `html` block's `title`. If none of those exist
-the call fails — a document with nothing to name itself by is a mistake, not a
-default. `description` falls back the same way to the first paragraph that is not
-already the title, or an `html` block's `caption`.
+Omit `title` and it is taken from the first `heading`; failing that, from
+whichever comes first in the document — a `paragraph`'s opening sentence, or an
+`html` or `transcript` block's `title`. If none of those exist the call fails — a document with nothing to name itself by is
+a mistake, not a default. `description` falls back the same way to the first
+paragraph that is not already the title, then to an `html` block's `caption`, a
+`task_ref` note, or a transcript's opening line.
 
 ## The artifact alias
 
@@ -240,7 +330,10 @@ entry back returns `entry_type: blocks`.
 - **Markdown export** (`?format=md` for a research or a session, and the
   single-document download `GET /api/entries/{id}/markdown`): blocks are
   serialized to markdown. A `callout` becomes a labelled blockquote, a `checklist` becomes a
-  GitHub task list with the ticks as they stand, a `mermaid` block becomes a
+  GitHub task list with the ticks as they stand, a `task_ref` becomes the same
+  kind of list built from the tasks themselves (or a list of `[[T4]]` references
+  when the export cannot see them), a `transcript` becomes one paragraph per turn,
+  a `mermaid` block becomes a
   ```mermaid fence — which GitHub and this app both draw — and an `html` block
   becomes a named note saying to view it in the web UI, its document being the one
   thing that cannot be markdown.
@@ -265,12 +358,16 @@ entry back returns `entry_type: blocks`.
 Switching an entry to `blocks` requires `content` in block form in the same call
 — wrapping a markdown document in one paragraph would silently discard its
 structure, so it is refused instead. The other direction, `blocks` → `markdown`,
-converts what is stored.
+converts what is stored: the conversion resolves nothing, so a `task_ref` comes
+out as its `[[T4]]` reference list and stops tracking the tasks.
 
 ## Caps
 
-400 blocks per document, 200 list or checklist items, 200×20 table cells. 20000
-characters per text field — but 300 for a `heading`, 5000 for a `callout`, 1000 for
-a caption or an `alt`, 2000 for an `image.url`, 40 for a `language` — and 100000
-for `code`, 20000 for `mermaid`, 200000 for `html`. Text over a cap is clamped on a
-character boundary, not cut mid-character.
+400 blocks per document, 200 list or checklist items, 200×20 table cells, 50
+`task_ref` references, 500 `transcript` turns. 20000 characters per text field —
+but 300 for a `heading` or a `transcript.title`, 5000 for a `callout` or a
+transcript turn's `text`, 1000 for a caption, an `alt` or a `task_ref.note`, 2000
+for an `image.url`, 120 for a `speaker`, 40 for a `ts` or a `language` — and
+100000 for `code`, 20000 for `mermaid`, 200000 for `html`. Text over a cap is
+clamped on a character boundary, not cut mid-character. A list over its cap keeps
+the first N and drops the rest.

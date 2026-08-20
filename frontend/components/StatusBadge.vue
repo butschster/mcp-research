@@ -1,6 +1,8 @@
 <template>
   <span :class="['badge', `badge-${status}`]">
-    <span class="badge-icon">{{ icon }}</span>
+    <!-- Decorative: the word beside it says the same thing. Read aloud it turns
+         a task_ref checkbox's name into "…black square Blocked up arrow High". -->
+    <span class="badge-icon" aria-hidden="true">{{ icon }}</span>
     {{ text }}
   </span>
 </template>

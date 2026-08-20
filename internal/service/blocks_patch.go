@@ -318,6 +318,13 @@ func applySetState(blocks []domain.Block, op BlockOp) ([]domain.Block, error) {
 		return nil, notFound(blocks, op.ID)
 	}
 	if blocks[i].Type != domain.BlockChecklist {
+		// A task_ref looks tickable and is not: its boxes are the tasks, and the
+		// only way to move one is to move the task. Said plainly here, because
+		// "is a task_ref, not a checklist" leaves the caller to guess where the
+		// state actually lives.
+		if blocks[i].Type == domain.BlockTaskRef {
+			return nil, fmt.Errorf("block %q is a %s: it has no state of its own — tick it with task_update, which is where the status lives", op.ID, domain.BlockTaskRef)
+		}
 		// Writing state onto a paragraph would leave a field its normalizer does
 		// not know, and the next whole-document write would drop the block.
 		return nil, fmt.Errorf("block %q is a %s, not a %s", op.ID, blocks[i].Type, domain.BlockChecklist)

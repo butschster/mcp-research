@@ -149,10 +149,16 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 		Entries []entryExport `json:"entries"`
 	}
 	var sectionData []sectionExport
+	// Only when there are tasks to resolve against. An empty resolver is not the
+	// same as no resolver: it resolves nothing and the block then reports that
+	// every reference was deleted — which is a lie to a share visitor whose link
+	// simply does not publish tasks. No task list ⇒ no resolver ⇒ the honest
+	// `[[T4]]` reference list.
+	taskRefs := taskResolver(tasks)
 	for _, s := range sections {
 		sectionData = append(sectionData, sectionExport{
 			Section: s,
-			Entries: exportEntries(entriesBySection[s.ID]),
+			Entries: exportEntries(entriesBySection[s.ID], taskRefs),
 		})
 	}
 
@@ -230,7 +236,22 @@ func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
 		sectionNames[s.ID] = name
 	}
 
-	md := buildSessionMarkdown(research, sess.Session, questions, sessionEntries, sectionNames)
+	// A task_ref block in a session entry exports as a checklist rather than a
+	// list of codes, gated the same way the research export gates its task list.
+	//
+	// The gate covers task titles and nothing else. This route is NOT on the
+	// shared sub-mux, and mounting it there is not a one-line routing change: it
+	// hands over every question and the session notes, and it lists entries BY
+	// session id — which is the provenance a vault sets RedactProvenance to
+	// withhold. Whoever mounts it owes those two decisions, not just a `needs`.
+	var taskRefs service.TaskRefResolver
+	if share := auth.ShareFromContext(r.Context()); share == nil || share.Include.Tasks {
+		if tasks, terr := h.task.List(r.Context(), research.ID, storage.TaskFilter{}); terr == nil {
+			taskRefs = taskResolver(tasks)
+		}
+	}
+
+	md := buildSessionMarkdown(research, sess.Session, questions, sessionEntries, sectionNames, taskRefs)
 
 	if r.URL.Query().Get("format") == "md" {
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
@@ -244,7 +265,7 @@ func (h *ExportHandler) ExportSession(w http.ResponseWriter, r *http.Request) {
 		"research":      research,
 		"session":       sess.Session,
 		"questions":     questions,
-		"entries":       exportEntries(sessionEntries),
+		"entries":       exportEntries(sessionEntries, taskRefs),
 		"section_names": sectionNames,
 		"markdown":      md,
 	})
@@ -283,6 +304,7 @@ func buildMarkdown(
 	tasks []*domain.Task,
 ) string {
 	var b strings.Builder
+	taskRefs := taskResolver(tasks)
 
 	// Title
 	b.WriteString(fmt.Sprintf("# %s\n\n", research.Name))
@@ -351,7 +373,7 @@ func buildMarkdown(
 			if md := metadataMarkdown(s.FieldSpec, e.Metadata); md != "" {
 				b.WriteString(md)
 			}
-			if body := entryMarkdown(e); body != "" {
+			if body := entryMarkdown(e, taskRefs); body != "" {
 				b.WriteString(body + "\n\n")
 			}
 		}
@@ -421,6 +443,7 @@ func buildSessionMarkdown(
 	questions []*domain.Question,
 	entries []*domain.Entry,
 	sectionNames map[string]string,
+	taskRefs service.TaskRefResolver,
 ) string {
 	var b strings.Builder
 
@@ -479,7 +502,7 @@ func buildSessionMarkdown(
 				b.WriteString("**Tags:** " + strings.Join(e.Tags, ", ") + "  \n")
 			}
 			b.WriteString(fmt.Sprintf("**Status:** %s\n\n", e.Status))
-			if body := entryMarkdown(e); body != "" {
+			if body := entryMarkdown(e, taskRefs); body != "" {
 				b.WriteString(body + "\n\n")
 			}
 		}
@@ -495,7 +518,25 @@ func buildSessionMarkdown(
 // rather than inlined: a wall of markup in an export is not readable, and it is
 // not markdown either. Legacy `artifact` rows — those written before migration
 // 016 ran — are treated the same way.
-func entryMarkdown(e *domain.Entry) string {
+// taskResolver is NewTaskRefResolver with the empty case spelled out.
+//
+// Nil and empty are different answers. A resolver over no tasks resolves no
+// rows, and the block then says "every reference in this list has been removed"
+// — true when the tasks really are gone, and false when the caller was simply
+// never given any, which is what a share link without tasks looks like from
+// here. No task list means no resolver, and the block degrades to references.
+func taskResolver(tasks []*domain.Task) service.TaskRefResolver {
+	if len(tasks) == 0 {
+		return nil
+	}
+	return service.NewTaskRefResolver(tasks)
+}
+
+// tasks resolves a task_ref block. It is threaded rather than looked up so it
+// inherits the decision already made above: the caller passes the task slice it
+// loaded, which is empty when a share link publishes no tasks — so an export
+// that refused the task list cannot leak a task title through a document.
+func entryMarkdown(e *domain.Entry, tasks service.TaskRefResolver) string {
 	if e == nil || e.Content == "" {
 		return ""
 	}
@@ -506,7 +547,7 @@ func entryMarkdown(e *domain.Entry) string {
 			// Unreadable document: say so rather than emitting JSON or nothing.
 			return "*This entry holds a block document that could not be read.*"
 		}
-		return strings.TrimRight(service.BlockDocumentToMarkdown(doc), "\n")
+		return strings.TrimRight(service.BlockDocumentToMarkdownWith(doc, service.MarkdownOptions{Tasks: tasks}), "\n")
 	case domain.EntryArtifact:
 		return "*HTML artifact — view it in the web UI.*"
 	default:
@@ -522,12 +563,12 @@ type entryExport struct {
 	ContentMarkdown string `json:"content_markdown,omitempty"`
 }
 
-func exportEntries(entries []*domain.Entry) []entryExport {
+func exportEntries(entries []*domain.Entry, tasks service.TaskRefResolver) []entryExport {
 	out := make([]entryExport, 0, len(entries))
 	for _, e := range entries {
 		ee := entryExport{Entry: e}
 		if e.Type == domain.EntryBlocks || e.Type == domain.EntryArtifact {
-			ee.ContentMarkdown = entryMarkdown(e)
+			ee.ContentMarkdown = entryMarkdown(e, tasks)
 		}
 		out = append(out, ee)
 	}

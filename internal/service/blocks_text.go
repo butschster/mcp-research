@@ -75,6 +75,48 @@ func blockTextLines(blk domain.Block) []string {
 			out = append(out, text.Text)
 		}
 		return out
+	case domain.BlockTaskRef:
+		// The author's own writing, and the codes so a search for T4 finds the
+		// document that plans around it. The task TITLES are deliberately absent:
+		// they live in `tasks`, they are searchable there, and a copy taken at
+		// write time would go stale the moment somebody renames the task — the
+		// projection is computed from the document alone and has no way to learn
+		// that it did.
+		out := []string{str(d, "note")}
+		for _, ref := range taskRefCodes(d) {
+			// A code goes in as a reference, so the block that IS a reference
+			// files one: the task's page can then find the document that plans
+			// around it, and so can the graph. A uuid stays bare — `[[uuid]]` is
+			// not a syntax this product resolves, and filing it would only add an
+			// unresolved row.
+			if taskRefPattern.MatchString(ref) {
+				out = append(out, "[["+ref+"]]")
+				continue
+			}
+			out = append(out, ref)
+		}
+		return out
+	case domain.BlockTranscript:
+		out := []string{str(d, "title")}
+		// The speaker leads the run it belongs to, and only the run — the same
+		// grouping the renderer draws. Repeating the name on every line indexed a
+		// string the page never shows, and a mark made across two consecutive
+		// turns by one person was born drifted because the haystack had a "Peter"
+		// between them that the reader's selection did not.
+		//
+		// It still answers "who said the thing about the gateway": the name sits
+		// immediately before the lines it introduces.
+		prev := ""
+		for i, t := range transcriptTurns(d) {
+			if t.Speaker != "" && (i == 0 || t.Speaker != prev) {
+				out = append(out, t.Speaker)
+			}
+			if t.Speaker != "" {
+				prev = t.Speaker
+			}
+			out = append(out, t.Text)
+		}
+		return out
 	case domain.BlockImage:
 		return []string{str(d, "alt"), str(d, "caption")}
 	case domain.BlockHTML:
@@ -115,6 +157,14 @@ func BlockDocumentTitle(doc *domain.BlockDocument) string {
 			if t := str(blk.Data, "title"); t != "" {
 				return clampStr(t, 200)
 			}
+		case domain.BlockTranscript:
+			// A document that is only a transcript still names itself. Without
+			// this it would fall through to the untitled case, and "Untitled" is
+			// what an entry gets when nobody could think of anything — not when
+			// the author wrote the name at the top of the block.
+			if t := str(blk.Data, "title"); t != "" {
+				return clampStr(t, 200)
+			}
 		}
 	}
 	return ""
@@ -136,12 +186,23 @@ func BlockDocumentDescription(doc *domain.BlockDocument, title string) string {
 		}
 		return clampStr(text, 500)
 	}
-	// A document with no prose — a lone html block, say — still has the author's
-	// framing to fall back on.
+	// A document with no prose — a lone html block, a lone transcript — still has
+	// the author's framing to fall back on.
 	for _, blk := range doc.Blocks {
-		if blk.Type == domain.BlockHTML {
+		switch blk.Type {
+		case domain.BlockHTML:
 			if c := str(blk.Data, "caption"); c != "" {
 				return clampStr(c, 500)
+			}
+		case domain.BlockTaskRef:
+			if n := str(blk.Data, "note"); n != "" {
+				return clampStr(n, 500)
+			}
+		case domain.BlockTranscript:
+			// The opening line of a conversation is what it is about often
+			// enough to beat showing nothing.
+			if turns := transcriptTurns(blk.Data); len(turns) > 0 {
+				return clampStr(turns[0].Text, 500)
 			}
 		}
 	}
@@ -171,6 +232,73 @@ type MarkdownOptions struct {
 	// readers that draw mermaid themselves, where the link is a kilobyte of
 	// base64 in the middle of a note and buys nothing.
 	OmitMermaidLink bool
+	// Tasks resolves a task_ref block's references to the tasks themselves.
+	//
+	// Nil is a supported answer, not a missing dependency: a revision diff is a
+	// snapshot of a document rather than of the board, and an export that a share
+	// link forbids tasks to is handed no tasks to resolve from. Without it the
+	// block still exports — as a list of references rather than as a checklist,
+	// which is honest: nothing here knows whether T4 is done.
+	Tasks TaskRefResolver
+}
+
+// TaskRefRow is one resolved row of a task_ref block.
+type TaskRefRow struct {
+	// Ref is the reference as the document wrote it — a code or a uuid.
+	Ref    string
+	Code   string
+	Title  string
+	Status string
+	Done   bool
+}
+
+// TaskRefResolver turns the references in a task_ref block into rows.
+//
+// It is handed a list rather than asked one reference at a time so a caller can
+// answer from a slice it already loaded, which is what keeps this out of the
+// database: every export that resolves task refs had already read the research's
+// tasks for its own sake, and — crucially — had already decided whether the
+// caller is allowed to see them.
+type TaskRefResolver func(refs []string) []TaskRefRow
+
+// NewTaskRefResolver builds a resolver over tasks the caller already holds.
+//
+// A reference that matches nothing is DROPPED rather than rendered as a ghost:
+// a deleted task is not an unfinished one, and a row that cannot be ticked is
+// worse than no row. That is also what makes an empty task list safe — a share
+// link with tasks switched off resolves nothing and the block degrades to its
+// note and its codes, rather than leaking a title through an export.
+func NewTaskRefResolver(tasks []*domain.Task) TaskRefResolver {
+	byRef := make(map[string]*domain.Task, len(tasks)*2)
+	for _, t := range tasks {
+		if t == nil {
+			continue
+		}
+		if t.Code != "" {
+			byRef[strings.ToUpper(t.Code)] = t
+		}
+		byRef[strings.ToLower(t.ID)] = t
+	}
+	return func(refs []string) []TaskRefRow {
+		out := make([]TaskRefRow, 0, len(refs))
+		for _, ref := range refs {
+			t := byRef[strings.ToUpper(ref)]
+			if t == nil {
+				t = byRef[strings.ToLower(ref)]
+			}
+			if t == nil {
+				continue
+			}
+			out = append(out, TaskRefRow{
+				Ref:    ref,
+				Code:   t.Code,
+				Title:  t.Title,
+				Status: string(t.Status),
+				Done:   t.Status == domain.TaskCompleted,
+			})
+		}
+		return out
+	}
 }
 
 // BlockDocumentToMarkdown serializes a document so the research and session
@@ -254,6 +382,36 @@ func BlockDocumentToMarkdownWith(doc *domain.BlockDocument, opts MarkdownOptions
 				b.WriteString("- [" + mark + "] " + item.Text + "\n")
 			}
 			b.WriteString("\n")
+
+		case domain.BlockTaskRef:
+			b.WriteString(taskRefMarkdown(d, opts.Tasks))
+
+		case domain.BlockTranscript:
+			// One paragraph per turn rather than one line: a turn may itself
+			// contain a newline, and a hard line break would then split it in a
+			// place the speaker did not.
+			if t := str(d, "title"); t != "" {
+				b.WriteString("**" + t + "**\n\n")
+			}
+			if n := intOr(d, truncatedKey, 0); n > 0 {
+				b.WriteString(fmt.Sprintf("*%d further turns were not stored — this transcript is past the %d-turn cap.*\n\n", n, domain.MaxTranscriptTurns))
+			}
+			for _, turn := range transcriptTurns(d) {
+				var lead string
+				if turn.Speaker != "" {
+					lead = "**" + turn.Speaker + "**"
+				}
+				if turn.Stamp != "" {
+					if lead != "" {
+						lead += " "
+					}
+					lead += "*(" + turn.Stamp + ")*"
+				}
+				if lead != "" {
+					lead += ": "
+				}
+				b.WriteString(lead + turn.Text + "\n\n")
+			}
 
 		case domain.BlockMermaid:
 			// A mermaid fence is markdown that renders: GitHub and this app both
@@ -343,4 +501,112 @@ func checklistItems(d map[string]any) []ChecklistItem {
 		out = append(out, ChecklistItem{Key: key, Text: text, Checked: checked})
 	}
 	return out
+}
+
+// TranscriptTurn is one line of a transcript block.
+type TranscriptTurn struct {
+	Speaker string
+	// Stamp is `ts` as the author wrote it. Named apart from the field because
+	// `ts` says nothing at a call site, and because nothing here parses it.
+	Stamp string
+	Text  string
+}
+
+// transcriptTurns reads the turns out of a normalized transcript block.
+func transcriptTurns(d map[string]any) []TranscriptTurn {
+	raw, _ := d["turns"].([]any)
+	out := make([]TranscriptTurn, 0, len(raw))
+	for _, it := range raw {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		text, _ := m["text"].(string)
+		if text == "" {
+			continue
+		}
+		speaker, _ := m["speaker"].(string)
+		ts, _ := m["ts"].(string)
+		out = append(out, TranscriptTurn{Speaker: speaker, Stamp: ts, Text: text})
+	}
+	return out
+}
+
+// taskRefCodes reads the references out of a normalized task_ref block.
+func taskRefCodes(d map[string]any) []string {
+	raw, _ := d["tasks"].([]any)
+	out := make([]string, 0, len(raw))
+	for _, it := range raw {
+		if s, ok := it.(string); ok && s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// taskRefMarkdown writes a task_ref block, with or without a resolver.
+//
+// Resolved, it is a GitHub task list: a reader who has never seen this app still
+// sees what is done. Unresolved, it is a reference list — `[[T4]]` is the syntax
+// this product links with everywhere else, so the vault turns it into a link to
+// the task note and a plain reader sees the code it can look up. What it is NOT
+// is a row of empty checkboxes: an export that says every task is open, having
+// never asked, is worse than one that does not claim to know.
+func taskRefMarkdown(d map[string]any, resolve TaskRefResolver) string {
+	var b strings.Builder
+	if note := str(d, "note"); note != "" {
+		b.WriteString(note + "\n\n")
+	}
+	refs := taskRefCodes(d)
+
+	if n := intOr(d, truncatedKey, 0); n > 0 {
+		b.WriteString(fmt.Sprintf("*%d further references were not stored — this list is past the %d-task cap.*\n\n", n, domain.MaxTaskRefs))
+	}
+
+	if resolve == nil {
+		for _, ref := range refs {
+			b.WriteString("- [[" + ref + "]]\n")
+		}
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	rows := resolve(refs)
+	if len(rows) == 0 {
+		// Every reference is gone. Say so once rather than emitting an empty
+		// bullet list, which reads as "no work" instead of "nothing left to show".
+		b.WriteString("*No tasks — every reference in this list has been removed.*\n\n")
+		return b.String()
+	}
+	if boolOr(d, "show_progress", true) {
+		done := 0
+		for _, r := range rows {
+			if r.Done {
+				done++
+			}
+		}
+		// "done", not "closed": the status enum is `completed`, and `closed` is
+		// already the annotation vocabulary. One word meaning two things across
+		// two surfaces is how a reader learns to distrust both.
+		b.WriteString(fmt.Sprintf("*%d of %d done*\n\n", done, len(rows)))
+	}
+	for _, r := range rows {
+		mark := " "
+		if r.Done {
+			mark = "x"
+		}
+		label := r.Title
+		if r.Code != "" {
+			label = r.Code + " — " + r.Title
+		}
+		// A status a checkbox cannot express is named beside it. Ticked or not is
+		// the whole of what `- [ ]` can say, and `blocked` said as `- [ ]` is a
+		// lie by omission — it reads as "nobody has got to it".
+		if r.Status != "" && r.Status != string(domain.TaskCompleted) && r.Status != string(domain.TaskPending) {
+			label += " *(" + strings.ReplaceAll(r.Status, "_", " ") + ")*"
+		}
+		b.WriteString("- [" + mark + "] " + label + "\n")
+	}
+	b.WriteString("\n")
+	return b.String()
 }

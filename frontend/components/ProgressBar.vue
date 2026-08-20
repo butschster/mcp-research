@@ -13,13 +13,25 @@ const props = withDefaults(defineProps<{
   value: number
   total: number
   showLabel?: boolean
+  /**
+   * How the fill is coloured.
+   *
+   * `auto` (the default, unchanged) reads the percentage as progress against a
+   * plan and paints anything under 30% red — right for a session that has
+   * stalled. `done` pins the fill to the success colour, for a bar that counts
+   * completions with no schedule behind it: a fresh 0-of-5 task list has not
+   * failed at anything, and a red bar says it has.
+   */
+  tone?: 'auto' | 'done'
 }>(), {
   showLabel: false,
+  tone: 'auto',
 })
 
 const pct = computed(() => props.total > 0 ? Math.round((props.value / props.total) * 100) : 0)
 
 const fillClass = computed(() => {
+  if (props.tone === 'done') return 'fill-complete'
   if (pct.value === 100) return 'fill-complete'
   if (pct.value >= 70) return 'fill-good'
   if (pct.value >= 30) return 'fill-mid'

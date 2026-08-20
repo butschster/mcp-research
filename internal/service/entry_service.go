@@ -85,6 +85,9 @@ type EntryService struct {
 	externalLinks *storage.ExternalLinkRepository
 	roadmaps      *storage.RoadmapRepository
 	roadmapNodes  *storage.RoadmapNodeRepository
+	// tasks is optional; see SetTaskRepo. Present, a task_ref block exports as a
+	// checklist with real titles instead of a list of codes.
+	tasks *storage.TaskRepository
 	// annotations is optional; see SetAnnotations. Present, an entry write
 	// reports which marks it drifted or orphaned.
 	annotations *storage.AnnotationRepository
@@ -104,6 +107,14 @@ func NewEntryService(entries *storage.EntryRepository, sections *storage.Section
 // survives: it is the only record of what the entry looked like when it was
 // created, and that is the snapshot a reader asks for months later.
 func (s *EntryService) SetRevisionLimit(n int) { s.revisionLimit = n }
+
+// SetTaskRepo enables a task_ref block to be exported as a checklist.
+//
+// Optional in the same way and for the same reason as SetRoadmapRepos: without
+// it the block still exports, as the list of references it stores. Nothing else
+// in this service reads tasks — resolution is a projection concern, and the
+// tick itself goes through TaskService where the permission lives.
+func (s *EntryService) SetTaskRepo(tasks *storage.TaskRepository) { s.tasks = tasks }
 
 // SetRoadmapRepos enables [[RM1]] and [[RM1:N3]] cross-reference resolution.
 func (s *EntryService) SetRoadmapRepos(roadmaps *storage.RoadmapRepository, nodes *storage.RoadmapNodeRepository) {
@@ -773,6 +784,21 @@ func (s *EntryService) resolveRefs(ctx context.Context, sourceType, sourceID, re
 					}
 				}
 			}
+		case "task":
+			// [[T4]] — link to a task on the board.
+			//
+			// A task has no page of its own, so there is nothing to store an id
+			// against: `resolved` here means "this research really has a T4", and
+			// the reader's link is built from the code, the way every task link in
+			// this product is. Codes are per-research and there is no cross-research
+			// form, so this never reaches outside the source research.
+			if s.tasks != nil {
+				task, err := s.tasks.FindByCode(ctx, researchID, first)
+				if err == nil && task != nil {
+					cr.TargetResearchID = researchID
+					cr.Resolved = true
+				}
+			}
 		case "research":
 			// [[R2]] — link to a research
 			targetResearch, err := s.researches.FindByCode(ctx, first)
@@ -820,6 +846,7 @@ func (s *EntryService) resolveRefs(ctx context.Context, sourceType, sourceID, re
 //	"R2"     → kind="research",first="R2",  second=""
 //	"RM1"    → kind="roadmap", first="RM1", second=""
 //	"RM1:N3" → kind="node",    first="RM1", second="N3"
+//	"T4"     → kind="task",    first="T4",  second=""
 func parseRef(ref string) (kind, first, second string) {
 	if idx := strings.IndexByte(ref, ':'); idx >= 0 {
 		left, right := ref[:idx], ref[idx+1:]
@@ -830,6 +857,11 @@ func parseRef(ref string) (kind, first, second string) {
 	}
 	if strings.HasPrefix(ref, "RM") {
 		return "roadmap", ref, ""
+	}
+	// A task code is the whole reference; anything else beginning with T is an
+	// entry code as far as this is concerned, which is why the digits matter.
+	if taskRefPattern.MatchString(ref) {
+		return "task", ref, ""
 	}
 	if len(ref) > 1 && ref[0] == 'R' {
 		return "research", ref, ""

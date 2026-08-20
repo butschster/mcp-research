@@ -407,7 +407,8 @@ prepended, no footer, no link home. A loose file has nowhere to link home to.
   written by hand.
 - **A block document renders as its markdown projection**, the same one the
   `.md` export uses, with none of the vault's overrides: a checklist keeps its
-  ticks, and a `mermaid` block stays a fence with the mermaid.live link under it
+  ticks, a `task_ref` is resolved against the research's tasks and printed with
+  their titles and statuses, and a `mermaid` block stays a fence with the mermaid.live link under it
   (the vault is the one target that drops that link, because Obsidian draws the
   fence itself). An `html` block is **named, not emitted** — `> **Revenue chart**
   — interactive HTML, view in the web UI.` Writing the artifact beside the note
@@ -696,8 +697,16 @@ An entry with `entry_type: blocks` stores a JSON document of typed blocks (see
 - **Markdown export** (`?format=md`, the `markdown` field of the JSON responses,
   and the single-document download) serializes the blocks: headings, lists,
   tables, quotes and code become their markdown equivalents, a `callout` becomes a labelled blockquote, a
-  `mermaid` block becomes a ```mermaid fence with a link to mermaid.live below it, and a `checklist` becomes a GitHub
-  task list carrying the ticks as they stand.
+  `mermaid` block becomes a ```mermaid fence with a link to mermaid.live below it, a `checklist` becomes a GitHub
+  task list carrying the ticks as they stand, and a `transcript` becomes one
+  paragraph per turn — `**Peter** *(00:03:12)*: text`.
+- **A `task_ref` block is resolved against the tasks the export already loaded.**
+  It becomes a GitHub task list of real titles and statuses — `- [x] T4 — Title`,
+  under an `*1 of 3 done*` line — and falls back to a plain list of `- [[T4]]`
+  references wherever there is no task list to resolve against: a revision diff,
+  and a vault or session export through a share link that publishes no tasks.
+  Nothing here reads tasks on its own, so an export that was refused the task list
+  cannot leak a task title through a document.
 - **An `html` block is named, not emitted.** The export gets
   `*<title> — interactive HTML, view in the web UI.*` and its caption. A whole
   HTML document in a markdown file is not readable, is not markdown, and inlined

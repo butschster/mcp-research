@@ -63,6 +63,7 @@ const config: StorybookConfig = {
                 'roadmapPath',
                 'roadmapsPath',
                 'tasksPath',
+                'taskPath',
                 'exportPath',
                 'foreignResearchPath',
               ],

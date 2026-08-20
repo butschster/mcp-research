@@ -73,6 +73,36 @@
         </template>
       </div>
 
+      <!-- task_ref: the other kind of checklist — the boxes are real tasks, and
+           a tick moves the task rather than anything in this document. -->
+      <BlocksTaskRefBlock
+        v-else-if="b.type === 'task_ref'"
+        :data-block-id="b.id"
+        :block-id="b.id"
+        :refs="b.data.tasks || []"
+        :note="b.data.note"
+        :show-progress="b.data.show_progress !== false"
+        :truncated="b.data.truncated || 0"
+        :tasks="tasks"
+        :status="tasksStatus"
+        :research-slug="researchSlug"
+        :readonly="readonly"
+        @retry="$emit('retry-tasks')"
+      />
+
+      <!-- transcript: a conversation held somewhere else -->
+      <BlocksTranscriptBlock
+        v-else-if="b.type === 'transcript'"
+        :data-block-id="b.id"
+        :block-id="b.id"
+        :title="b.data.title"
+        :turns="b.data.turns || []"
+        :research-slug="researchSlug"
+        :speaker-hues="speakerHues"
+        :force-expanded="expandBlockIds.includes(b.id || '')"
+        :truncated="b.data.truncated || 0"
+      />
+
       <!-- callout -->
       <aside v-else-if="b.type === 'callout'" :data-block-id="b.id" :class="['b-callout', `b-callout--${b.data.variant}`]">
         <p v-if="b.data.title" class="b-callout-title">{{ b.data.title }}</p>
@@ -109,6 +139,7 @@
 <script setup lang="ts">
 import { renderInline } from '~/composables/useInlineMarkdown'
 import { createMermaidFallback, createMermaidViewer } from '~/composables/useMermaidViewer'
+import { useOptimisticWrite } from '~/composables/useOptimisticWrite'
 
 const root = ref<HTMLElement | null>(null)
 
@@ -138,9 +169,50 @@ const props = withDefaults(
      *  them — they are painted over its output afterwards — and needs this only
      *  to admit, under an artifact, that its contents cannot be marked at all. */
     marksMode?: 'all' | 'open' | 'off'
+    /** The research's tasks, for task_ref rows. Fetched and owned by the page —
+     *  the renderer never fetches, so a story and an export preview can hand it
+     *  whatever they want to draw. */
+    tasks?: any[]
+    /** Where that fetch has got to. `excluded` is a share link that publishes no
+     *  tasks: the API 404s and the block says so instead of retrying forever. */
+    tasksStatus?: 'idle' | 'loading' | 'ready' | 'error' | 'excluded'
+    /** Transcripts to keep unfolded. A mark inside a folded tail measures at
+     *  zero and its pin lands above the card, so the page names the blocks its
+     *  annotations live in. */
+    expandBlockIds?: string[]
   }>(),
-  { blocks: () => [], researchSlug: '', bridgeData: null, entryId: '', readonly: false, marksMode: 'off' }
+  {
+    blocks: () => [], researchSlug: '', bridgeData: null, entryId: '', readonly: false,
+    marksMode: 'off', tasks: () => [], tasksStatus: 'idle', expandBlockIds: () => [],
+  }
 )
+
+defineEmits<{ 'retry-tasks': [] }>()
+
+/**
+ * Speaker → hue number, assigned by order of first appearance across the whole
+ * document.
+ *
+ * Not hashed from the name the way tags are: a char-code sum mod 6 collides for
+ * two speakers about one time in six, and two speakers in one colour is worse
+ * than no colour — by then the reader has learned to trust it. Computed here
+ * rather than per block so the same person keeps their colour in a document
+ * holding two transcripts, which would otherwise swap palettes on each other.
+ */
+const speakerHues = computed<Record<string, number>>(() => {
+  const out: Record<string, number> = {}
+  let n = 0
+  for (const b of props.blocks) {
+    if (b.type !== 'transcript') continue
+    for (const turn of (b.data?.turns || []) as any[]) {
+      const name = turn?.speaker
+      if (!name || out[name]) continue
+      out[name] = (n % 6) + 1
+      n++
+    }
+  }
+  return out
+})
 
 // The reader's role in the research on screen. `readonly` is the caller's own
 // choice of context — an export preview, say — and this is the permission; a
@@ -195,12 +267,12 @@ const config = useRuntimeConfig()
 // Ticks applied locally before the server has confirmed them, keyed by
 // block+item. A checkbox that waits for a round trip before moving feels broken,
 // and a checklist is ticked in bursts.
-const optimistic = ref<Record<string, boolean>>({})
-const pending = ref<Set<string>>(new Set())
-// Message per item, not a flag: the server says what went wrong — a stale
-// document, an item that no longer exists, an expired session — and "reload the
-// page" was wrong for most of them.
-const failed = ref<Record<string, string>>({})
+//
+// Shared with TaskRefBlock, which is the other control a reader flips inside a
+// document. The two had a copy each and had already drifted: a 403 said "your
+// session expired" here and "you can't change tasks" there, so one reader
+// ticking both in one article was told two stories about one refusal.
+const { optimistic, pending, failed, write, reset } = useOptimisticWrite<boolean>()
 
 interface CheckItem {
   key: string
@@ -233,54 +305,30 @@ function tickable(b: Block): boolean {
   return canWrite.value && !props.readonly && !!props.entryId && !!b.id
 }
 
-async function toggle(b: Block, item: CheckItem, checked: boolean) {
-  if (!tickable(b)) return
-  // Not disabled while in flight: disabling a focused control blurs it, and a
-  // keyboard reader was thrown back to the top of the page on every tick.
-  if (pending.value.has(item.token)) return
+// A conflict is what a document write has that a task write does not: somebody
+// else rewrote the article between the read and this tick.
+const CHECKLIST_ERRORS = { 409: 'Not saved — the document changed. Reload the page.' }
 
-  optimistic.value = { ...optimistic.value, [item.token]: checked }
-  pending.value = new Set(pending.value).add(item.token)
-  const cleared = { ...failed.value }
-  delete cleared[item.token]
-  failed.value = cleared
+function toggle(b: Block, item: CheckItem, checked: boolean) {
+  if (!tickable(b)) return
 
   const base = config.public.apiBase || ''
-  try {
-    await authFetch(`${base}/api/entries/${props.entryId}/patch`, {
+  // Not disabled while in flight: disabling a focused control blurs it, and a
+  // keyboard reader was thrown back to the top of the page on every tick.
+  // `write` ignores a key already in the air, which is the guard that replaces
+  // the early return this had.
+  void write(item.token, checked, () =>
+    authFetch(`${base}/api/entries/${props.entryId}/patch`, {
       method: 'POST',
-      body: {
-        ops: [{ op: 'set_state', id: b.id, item: item.key, checked }],
-      },
-    })
-  } catch (e: any) {
-    // Revert visibly. A silent revert is worse than an error: the reader
-    // re-ticks and assumes it stuck.
-    const next = { ...optimistic.value }
-    delete next[item.token]
-    optimistic.value = next
-    failed.value = { ...failed.value, [item.token]: saveError(e) }
-  } finally {
-    const p = new Set(pending.value)
-    p.delete(item.token)
-    pending.value = p
-  }
+      body: { ops: [{ op: 'set_state', id: b.id, item: item.key, checked }] },
+    }),
+  CHECKLIST_ERRORS)
 }
 
-function saveError(e: any): string {
-  const status = e?.status ?? e?.response?.status
-  const detail = e?.data?.error ?? e?.response?._data?.error
-  if (status === 409) return 'Not saved — the document changed. Reload the page.'
-  if (status === 401 || status === 403) return 'Not saved — your session expired. Sign in again.'
-  if (!status) return 'Not saved — the server could not be reached.'
-  return detail ? `Not saved — ${detail}` : 'Not saved.'
-}
-
-// A fresh document from the server is the truth again.
-watch(() => props.blocks, () => {
-  optimistic.value = {}
-  failed.value = {}
-})
+// A fresh document from the server is the truth again — except for an item still
+// in flight. Clearing those too is what made a box snap back before its own
+// response landed, whenever an agent rewrote the entry mid-tick.
+watch(() => props.blocks, reset)
 
 // With a header row the first row is the header; without one every row is body.
 function bodyRows(b: Block): any[] {

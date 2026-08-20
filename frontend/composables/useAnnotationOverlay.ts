@@ -52,14 +52,35 @@ interface CharPos {
   offset: number
 }
 
+/**
+ * Text inside the document that is not the document's prose.
+ *
+ * `.sr-only` is written for a screen reader and cannot be selected by eye.
+ * `[data-no-mark]` is text the document does not own — a task title, which lives
+ * in another table and changes without a document write, and a timestamp or a
+ * count the renderer prints beside a turn. A mark that captured either would be
+ * born drifted: the server's copy of the block never contained it.
+ *
+ * Both halves of the overlay have to agree about this. The filter used to live
+ * only in `textMap`, so a selection could still CAPTURE what could never be
+ * PAINTED — the reader got a mark with no highlight and a permanent "this was
+ * rewritten", about a sentence nobody had touched.
+ */
+const UNMARKABLE = '.sr-only, [data-no-mark]'
+
 /** Builds the server's comparison string for an element, with a way back to the
  *  nodes each character came from. */
 function textMap(root: Element): { text: string; map: CharPos[] } {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     // Anything shown only to a screen reader is not prose a person can select,
     // and letting it into the haystack means matching against text nobody sees.
+    //
+    // `[data-no-mark]` is the same exclusion for text the document does not own.
+    // A task_ref row shows a task title, which lives in another table and changes
+    // without a document write — so a mark on one is born to drift, and silently,
+    // because the drift report is computed on writes and a task rename is not one.
     acceptNode(node) {
-      return (node.parentElement?.closest('.sr-only'))
+      return node.parentElement?.closest(UNMARKABLE)
         ? NodeFilter.FILTER_REJECT
         : NodeFilter.FILTER_ACCEPT
     },
@@ -247,7 +268,21 @@ export function useAnnotationOverlay() {
     if (!scope.contains(range.startContainer)) own.setStart(scope, 0)
     if (!scope.contains(range.endContainer)) own.setEnd(scope, scope.childNodes.length)
 
-    const raw = own.toString()
+    // A selection lying entirely inside an unmarkable region is not a mark. The
+    // segment is dropped, so the popover never opens over a task row at all.
+    const host = own.commonAncestorContainer
+    const hostEl = host.nodeType === Node.ELEMENT_NODE ? (host as Element) : host.parentElement
+    if (hostEl?.closest(UNMARKABLE)) return null
+
+    // Built by stripping the unmarkable parts out of a clone rather than by
+    // reading `own.toString()`, which sees everything on screen. A timestamp
+    // rendered inline against its turn — `00:03:40And the gateway stays open.` —
+    // is one string to the browser and two to the server, and the mark was born
+    // drifted the moment it was made.
+    const holder = document.createElement('div')
+    holder.appendChild(own.cloneContents())
+    for (const el of Array.from(holder.querySelectorAll(UNMARKABLE))) el.remove()
+    const raw = holder.textContent ?? ''
     const exact = normalize(raw)
     if (!exact) return null
 

@@ -1,12 +1,28 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import BlockRenderer from './BlockRenderer.vue'
+import { withoutShare } from '../../__mocks__/share'
 
 const meta: Meta<typeof BlockRenderer> = {
   title: 'Blocks/BlockRenderer',
   component: BlockRenderer,
   tags: ['autodocs'],
+  // Share state is module state, so a story viewed after any `withShare()` one
+  // inherits it: a task code chip would link into /s/{token}/ and [[E4]] would
+  // render inert, both silently. This gives every story here a known start.
+  decorators: [withoutShare()],
   argTypes: {
+    blocks: { control: 'object' },
     researchSlug: { control: 'text' },
+    entryId: { control: 'text' },
+    readonly: { control: 'boolean' },
+    marksMode: { control: 'inline-radio', options: ['all', 'open', 'off'] },
+    // The page owns the task list and how its fetch went; the renderer only
+    // passes both to the `task_ref` branch, which is why a story can draw any
+    // state of that block without a server.
+    tasks: { control: 'object' },
+    tasksStatus: { control: 'select', options: ['idle', 'loading', 'ready', 'error', 'excluded'] },
+    expandBlockIds: { control: 'object' },
+    onRetryTasks: { action: 'retry-tasks' },
   },
   parameters: {
     docs: {
@@ -16,7 +32,11 @@ const meta: Meta<typeof BlockRenderer> = {
           'column; text fields carry a restricted markdown subset and `[[E3]]` ' +
           'references, escaped before any markup is introduced. The `html` block ' +
           'delegates to ArtifactFrame, which isolates the document in a sandboxed ' +
-          'iframe sized to its own height.',
+          'iframe sized to its own height. Two block types are components rather ' +
+          'than branches, because they hold state of their own: `task_ref`, which ' +
+          'writes a tick through to a real task, and `transcript`, which folds. The ' +
+          'renderer also assigns the speaker colours, once across the whole document, ' +
+          'so one person keeps one colour in every transcript in an entry.',
       },
     },
   },
@@ -270,4 +290,128 @@ export const HostileText: Story = {
 
 export const EmptyDocument: Story = {
   args: { blocks: [], researchSlug: 'R1' },
+}
+
+// A document with the two blocks that reach outside it: `task_ref` shows real
+// tasks and writes a tick through to them, `transcript` holds a conversation
+// that happened elsewhere. Both are branches here and components underneath —
+// a block that is markup is a branch; a block with per-instance state or its
+// own network calls is a component.
+export const TaskRefAndTranscript: Story = {
+  args: {
+    researchSlug: 'R1',
+    tasksStatus: 'ready',
+    tasks: [
+      { id: 'id1', code: 'T1', title: 'Close the perimeter', status: 'completed', priority: 'medium' },
+      { id: 'id2', code: 'T4', title: 'Put the scanner inside the network', status: 'in_progress', priority: 'medium' },
+      { id: 'id3', code: 'T7', title: 'Rotate the gateway certificates', status: 'blocked', priority: 'high' },
+    ],
+    blocks: [
+      { id: 'head0001', type: 'heading', data: { level: 2, text: 'Where we are' } },
+      {
+        id: 'tr000001',
+        type: 'transcript',
+        data: {
+          title: 'Infrastructure call, 12 August',
+          turns: [
+            { speaker: 'Peter', text: 'The perimeter is closed, only the gateway is exposed.', ts: '00:03:12' },
+            { speaker: 'Anna', text: 'Then the scanner goes inside — see [[E4]].' },
+          ],
+        },
+      },
+      {
+        id: 'tref0001',
+        type: 'task_ref',
+        data: { tasks: ['T1', 'T4', 'T7'], note: 'Close before Friday.', show_progress: true },
+      },
+    ],
+  },
+}
+
+// Two transcripts in one document. The speaker colours are assigned by order of
+// first appearance across the whole document, so the same person keeps a colour
+// in both — hashing the name would have collided instead.
+export const TwoTranscriptsShareSpeakerColours: Story = {
+  args: {
+    researchSlug: 'R1',
+    blocks: [
+      {
+        id: 'tr000001',
+        type: 'transcript',
+        data: {
+          title: 'Morning',
+          turns: [
+            { speaker: 'Anna', text: 'We start with the gateway.' },
+            { speaker: 'Peter', text: 'Agreed.' },
+          ],
+        },
+      },
+      {
+        id: 'tr000002',
+        type: 'transcript',
+        data: {
+          title: 'Afternoon',
+          turns: [
+            { speaker: 'Peter', text: 'The gateway is done.' },
+            { speaker: 'Anna', text: 'Then the scanner.' },
+          ],
+        },
+      },
+    ],
+  },
+}
+
+
+// `GET /api/researches/{slug}/tasks` did not answer. The block still says what
+// the document points at, and Try again re-asks the page — the renderer only
+// forwards the emit, because the page owns the fetch.
+export const TaskRefLoadFailed: Story = {
+  args: {
+    researchSlug: 'R1',
+    tasksStatus: 'error',
+    tasks: [],
+    blocks: [
+      { id: 'para0001', type: 'paragraph', data: { text: 'The work this leaves open:' } },
+      {
+        id: 'tref0001',
+        type: 'task_ref',
+        data: { tasks: ['T1', 'T4', 'T7'], note: 'Close before Friday.', show_progress: true },
+      },
+    ],
+  },
+}
+
+// A share link published without tasks: the API 404s by design, so the block
+// says so instead of offering a retry that cannot succeed.
+export const TaskRefNotShared: Story = {
+  args: {
+    ...(TaskRefLoadFailed.args as any),
+    tasksStatus: 'excluded',
+  },
+}
+
+// A transcript long enough to fold, held open because the entry page found an
+// annotation anchored inside it. A mark in a folded tail measures at zero and
+// its pin lands above the card, so the page names the blocks its annotations
+// live in and the renderer forces exactly those open. The share page passes an
+// empty list — it shows no marks.
+export const TranscriptExpandedByAnnotation: Story = {
+  args: {
+    researchSlug: 'R1',
+    expandBlockIds: ['tr000042'],
+    blocks: [
+      {
+        id: 'tr000042',
+        type: 'transcript',
+        data: {
+          title: 'Infrastructure call, 12 August',
+          turns: Array.from({ length: 44 }, (_, i) => ({
+            speaker: i % 2 === 0 ? 'Peter' : 'Anna',
+            text: `Turn ${i + 1}. ${i === 38 ? 'The sentence somebody marked lives down here, past the fold.' : 'Something about the gateway.'}`,
+            ts: `00:${String(Math.floor(i / 2)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}`,
+          })),
+        },
+      },
+    ],
+  },
 }

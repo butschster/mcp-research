@@ -228,6 +228,10 @@
           :bridge-data="blockBridgeData"
           :entry-id="entry?.id"
           :marks-mode="marksMode"
+          :tasks="tasks"
+          :tasks-status="tasksStatus"
+          :expand-block-ids="markedBlockIds"
+          @retry-tasks="loadTasks"
         />
         <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
         <!-- No header over a block document. Its body here is the stored JSON,
@@ -463,6 +467,18 @@ useRealtimeUpdates((event: WsEvent) => {
     loadAnnotations().then(() => repaint())
     return
   }
+  // A task_ref row is a live view of a task, so a status changed anywhere —
+  // the board, another tab, an agent over MCP — has to land here. Including
+  // this tab's own tick: the block already shows it optimistically, and the
+  // refetch is what turns that into the server's answer.
+  if (event.entity === 'task') {
+    // Scoped the way the entry branch below is: the socket carries every
+    // research the reader may see, and a task moved on someone else's board is
+    // not a reason to refetch this one.
+    if (event.research_id !== research.value?.id && event.research_code !== researchSlug.value) return
+    if (hasTaskRef.value) void loadTasks()
+    return
+  }
   if (event.entity !== 'entry') return
   // The event carries the entry's UUID; the route parameter is usually a short
   // code (every link in the app builds /entry/E3). Comparing the two meant the
@@ -560,6 +576,49 @@ const blocks = computed<any[]>(() => {
     return []
   }
 })
+
+/* ------------------------------------------------------------ task_ref ---
+ *
+ * A task_ref block holds references; the rows are resolved here, from the
+ * research's own task list, and never inside the renderer. Two reasons: the
+ * renderer is also mounted by an export preview and by Storybook, neither of
+ * which should acquire a network call; and the share page resolves the same
+ * block through a different base URL with a different refusal.
+ *
+ * Fetched only when the document actually contains one of these blocks — an
+ * entry page is opened constantly and most documents name no tasks at all.
+ */
+const tasks = ref<any[]>([])
+const tasksStatus = ref<'idle' | 'loading' | 'ready' | 'error' | 'excluded'>('idle')
+const hasTaskRef = computed(() => blocks.value.some((b: any) => b?.type === 'task_ref'))
+
+// Read here rather than through `rtBase`, which is declared far below: this
+// watcher fires during setup, and a const it has not reached yet is a crash on
+// the first render of any document that names a task.
+const { authFetch: taskFetch } = useAuth()
+const tasksBase = useRuntimeConfig().public.apiBase || ''
+
+async function loadTasks() {
+  if (!hasTaskRef.value) return
+  // Only the FIRST load says "loading". A refetch — and every tick causes one,
+  // because the block writes to a task and the task event comes back — would
+  // otherwise replace the rows with skeletons for the length of a round trip,
+  // which is exactly the flicker the skeleton exists to prevent. An 'error'
+  // counts as a first load: a reader who pressed Try again is owed some sign
+  // that something is happening.
+  if (tasksStatus.value === 'idle' || tasksStatus.value === 'error') tasksStatus.value = 'loading'
+  try {
+    const res = await taskFetch<{ data: any[] }>(`${tasksBase}/api/researches/${id}/tasks`)
+    tasks.value = res.data ?? []
+    tasksStatus.value = 'ready'
+  } catch {
+    tasksStatus.value = 'error'
+  }
+}
+
+watch(hasTaskRef, (present) => {
+  if (present && tasksStatus.value === 'idle') void loadTasks()
+}, { immediate: true })
 
 // A document that is nothing but one artifact. The card gives up its padding
 // for these — see `.entry-content.is-artifact` in system.css — because an
@@ -714,6 +773,17 @@ const { capture, paint, clear: clearMarks, positions } = useAnnotationOverlay()
 const { push: pushToast } = useToasts()
 
 const annotations = ref<Annotation[]>([])
+/**
+ * Blocks a mark is anchored in, so the renderer can keep them unfolded.
+ *
+ * A transcript folds past its first turns, and a mark inside the folded tail
+ * measures `getBoundingClientRect()` as zeros — the pin lands above the card
+ * rather than beside the sentence. Fixed declaratively rather than by poking
+ * the DOM after paint.
+ */
+const markedBlockIds = computed<string[]>(() =>
+  annotations.value.map((a: any) => a?.anchor?.block_id).filter(Boolean) as string[]
+)
 const cardEl = ref<HTMLElement | null>(null)
 const markPositions = ref<Array<{ id: string; code: string; top: number }>>([])
 const paintedCount = ref(0)

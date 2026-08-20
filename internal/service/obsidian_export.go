@@ -249,6 +249,12 @@ type vaultBuilder struct {
 	// missing collects the codes that name something outside this export, so each
 	// one gets a stub rather than a link into nowhere.
 	missing map[string]string
+	// taskRefs resolves a task_ref block against the tasks this vault was built
+	// from. Nil when the vault carries no tasks — because the caller asked for
+	// none, or because a share link publishes none — and a nil resolver writes the
+	// block as references rather than as a checklist. That is the whole of the
+	// gating: there is no second place where a title could slip out.
+	taskRefs TaskRefResolver
 }
 
 func (b *vaultBuilder) rootName() string {
@@ -360,6 +366,9 @@ func (b *vaultBuilder) build(
 	}
 	for _, t := range tasks {
 		b.claim(t.Code, nameWithCode(t.Code, t.Title, "Task"))
+	}
+	if len(tasks) > 0 {
+		b.taskRefs = NewTaskRefResolver(tasks)
 	}
 	for _, rm := range roadmaps {
 		name := nameWithCode(rm.Code, rm.Title, "Roadmap")
@@ -505,6 +514,7 @@ func (b *vaultBuilder) entryBody(e *domain.Entry) string {
 	return entryMarkdownBody(e, MarkdownOptions{
 		OmitMermaidLink: true,
 		HTMLBlock:       func(blk domain.Block) string { return b.htmlBlock(e, blk) },
+		Tasks:           b.taskRefs,
 	})
 }
 

@@ -1,7 +1,7 @@
 import { escapeHtml } from '~/utils/escapeHtml'
 
 /**
- * Converts [[E3]], [[R2:E5]], [[R2]], [[RM1]], [[RM1:N3]] references in text to clickable HTML links.
+ * Converts [[E3]], [[R2:E5]], [[R2]], [[RM1]], [[RM1:N3]] and [[T4]] references in text to clickable HTML links.
  *
  * Under a share link the rule tightens: a reference renders as a link only when
  * its target is inside the shared research **and** the link includes that kind
@@ -65,6 +65,13 @@ export function linkRefs(text: string, researchSlug: string): string {
       // [[R2]] — research link
       if (shared && ref !== ownCode) return ref
       href = shared ? researchPath(researchSlug) : `/research/${ref}`
+    } else if (/^T\d+$/.test(ref)) {
+      // [[T4]] — a task, on the board that holds it. Without this branch it fell
+      // through to the entry case and produced /entry/T4, a link to a document
+      // that does not exist — and the markdown export emits exactly this form
+      // for a task_ref whose tasks could not be resolved.
+      if (shared && !include.tasks) return ref
+      href = taskPath(researchSlug, ref)
     } else {
       // [[E3]] — entry in same research
       href = entryPath(researchSlug, ref)

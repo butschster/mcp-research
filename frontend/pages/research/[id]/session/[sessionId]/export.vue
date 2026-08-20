@@ -93,6 +93,8 @@
             v-if="blocksOf(entry)"
             :blocks="blocksOf(entry)"
             :research-slug="researchSlug"
+            :tasks="tasks"
+            :tasks-status="tasksStatus"
             readonly
           />
           <div v-else class="markdown-content" v-html="renderMarkdown(entryBody(entry))"></div>
@@ -129,6 +131,20 @@ const questions = computed<any[]>(() => exportData.value?.questions ?? [])
 const entries = computed<any[]>(() => exportData.value?.entries ?? [])
 const sectionNames = computed<Record<string, string>>(() => exportData.value?.section_names ?? {})
 const answeredCount = computed(() => questions.value.filter((q) => q.status === 'answered').length)
+
+// A task_ref block in a session entry needs the research's tasks to draw rows.
+// The session export payload does not carry them — it is scoped to one session —
+// so they are fetched beside it. `ready` regardless: this page is what becomes
+// the PDF, and a block waiting forever on a fetch that will not come prints as
+// a row of grey bars.
+const { data: tasksRaw, error: tasksError } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
+const tasks = computed<any[]>(() => tasksRaw.value?.data ?? [])
+// A failed fetch is not an empty task list. Called `ready` it would print "these
+// were deleted" over tasks that are merely unreachable — on the page that
+// becomes the PDF.
+const tasksStatus = computed<'ready' | 'error'>(() =>
+  tasksError.value || !tasksRaw.value ? 'error' : 'ready',
+)
 
 // A blocks entry stores JSON; the server ships a markdown rendering beside it so
 // the printable document does not have to know the block format.
