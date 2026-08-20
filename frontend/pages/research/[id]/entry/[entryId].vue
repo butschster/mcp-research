@@ -262,6 +262,7 @@
         :visible="popoverOpen"
         :rect="selectionRect"
         :quote="pendingQuote"
+        :block-count="pendingSegments.length"
         :entry-type="entry?.entry_type"
         :saving="marking"
         :error="markError"
@@ -269,12 +270,17 @@
         @cancel="cancelMark"
       />
 
-      <ModalOverlay :visible="marksPanelOpen" size="lg" labelledby="marks-panel" @close="marksPanelOpen = false">
+      <!-- `flush`, so the header keeps its own padding and the list runs to the
+           dialog's edges: a bordered card inside a bordered dialog draws the
+           same line twice. -->
+      <ModalOverlay :visible="marksPanelOpen" size="lg" flush labelledby="marks-panel" @close="marksPanelOpen = false">
         <ModalHeader title="Marks in this document" title-id="marks-panel" @close="marksPanelOpen = false" />
         <AnnotationsAnnotationList
+          class="marks-panel__list"
           :annotations="annotations"
           :research-slug="researchSlug"
           :error="marksError"
+          bleed
           empty-variant="document"
           @open="(a) => { marksPanelOpen = false; openThread(a.id) }"
           @retry="loadAnnotations().then(() => repaint())"
@@ -382,7 +388,7 @@
 
 <script setup lang="ts">
 import type { Annotation, AnnotationKind } from '~/composables/useAnnotations'
-import { MARK_CLASS } from '~/composables/useAnnotationOverlay'
+import { MARK_CLASS, type CapturedSegment } from '~/composables/useAnnotationOverlay'
 import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
@@ -720,9 +726,10 @@ const threadBusy = ref(false)
 const popoverOpen = ref(false)
 const popoverEl = ref<{ focusFirst: () => void } | null>(null)
 const selectionRect = ref<DOMRect | null>(null)
-const pendingQuote = ref('')
-const pendingBlockId = ref('')
-const pendingContext = ref<{ prefix: string; suffix: string }>({ prefix: '', suffix: '' })
+/** Every block the selection touched. One for an ordinary sentence, more when
+ *  somebody selected a passage running across paragraphs. */
+const pendingSegments = ref<CapturedSegment[]>([])
+const pendingQuote = computed(() => pendingSegments.value.map((s) => s.quote.exact).join(' '))
 const marking = ref(false)
 const markError = ref<string | null>(null)
 
@@ -789,9 +796,7 @@ function onSelect() {
     return
   }
 
-  pendingQuote.value = captured.quote.exact
-  pendingBlockId.value = captured.blockId
-  pendingContext.value = { prefix: captured.quote.prefix, suffix: captured.quote.suffix }
+  pendingSegments.value = captured.segments
   selectionRect.value = captured.rect
   markError.value = null
   popoverOpen.value = true
@@ -831,13 +836,21 @@ async function createMark(payload: { kind: AnnotationKind; body: string }) {
   try {
     // Waits for the server: the code and the anchor are its to decide, and
     // drawing a mark only to take it back is worse than a moment's wait.
-    const created = await createAnnotation(entry.value.id, {
-      block_id: pendingBlockId.value || undefined,
-      quote: { exact: pendingQuote.value, ...pendingContext.value },
-      kind: payload.kind,
-      body: payload.body,
-    })
-    annotations.value = [...annotations.value, created]
+    //
+    // One request per block the selection covered. A mark addresses a block, so
+    // a passage running across three paragraphs is three marks carrying the
+    // same note — which is what the reader asked for, and what the queue can
+    // actually anchor.
+    const created: Annotation[] = []
+    for (const seg of pendingSegments.value) {
+      created.push(await createAnnotation(entry.value.id, {
+        block_id: seg.blockId || undefined,
+        quote: seg.quote,
+        kind: payload.kind,
+        body: payload.body,
+      }))
+    }
+    annotations.value = [...annotations.value, ...created]
     closePopover()
     await repaint()
   } catch (e: any) {
@@ -854,6 +867,7 @@ function cancelMark() {
 function closePopover() {
   popoverOpen.value = false
   selectionRect.value = null
+  pendingSegments.value = []
 }
 
 function openThread(id: string) {
@@ -1478,6 +1492,12 @@ const nextEntry = computed(() =>
 </script>
 
 <style scoped>
+/* The list bleeds to the dialog's edges; its own rows keep the inset the header
+   above them has. */
+.marks-panel__list {
+  gap: 0;
+}
+
 /* css-discipline: literal-ok — the source view uses the One Dark palette,
    which is a palette in its own right rather than the product's. It is not
    expressible in the design tokens and should not be: a syntax colour that

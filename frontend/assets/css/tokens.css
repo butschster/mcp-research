@@ -195,7 +195,10 @@
   --ann-verify-wash:   rgba(107, 157, 240, 0.10);
   --ann-dig-wash:      rgba(167, 139, 250, 0.10);
   --ann-disagree-wash: rgba(240, 184, 73, 0.10);
+  /* One marker. Small enough that three fit side by side in the column, which
+     is what a line carrying three marks needs. */
+  --ann-pin:           15px;
   /* The marker column lives inside the document card's extra left padding, so
-     this is a width rather than a gap. */
-  --ann-gutter:        var(--space-6);
+     this is a width rather than a gap. Three pins and the gaps between them. */
+  --ann-gutter:        calc(var(--ann-pin) * 3 + 4px);
 }

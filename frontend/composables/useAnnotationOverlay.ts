@@ -34,9 +34,16 @@ export const MARK_CLASS = 'ann-mark'
  *  ones that identify it. */
 const CONTEXT = 120
 
-export interface CapturedSelection {
+/** One block's share of a selection. A selection inside one block yields one of
+ *  these; a selection across three yields three. */
+export interface CapturedSegment {
   blockId: string
   quote: { exact: string; prefix: string; suffix: string }
+}
+
+export interface CapturedSelection {
+  /** Every block the selection touched, in document order. */
+  segments: CapturedSegment[]
   rect: DOMRect
 }
 
@@ -198,36 +205,62 @@ export function useAnnotationOverlay() {
 
     const range = sel.getRangeAt(0)
     if (!root.contains(range.commonAncestorContainer)) return null
-
-    // Read before anything touches the selection. Below, the highlight is
-    // painted and `removeAllRanges` is called, and a Selection with no ranges
-    // stringifies to "" — reading it afterwards produced an empty quote and
-    // made every mark unsavable.
-    const selected = sel.toString()
-    const exact = normalize(selected)
-    if (!exact) return null
-
-    const startEl = range.startContainer.nodeType === Node.TEXT_NODE
-      ? range.startContainer.parentElement
-      : (range.startContainer as Element)
-    const block = startEl?.closest('[data-block-id]') as HTMLElement | null
-
-    // A markdown document has no blocks; the whole card is the haystack, and the
-    // mark is stored with no block id at all.
-    const scope: Element = block ?? root
-    const blockId = block?.dataset.blockId ?? ''
-
-    const { text, map } = textMap(scope)
-    // Where the selection sits inside the block, so context can be read off the
-    // same normalized string the server will search.
-    const at = text.indexOf(exact)
-    const prefix = at > 0 ? text.slice(Math.max(0, at - CONTEXT), at) : ''
-    const suffix = at >= 0 ? text.slice(at + exact.length, at + exact.length + CONTEXT) : ''
+    if (!normalize(sel.toString())) return null
 
     const rect = range.getBoundingClientRect()
 
-    // The browser's selection is left exactly as the reader made it.
-    return { blockId, quote: { exact: selected.trim().slice(0, 2000), prefix, suffix }, rect }
+    // A markdown document has no blocks: the whole card is the haystack and the
+    // mark carries no block id.
+    const blocks = [...root.querySelectorAll<HTMLElement>('[data-block-id]')]
+      .filter((b) => range.intersectsNode(b))
+    if (!blocks.length) {
+      const seg = segmentFor(root, range, '')
+      return seg ? { segments: [seg], rect } : null
+    }
+
+    /*
+     * A selection spanning three paragraphs becomes three marks, not one.
+     *
+     * A mark addresses a block, so a cross-block quote is a quote no block
+     * contains — the server searched for it, found nothing, and stored a mark
+     * that was born orphaned. Refusing the gesture would have been the other
+     * honest option, but selecting a passage and saying "this whole bit needs a
+     * source" is an ordinary thing to do, and the passage is the thing being
+     * doubted. Each block gets the part of the selection that fell inside it.
+     */
+    const segments: CapturedSegment[] = []
+    for (const block of blocks) {
+      // Skip a block that only contains another one — a table wrapper around
+      // its cells would otherwise duplicate the whole selection.
+      if (blocks.some((other) => other !== block && block.contains(other))) continue
+      const seg = segmentFor(block, range, block.dataset.blockId ?? '')
+      if (seg) segments.push(seg)
+    }
+    return segments.length ? { segments, rect } : null
+  }
+
+  /** The part of a range that falls inside one element, with its context. */
+  function segmentFor(scope: Element, range: Range, blockId: string): CapturedSegment | null {
+    const own = range.cloneRange()
+    // Clamp to the element: for every block but the first and last, this is the
+    // whole of it.
+    if (!scope.contains(range.startContainer)) own.setStart(scope, 0)
+    if (!scope.contains(range.endContainer)) own.setEnd(scope, scope.childNodes.length)
+
+    const raw = own.toString()
+    const exact = normalize(raw)
+    if (!exact) return null
+
+    const { text } = textMap(scope)
+    const at = text.indexOf(exact)
+    return {
+      blockId,
+      quote: {
+        exact: raw.trim().slice(0, 2000),
+        prefix: at > 0 ? text.slice(Math.max(0, at - CONTEXT), at) : '',
+        suffix: at >= 0 ? text.slice(at + exact.length, at + exact.length + CONTEXT) : '',
+      },
+    }
   }
 
   /**

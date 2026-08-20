@@ -1126,10 +1126,12 @@ button.tag {
   border-radius: 2px;
 }
 
-/* Room for the gutter, inside the card rather than beside it. */
+/* Room for the gutter, inside the card rather than beside it.
+   The column sits at the card's edge — see MarkGutter — so the prose is pushed
+   past it rather than sharing its space. */
 .entry-content.has-marks {
   position: relative;
-  padding-left: calc(var(--entry-pad) + var(--ann-gutter));
+  padding-left: calc(var(--space-3) + var(--ann-gutter) + var(--space-4));
 }
 
 @media (max-width: 768px) {

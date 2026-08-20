@@ -43,6 +43,13 @@
       <span class="sel-pop__count">{{ quote.length }} ch</span>
     </p>
 
+    <!-- A selection crossing paragraphs becomes one mark per paragraph, because
+         a mark addresses a block. Said before saving rather than discovered
+         afterwards in the queue. -->
+    <p v-if="blockCount > 1" class="sel-pop__hint">
+      Spans {{ blockCount }} blocks — this leaves {{ blockCount }} marks, one per block, with the same note.
+    </p>
+
     <!-- A markdown document has no blocks. Saying so here is cheaper than a
          person discovering later that the mark drifts more easily. -->
     <p v-if="entryType === 'markdown'" class="sel-pop__hint">
@@ -54,7 +61,7 @@
     <div class="sel-pop__actions">
       <button type="button" class="btn btn-sm" :disabled="saving" @click="$emit('cancel')">Cancel</button>
       <button type="button" class="btn btn-sm btn-primary" :disabled="saving" @click="submit">
-        {{ saving ? 'Marking…' : 'Mark' }}
+        {{ saving ? 'Marking…' : blockCount > 1 ? `Mark ${blockCount}` : 'Mark' }}
       </button>
     </div>
   </div>
@@ -76,14 +83,17 @@
  */
 import { KIND_META, type AnnotationKind } from '~/composables/useAnnotations'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   visible: boolean
   rect: DOMRect | null
   quote: string
+  /** How many blocks the selection covered, and therefore how many marks the
+   *  Mark button is about to leave. */
+  blockCount?: number
   entryType?: string
   saving?: boolean
   error?: string | null
-}>()
+}>(), { blockCount: 1 })
 
 const emit = defineEmits<{
   create: [payload: { kind: AnnotationKind; body: string }]

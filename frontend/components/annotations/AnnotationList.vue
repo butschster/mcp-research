@@ -55,7 +55,7 @@
     />
 
     <div v-else class="ann-list__groups">
-      <section v-for="group in groups" :key="group.key" class="card card--list">
+      <section v-for="group in groups" :key="group.key" :class="bleed ? 'ann-list__group' : 'card card--list'">
         <header v-if="grouped" class="list-head">
           <NuxtLink v-if="group.href" class="ann-list__entry" :to="group.href">
             <ShortCode :code="group.code" />
@@ -118,6 +118,10 @@ const props = withDefaults(defineProps<{
   selectable?: boolean
   selectedIds?: string[]
   dense?: boolean
+  /** Drop the card frame and run to the container's edges. For a list already
+   *  inside something that draws its own border — a dialog — where the card
+   *  would draw the same line a second time, inset from the header above it. */
+  bleed?: boolean
   emptyVariant?: 'document' | 'research' | 'filtered'
 }>(), {
   filters: () => ({}),
@@ -242,6 +246,23 @@ function onKey(event: KeyboardEvent, group: Group) {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* Bleeding: no frame and no side borders, so the list runs to the container's
+   edges — but its rows keep the inset the header above them has, or the text
+   would sit against the dialog's edge. */
+.ann-list__group {
+  display: flex;
+  flex-direction: column;
+  --row-inset: var(--space-6);
+}
+
+.ann-list__group .list-head {
+  padding-inline: var(--space-6);
+}
+
+.ann-list__group + .ann-list__group {
+  border-top: 1px solid var(--color-border);
 }
 
 .ann-list__filters { flex-wrap: wrap; }

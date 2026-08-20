@@ -96,23 +96,28 @@ export const SeveralMarks: Story = {
 }
 
 /**
- * Two marks 12px apart — closer than the 24px cluster threshold — collapse into
- * one pin that counts them.
+ * Two marks on one line — 12px apart, inside the 10px same-line window's reach
+ * once rounding is allowed for — sit side by side.
  *
- * The count replaces the code deliberately: showing the first mark's code would
- * claim the pin belongs to it, and clicking it would open a thread the reader
- * was not pointing at. Two overlapping circles are worse than a number.
+ * This is the ordinary case, not an edge one: "find me a source for this" and
+ * "and I do not believe it" belong on the same sentence. An earlier version
+ * collapsed them into a single counting dot, which said one thing had happened
+ * where two had. The code disappears when a row holds more than one mark —
+ * printing it would claim the row belongs to that one.
  */
-export const Clustered: Story = {
-  render: scene([mockAnnotation, mockAnnotationDig, mockAnnotationDisagree], [8, 20, 300]),
+export const TwoOnOneLine: Story = {
+  render: scene([mockAnnotation, mockAnnotationDig, mockAnnotationDisagree], [8, 12, 300]),
 }
 
 /**
- * Six marks inside one paragraph, all within 24px of the first. The cluster keeps
- * counting — the pin reads 6 and the glyph drops to a neutral bullet, because a
- * stack of six is no longer any one kind.
+ * Six marks on one line. Three fit in the column; the rest are counted after
+ * them.
+ *
+ * The count is *in addition to* the pins, never instead: the reader still sees
+ * three kinds and can still click them. `+3` says only that the line carries
+ * more than the column can draw.
  */
-export const DenseCluster: Story = {
+export const MoreThanFits: Story = {
   render: scene(
     [
       mockAnnotation,
@@ -122,21 +127,18 @@ export const DenseCluster: Story = {
       makeAnnotation({ code: 'A21', kind: 'dig' }),
       makeAnnotation({ code: 'A22', kind: 'disagree' }),
     ],
-    [40, 44, 48, 52, 56, 60],
+    [40, 42, 44, 46, 48, 50],
   ),
 }
 
 /**
- * Six marks 20px apart — closer together than the threshold, but spread over
- * 100px in total.
+ * Six marks 20px apart — each on its own line of prose.
  *
- * They do not become one pin. The gap is measured from the top of the *group*,
- * not from the previous mark, so a run of evenly spaced marks breaks into a chain
- * of clusters — here three pins reading 2, 2, 2, forty pixels apart. Worth
- * knowing because it is the shape a heavily marked paragraph actually takes: not
- * one counter, but several.
+ * Nothing groups: 20px is outside the same-line window, so this is six rows of
+ * one, each keeping its code. The shape a heavily marked paragraph takes when
+ * the marks are on different lines rather than the same one.
  */
-export const ChainedClusters: Story = {
+export const OnePerLine: Story = {
   render: scene(
     [
       mockAnnotation,
@@ -181,7 +183,7 @@ export const ManyMarks: Story = {
                   border-radius: var(--radius); --entry-pad: 1rem;">
         <MarkGutter :annotations="annotations" :positions="positions" @select="args.onSelect" />
         <p style="margin: 0; max-width: 40rem; color: var(--color-text-faint); font-size: 0.875rem;">
-          Eighteen marks, 46px apart — none of them clusters, and none of them is a tab stop.
+          Eighteen marks, 46px apart — one per line, and none of them a tab stop.
         </p>
       </div>
     `,
