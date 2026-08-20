@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 )
 
@@ -23,9 +24,20 @@ import (
 // unresolved as it looked going in.
 func (a *Access) VisibleCrossRefs(ctx context.Context, refs []domain.CrossRef) []domain.CrossRef {
 	mayRead := a.readMemo(ctx)
+	share := auth.ShareFromContext(ctx) != nil
 
 	out := make([]domain.CrossRef, 0, len(refs))
 	for _, ref := range refs {
+		// A reference written BY something a share never exposes is dropped
+		// whole, not blanked. An annotation's resolution can name `[[E19]]`, and
+		// the row that produces carries the annotation's own id in
+		// `source_type`/`source_id` — so a link that shows no annotation route
+		// at all was still answering "somebody disputes this document, here is
+		// the id of the objection". Blanking the target would not help: the
+		// disclosure is the existence of the source.
+		if share && !shareableCrossRefSource(ref.SourceType) {
+			continue
+		}
 		// A reference with no target research is a same-research one, and the
 		// reader is already holding the source.
 		target := ref.TargetResearchID
@@ -47,6 +59,19 @@ func (a *Access) VisibleCrossRefs(ctx context.Context, refs []domain.CrossRef) [
 	return out
 }
 
+// shareableCrossRefSource says which kinds of source a share link may admit to.
+//
+// A closed list rather than a deny-list: the next source type added is a
+// decision about what a stranger may learn, and defaulting it to "visible" is
+// how this leaked in the first place.
+func shareableCrossRefSource(sourceType string) bool {
+	switch sourceType {
+	case "entry", "question", "task", "roadmap", "roadmap_node", "":
+		return true
+	}
+	return false
+}
+
 // VisibleIncomingCrossRefs drops the references *into* something the reader can
 // see that come *from* something they cannot.
 //
@@ -59,9 +84,16 @@ func (a *Access) VisibleCrossRefs(ctx context.Context, refs []domain.CrossRef) [
 // share visitor that is the whole shape of the workspace behind the link.
 func (a *Access) VisibleIncomingCrossRefs(ctx context.Context, refs []domain.CrossRef) []domain.CrossRef {
 	mayRead := a.readMemo(ctx)
+	share := auth.ShareFromContext(ctx) != nil
 
 	out := make([]domain.CrossRef, 0, len(refs))
 	for _, ref := range refs {
+		// Same rule as the outgoing direction, and it bites harder here: an
+		// incoming reference from an annotation says a mark on some document
+		// points at the one being read.
+		if share && !shareableCrossRefSource(ref.SourceType) {
+			continue
+		}
 		if ref.SourceResearchID == "" || !mayRead(ref.SourceResearchID) {
 			continue
 		}

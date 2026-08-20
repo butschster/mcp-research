@@ -59,6 +59,35 @@ type ExportEntry struct {
 	SessionCode string         `json:"session_code,omitempty"` // links to ExportSession.Code
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
+
+	// Annotations travel with the document they mark. They are working process
+	// and appear in no other export — not the markdown one, not the vault — but
+	// a portable dump is a move, and a move that drops the queue silently
+	// discards the only record of what a person did not believe.
+	Annotations []ExportAnnotation `json:"annotations,omitempty"`
+}
+
+// ExportAnnotation is one mark, carried without the identities that only mean
+// something on the server it came from.
+//
+// What is deliberately absent: the id and code (reassigned on arrival), the
+// user (an account on another server), the anchored revision (history does not
+// travel, so every imported document starts at revision 1), and the task link
+// (a task id is not portable). The anchor itself survives because it never was
+// an id: a block id lives inside the document's own content, and the quote is
+// the proof either way.
+type ExportAnnotation struct {
+	BlockID    string           `json:"block_id,omitempty"`
+	Quote      Quote            `json:"quote"`
+	Kind       AnnotationKind   `json:"kind"`
+	Body       string           `json:"body,omitempty"`
+	AuthorKind AuthorKind       `json:"author_kind,omitempty"`
+	Status     AnnotationStatus `json:"status"`
+	Resolution string           `json:"resolution,omitempty"`
+	Rejections []Rejection      `json:"rejections,omitempty"`
+	Attempts   int              `json:"attempts,omitempty"`
+	CreatedAt  time.Time        `json:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at"`
 }
 
 type ExportSession struct {

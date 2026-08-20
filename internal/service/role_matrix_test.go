@@ -27,8 +27,9 @@ type roleKit struct {
 	section  *SectionService
 	entry    *EntryService
 	session  *SessionService
-	task     *TaskService
-	roadmap  *RoadmapService
+	task       *TaskService
+	roadmap    *RoadmapService
+	annotation *AnnotationService
 	team     *TeamService
 	teamRepo *storage.TeamRepository
 	// events is what the WebSocket hub would have been handed. Delivery is
@@ -61,6 +62,8 @@ func newRoleKit(t *testing.T) *roleKit {
 		session: NewSessionService(db, sessionRepo, storage.NewQuestionRepository(db), researchRepo,
 			access, entrySvc, notifier, log),
 		task: NewTaskService(storage.NewTaskRepository(db), researchRepo, access, entrySvc, notifier, log),
+		annotation: NewAnnotationService(storage.NewAnnotationRepository(db), entryRepo,
+			storage.NewEntryRevisionRepository(db), access, entrySvc, entrySvc, notifier, log),
 		roadmap: NewRoadmapService(storage.NewRoadmapRepository(db), storage.NewRoadmapNodeRepository(db),
 			storage.NewRoadmapEdgeRepository(db), researchRepo, access, notifier, log),
 		team:     NewTeamService(teamRepo, storage.NewTeamInviteRepository(db), storage.NewUserRepository(db), researchRepo, notifier, log),
@@ -159,6 +162,13 @@ func TestRoles_ViewerCannotWriteAnything(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed session: %v", err)
 	}
+	mark, err := k.annotation.Create(owner, CreateAnnotationRequest{
+		EntryID: entry.ID, Quote: domain.Quote{Exact: "body"}, Kind: domain.AnnotationVerify,
+	})
+	if err != nil {
+		t.Fatalf("seed annotation: %v", err)
+	}
+
 	task, err := k.task.Create(owner, CreateTaskRequest{ResearchID: research.ID, Title: "T"})
 	if err != nil {
 		t.Fatalf("seed task: %v", err)
@@ -245,6 +255,23 @@ func TestRoles_ViewerCannotWriteAnything(t *testing.T) {
 			return err
 		},
 		"task delete": func(ctx context.Context) error { return k.task.Delete(ctx, task.ID) },
+		// Marking a sentence is authoring, not reading: a viewer may see what
+		// others doubted and may not add to it.
+		"annotation create": func(ctx context.Context) error {
+			_, err := k.annotation.Create(ctx, CreateAnnotationRequest{
+				EntryID: entry.ID, Quote: domain.Quote{Exact: "body"}, Kind: domain.AnnotationVerify,
+			})
+			return err
+		},
+		"annotation update": func(ctx context.Context) error {
+			_, err := k.annotation.Update(ctx, mark.ID, UpdateAnnotationRequest{Body: ptr("changed")})
+			return err
+		},
+		"annotation answer": func(ctx context.Context) error {
+			_, err := k.annotation.Answer(ctx, mark.ID, AnswerAnnotationRequest{Resolution: "done"})
+			return err
+		},
+		"annotation delete": func(ctx context.Context) error { return k.annotation.Delete(ctx, mark.ID) },
 		"roadmap create": func(ctx context.Context) error {
 			_, err := k.roadmap.Create(ctx, CreateRoadmapRequest{ResearchID: research.ID, Title: "RM2"})
 			return err

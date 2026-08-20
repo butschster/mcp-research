@@ -179,8 +179,26 @@
   --z-in-page: 1;
   --z-elevated: 10;
   --z-overlay: 100;
+
   --z-noise: 200;
   /* Above the grain and above a dialog: a notification that a modal covers is a
      notification nobody reads. */
   --z-toast: 300;
+
+  /* --- Annotations ------------------------------------------------------
+     Type carries colour, anchor state carries shape, and neither is ever the
+     only carrier — a mark says what it is in a glyph and a word as well. No
+     new colours here, only names, so a raw #a78bfa never reaches a component. */
+  --ann-verify:        var(--color-info);
+  --ann-dig:           var(--hue-5);
+  --ann-disagree:      var(--color-warning);
+  --ann-verify-wash:   rgba(107, 157, 240, 0.10);
+  --ann-dig-wash:      rgba(167, 139, 250, 0.10);
+  --ann-disagree-wash: rgba(240, 184, 73, 0.10);
+  /* One marker. Small enough that three fit side by side in the column, which
+     is what a line carrying three marks needs. */
+  --ann-pin:           15px;
+  /* The marker column lives inside the document card's extra left padding, so
+     this is a width rather than a gap. Three pins and the gaps between them. */
+  --ann-gutter:        calc(var(--ann-pin) * 3 + 4px);
 }

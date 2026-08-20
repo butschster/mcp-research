@@ -9,7 +9,8 @@ Step-by-step guide for AI assistants on how to conduct a research project.
 A research project follows this lifecycle:
 
 1. **Initialize** — Design the research structure (sections, goals, tags)
-2. **Conduct** — Interview the user, create entries, track progress
+2. **Conduct** — Interview the user, create entries, work the marks they left on
+   the text, track progress
 3. **Complete** — Mark sections and research as completed
 
 ### Check first that you may write
@@ -159,6 +160,40 @@ lost and an earlier version can be restored. But undoing another session's
 correction without noticing is exactly the failure this history exists to catch.
 See [Revisions](/llms/revisions.md).
 
+### Work the Marks They Left
+
+A person reading what you wrote can mark a sentence they do not believe. Those
+marks are a queue, and they are the cheapest high-quality signal in the system:
+a human read this specific text and said what is wrong with it. Nothing pushes
+them at you, so make the check part of the cycle.
+
+**When to look:** at the start of a session on a research that already has
+documents, and again after a pass of entry writing. Not on a research you just
+created — nobody has read it yet.
+
+1. `annotation_list(research_id, status: "open")` — the queue, capped at 15 by
+   the server. It carries the quote, the block's current text and the kind of
+   work asked for, so you can triage without reading a single document.
+2. **Say what you will take, before you take it.** Group by document — the
+   response comes back ordered by entry for exactly that reason — and let the
+   user cut the list. A pass is scoped and accepted as a unit.
+3. Work each mark by its `kind`: `verify` (find a source or say you could not),
+   `dig` (write a child entry and link it from the marked block with `[[E19]]`),
+   `disagree` (**record both positions — do not edit the objection away**).
+4. Write **one revision per document, not one per mark**: a pass the user rejects
+   is then undone with a single restore.
+5. `annotation_answer(annotation_id, resolution)` on each, naming what you
+   produced — `[[E19]]`, `[[Q7]]` — which become real links.
+6. Stop at `answered`. Closing and dismissing are the user's, always. Tell them
+   the pass is ready for review.
+
+When you cannot answer without them, do not invent one: `question_create` in the
+active session, then answer naming it — *"needs you — asked [[Q9]]"*. A mark whose
+`attempts` is already 2 is one nobody can settle from inside the system; escalate
+it instead of writing a third answer.
+
+See [Annotations](/llms/annotations.md).
+
 ### Track Progress
 
 - Use `research_update` with `add_memory` to record key insights
@@ -228,8 +263,9 @@ Every record gets an auto-assigned short code on creation:
 | Task | `T` | per research | `T1`, `T2` |
 | Roadmap | `RM` | per research | `RM1`, `RM2` |
 | Node | `N` | per roadmap | `N1`, `N2` |
+| Annotation | `A` | per research | `A1`, `A2` |
 
-REST responses carry the `code` field on every entity. MCP tools are less complete: `research_create`, `research_import`, `research_get`, `entry_create`, `entry_list`, `entry_read`, `entry_patch`, `session_get` and the `roadmap_*` tools return codes, while section, question and task codes are only reachable through the REST API. Codes can be used in URLs instead of UUIDs (`/research/R1/entry/E2`), but as tool arguments only `research_get`, `research_update`, `research_export`, `session_get` and `roadmap_get` resolve them — see the [MCP Client Guide](/llms/mcp-client-guide.md).
+REST responses carry the `code` field on every entity. MCP tools are less complete: `research_create`, `research_import`, `research_get`, `entry_create`, `entry_list`, `entry_read`, `entry_patch`, `session_get`, the two `annotation_*` tools and the `roadmap_*` tools return codes, while section, question and task codes are only reachable through the REST API. Codes can be used in URLs instead of UUIDs (`/research/R1/entry/E2`), but as tool arguments only `research_get`, `research_update`, `research_export`, `session_get` and `roadmap_get` resolve them — see the [MCP Client Guide](/llms/mcp-client-guide.md).
 
 ## Cross-References
 
@@ -269,6 +305,8 @@ Use `[[...]]` syntax in entry content to create links between documents:
 - Write entries that are self-contained and useful on their own
 - Use the research's instruction field as your guide for tone and depth
 - Load a skill when you reach the work it names, not while orienting — and one at a time
+- Read the open annotations before writing into a research somebody has already read — a marked sentence is a person telling you where the document is wrong
+- Answer a mark, never close it: `closed` and `dismissed` belong to the reader
 - Keep session notes updated for context across sessions
 - Use tasks to plan and track remaining work
 - Use `[[E1]]` cross-references to build connections between related entries

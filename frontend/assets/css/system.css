@@ -207,6 +207,9 @@
 .badge-pending     { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
 .badge-answered    { background: rgba(52, 211, 153, 0.10); color: var(--color-success); }
 .badge-deferred    { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
+.badge-open        { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
+.badge-closed      { background: rgba(52, 211, 153, 0.10); color: var(--color-success); }
+.badge-dismissed   { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
 .badge-skipped     { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
 .badge-blocked     { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
 .badge-failed      { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
@@ -1089,3 +1092,73 @@ button.tag {
    reader cannot see, on the one screen where the failure costs unsaved text.
    Below the toasts, above the grain and the sticky nav. */
 .md-editor-fullscreen { z-index: 250 !important; }
+
+
+/* --- Annotation marks ------------------------------------------------------
+ *
+ * Painted over prose the page did not build, so these are global rather than
+ * scoped: the spans are inserted into `v-html` output by
+ * `useAnnotationOverlay`, where a component's scoped attribute never reaches.
+ *
+ * Type carries colour; anchor state carries the SHAPE of the underline. Neither
+ * is ever alone — the gutter pin repeats the glyph, and every mark carries a
+ * screen-reader tail naming both.
+ */
+.ann-mark {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.ann-mark--verify   { text-decoration-color: var(--ann-verify); }
+.ann-mark--dig      { text-decoration-color: var(--ann-dig); }
+.ann-mark--disagree { text-decoration-color: var(--ann-disagree); }
+
+.ann-mark--anchored { text-decoration-style: solid; }
+.ann-mark--drifted  { text-decoration-style: wavy; }
+.ann-mark--moved    { text-decoration-style: dashed; }
+
+/* The selection, frozen. It is our own highlight and not the browser's, because
+ * the browser drops the real one the moment the popover takes focus. */
+.ann-pending {
+  background: var(--color-primary-muted);
+  border-radius: 2px;
+}
+
+/* Room for the gutter, inside the card rather than beside it.
+   The column sits at the card's edge — see MarkGutter — so the prose is pushed
+   past it rather than sharing its space. */
+.entry-content.has-marks {
+  position: relative;
+  padding-left: calc(var(--space-3) + var(--ann-gutter) + var(--space-4));
+}
+
+@media (max-width: 768px) {
+  .entry-content.has-marks { padding-left: var(--entry-pad); }
+}
+
+/* The keyboard way in. Marked text is deliberately not a tab stop — forty marks
+ * would be forty stops inside prose — so this is how somebody reaches them. */
+.marks-skip {
+  position: absolute;
+  left: -9999px;
+  top: var(--space-2);
+  font-size: var(--type-2xs);
+}
+
+.marks-skip:focus {
+  position: static;
+  display: inline-block;
+  margin-bottom: var(--space-2);
+}
+
+/* Marks are working process. They are never rendered under a share link, and
+ * they have no business in a printed document either. */
+@media print {
+  .ann-mark { text-decoration: none; }
+  .mark-gutter,
+  .thread,
+  .marks-orphans,
+  .marks-skip { display: none; }
+}

@@ -56,6 +56,7 @@ What that changes in practice:
 | "Didn't we decide this already?" | Decision entries, revision history, and who wrote what |
 | Copy-paste into Notion afterwards | Markdown, PDF, an Obsidian vault, or portable JSON on demand |
 | The AI's plan is invisible | A task board and roadmaps the AI maintains itself |
+| Disagreeing means retyping the paragraph into a chat | You mark the sentence itself, and the AI works that queue |
 
 ---
 
@@ -99,6 +100,28 @@ comparison grid, a small interactive view — sized to its content and printable
 with the rest of the research.
 
 ![HTML artifact rendering a cost chart](docs/images/artifact.webp)
+
+### The sentence you do not believe
+
+You read what the assistant wrote, reach a claim you do not buy, and your options
+are to describe the paragraph back into a chat window or to open a task called
+"the bit about p99". Instead you **select the sentence and mark it**: `verify`
+(find a source, or say plainly you could not), `dig` (this deserves its own
+document), `disagree` (do not smooth this over — record both positions).
+
+**The AI cannot make a mark and cannot close one.** It reads the queue
+(`annotation_list`), does the work, and records what it did
+(`annotation_answer`) — `answered` is as far as it may go. You accept a pass of
+answers, or send one back with a reason. There is deliberately no tool that
+creates a mark: the whole point is that a person read this specific text.
+
+Marks are anchored by the quote, not by an offset, so they survive the agent
+rewriting the document around them — and when the paragraph you doubted is gone,
+the mark says so instead of quietly disappearing, with a diff from the revision
+it was made against. Open marks are counted in the research header, and
+`/research/R1/annotations` is the queue: grouped by document, filtered by kind
+or state, with the answers reviewed and accepted a pass at a time. Full
+reference: `/llms/annotations.md`.
 
 ### A todo list the AI keeps for itself
 
@@ -194,6 +217,10 @@ flowchart TD
     G --> I["entry_create — finding written to a section"]
     H --> F
     I --> J["task_create / task_update — AI tracks its own work"]
+    I --> P["You mark a sentence you do not believe<br/>verify · dig · disagree"]
+    P --> Q["annotation_list — AI works the queue<br/>annotation_answer — answered, never closed"]
+    Q --> R["You accept the pass, or send it back"]
+    R --> L
     J --> K["roadmap_create — plan drawn as a graph"]
     K --> L{Covered?}
     L -->|no| F
@@ -219,6 +246,13 @@ AI:   [opens session SS1, asks 5 questions, records your answers]
       [writes E1 What retrieval has to do, E2 The shortlist...]
       [opens tasks: run the benchmark harness, price the managed tiers]
       Section "Context & constraints" is complete. Ready for the benchmark section?
+
+You:  I marked three sentences in E2. Work them.
+
+AI:   [annotation_list — 3 open marks in E2: two verify, one disagree]
+      [A1: cites the vendor's pricing page. A2: could not confirm, asked [[Q7]]]
+      [A3: records both positions in the document instead of rewriting it]
+      Three marks answered. Accept them, or send any back.
 ```
 
 Everything the assistant writes appears in the browser as it happens. You are
@@ -312,7 +346,7 @@ same process and the same database.
 ### 1. Local MCP client over stdio
 
 Claude Code, Claude Desktop and Cursor spawn the binary themselves. The assistant
-gets **39 tools** and **2 research prompts**.
+gets **50 tools** and **2 research prompts**.
 
 **Claude Code** — `~/.claude/mcp.json`:
 
@@ -394,7 +428,7 @@ access rules, and an index of deeper guides that are served as plain markdown at
 | Document | What it covers |
 |---|---|
 | `/llms.txt` | Entry point — data model, short codes, `[[refs]]`, entry types, index |
-| `/llms/mcp-client-guide.md` | All 39 tools, the input-schema contract, nullable fields, common pitfalls |
+| `/llms/mcp-client-guide.md` | All 50 tools, the input-schema contract, nullable fields, common pitfalls |
 | `/llms/domain-guide.md` | Every entity in full: fields, statuses, lifecycle, the role matrix, the real-time event stream |
 | `/llms/conducting-research.md` | The workflow itself — initialize, interview, write entries, complete |
 | `/llms/tasks.md` | When to open a task, statuses, tasks vs questions |
@@ -403,6 +437,8 @@ access rules, and an index of deeper guides that are served as plain markdown at
 | `/llms/skills.md` | Skills: the tiers, the index, `skill_load`, and how to write a trigger line |
 | `/llms/blocks.md` | The block document format and all block types |
 | `/llms/artifacts.md` | Writing the HTML that goes inside an artifact, and the sandbox rules |
+| `/llms/metadata.md` | Typed fields a section declares and its documents carry, and the completion gate |
+| `/llms/annotations.md` | Marks a person leaves on a sentence: the three kinds, the anchor states, what the agent may and may not do |
 | `/llms/revisions.md` | History, diffs, restore, and what does not create a revision |
 | `/llms/export.md` | Every export form and endpoint |
 | `/api/openapi.yaml` | OpenAPI 3.1 spec for the REST API |
@@ -481,7 +517,8 @@ information.
 token, optionally password-protected and time-limited, that opens a read-only
 copy at `/s/{token}`. You choose what the link includes — sessions, tasks,
 roadmaps, export. Working process is never shared: instructions, memory, entry
-provenance and revision history stay behind the login.
+provenance, revision history and the marks people left on sentences stay behind
+the login.
 
 Other auth features:
 
@@ -510,6 +547,7 @@ Priority: **CLI flags > env vars > `config.yaml` > defaults.**
 | Registration | `--allow-registration` | `MCP_RESEARCH_ALLOW_REGISTRATION` | `true` |
 | Public base URL | `--base-url` | `MCP_RESEARCH_BASE_URL` | — |
 | Default user | `--default-user` | `MCP_RESEARCH_DEFAULT_USER` | — |
+| Revision limit | `--revision-limit` | `MCP_RESEARCH_REVISION_LIMIT` | `0` — keep every revision |
 | Config file | `--config` | `MCP_RESEARCH_CONFIG` | `./config.yaml` |
 
 Data model, in short:
@@ -518,6 +556,7 @@ Data model, in short:
 Team — owns researches; a role in it is the whole access model
   Research (R1, R2...)
     ├── Section (S1, S2...) → Entry (E1, E2...) → Revision (1, 2, 3...)
+    │                         ↳ Annotation (A1, A2...) — a mark on a sentence
     ├── Session (SS1, SS2...) → Question (Q1, Q2...)
     ├── Task (T1, T2...)
     ├── Roadmap (RM1, RM2...) → Node (N1, N2...) + edges
@@ -531,7 +570,7 @@ Short codes are assigned automatically and accepted wherever an id is:
 
 ## MCP tools
 
-39 tools, 2 prompts.
+50 tools, 2 prompts.
 
 | Category | Tools |
 |---|---|
@@ -541,7 +580,10 @@ Short codes are assigned automatically and accepted wherever an id is:
 | **Sessions** | `session_create`, `session_get`, `session_update` |
 | **Questions** | `question_create`, `question_update`, `question_list` |
 | **Tasks** | `task_create`, `task_update`, `task_list`, `task_delete` |
+| **Annotations** | `annotation_list`, `annotation_answer` |
 | **Roadmaps** | `roadmap_create`, `roadmap_get`, `roadmap_list`, `roadmap_update`, `roadmap_delete`, `roadmap_add_nodes`, `roadmap_update_node`, `roadmap_remove_nodes` |
+| **Templates** | `template_list`, `template_get` |
+| **Skills** | `skill_list`, `skill_load`, `skill_attach`, `skill_detach`, `skill_create`, `skill_update`, `skill_fork`, `skill_copy`, `skill_promote`, `skill_delete` |
 | **Teams** | `team_list` |
 | **Transfer** | `research_export`, `research_import` |
 
@@ -549,7 +591,9 @@ Short codes are assigned automatically and accepted wherever an id is:
 `research/conduct` (run the interview and write it up).
 
 Share links have no tool on purpose: creating or revoking one is a human act, done
-in the web UI or over REST.
+in the web UI or over REST. Annotations have no create tool and no close tool for
+the same reason — a mark is a person pointing at a sentence, and only a person
+accepts the work done about it.
 
 ---
 

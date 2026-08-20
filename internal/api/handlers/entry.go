@@ -274,34 +274,9 @@ func (h *EntryHandler) teamOf(ctx context.Context, researchID string) string {
 	return research.TeamID
 }
 
-// authorName resolves a revision's user id to something a reader recognises —
-// but only for somebody entitled to recognise it.
-//
-// The right to read a document does not carry the right to know who wrote it.
-// Those two come apart through ordinary use: a research moves to another team
-// and every member of the new one inherits entries written by people they have
-// never shared a team with; a member leaves and the people who join afterwards
-// read their name off every document they touched. Membership in the team that
-// owns the research now is the boundary, and it is checked here rather than
-// assumed from the entry read that got us this far.
-//
-// The email is deliberately not a fallback. It would fire for exactly the
-// accounts that never set a name — API keys, OAuth clients, --default-user —
-// turning a display nicety into a bulk address disclosure. A person with no
-// name is "a person", which is what the glyph already says.
-//
-// Everything else fails quietly: a deleted user, a database hiccup or auth
-// being off all mean "no name", and the line has always stood without one.
+// authorName resolves a revision's author for display. The rule it obeys — and
+// why the name is not simply handed to anyone who can read the document — lives
+// with resolveAuthorName, which the annotation queue shares.
 func (h *EntryHandler) authorName(ctx context.Context, teamID, userID string) string {
-	if h.users == nil || h.teams == nil || userID == "" || teamID == "" {
-		return ""
-	}
-	if _, ok, err := h.teams.FindRole(ctx, teamID, userID); err != nil || !ok {
-		return ""
-	}
-	user, err := h.users.FindByID(ctx, userID)
-	if err != nil || user == nil {
-		return ""
-	}
-	return user.Name
+	return resolveAuthorName(ctx, h.users, h.teams, teamID, userID)
 }

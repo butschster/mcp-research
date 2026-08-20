@@ -77,6 +77,10 @@ type Entry struct {
 	// persisted — a stored completeness flag goes stale the moment the spec
 	// changes.
 	MetaStatus *MetadataStatus `json:"metadata_status,omitempty"`
+	// Set on a write that moved or destroyed text somebody had marked, never
+	// persisted. See AnnotationReport: the writer that buried a contested
+	// sentence is told in the call that buried it.
+	AnnReport *AnnotationReport `json:"annotation_report,omitempty"`
 }
 
 // MetadataStatus is how a stored document stands against what its section

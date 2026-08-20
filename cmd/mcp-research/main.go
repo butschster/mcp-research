@@ -64,6 +64,7 @@ func main() {
 	taskRepo := storage.NewTaskRepository(db)
 	revisionRepo := storage.NewEntryRevisionRepository(db)
 	crossrefRepo := storage.NewCrossRefRepository(db)
+	annotationRepo := storage.NewAnnotationRepository(db)
 	externalLinkRepo := storage.NewExternalLinkRepository(db)
 	roadmapRepo := storage.NewRoadmapRepository(db)
 	roadmapNodeRepo := storage.NewRoadmapNodeRepository(db)
@@ -95,9 +96,17 @@ func main() {
 	entrySvc.SetRevisionLimit(cfg.RevisionLimit)
 	sessionSvc := service.NewSessionService(db, sessionRepo, questionRepo, researchRepo, access, entrySvc, events, log)
 	taskSvc := service.NewTaskService(taskRepo, researchRepo, access, entrySvc, events, log)
+	annotationSvc := service.NewAnnotationService(annotationRepo, entryRepo, revisionRepo, access, entrySvc, entrySvc, events, log)
+	// An entry write now reports which marks it drifted or orphaned. Wired after
+	// the service exists, and optional: without this the server behaves exactly
+	// as it did before annotations.
+	entrySvc.SetAnnotations(annotationRepo)
 	roadmapSvc := service.NewRoadmapService(roadmapRepo, roadmapNodeRepo, roadmapEdgeRepo, researchRepo, access, events, log)
 	roadmapSvc.SetRefResolvers(entryRepo, taskRepo, sessionRepo, questionRepo, sectionRepo)
 	exportSvc := service.NewExportService(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, log)
+	// A portable dump is a move, and a move that drops the marks discards the
+	// only record of what somebody did not believe.
+	exportSvc.SetAnnotations(annotationRepo)
 	obsidianSvc := service.NewObsidianService(researchSvc, sectionSvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, revisionRepo, log)
 	teamSvc := service.NewTeamService(teamRepo, teamInviteRepo, userRepo, researchRepo, events, log)
 	shareSvc := service.NewShareService(shareRepo, access, events, log)
@@ -174,7 +183,7 @@ func main() {
 	}
 
 	// MCP Server
-	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, skillSvc, templateSvc, log, version)
+	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, skillSvc, templateSvc, annotationSvc, log, version)
 	srv.SetBaseURL(cfg.BaseURL)
 
 	log.Info("mcp-research started",
@@ -200,7 +209,7 @@ func main() {
 		MCPHandler:     srv.StreamableHTTPHandler(),
 		Version:        version,
 	}
-	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
+	apiSrv := api.NewServer(apiCfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, annotationSvc, access, authSvc, db, entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 	go func() {
 		if err := apiSrv.Start(ctx); err != nil {
 			log.Error("API server error", "error", err)

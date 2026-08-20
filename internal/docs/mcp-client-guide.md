@@ -1,6 +1,6 @@
 # MCP Client Guide
 
-Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, the kickoff templates and the skills index and when to read each, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
+Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, the kickoff templates and the skills index and when to read each, the queue of marks a reader left on the text and how far you may take one, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
 
 ## Two Ways to Interact
 
@@ -65,6 +65,20 @@ Both interfaces operate on the same data and produce the same results. MCP tools
 | `task_list` | List tasks (sorted by priority) |
 | `task_update` | Update status, priority, result |
 | `task_delete` | Remove a task |
+
+### Annotations
+
+| Tool | Purpose |
+|------|---------|
+| `annotation_list` | The queue of marks a person left on places in the documents: the quote, the current text of the block it sits in, the kind of work asked for, and where the marked text is now. Never entry content |
+| `annotation_answer` | Record what you did about one mark and move it to `answered` |
+
+**Two tools, and the two that are missing are the design.** There is no
+`annotation_create`: a mark is born from a person selecting a sentence in the web
+UI, and a queue an agent can fill hides whether that gesture ever happened. And
+nothing takes a mark past `answered` — `closed` and `dismissed` are refused with
+`only a person may close or dismiss an annotation`, which over REST is a `403`.
+You do the work; they accept it. [Annotations](/llms/annotations.md).
 
 ### Sections
 
@@ -221,7 +235,8 @@ Consequences:
 - **A schema that requires nothing is not a tool that accepts nothing.** `skill_update` and `skill_delete` require no property because the skill may be addressed two ways — `research_id` + `slug`, or `skill_id` — and the tool checks that itself: give one form or the other, never both and never neither. `skill_create` is the same shape for ownership, `research_id` or `team_id`. `skill_update` also refuses a call that changes nothing: send at least one of `name`, `description`, `body`.
 - **Two tools take no input at all**: `template_list` and `team_list`. Their schemas are empty objects — send `{}`.
 - **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
-- **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`. `null` or `""` means "no filter".
+- **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`, `annotation_list.status` / `kind` / `entry_id` / `limit` / `offset`. `null` or `""` means "no filter".
+- **The two annotation tools are in the ordinary regime**, not among the exceptions above: send every property. `annotation_list` carries one plain string (`research_id`) and five nullable filters, so the queue read is `research_id` plus five `null`s. `annotation_answer` carries two plain strings — `annotation_id` and `resolution`, neither of which may be `null` or empty — and one nullable `task_id`.
 - **`null` and empty are different for a replacing field.** `metadata` (`entry_update`) and `field_spec` (`section_update`) are nullable but not "empty means empty": `null` leaves what is stored alone, while `{}` clears every value and `[]` removes every declared field. Send `null` unless you mean to erase.
 - **Inside a `field_spec` item**, `key`, `label`, `type` and `required` must be present. `repeated`, `options` and `help` may be omitted; if you do send them, `options` accepts `null` while `repeated` (boolean) and `help` (string) do not — send `false` and `""`.
 - Unknown property names are rejected outright (`additionalProperties: false`).
@@ -248,6 +263,11 @@ Consequences:
 | `query` (`skill_list`) | No filter — the whole library this research may attach. Ignored with `team_id` |
 | `research_id` / `team_id` (`skill_create`) | Neither is a default: exactly one must carry a value, and it decides whether the skill is research-private or a team's |
 | `name`, `description`, `body` (`skill_update`, `skill_fork`) | Inherited from the stored skill. `null` leaves a field alone; it is not a way to blank one |
+| `status` (`annotation_list`) | `open` — the queue is a work list, so "the annotations" means the ones still wanting an answer. Any other value must be one of `open` / `answered` / `closed` / `dismissed` |
+| `kind`, `entry_id` (`annotation_list`) | No filter — every kind, every document in the research |
+| `limit` (`annotation_list`) | `15`, which is also the server's ceiling: a larger number is silently clamped to it, so a batch is never bigger than a diff a person will review |
+| `offset` (`annotation_list`) | `0`. The result carries a `hint` when it came back full, which is when there may be more |
+| `task_id` (`annotation_answer`) | The mark is not attached to a task. Promotion is explicit and never automatic |
 | `to` (`entry_diff`) | The newest revision |
 | `from` (`entry_diff`) | The revision before `to` — so a call with neither shows the most recent change |
 
@@ -464,6 +484,8 @@ Beyond schema validation, each create tool checks a few fields for non-empty val
 | `question_create` | `session_id`, at least one question with `text` |
 | `task_create` | `research_id`, `title` |
 | `roadmap_create` | `research_id`, `title` |
+| `annotation_list` | `research_id` |
+| `annotation_answer` | `annotation_id`, `resolution` — a mark moved to `answered` with nothing recorded cannot be reviewed, so an empty one is refused |
 | `skill_load`, `skill_list`, `skill_attach`, `skill_detach`, `skill_copy`, `skill_promote`, `skill_fork` | `research_id` (`slug` too, except `skill_list`; `skill_load` and `skill_list` take an id form instead) |
 | `skill_create` | `name`, `description`, `body`, and exactly one of `research_id` / `team_id` |
 | `skill_update`, `skill_delete` | `skill_id`, **or** `research_id` with `slug` |
@@ -558,6 +580,27 @@ Two more habits worth having:
 
 See [Document Metadata](/llms/metadata.md).
 
+### 11. Trying to finish an annotation, or retrying the refusal
+
+`annotation_answer` is the whole of your reach: it sets `answered` and stops
+there. There is no tool argument, and no REST body an agent credential can send,
+that reaches `closed` or `dismissed` — `only a person may close or dismiss an
+annotation` is a decision, not a transient failure, and retrying it or looking
+for another route is wasted work. Report the mark as answered and say what you
+did.
+
+Two neighbouring refusals read differently and mean different things:
+
+- `annotation … is already settled` — somebody closed or dismissed it while you
+  were working. Do not re-open it; move on to the next mark.
+- `your role in this team does not allow this` — you are a `viewer` here.
+  Answering a mark is a write, exactly like writing an entry.
+
+And a rewrite is not an answer. Editing the paragraph a `disagree` mark points at
+until the objection no longer applies destroys the disagreement instead of
+recording it; the mark stays open and the position it defended is gone. See
+[Annotations](/llms/annotations.md).
+
 ## Short Codes
 
 Every entity gets an auto-assigned short code on creation. These codes can be used in URLs and cross-references instead of UUIDs:
@@ -572,6 +615,9 @@ Every entity gets an auto-assigned short code on creation. These codes can be us
 | Task | `T1`, `T2` | Per research | — |
 | Roadmap | `RM1`, `RM2` | Per research | `/research/R1/roadmap/RM1` |
 | Node | `N1`, `N2` | Per roadmap | — |
+| Annotation | `A1`, `A2` | Per research | `/research/R1/annotations` (the queue page; a mark has no URL of its own) |
+
+`[[A4]]` is **not** a cross-reference. Only `E`, `R`, `RM` and `RM:N` resolve, so a mark named in prose stores an unresolved reference and renders as inert text. Name what you produced instead — `[[E19]]`, `[[Q7]]` — which is what `annotation_answer` indexes.
 
 Which tools hand codes back:
 
@@ -579,12 +625,13 @@ Which tools hand codes back:
 - `entry_create`, `entry_list`, `entry_read`, `entry_patch` — entry codes (`entry_read` returns the whole entry record, so `code` is on it)
 - `roadmap_create`, `roadmap_list`, `roadmap_get`, `roadmap_update_node` — roadmap and node codes
 - `session_get` — session code (inside the `session` object)
+- `annotation_list`, `annotation_answer` — the mark's `code` (`A4`) and the `entry_code` it sits in, so a report to the user can name both
 - Section, question, and task codes are **not** returned by any tool right now: `research_get`, `question_list`, `session_get` questions, `task_list` and `task_create` return UUIDs only. Use those UUIDs in subsequent tool calls, and the REST API (`GET /api/researches/{id}`, `/tasks`, `/sessions/{sessionId}`) if you need the codes themselves.
 
 Where codes are accepted as tool input:
 
 | Accepts UUID **or** code | Accepts UUID only |
 |--------------------------|-------------------|
-| `research_get`, `research_update`, `research_export` (`research_id`), every `skill_*` tool (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list`, `entry_id`, `question_id`, `task_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
+| `research_get`, `research_update`, `research_export` (`research_id`), every `skill_*` tool (`research_id`), `session_get` (`session_id`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list` / **`annotation_list`**, `entry_id`, `question_id`, `task_id`, `annotation_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
 
 So keep the UUIDs returned by create calls. Short codes are for humans, URLs, and `[[...]]` cross-references — REST routes resolve them in `{id}` / `{sessionId}` / `{entryId}` / `{roadmapId}` path segments, MCP tools mostly do not.

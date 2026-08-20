@@ -73,6 +73,13 @@ func TestShareDelivery_IncludeFlagsFilterTheStream(t *testing.T) {
 		{Type: "roadmap.updated", Entity: "roadmap", EntityID: "rm1", ResearchID: "r1"},
 		{Type: "share.created", Entity: "share", EntityID: "sh1", ResearchID: "r1"},
 		{Type: "team.updated", Entity: "team", EntityID: "team1"},
+		// A mark is one person saying they do not believe a sentence. There is
+		// no include flag for it and never will be — and `parent_code` names the
+		// document being disputed, so the default `return true` at the bottom of
+		// visibleToShare was handing a stranger the shape of the argument.
+		{Type: "annotation.created", Entity: "annotation", EntityID: "a1", ResearchID: "r1", ParentID: "e1", ParentCode: "E7"},
+		{Type: "annotation.answered", Entity: "annotation", EntityID: "a1", ResearchID: "r1", ParentID: "e1", ParentCode: "E7"},
+		{Type: "annotation.deleted", Entity: "annotation", EntityID: "a1", ResearchID: "r1", ParentID: "e1", ParentCode: "E7"},
 	} {
 		hub.deliver(e)
 		if got, ok := received(t, visitor); ok {

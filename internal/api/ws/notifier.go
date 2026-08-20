@@ -21,6 +21,8 @@ func (n *HubNotifier) Notify(event service.Event) {
 		ResearchID:    event.ResearchID,
 		EntityID:      event.EntityID,
 		Entity:        event.Entity,
+		ParentID:      event.ParentID,
+		ParentCode:    event.ParentCode,
 		ActorUserID:   event.ActorUserID,
 		ActorClientID: event.ActorClientID,
 		Reason:        event.Reason,

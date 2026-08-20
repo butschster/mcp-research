@@ -2,23 +2,23 @@
   <div ref="root" class="block-doc">
     <template v-for="(b, i) in blocks" :key="i">
       <!-- paragraph -->
-      <p v-if="b.type === 'paragraph'" class="b-paragraph" v-html="inline(b.data.text)"></p>
+      <p v-if="b.type === 'paragraph'" :data-block-id="b.id" class="b-paragraph" v-html="inline(b.data.text)"></p>
 
       <!-- heading -->
-      <h2 v-else-if="b.type === 'heading' && b.data.level === 2" class="b-heading b-h2" v-html="inline(b.data.text)"></h2>
-      <h3 v-else-if="b.type === 'heading' && b.data.level === 3" class="b-heading b-h3" v-html="inline(b.data.text)"></h3>
-      <h4 v-else-if="b.type === 'heading'" class="b-heading b-h4" v-html="inline(b.data.text)"></h4>
+      <h2 v-else-if="b.type === 'heading' && b.data.level === 2" :data-block-id="b.id" class="b-heading b-h2" v-html="inline(b.data.text)"></h2>
+      <h3 v-else-if="b.type === 'heading' && b.data.level === 3" :data-block-id="b.id" class="b-heading b-h3" v-html="inline(b.data.text)"></h3>
+      <h4 v-else-if="b.type === 'heading'" :data-block-id="b.id" class="b-heading b-h4" v-html="inline(b.data.text)"></h4>
 
       <!-- list -->
-      <ol v-else-if="b.type === 'list' && b.data.style === 'ordered'" class="b-list">
+      <ol v-else-if="b.type === 'list' && b.data.style === 'ordered'" :data-block-id="b.id" class="b-list">
         <li v-for="(it, j) in (b.data.items || [])" :key="j" v-html="inline(it)"></li>
       </ol>
-      <ul v-else-if="b.type === 'list'" class="b-list">
+      <ul v-else-if="b.type === 'list'" :data-block-id="b.id" class="b-list">
         <li v-for="(it, j) in (b.data.items || [])" :key="j" v-html="inline(it)"></li>
       </ul>
 
       <!-- table -->
-      <div v-else-if="b.type === 'table'" class="b-table-wrap">
+      <div v-else-if="b.type === 'table'" :data-block-id="b.id" class="b-table-wrap">
         <table class="b-table">
           <thead v-if="b.data.header && (b.data.rows || []).length">
             <tr>
@@ -34,7 +34,7 @@
       </div>
 
       <!-- quote -->
-      <blockquote v-else-if="b.type === 'quote'" class="b-quote">
+      <blockquote v-else-if="b.type === 'quote'" :data-block-id="b.id" class="b-quote">
         <div v-html="inline(b.data.text)"></div>
         <cite v-if="b.data.cite">{{ b.data.cite }}</cite>
       </blockquote>
@@ -42,18 +42,18 @@
       <!-- code -->
       <!-- A mermaid source is a diagram, not code: the viewer is mounted into
            the container from script, so Vue never patches what is inside it. -->
-      <figure v-else-if="isMermaid(b)" class="b-figure">
+      <figure v-else-if="isMermaid(b)" :data-block-id="b.id" class="b-figure">
         <div class="b-mermaid" :data-mermaid="i"></div>
         <figcaption v-if="b.data.caption" v-html="inline(b.data.caption)"></figcaption>
       </figure>
 
-      <div v-else-if="b.type === 'code'" class="b-code-wrap">
+      <div v-else-if="b.type === 'code'" :data-block-id="b.id" class="b-code-wrap">
         <span v-if="b.data.language" class="b-code-lang">{{ b.data.language }}</span>
         <pre class="b-code"><code>{{ b.data.code }}</code></pre>
       </div>
 
       <!-- checklist: the one block a reader writes to -->
-      <div v-else-if="b.type === 'checklist'" class="b-checklist">
+      <div v-else-if="b.type === 'checklist'" :data-block-id="b.id" class="b-checklist">
         <p v-if="b.data.title" class="b-checklist-title">{{ b.data.title }}</p>
         <template v-for="item in checklistItems(b)" :key="item.key">
           <label :class="['b-check', { 'is-done': item.checked, 'is-busy': pending.has(item.token) }]">
@@ -74,28 +74,32 @@
       </div>
 
       <!-- callout -->
-      <aside v-else-if="b.type === 'callout'" :class="['b-callout', `b-callout--${b.data.variant}`]">
+      <aside v-else-if="b.type === 'callout'" :data-block-id="b.id" :class="['b-callout', `b-callout--${b.data.variant}`]">
         <p v-if="b.data.title" class="b-callout-title">{{ b.data.title }}</p>
         <div v-html="inline(b.data.text)"></div>
       </aside>
 
       <!-- divider -->
-      <hr v-else-if="b.type === 'divider'" class="b-divider" />
+      <hr v-else-if="b.type === 'divider'" :data-block-id="b.id" class="b-divider" />
 
       <!-- image -->
-      <figure v-else-if="b.type === 'image'" class="b-figure">
+      <figure v-else-if="b.type === 'image'" :data-block-id="b.id" class="b-figure">
         <img :src="b.data.url" :alt="b.data.alt || ''" loading="lazy" />
         <figcaption v-if="b.data.caption" v-html="inline(b.data.caption)"></figcaption>
       </figure>
 
       <!-- html: a self-contained document, isolated in a sandboxed frame -->
-      <figure v-else-if="b.type === 'html'" class="b-figure">
+      <figure v-else-if="b.type === 'html'" :data-block-id="b.id" class="b-figure">
         <figcaption v-if="b.data.title" class="b-html-title">{{ b.data.title }}</figcaption>
         <EntryArtifactFrame
           :html="b.data.html"
           :title="b.data.title"
           :bridge-data="bridgeData"
-        />
+        >
+          <template v-if="marksMode !== 'off'" #notice>
+            <p class="b-html-notice">Text inside an artifact cannot be marked — it renders in an isolated frame.</p>
+          </template>
+        </EntryArtifactFrame>
         <figcaption v-if="b.data.caption" v-html="inline(b.data.caption)"></figcaption>
       </figure>
     </template>
@@ -109,6 +113,10 @@ import { createMermaidFallback, createMermaidViewer } from '~/composables/useMer
 const root = ref<HTMLElement | null>(null)
 
 interface Block {
+  /** Stable across rewrites, and the address every mark is pinned to. It was
+   *  already read off the block for checklist state; annotations made it worth
+   *  declaring. */
+  id?: string
   type: string
   data: Record<string, any>
 }
@@ -126,8 +134,12 @@ const props = withDefaults(
     /** A viewer who may read but not write gets checkboxes that show state and
      *  do nothing. The server is the control; this is the courtesy. */
     readonly?: boolean
+    /** Whether the page is showing annotation marks. The renderer draws none of
+     *  them — they are painted over its output afterwards — and needs this only
+     *  to admit, under an artifact, that its contents cannot be marked at all. */
+    marksMode?: 'all' | 'open' | 'off'
   }>(),
-  { blocks: () => [], researchSlug: '', bridgeData: null, entryId: '', readonly: false }
+  { blocks: () => [], researchSlug: '', bridgeData: null, entryId: '', readonly: false, marksMode: 'off' }
 )
 
 // The reader's role in the research on screen. `readonly` is the caller's own
@@ -490,6 +502,10 @@ function bodyRows(b: Block): any[] {
 }
 /* The html block's own name, above the frame, styled as a label rather than a
    heading so it does not compete with the document's headings. */
+.b-html-notice {
+  margin: 0;
+}
+
 .b-html-title {
   display: inline-flex;
   align-items: center;

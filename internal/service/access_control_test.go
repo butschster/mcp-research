@@ -988,3 +988,112 @@ func TestAccessControl_ImportPreviewDoesNotOracleForeignCodes(t *testing.T) {
 		}
 	}
 }
+
+// A mark is addressed by a bare id, with no research in the URL, so the refusal
+// it returns is the only thing a stranger learns from. Both halves matter: they
+// must not reach it, and they must not be told which of "no such mark" and "not
+// yours" it was.
+func TestAccessControl_Annotation(t *testing.T) {
+	db := setupTestDB(t)
+	notifier := &mockNotifier{}
+	log := slog.Default()
+
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	annotationRepo := storage.NewAnnotationRepository(db)
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), testAccess(db), notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, testAccess(db), nil,
+		storage.NewBlockRepository(db), storage.NewEntryRevisionRepository(db),
+		storage.NewCrossRefRepository(db), nil, notifier, log)
+	annSvc := NewAnnotationService(annotationRepo, entryRepo, storage.NewEntryRevisionRepository(db),
+		testAccess(db), entrySvc, entrySvc, notifier, log)
+
+	userA, userB := setupTwoUsers(t, db)
+	ctxA, ctxB := userCtx(userA), userCtx(userB)
+
+	research, sections, err := researchSvc.Create(ctxA, CreateResearchRequest{
+		Name: "Alice's Research", Goal: "Test",
+		Sections: []CreateSectionRequest{{Name: "s", DisplayName: "S"}},
+	})
+	if err != nil {
+		t.Fatalf("create research: %v", err)
+	}
+	entry, err := entrySvc.Create(ctxA, CreateEntryRequest{
+		ResearchID: research.ID, SectionID: sections[0].ID,
+		Title: "Doc", Content: "Costs fall by 40 percent.",
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+	mark, err := annSvc.Create(ctxA, CreateAnnotationRequest{
+		EntryID: entry.ID, Quote: domain.Quote{Exact: "Costs fall"}, Kind: domain.AnnotationVerify,
+	})
+	if err != nil {
+		t.Fatalf("create annotation: %v", err)
+	}
+
+	t.Run("B reaches nothing of A's", func(t *testing.T) {
+		if _, err := annSvc.Get(ctxB, mark.ID); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Get = %v, want ErrNotFound", err)
+		}
+		if _, err := annSvc.ListByEntry(ctxB, entry.ID); !errors.Is(err, ErrNotFound) {
+			t.Errorf("ListByEntry = %v, want ErrNotFound", err)
+		}
+		if _, err := annSvc.ListByResearch(ctxB, research.ID, storage.AnnotationFilter{}); !errors.Is(err, ErrNotFound) {
+			t.Errorf("ListByResearch = %v, want ErrNotFound", err)
+		}
+		if _, err := annSvc.Counts(ctxB, research.ID); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Counts = %v, want ErrNotFound", err)
+		}
+		if _, err := annSvc.Create(ctxB, CreateAnnotationRequest{
+			EntryID: entry.ID, Quote: domain.Quote{Exact: "Costs fall"}, Kind: domain.AnnotationDig,
+		}); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Create = %v, want ErrNotFound", err)
+		}
+		if _, err := annSvc.Update(ctxB, mark.ID, UpdateAnnotationRequest{Body: ptr("mine now")}); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Update = %v, want ErrNotFound", err)
+		}
+		if _, err := annSvc.Answer(ctxB, mark.ID, AnswerAnnotationRequest{Resolution: "x"}); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Answer = %v, want ErrNotFound", err)
+		}
+		if err := annSvc.Delete(ctxB, mark.ID); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Delete = %v, want ErrNotFound", err)
+		}
+	})
+
+	// The refusal must not distinguish a real id from an invented one, or a
+	// guessed uuid becomes a confirmed one — and Bulk answers up to sixty at a
+	// time with a message per row.
+	t.Run("a real id and an invented one refuse identically", func(t *testing.T) {
+		_, real := annSvc.Get(ctxB, mark.ID)
+		_, fake := annSvc.Get(ctxB, "00000000-0000-0000-0000-000000000000")
+		if real.Error() != fake.Error() {
+			t.Errorf("refusals differ: %q vs %q", real, fake)
+		}
+	})
+
+	t.Run("bulk refuses rows outside its research", func(t *testing.T) {
+		other, _, err := researchSvc.Create(ctxB, CreateResearchRequest{Name: "Bob's", Goal: "T"})
+		if err != nil {
+			t.Fatalf("create research: %v", err)
+		}
+		if _, err := annSvc.Bulk(ctxB, other.ID, []string{mark.ID}, domain.AnnotationClosed, ""); err != nil {
+			t.Fatalf("bulk: %v", err)
+		}
+		fresh, err := annotationRepo.FindByID(context.Background(), mark.ID)
+		if err != nil || fresh == nil {
+			t.Fatalf("read back: %v", err)
+		}
+		if fresh.Status != domain.AnnotationOpen {
+			t.Errorf("status = %q, want open — a mark was closed through another research's route", fresh.Status)
+		}
+	})
+
+	t.Run("A still reaches their own", func(t *testing.T) {
+		got, err := annSvc.Get(ctxA, mark.ID)
+		if err != nil || got == nil {
+			t.Fatalf("owner refused their own mark: %v", err)
+		}
+	})
+}

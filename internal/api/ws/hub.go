@@ -39,6 +39,12 @@ type Event struct {
 	// both identities is what stops that from being rediscovered per page.
 	ResearchCode string `json:"research_code,omitempty"`
 
+	// ParentID and ParentCode name the entity this one hangs off — the entry an
+	// annotation is attached to. Without them an open document page cannot tell
+	// whether an annotation event concerns the document it is showing.
+	ParentID   string `json:"parent_id,omitempty"`
+	ParentCode string `json:"parent_code,omitempty"`
+
 	// ActorUserID is who caused the change; ActorClientID is which tab did. The
 	// second is the one a client compares against its own, because the first is
 	// empty with auth off and shared between a person's own tabs.
@@ -387,6 +393,15 @@ func visibleToShare(share *auth.Share, event Event) bool {
 		// The HTTP surface refuses skills and the service refuses a share
 		// context; without this line the socket announced every change anyway,
 		// telling a stranger that the set changed, when, and with which ids.
+		return false
+	case "annotation":
+		// Never, and there is no include flag that could turn it on. A mark is
+		// one person saying they do not believe a sentence — working process of
+		// the same class as revision history. The sub-mux carries no annotation
+		// route, but the socket has its own default, and without this line a
+		// visitor to a link created with nothing switched on was told which
+		// document is being disputed (`parent_code`), how many times, and when
+		// the agent answered.
 		return false
 	}
 	return true

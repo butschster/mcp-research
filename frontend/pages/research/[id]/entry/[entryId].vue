@@ -42,6 +42,19 @@
                 </div>
               </Teleport>
             </div>
+            <!-- The keyboard route into the marks. The gutter pins are not tab
+                 stops on purpose, so this button and the skip link are how
+                 somebody reaches them without a mouse. -->
+            <button
+              v-if="!shareActive() && annotations.length"
+              class="btn btn-icon"
+              :aria-label="`${annotations.length} marks in this document`"
+              title="Marks"
+              @click="marksPanelOpen = true"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8"/><path d="M8 12.5h5"/></svg>
+              <span class="btn-count">{{ annotations.length }}</span>
+            </button>
             <button v-if="canWrite" class="btn" @click="startEditing">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Edit
@@ -153,6 +166,17 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
           Source
         </button>
+
+        <SegmentedToggle
+          v-if="!shareActive() && viewMode === 'rendered'"
+          v-model="marksMode"
+          label="Marks"
+          :options="[
+            { value: 'all', label: 'All' },
+            { value: 'open', label: 'Open' },
+            { value: 'off', label: 'Off' },
+          ]"
+        />
       </div>
 
       <!-- Content -->
@@ -160,7 +184,28 @@
              and a code block running to the card's border reads as a layout
              fault. The condition is in the template rather than folded into the
              computed because `viewMode` is declared further down this file. -->
-        <div class="entry-content card" :class="{ 'is-artifact': isArtifactOnly && viewMode === 'rendered' }">
+        <div
+          ref="cardEl"
+          class="entry-content card"
+          :class="{
+            'is-artifact': isArtifactOnly && viewMode === 'rendered',
+            'has-marks': marksVisible && annotations.length > 0,
+          }"
+          @mouseup="onSelect"
+          @touchend="onSelect"
+          @click="onCardClick"
+        >
+          <a v-if="marksVisible && annotations.length" class="marks-skip" href="#marks-panel" @click.prevent="marksPanelOpen = true">
+            {{ annotations.length }} marks in this document
+          </a>
+
+          <AnnotationsMarkGutter
+            v-if="marksVisible"
+            :annotations="annotations"
+            :positions="markPositions"
+            :active-id="activeThreadId"
+            @select="openThread"
+          />
         <!-- Inside the content card rather than above it. A second bordered box
              would read as chrome, and chrome is exactly what the stored status
              was when authors started typing the real one into the prose. -->
@@ -182,6 +227,7 @@
           :research-slug="researchSlug"
           :bridge-data="blockBridgeData"
           :entry-id="entry?.id"
+          :marks-mode="marksMode"
         />
         <div v-else-if="viewMode === 'rendered'" ref="contentEl" class="markdown-content" v-html="renderedContent"></div>
         <!-- No header over a block document. Its body here is the stored JSON,
@@ -190,6 +236,56 @@
              evidence for what a download would produce. -->
         <pre v-else class="source-view"><code v-if="sourceFrontmatter && !isBlocks" class="source-frontmatter">{{ sourceFrontmatter }}</code><code v-html="highlightedSource"></code></pre>
       </div>
+
+      <!-- The opened mark.
+           Under the card rather than between the blocks: a thread injected into
+           the flow would have to live inside a <p>, which is not valid markup,
+           and a modal would cover the sentence being discussed. This is the
+           compromise — the marked text stays on screen above it. -->
+      <AnnotationsThreadCard
+        v-if="activeThread"
+        :annotation="activeThread"
+        :research-slug="researchSlug"
+        :can-write="canWrite"
+        :busy="threadBusy"
+        @close="closeThread"
+        @update-body="(v: string) => setBody(activeThread!, v)"
+        @accept="setStatus(activeThread!, 'closed')"
+        @dismiss="setStatus(activeThread!, 'dismissed')"
+        @reopen="(reason: string) => setStatus(activeThread!, 'open', reason)"
+        @delete="removeMark(activeThread!)"
+        @show-diff="showMarkDiff"
+      />
+
+      <AnnotationsSelectionPopover
+        ref="popoverEl"
+        :visible="popoverOpen"
+        :rect="selectionRect"
+        :quote="pendingQuote"
+        :block-count="pendingSegments.length"
+        :entry-type="entry?.entry_type"
+        :saving="marking"
+        :error="markError"
+        @create="createMark"
+        @cancel="cancelMark"
+      />
+
+      <!-- `flush`, so the header keeps its own padding and the list runs to the
+           dialog's edges: a bordered card inside a bordered dialog draws the
+           same line twice. -->
+      <ModalOverlay :visible="marksPanelOpen" size="lg" flush labelledby="marks-panel" @close="marksPanelOpen = false">
+        <ModalHeader title="Marks in this document" title-id="marks-panel" @close="marksPanelOpen = false" />
+        <AnnotationsAnnotationList
+          class="marks-panel__list"
+          :annotations="annotations"
+          :research-slug="researchSlug"
+          :error="marksError"
+          bleed
+          empty-variant="document"
+          @open="(a) => { marksPanelOpen = false; openThread(a.id) }"
+          @retry="loadAnnotations().then(() => repaint())"
+        />
+      </ModalOverlay>
 
       <!-- Cross-references -->
       <ConfirmModal
@@ -291,6 +387,8 @@
 </template>
 
 <script setup lang="ts">
+import type { Annotation, AnnotationKind } from '~/composables/useAnnotations'
+import { MARK_CLASS, type CapturedSegment } from '~/composables/useAnnotationOverlay'
 import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
@@ -356,6 +454,15 @@ const { data, pending, refresh } = await useApi<{ data: any }>(`/api/researches/
 const metaEditing = ref(false)
 
 useRealtimeUpdates((event: WsEvent) => {
+  // A mark's event names the annotation in entity_id, which says nothing to a
+  // page showing a document; the entry it hangs off is what decides whether
+  // this is ours, and that travels as parent_id/parent_code.
+  if (event.entity === 'annotation') {
+    if (isSelf(event)) return
+    if (event.parent_id !== entry.value?.id && event.parent_code !== entry.value?.code) return
+    loadAnnotations().then(() => repaint())
+    return
+  }
   if (event.entity !== 'entry') return
   // The event carries the entry's UUID; the route parameter is usually a short
   // code (every link in the app builds /entry/E3). Comparing the two meant the
@@ -377,9 +484,9 @@ useRealtimeUpdates((event: WsEvent) => {
     reloadHistoryIfOpen()
     return
   }
-  refresh()
+  refreshWithMarks()
   reloadHistoryIfOpen()
-}, { onResync: () => { refresh(); reloadHistoryIfOpen() } })
+}, { onResync: () => { refreshWithMarks(); reloadHistoryIfOpen() } })
 
 /**
  * A remote write is a new revision, and an open history panel that never hears
@@ -392,6 +499,8 @@ useRealtimeUpdates((event: WsEvent) => {
 function reloadHistoryIfOpen() {
   if (showHistory.value) historyPanel.value?.refreshList()
 }
+
+
 
 // Set when somebody else changed this entry while the editor was open.
 const remoteChangedWhileEditing = ref(false)
@@ -590,6 +699,283 @@ function inlineHighlight(line: string): string {
 // View toggle
 const viewMode = ref<'rendered' | 'source'>('rendered')
 
+/* ---------------------------------------------------------------- marks ---
+ *
+ * A mark is born here and nowhere else: there is no MCP tool that creates one,
+ * because the gesture the feature exists for is a person reading and pointing.
+ *
+ * The order of operations in `onSelect` is the whole trick. The selection is
+ * captured and repainted as ours BEFORE any UI appears — the moment a popover
+ * takes focus the browser drops the real selection, and on iOS the system menu
+ * takes it first.
+ */
+const { listForEntry, create: createAnnotation, patch: patchAnnotation, remove: removeAnnotation } = useAnnotations()
+const { capture, paint, clear: clearMarks, positions } = useAnnotationOverlay()
+const { push: pushToast } = useToasts()
+
+const annotations = ref<Annotation[]>([])
+const cardEl = ref<HTMLElement | null>(null)
+const markPositions = ref<Array<{ id: string; code: string; top: number }>>([])
+const paintedCount = ref(0)
+const marksError = ref<string | null>(null)
+
+const marksPanelOpen = ref(false)
+const activeThreadId = ref<string | null>(null)
+const threadBusy = ref(false)
+
+const popoverOpen = ref(false)
+const popoverEl = ref<{ focusFirst: () => void } | null>(null)
+const selectionRect = ref<DOMRect | null>(null)
+/** Every block the selection touched. One for an ordinary sentence, more when
+ *  somebody selected a passage running across paragraphs. */
+const pendingSegments = ref<CapturedSegment[]>([])
+const pendingQuote = computed(() => pendingSegments.value.map((s) => s.quote.exact).join(' '))
+const marking = ref(false)
+const markError = ref<string | null>(null)
+
+/** Remembered per browser, like a folded section. Open is the default: the
+ *  point of a queue is that you see it without asking. */
+const marksMode = ref<'all' | 'open' | 'off'>('open')
+
+const marksVisible = computed(() =>
+  !shareActive() && viewMode.value === 'rendered' && marksMode.value !== 'off')
+
+const activeThread = computed(() =>
+  annotations.value.find((a) => a.id === activeThreadId.value) ?? null)
+
+async function loadAnnotations() {
+  if (shareActive() || !entry.value?.id) return
+  try {
+    annotations.value = await listForEntry(entry.value.id)
+    marksError.value = null
+  } catch (e: any) {
+    // A document that will not load its marks is still a document — but a
+    // failed fetch used to be indistinguishable from a document with no marks,
+    // right down to the counter disappearing. The panel says which it is.
+    annotations.value = []
+    marksError.value = e?.data?.error || e?.message || 'Could not load the marks on this document'
+  }
+}
+
+/**
+ * Redrawing the marks.
+ *
+ * Every paint clears first: `v-html` patches the tree underneath, and a wrapper
+ * left behind from the previous pass would be found by the next text walk as if
+ * it were prose.
+ */
+async function repaint() {
+  if (!import.meta.client) return
+  await nextTick()
+  const root = cardEl.value
+  if (!root) return
+  if (!marksVisible.value) {
+    clearMarks(root)
+    markPositions.value = []
+    paintedCount.value = 0
+    return
+  }
+  paint(root, annotations.value, marksMode.value)
+  markPositions.value = positions(root)
+  paintedCount.value = markPositions.value.length
+}
+
+watch([annotations, marksMode, viewMode, () => blocks.value, () => renderedContent.value], () => { repaint() })
+
+function onSelect() {
+  if (!canWrite.value || shareActive() || viewMode.value !== 'rendered') return
+  const root = cardEl.value
+  if (!root) return
+
+  const captured = capture(root)
+  // A click that selects nothing is how a reader dismisses the popover, and it
+  // has to actually dismiss it: there was no other way out but the Cancel
+  // button — not a click elsewhere, not Escape.
+  if (!captured) {
+    if (popoverOpen.value) closePopover()
+    return
+  }
+
+  pendingSegments.value = captured.segments
+  selectionRect.value = captured.rect
+  markError.value = null
+  popoverOpen.value = true
+}
+
+/**
+ * Escape closes the popover from wherever the reader is.
+ *
+ * The component's own `@keydown.esc` only fires when something inside it has
+ * focus, and nothing does: focus is deliberately left in the document so the
+ * selection survives. Without this the only way out was the Cancel button.
+ */
+function onMarkKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && popoverOpen.value) {
+    event.preventDefault()
+    closePopover()
+    return
+  }
+  // Shift+M moves focus into the popover, matching the Shift+G convention
+  // already in useKeyboardNav. Typed with a selection made by keyboard, this is
+  // the whole keyboard path to creating a mark.
+  if (event.key === 'M' && event.shiftKey && !event.metaKey && !event.ctrlKey) {
+    const target = event.target as HTMLElement | null
+    if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return
+    if (!popoverOpen.value) onSelect()
+    if (popoverOpen.value) {
+      event.preventDefault()
+      nextTick(() => popoverEl.value?.focusFirst())
+    }
+  }
+}
+
+async function createMark(payload: { kind: AnnotationKind; body: string }) {
+  if (!entry.value?.id) return
+  marking.value = true
+  markError.value = null
+  try {
+    // Waits for the server: the code and the anchor are its to decide, and
+    // drawing a mark only to take it back is worse than a moment's wait.
+    //
+    // One request per block the selection covered. A mark addresses a block, so
+    // a passage running across three paragraphs is three marks carrying the
+    // same note — which is what the reader asked for, and what the queue can
+    // actually anchor.
+    const created: Annotation[] = []
+    for (const seg of pendingSegments.value) {
+      created.push(await createAnnotation(entry.value.id, {
+        block_id: seg.blockId || undefined,
+        quote: seg.quote,
+        kind: payload.kind,
+        body: payload.body,
+      }))
+    }
+    annotations.value = [...annotations.value, ...created]
+    closePopover()
+    await repaint()
+  } catch (e: any) {
+    markError.value = e?.data?.error || e?.message || 'Could not save the mark'
+  } finally {
+    marking.value = false
+  }
+}
+
+function cancelMark() {
+  closePopover()
+}
+
+function closePopover() {
+  popoverOpen.value = false
+  selectionRect.value = null
+  pendingSegments.value = []
+}
+
+function openThread(id: string) {
+  activeThreadId.value = id
+}
+
+/**
+ * A click on marked text opens that mark.
+ *
+ * Delegated from the card, because the spans are written into `v-html` output
+ * by the overlay and no template ever sees them. Without this the underline
+ * carried `cursor: pointer` and did nothing, while the only way to open a mark
+ * you were pointing at was the header counter, the panel and then the row.
+ */
+function onCardClick(event: MouseEvent) {
+  const el = (event.target as HTMLElement | null)?.closest?.(`span.${MARK_CLASS}`) as HTMLElement | null
+  if (!el?.dataset.annotationId) return
+  event.preventDefault()
+  openThread(el.dataset.annotationId)
+}
+
+function closeThread() {
+  activeThreadId.value = null
+}
+
+/** Optimistic, with a visible rollback — the same shape a checklist tick has,
+ *  and for the same reason: it is a toggle on a row already on screen. */
+async function setStatus(a: Annotation, status: Annotation['status'], reason = '') {
+  const previous = { ...a }
+  threadBusy.value = true
+  patchLocal(a.id, { status })
+  try {
+    const updated = await patchAnnotation(a.id, reason ? { status, reason } : { status })
+    patchLocal(a.id, updated)
+  } catch (e: any) {
+    patchLocal(a.id, previous)
+    pushToast({ variant: 'error', title: 'Could not update the mark', message: e?.data?.error || e?.message || 'The change was rolled back.' })
+  } finally {
+    threadBusy.value = false
+  }
+}
+
+/** Open the history comparing the revision a mark was made against with now. */
+async function showMarkDiff(revision: number) {
+  showHistory.value = true
+  await nextTick()
+  historyPanel.value?.compareFrom(revision)
+}
+
+/** A mis-drag is the person's own mistake to undo, and dismissing it would
+ *  record a judgement nobody made. */
+async function removeMark(a: Annotation) {
+  threadBusy.value = true
+  try {
+    await removeAnnotation(a.id)
+    annotations.value = annotations.value.filter((x) => x.id !== a.id)
+    activeThreadId.value = null
+    await repaint()
+  } catch (e: any) {
+    pushToast({ variant: 'error', title: 'Could not delete the mark', message: e?.data?.error || e?.message || 'It is still there.' })
+  } finally {
+    threadBusy.value = false
+  }
+}
+
+async function setBody(a: Annotation, body: string) {
+  const previous = a.body
+  patchLocal(a.id, { body })
+  try {
+    await patchAnnotation(a.id, { body })
+  } catch {
+    patchLocal(a.id, { body: previous })
+  }
+}
+
+function patchLocal(id: string, changes: Partial<Annotation>) {
+  annotations.value = annotations.value.map((a) => (a.id === id ? { ...a, ...changes } : a))
+}
+
+/**
+ * A document write and its marks are refreshed together, always.
+ *
+ * Anchors are computed against the document as it stands, so refreshing one
+ * without the other paints underlines at coordinates that no longer describe
+ * anything. And when a write costs a mark its text, that is said out loud — a
+ * doubt quietly buried by a rewrite is the failure this whole feature exists to
+ * catch.
+ */
+async function refreshWithMarks() {
+  const before = new Map(annotations.value.map((a) => [a.id, a.anchor?.state]))
+  await refresh()
+  await loadAnnotations()
+  await repaint()
+
+  const lost = annotations.value.filter((a) => {
+    const now = a.anchor?.state
+    return (now === 'drifted' || now === 'orphaned') && before.get(a.id) !== now
+  })
+  if (lost.length) {
+    pushToast({
+      variant: 'error',
+      title: `${lost.length} ${lost.length === 1 ? 'mark' : 'marks'} lost their text in this edit`,
+      message: `${lost.map((a) => a.code).join(', ')} — the text they were attached to changed or is gone.`,
+    })
+  }
+}
+
+
 // Mermaid rendering
 const contentEl = ref<HTMLElement | null>(null)
 watch([renderedContent, viewMode], () => {
@@ -600,6 +986,34 @@ watch([renderedContent, viewMode], () => {
 }, { immediate: false })
 onMounted(() => {
   if (contentEl.value) renderMermaidBlocks(contentEl.value)
+  window.addEventListener('keydown', onMarkKeydown)
+  onBeforeUnmount(() => window.removeEventListener('keydown', onMarkKeydown))
+
+  // Remembered per browser, like a folded section.
+  const stored = localStorage.getItem('entry_marks_density')
+  if (stored === 'all' || stored === 'open' || stored === 'off') marksMode.value = stored
+
+  loadAnnotations().then(() => repaint())
+
+  // Reflow moves the marked text; scrolling does not. Watching the card is what
+  // keeps the gutter pins beside their sentences without a scroll listener.
+  if (cardEl.value && typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(() => {
+      if (cardEl.value && marksVisible.value) markPositions.value = positions(cardEl.value)
+    })
+    observer.observe(cardEl.value)
+    onBeforeUnmount(() => observer.disconnect())
+  }
+})
+
+watch(marksMode, (mode) => {
+  if (import.meta.client) localStorage.setItem('entry_marks_density', mode)
+})
+
+// Arriving at a different document by link keeps the page mounted.
+watch(() => entry.value?.id, () => {
+  activeThreadId.value = null
+  loadAnnotations().then(() => repaint())
 })
 
 // Copy markdown
@@ -1078,6 +1492,12 @@ const nextEntry = computed(() =>
 </script>
 
 <style scoped>
+/* The list bleeds to the dialog's edges; its own rows keep the inset the header
+   above them has. */
+.marks-panel__list {
+  gap: 0;
+}
+
 /* css-discipline: literal-ok — the source view uses the One Dark palette,
    which is a palette in its own right rather than the product's. It is not
    expressible in the design tokens and should not be: a syntax colour that

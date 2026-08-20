@@ -86,6 +86,7 @@ func RegisterEntryPatch(srv *mcp.Server, svc *service.EntryService, log *slog.Lo
 			result["state_preserved"] = entry.BlockReport.StatePreserved
 			result["state_lost"] = entry.BlockReport.StateLost
 		}
+		addAnnotationReport(result, entry)
 		return successResult(result)
 	})
 }

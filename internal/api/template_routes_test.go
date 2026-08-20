@@ -81,8 +81,11 @@ func newTemplateServer(t *testing.T) *templateServer {
 	// Both credentials configured at once, which is the case that used to be
 	// unreachable: with auth_enabled the api_token was checked by nothing.
 	cfg := ServerConfig{Port: 0, AuthEnabled: true, APIToken: "operator-token"}
+	annotationSvc := service.NewAnnotationService(storage.NewAnnotationRepository(db), entryRepo,
+		storage.NewEntryRevisionRepository(db), access, entrySvc, entrySvc, events, log)
+
 	srv := NewServer(cfg, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc,
-		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, access, authSvc, db,
+		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, annotationSvc, access, authSvc, db,
 		entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 
 	ctx := context.Background()
