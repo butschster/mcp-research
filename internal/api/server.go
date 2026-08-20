@@ -52,6 +52,7 @@ func NewServer(
 	shareSvc *service.ShareService,
 	skillSvc *service.SkillService,
 	templateSvc *service.TemplateService,
+	annotationSvc *service.AnnotationService,
 	access *service.Access,
 	authSvc *service.AuthService, // nil when auth disabled
 	db *sql.DB,
@@ -73,6 +74,7 @@ func NewServer(
 	shh := handlers.NewShareHandler(shareSvc, researchSvc, sectionSvc, log)
 	skh := handlers.NewSkillHandler(skillSvc, researchSvc, log)
 	tph := handlers.NewTemplateHandler(templateSvc, researchSvc, sectionSvc, skillSvc, log)
+	anh := handlers.NewAnnotationHandler(annotationSvc, researchSvc, storage.NewUserRepository(db), storage.NewTeamRepository(db), log)
 	rh.SetShareService(shareSvc)
 
 	// Build auth middleware functions
@@ -384,6 +386,16 @@ func NewServer(
 	// replaces, which redactForShare has always stripped — so a share link must
 	// not reach one. SkillService.Load refuses a share context as well, because
 	// a future route that forgot this should still fail closed.
+	// Annotations. The queue is a read, everything that changes a mark is a
+	// write — including closing one, which is the human decision this whole
+	// feature turns on.
+	mux.Handle("GET /api/researches/{id}/annotations", wrapRead(anh.ListByResearch))
+	mux.Handle("GET /api/entries/{id}/annotations", wrapRead(anh.ListByEntry))
+	mux.Handle("POST /api/entries/{id}/annotations", wrap(anh.Create))
+	mux.Handle("POST /api/researches/{id}/annotations/bulk", wrap(anh.Bulk))
+	mux.Handle("PUT /api/annotations/{id}", wrap(anh.Update))
+	mux.Handle("DELETE /api/annotations/{id}", wrap(anh.Delete))
+
 	mux.Handle("GET /api/researches/{id}/skills", wrapRead(skh.ListAttached))
 	mux.Handle("GET /api/researches/{id}/skills/library", wrapRead(skh.Library))
 	mux.Handle("GET /api/researches/{id}/skills/{slug}", wrapRead(skh.Read))

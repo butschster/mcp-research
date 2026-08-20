@@ -42,6 +42,11 @@ func (s *Server) registerTools() {
 	tools.RegisterTaskList(s.server, s.task, s.log)
 	tools.RegisterTaskDelete(s.server, s.task, s.log)
 
+	// Annotation tools — read and answer only. Creating one is a person's
+	// gesture, made in the web UI; see AnnotationService.Create.
+	tools.RegisterAnnotationList(s.server, s.annotation, s.log)
+	tools.RegisterAnnotationAnswer(s.server, s.annotation, s.log)
+
 	// Roadmap tools
 	tools.RegisterRoadmapCreate(s.server, s.roadmap, s.log)
 	tools.RegisterRoadmapGet(s.server, s.roadmap, s.log)

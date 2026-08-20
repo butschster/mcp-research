@@ -84,6 +84,14 @@ func (s *EntryService) PatchBlocks(ctx context.Context, entryID string, req Patc
 		skip:    stateOnly(req.Ops),
 	})
 
+	// A tick moves no prose, so it can strand no mark, and reading every
+	// annotation of the entry to prove that on each checkbox click is exactly
+	// the cost stateOnly exists to avoid.
+	var anchorsBefore map[string]domain.AnchorState
+	if !stateOnly(req.Ops) {
+		anchorsBefore = s.captureAnchors(ctx, entry)
+	}
+
 	report, err := s.mutateBlocks(ctx, entry, req.Rev, stateAuthoritative, note, func(doc *domain.BlockDocument) error {
 		blocks, aerr := applyOps(doc.Blocks, req.Ops)
 		if aerr != nil {
@@ -104,6 +112,7 @@ func (s *EntryService) PatchBlocks(ctx context.Context, entryID string, req Patc
 	if !stateOnly(req.Ops) {
 		s.updateCrossRefs(ctx, entry)
 		s.updateExternalLinks(ctx, entry)
+		entry.AnnReport = s.anchorReport(ctx, entry, anchorsBefore)
 	}
 	emit(ctx, s.events, Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil

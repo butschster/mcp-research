@@ -43,6 +43,17 @@ export function tasksPath(slug: string) {
   return shareActive() ? `${shareBase()}/tasks` : `/research/${slug}/tasks`
 }
 
+/**
+ * The queue of marks.
+ *
+ * Empty under a share, like `foreignResearchPath`: annotations are working
+ * process — who doubted which sentence — and a link shares the document, not
+ * the doubts about it. The caller renders nothing rather than a dead link.
+ */
+export function annotationsPath(slug: string) {
+  return shareActive() ? '' : `/research/${slug}/annotations`
+}
+
 export function exportPath(slug: string) {
   return shareActive() ? `${shareBase()}/export` : `/research/${slug}/export`
 }

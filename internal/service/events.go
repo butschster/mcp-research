@@ -15,7 +15,16 @@ type Event struct {
 	Type       string // e.g. "research.created", "entry.updated"
 	ResearchID string
 	EntityID   string
-	Entity     string // "research", "section", "entry", "session", "question", "task", "team"
+	Entity     string // "research", "section", "entry", "session", "question", "task", "team", "annotation"
+
+	// ParentID and ParentCode name the thing the entity hangs off, for the
+	// entities that are not addressable on their own. An annotation event
+	// carries the annotation's id in EntityID, which tells the open document
+	// page nothing — it needs to know whether the mark is one of ITS marks, and
+	// the only answer is the entry. Same lesson as ResearchCode: a page routed
+	// by short code cannot compare against a UUID, so both travel.
+	ParentID   string
+	ParentCode string
 
 	// ActorUserID is who caused the change. Empty when auth is off, and for
 	// anything an agent did over stdio.

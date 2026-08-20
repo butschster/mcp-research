@@ -26,6 +26,15 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             <span v-if="tasks.length" class="btn-count">{{ tasks.length }}</span>
           </NuxtLink>
+          <NuxtLink
+            v-if="annotationsPath(researchSlug)"
+            :to="annotationsPath(researchSlug)"
+            class="btn btn-icon"
+            title="Marks"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8"/><path d="M8 12.5h5"/></svg>
+            <span v-if="openMarks" class="btn-count">{{ openMarks }}</span>
+          </NuxtLink>
           <NuxtLink :to="`/research/${researchSlug}/roadmaps`" class="btn btn-icon" title="Roadmaps">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             <span v-if="roadmaps.length" class="btn-count">{{ roadmaps.length }}</span>
@@ -304,6 +313,14 @@ const globalTags = computed(() => isAllEntries.value ? (tagsData.value?.data ?? 
 // Tasks (count only, for header button)
 const { data: tasksData } = await useApi<{ data: any[] }>(`/api/researches/${id}/tasks`)
 const tasks = computed(() => tasksData.value?.data ?? [])
+
+// Marks: the count alone. The queue read resolves anchors against every
+// document it touches, so a header badge must not ask for the list to print one
+// number — `counts` comes off the envelope, and the request takes one row.
+const { data: marksData } = await useApi<{ data: any[]; meta?: { counts?: Record<string, number> } }>(
+  `/api/researches/${id}/annotations?status=open`,
+)
+const openMarks = computed(() => marksData.value?.meta?.counts?.open ?? 0)
 
 const { data: roadmapsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/roadmaps`)
 const roadmaps = computed(() => roadmapsData.value?.data ?? [])

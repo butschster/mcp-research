@@ -237,7 +237,8 @@ body is not searched as text and contributes no cross-references.
 - Title/description auto-generated from content if not provided.
 - `session_id` tracks provenance. When you leave it empty, the server links the entry to the research's active session automatically; the session export (`/research/{code}/session/{sessionCode}/export`) lists entries by this link.
 - Every write that changes an entry appends a [revision](#revision); `entry_history` says who wrote each one and `entry_diff` what it changed. Read them before rewriting an entry a previous session produced.
-- Deleting an entry (`entry_delete`) also deletes its cross-references, its extracted external links, and its whole revision history.
+- Deleting an entry (`entry_delete`) also deletes its cross-references, its extracted external links, its whole revision history, and every [annotation](#annotation) anchored in it.
+- A person may mark a sentence in an entry. Those marks anchor to a block id and a quote, survive a rewrite where they can, and an entry write reports the ones it drifted or orphaned — see [Annotation](#annotation).
 - A blocks entry is edited whole with `entry_update` or block by block with `entry_patch`; `text_replace` is refused on it.
 - URLs found in entry content are extracted into an external-links index, readable at `GET /api/entries/{id}/links` and `GET /api/researches/{id}/links`.
 - One document can be taken out on its own: `GET /api/entries/{id}/markdown` returns it as a `.md` file with YAML front matter — the vault's, minus `aliases` and `session` — named `E50 — Title.md`. The `{id}` is the entry UUID, not an `E`-code. There is no MCP tool for it (`entry_read` already gives an agent the content), the file leaves `[[E3]]` exactly as stored, and the route is not on the share sub-mux. See [Export](/llms/export.md).
@@ -458,6 +459,113 @@ content hash for optimistic concurrency. Full reference:
 
 ---
 
+### Annotation
+
+A mark a person left on a place in the text: they read a document, reached a
+sentence they did not believe, and said what is wrong with it. **It is a request
+for work addressed to a place in the text, not a record of what we know** — that
+is the whole border with provenance (`session_id`, written by the system) and
+with anything the agent records about its own knowledge.
+
+Two things follow, and both are enforced in `AnnotationService`, not by
+convention: **no MCP tool creates one** (the web UI and `POST
+/api/entries/{id}/annotations` are the only ways a mark is born), and **no agent
+may close one**.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `code` | string | Auto-assigned: `A1`, `A2`… (per research). Not a cross-reference target — `[[A1]]` resolves to nothing |
+| `entry_id` | string | The document it marks. `research_id` is denormalized from it for the queue and authorizes nothing on its own |
+| `block_id` | string | The block it is pinned to. **Empty for a markdown entry**, which has no addressable blocks; a block id sent for one is dropped rather than stored as a promise the document cannot keep |
+| `quote` | object | `{exact, prefix?, suffix?}` — what was selected, with up to 120 characters either side to tell two identical sentences apart. `exact` is required, max 2000 characters (runes) |
+| `anchored_revision` | int | The entry [revision](#revision) current when the mark was made. This is what `entry_diff` is run from when the text is gone |
+| `kind` | enum | `verify` / `dig` / `disagree` — a closed vocabulary, because each is a different job |
+| `body` | string | The person's note, max 5000 characters (runes) |
+| `author_kind` | enum | `human` / `agent` — taken from the credential, never from the request |
+| `status` | enum | `open` → `answered` → `closed` \| `dismissed` |
+| `resolution` | string | What the agent did about it, max 5000. Parsed for `[[...]]` exactly as a task's description is, so `[[E19]]` becomes a real crossref |
+| `resolved_revision` | int | The revision the answer left behind |
+| `session_id` | string | The pass that answered it — taken from the entry's session, not invented |
+| `task_id` | string | Set only by an explicit promotion; nothing links a mark to a task automatically. Many marks may point at one task |
+| `attempts`, `rejections` | int, object[] | How many times an answer was sent back, and each refusal in full: `{reason, revision?, at}` |
+| `anchor` | object | **Computed on every read, never stored** — see below |
+
+**Lifecycle.** `open → answered → closed | dismissed`. There is deliberately no
+priority, no `blocked`, no `deferred` and no `result`: those belong to
+[Task](#task), and adding them here builds a second todo list against the first.
+An agent may reach `answered` and no further — `closed` and `dismissed` are
+refused with `only a person may close or dismiss an annotation` (`403`), because
+an agent that accepts its own work turns the product into a self-confirmation
+machine. Re-opening an `answered` mark counts an attempt and records the reason
+beside the answer it refuses, never over it. A dismissed mark is kept, not
+deleted: "we looked and decided it did not matter" is a finding.
+
+**The anchor.** `block_id` is the address and the `quote` is the proof; when they
+disagree, the disagreement is the finding. Every read places the marks against
+the document as it stands now and reports `{state, strategy, confidence,
+block_id, block_index, block_type, text}`:
+
+| `state` | `strategy` | `confidence` | Means |
+|---------|-----------|--------------|-------|
+| `anchored` | `block_id` | `1` | Block found, quote inside it |
+| `anchored` | `quote_in_block` | `0.6` / `0.9` | A markdown entry, which never had a block id: finding the quote is the healthy case, not a recovery |
+| `drifted` | `block_id` | `0` | Block found, quote gone. The most valuable state: the text under a mark changed |
+| `moved` | `quote_in_doc` | `0.6`, or `0.9` when the recorded prefix/suffix still surround it | The block is gone and the sentence turned up elsewhere |
+| `orphaned` | `none` | `0` | Neither survives. `block_index` is `-1` so it does not sort under the first paragraph |
+
+Matching is case-insensitive with runs of whitespace collapsed, and **matches are
+consumed**: two marks on the same repeated sentence resolve to two different
+occurrences. A `code`, `mermaid` or `html` block contributes no text, so nothing
+can be anchored inside one — an `html` block renders in a sandboxed iframe where
+a selection cannot be observed at all. An orphan is never garbage-collected: it
+means the paragraph somebody doubted was rewritten, and only a person can say
+whether the doubt was answered or the claim was buried.
+
+**What a write reports.** An entry write compares the anchors before and after
+and returns `annotation_report` with `annotations_drifted` and
+`annotations_orphaned` (codes), mirroring `block_report`. Only a *transition* is
+reported — a mark already orphaned is not news — and `moved` is not reported at
+all. It rides on the entry, so `PUT /api/entries/{id}` and `POST
+/api/entries/{id}/patch` carry it inside `data.annotation_report`, and the MCP
+`entry_update` and `entry_patch` results return it beside the block report. A patch whose ops are all `set_state` computes nothing: a tick moves no
+prose and can strand no mark.
+
+**REST** — reads use `wrapRead`, writes `wrap`; none of them is on the share
+sub-mux:
+
+```
+GET    /api/researches/{id}/annotations   the queue: ?status= ?kind= ?entry_id= ?anchor=
+                                          {id} resolves an R-code. Answers data, count and
+                                          meta {counts, by_anchor, by_entry}
+GET    /api/entries/{id}/annotations      what is marked in this document
+POST   /api/entries/{id}/annotations      create — {block_id?, quote{exact,prefix,suffix}, kind, body}
+POST   /api/researches/{id}/annotations/bulk  one human decision over many ids: {ids, status, reason},
+                                          at most 60. The ids decide which marks, each authorized
+                                          on its own; 200 with a per-row report, because "12 of 14"
+                                          is a real outcome and neither a success nor a failure
+PUT    /api/annotations/{id}              body, kind, task_id, status (+ reason on a rejection),
+                                          or block_id + quote to re-point a drifted mark by hand
+DELETE /api/annotations/{id}
+```
+
+`?anchor=` is filtered after the read rather than in it, because anchor state is
+computed from the document and cannot be a `WHERE` clause. `author_name` is
+resolved only for a reader who is in the team that owns the research now — the
+right to read a document is not the right to know who doubted it.
+
+**Access** is the entry's: creating, answering, editing and deleting are all
+writes, so a `viewer` reads marks and makes none. **No share route reaches a
+mark**: who doubted which sentence is working process, like provenance and
+revision history, and the `/api/shared/{token}/` sub-mux carries no annotation
+route to reach one through.
+
+Marks travel with nothing: no export carries them, including the portable dump,
+so a research moved to another server arrives with its queue empty.
+
+Full working guide, including what the two MCP tools return: [Annotations](/llms/annotations.md).
+
+---
+
 ### CrossRef
 
 Links between documents, extracted automatically from `[[...]]` patterns.
@@ -579,7 +687,8 @@ Full reference, including the route table, the draft skeleton and the conflict c
 8. roadmap_create → Build visual graphs for step-by-step guides, learning paths, or decision trees
 9. research_update → Add to memory (insights for future sessions)
 10. Repeat 3-9 for new sessions on uncovered areas
-11. Mark sections completed → research completed
+11. annotation_list → work the marks the person left on the text, annotation_answer each one (they close them)
+12. Mark sections completed → research completed
 ```
 
 ## Short Codes
@@ -594,6 +703,9 @@ Full reference, including the route table, the draft skeleton and the conflict c
 | Task | `T1`, `T2` | Per research | — |
 | Roadmap | `RM1`, `RM2` | Per research | `/research/R2/roadmap/RM1` |
 | Node | `N1`, `N2` | Per roadmap | — |
+| Annotation | `A1`, `A2` | Per research | the queue page, `/research/R2/annotations` |
+
+`A` is the one prefix that is **not** a cross-reference target: `[[A1]]` is parsed as an entry code, finds no entry, and is stored unresolved. A mark is named in a report, never linked from content.
 
 A revision has no short code: it is a plain number, 1-based per entry. A [share](#share) has none either — it is addressed by its token and never referenced from content. Nor does a [skill](#skill) or a [template](#template): both are addressed by slug where they are used and by id where they are managed.
 
@@ -613,10 +725,12 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | Field | Type | Present |
 |-------|------|---------|
 | `type` | string | always — `entity.verb`, listed below |
-| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref`, `share`, `skill` |
+| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref`, `share`, `skill`, `annotation` |
 | `entity_id` | string | always — the id of the thing that changed, not of its parent |
 | `research_id` | string | always present, empty for team-scoped events |
 | `research_code` | string | when the id resolves — the same scope as a short code (`R7`), so a page routed as `/research/R7` can match an event without resolving a UUID first |
+| `parent_id` | string | the entity this one hangs off, for the entities that are not addressable on their own. `annotation.*` only today: the **entry** the mark is attached to |
+| `parent_code` | string | when the parent resolves — the same parent as a short code (`E12`), for the same reason `research_code` exists: a document page routed as `/research/R7/entry/E12` has no UUID to compare against |
 | `actor_user_id` | string | who caused it; absent with auth off and for anything an agent did over stdio |
 | `actor_client_id` | string | which tab caused it, when the writer sent `X-Client-Id` |
 | `reason` | string | `access.*` only |
@@ -639,6 +753,7 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | `question.updated` | `question` | question | an answer or a status change |
 | `task.created`, `task.updated`, `task.deleted` | `task` | task | |
 | `roadmap.created`, `roadmap.updated`, `roadmap.deleted` | `roadmap` | roadmap | adding, changing or removing nodes and edges all report as `roadmap.updated` on the roadmap |
+| `annotation.created`, `annotation.updated`, `annotation.answered`, `annotation.deleted` | `annotation` | annotation | `entity_id` is the **mark**, which tells an open document page nothing it can act on — the question that page asks is "is this one of mine", and only the entry answers it. So these are the events that carry `parent_id` / `parent_code`: the entry. `annotation.answered` is an agent finishing its work; `annotation.updated` covers everything a person does, closing and dismissing included |
 | `skill.attached`, `skill.detached` | `skill` | skill | this research started or stopped following a skill. The index `research_get` returns has changed |
 | `skill.created` | `skill` | skill | a research-private skill was written, or a team/built-in one was copied into this research. A **team** skill being written emits nothing — it belongs to no research yet |
 | `skill.updated` | `skill` | skill | the body or trigger line changed. A fork and a promotion report as this too, on the **new** row — its `entity_id` is not the one you were following. Editing a team skill sends one of these **per research following it**, since the row itself names no single research |
@@ -650,7 +765,7 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 
 There is no `template.*` event of any kind: a [template](#template) belongs to a team rather than to a research, is read once at kickoff, and nothing on screen goes stale when one changes — re-read `GET /api/templates`. The skills a template attaches at `research_create` are written without a `skill.attached` event too.
 
-There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps, teams and skills can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`. A skill deleted by `skill_delete` or `DELETE /api/skills/{skillId}` sends `skill.deleted` to each research that was following it — the follower list is read before the row goes, because the attachment rows cascade with it and afterwards there would be nobody left to tell. Detaching a research-private skill deletes it too, and reports as `skill.detached`.
+There is no delete event for a research, section, session or question: none of them can be deleted. Only entries, tasks, roadmaps, teams, skills and annotations can. A share is revoked rather than deleted, which is why `share.revoked` and not `share.deleted`. A skill deleted by `skill_delete` or `DELETE /api/skills/{skillId}` sends `skill.deleted` to each research that was following it — the follower list is read before the row goes, because the attachment rows cascade with it and afterwards there would be nobody left to tell. Detaching a research-private skill deletes it too, and reports as `skill.detached`.
 
 ### Who receives what
 

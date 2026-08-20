@@ -156,7 +156,35 @@ deliberately:
   agent wrote around them. Restoring the text of a document does not untick a
   human's work.
 - **Block ids.** They come back with the restored document, so anything bound to
-  a block stays bound to it.
+  a block stays bound to it — a person's [annotations](/llms/annotations.md)
+  included, which re-anchor against the restored text like any other read.
+
+## An annotation points back into the history
+
+Every mark a person leaves on a sentence records `anchored_revision`: the
+entry's revision at the moment they made it. That number is the whole reason an
+orphan is investigable rather than merely broken.
+
+When `annotation_list` returns a mark whose anchor state is `orphaned` — the
+block is gone and the quote is nowhere in the document — the text somebody
+doubted was rewritten or deleted, and the mark still carries the sentence as it
+read. Do not guess what happened to it:
+
+1. `entry_history(entry_id)` — the writes since, and who made them. A revision
+   authored `human` between then and now is a different situation from a chain
+   of your own.
+2. `entry_diff(entry_id, from: anchored_revision, to: <newest>)` — what actually
+   became of the paragraph. `from` is the anchored revision, a **number**, never
+   the `rev` hash a blocks entry carries.
+
+Then answer with what you found. "The claim was removed in revision 9 when the
+section was rewritten" is a real answer to a mark on a sentence that no longer
+exists; re-asserting the claim so the mark has something to sit on is not.
+
+The field is absent from the tool response when it is `0`, which means no
+revision was recorded at the time — an entry old enough to predate the history,
+not a mark on nothing. There is then nothing to diff from, and the honest move is
+a question.
 
 ## What a session changed
 

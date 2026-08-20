@@ -89,6 +89,7 @@ func RegisterEntryUpdate(srv *mcp.Server, svc *service.EntryService, log *slog.L
 			result["rev"] = service.DocumentRev(entry.Content)
 		}
 		addMetadataReport(result, entry)
+		addAnnotationReport(result, entry)
 		return successResult(result)
 	})
 }

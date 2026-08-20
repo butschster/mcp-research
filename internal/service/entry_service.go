@@ -85,8 +85,11 @@ type EntryService struct {
 	externalLinks *storage.ExternalLinkRepository
 	roadmaps      *storage.RoadmapRepository
 	roadmapNodes  *storage.RoadmapNodeRepository
-	events        EventNotifier
-	log           *slog.Logger
+	// annotations is optional; see SetAnnotations. Present, an entry write
+	// reports which marks it drifted or orphaned.
+	annotations *storage.AnnotationRepository
+	events      EventNotifier
+	log         *slog.Logger
 	// revisionLimit keeps the newest N revisions per entry plus revision 1.
 	// Zero — the default — keeps everything, which for kilobyte documents is
 	// the honest choice; see SetRevisionLimit.
@@ -413,6 +416,9 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 	// Remembered before anything below can rewrite it: an entry that stops being
 	// a block document has to take its rows with it.
 	prevType := entry.Type
+	// Where the marks sit now, read before this write touches the document.
+	// Afterwards there is nothing left to compare against.
+	anchorsBefore := s.captureAnchors(ctx, entry)
 
 	var metaReport *domain.MetadataReport
 
@@ -552,6 +558,7 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 	s.updateCrossRefs(ctx, entry)
 	s.updateExternalLinks(ctx, entry)
 	entry.MetaReport = metaReport
+	entry.AnnReport = s.anchorReport(ctx, entry, anchorsBefore)
 	emit(ctx, s.events, Event{Type: "entry.updated", ResearchID: entry.ResearchID, EntityID: entry.ID, Entity: "entry"})
 	return entry, nil
 }

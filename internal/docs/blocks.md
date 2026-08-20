@@ -128,6 +128,10 @@ addressing blocks by `id`:
   an id it replaces leaves the next op pointing at nothing, which fails the patch.
 - **A block id is the only handle.** There is no way to address a block by
   position, and no index or offset a patch will accept.
+- **A block id is also an anchor somebody else is holding.** A person marking a
+  sentence in the web UI stores the block's id and the sentence itself; keeping
+  the id through a rewrite is what keeps that mark on the paragraph they meant.
+  See [Annotations](/llms/annotations.md).
 - Placement is `after` / `before` / `at: "start"|"end"`, at most one. None means
   append. Two anchors is an error, not a precedence rule.
 - **A patch is strict.** An unknown block id, an unknown type, or data a type
@@ -158,6 +162,19 @@ addressing blocks by `id`:
   which answers `409` when `rev` does not match and returns the new `rev` beside
   the entry. The checkbox in the web UI posts there too.
 
+## What a stable block id carries
+
+The `id` on a block is not bookkeeping. Two things a person made hang off it, and
+both are destroyed silently by a rewrite that mints new ids:
+
+- **Checklist ticks** — matched by block `id` plus item `key`, below.
+- **Annotations** — a mark a person put on a sentence stores the block's id and
+  the sentence's exact text. The id is the address, the quote is the proof: keep
+  the id and the mark stays put, lose it and the server has to hunt the sentence
+  through the document and say how much to trust where it landed.
+
+Echo back the ids you read, for both reasons.
+
 ## Keeping a human's ticks
 
 A checklist is ticked by a person and rewritten by an agent, so the server keeps
@@ -175,11 +192,32 @@ the two apart:
   snapshot into the entry's history — ticking a box is not an edit to the document
   — while any structural op does. A restore does not untick anything either: the
   ticks belong to whoever made them. See [Revisions](/llms/revisions.md).
-- What the write tells you: `entry_patch` returns `blocks`, `state_preserved` and
-  `state_lost`; the REST write responses carry a `block_report` with
-  `blocks_reidentified` beside those. **MCP `entry_update` returns none of them**,
-  so on a whole-document rewrite a lost tick is silent — which is the reason to
-  echo the ids and keys back rather than to check afterwards.
+- What the write tells you: `entry_patch` and `entry_update` both return `blocks`,
+  `blocks_reidentified`, `state_preserved`, `state_lost` and the new `rev`
+  whenever the write touched a block document; the REST responses carry the same
+  four inside `data.block_report`. Read `state_lost` on every whole-document
+  rewrite — it is a count of ticks a person made and your write threw away.
+
+## What your write did to somebody's marks
+
+The same write is compared against the annotations anchored in the document, and
+the result mirrors `block_report`:
+
+```json
+{ "annotation_report": { "annotations_drifted": ["A4"], "annotations_orphaned": ["A7"] } }
+```
+
+`drifted` means the block survived and the marked sentence did not; `orphaned`
+means neither did. Only a change of state is reported, so a mark that was already
+orphaned is not repeated at you, and a `moved` mark — the sentence found
+elsewhere — is not reported at all. A patch whose ops are all `set_state`
+computes none of it: a tick moves no prose and can strand no mark.
+
+**Where you can read it.** In the result of the write. `entry_update` and
+`entry_patch` both return it beside the block report, and the REST writes carry
+it inside `data.annotation_report`. If it comes back, you have just changed text
+somebody had flagged — say so when you answer those marks rather than leaving it
+to be discovered from the queue. [Annotations](/llms/annotations.md).
 
 ## Entry title and description
 

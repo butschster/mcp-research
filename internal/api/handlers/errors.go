@@ -52,6 +52,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		errors.Is(err, service.ErrInvalidRole),
 		errors.Is(err, service.ErrTeamNameEmpty),
 		errors.Is(err, service.ErrNotMember),
+		errors.Is(err, service.ErrValidation),
 		errors.Is(err, service.ErrMutualExclusion),
 		errors.Is(err, service.ErrAnswerRequired),
 		errors.Is(err, service.ErrDuplicateSectionName),

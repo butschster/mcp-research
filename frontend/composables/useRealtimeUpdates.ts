@@ -9,6 +9,13 @@ export interface WsEvent {
   actor_user_id?: string
   /** Which tab caused it. This is the one to compare against your own. */
   actor_client_id?: string
+  /** The entity this one hangs off, for entities that are not addressable on
+   *  their own. An annotation event names the annotation in `entity_id`, which
+   *  tells an open document page nothing — the entry it is attached to is what
+   *  decides whether the event concerns what is on screen. Both identities
+   *  travel, for the same reason `research_code` does. */
+  parent_id?: string
+  parent_code?: string
   /** Why, where the type alone does not say — chiefly on access.revoked. */
   reason?: string
   /** Human name of the entity, sent only where the recipient can no longer fetch it. */

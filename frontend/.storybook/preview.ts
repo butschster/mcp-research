@@ -23,6 +23,11 @@ import SegmentedToggle from '../components/SegmentedToggle.vue'
 import ResearchImportDropZone from '../components/research/ImportDropZone.vue'
 import ResearchImportPreviewDialog from '../components/research/ImportPreviewDialog.vue'
 import ResearchImportNoteGroup from '../components/research/ImportNoteGroup.vue'
+import EditableField from '../components/EditableField.vue'
+import AnnotationsKindChip from '../components/annotations/KindChip.vue'
+import AnnotationsAnchorBadge from '../components/annotations/AnchorBadge.vue'
+import AnnotationsAnnotationRow from '../components/annotations/AnnotationRow.vue'
+import AnnotationsAnnotationList from '../components/annotations/AnnotationList.vue'
 import { resetMockApiData } from '../__mocks__/api'
 import '../assets/css/tokens.css'
 import '../assets/css/base.css'
@@ -89,6 +94,19 @@ setup((app) => {
   app.component('ResearchImportPreviewDialog', ResearchImportPreviewDialog)
   app.component('ResearchImportNoteGroup', ResearchImportNoteGroup)
   // BUG, not a Storybook quirk: ImportPreviewDialog's template says
+
+  // The annotation components lean on each other four deep — PassReviewModal
+  // draws AnnotationList, which draws AnnotationRow, which draws KindChip and
+  // AnchorBadge — and every one of those lookups is by the folder-prefixed name
+  // Nuxt derives. Unregistered they resolve to nothing and the review modal
+  // renders an empty rail, which is the failure that took the catalogue out in
+  // ea31ebb.
+  app.component('AnnotationsKindChip', AnnotationsKindChip)
+  app.component('AnnotationsAnchorBadge', AnnotationsAnchorBadge)
+  app.component('AnnotationsAnnotationRow', AnnotationsAnnotationRow)
+  app.component('AnnotationsAnnotationList', AnnotationsAnnotationList)
+  // ThreadCard puts the note behind this rather than a bare textarea.
+  app.component('EditableField', EditableField)
 })
 
 const preview: Preview = {

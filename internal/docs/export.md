@@ -294,6 +294,15 @@ instead:
   server running without auth. Say that when you hand the link to a user.
 - The query options above apply to that URL; the tool has no parameters for them.
 
+**Annotations travel in the portable dump and nowhere else.** They are working
+process — one person saying they do not believe a sentence — so no reading
+export carries them, and no share link exposes them. A move is different: the
+dump keeps each mark's quote, block id, kind, note, status, answer and the
+reasons any answer was refused. Ids, short codes, the author's account and the
+anchored revision do not travel, and the anchor is resolved against the document
+as it arrives — a mark whose sentence survived the move is anchored, one whose
+sentence did not is orphaned, exactly as after any other rewrite.
+
 **The vault does not travel back.** It is a document format; use the portable
 JSON below to move a research between servers.
 
@@ -606,7 +615,7 @@ changes because these routes exist.
 
 ## Portable Export / Import
 
-The markdown/JSON exports above are for reading. To move a research to another server, use the portable format instead — it carries sections, entries, sessions, questions, tasks, and roadmaps in a versioned envelope (`version`, `exported_at`, `research`):
+The markdown/JSON exports above are for reading. To move a research to another server, use the portable format instead — it carries sections, entries, sessions, questions, tasks, roadmaps and the annotations on each document, in a versioned envelope (`version`, `exported_at`, `research`):
 
 ```
 GET  /api/researches/{id}/export/portable   -> portable JSON (downloaded as <name>.json)

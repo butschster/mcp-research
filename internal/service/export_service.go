@@ -9,6 +9,7 @@ import (
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/google/uuid"
 )
 
 type ExportService struct {
@@ -19,7 +20,92 @@ type ExportService struct {
 	session  *SessionService
 	task     *TaskService
 	roadmap  *RoadmapService
-	log      *slog.Logger
+	// annotations is optional; see SetAnnotations.
+	annotations *storage.AnnotationRepository
+	log         *slog.Logger
+}
+
+// exportAnnotations reads the marks on one document, without the identities
+// that only mean something on this server.
+func (s *ExportService) exportAnnotations(ctx context.Context, entryID string) []domain.ExportAnnotation {
+	if s.annotations == nil {
+		return nil
+	}
+	rows, err := s.annotations.FindByEntry(ctx, entryID)
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	out := make([]domain.ExportAnnotation, 0, len(rows))
+	for _, a := range rows {
+		out = append(out, domain.ExportAnnotation{
+			BlockID:    a.BlockID,
+			Quote:      a.Quote,
+			Kind:       a.Kind,
+			Body:       a.Body,
+			AuthorKind: a.AuthorKind,
+			Status:     a.Status,
+			Resolution: a.Resolution,
+			Rejections: a.Rejections,
+			Attempts:   a.Attempts,
+			CreatedAt:  a.CreatedAt,
+			UpdatedAt:  a.UpdatedAt,
+		})
+	}
+	return out
+}
+
+// importAnnotations recreates the marks on a document that has just arrived.
+//
+// The anchor is resolved on the next read, against the document as imported —
+// which is the honest outcome: a mark whose sentence survived the move is
+// anchored, and one whose sentence did not is orphaned, exactly as it would be
+// after any other rewrite. The anchored revision becomes 1 because that is the
+// only revision an imported document has; pointing at a history that did not
+// travel would be worse than pointing at the beginning.
+func (s *ExportService) importAnnotations(ctx context.Context, entry *domain.Entry, marks []domain.ExportAnnotation) {
+	if s.annotations == nil || len(marks) == 0 {
+		return
+	}
+	for _, m := range marks {
+		if strings.TrimSpace(m.Quote.Exact) == "" || !m.Kind.Valid() {
+			continue
+		}
+		status := m.Status
+		if !status.Valid() {
+			status = domain.AnnotationOpen
+		}
+		author := m.AuthorKind
+		if !author.Valid() {
+			author = domain.AuthorHuman
+		}
+		a := &domain.Annotation{
+			ID:               uuid.New().String(),
+			ResearchID:       entry.ResearchID,
+			EntryID:          entry.ID,
+			BlockID:          m.BlockID,
+			Quote:            m.Quote,
+			AnchoredRevision: 1,
+			Kind:             m.Kind,
+			Body:             m.Body,
+			AuthorKind:       author,
+			Status:           status,
+			Resolution:       m.Resolution,
+			Rejections:       m.Rejections,
+			Attempts:         m.Attempts,
+		}
+		if err := s.annotations.Create(ctx, a); err != nil {
+			s.log.Warn("import annotation", "entry", entry.Code, "error", err)
+		}
+	}
+}
+
+// SetAnnotations lets a portable dump carry the marks people left.
+//
+// Optional for the same reason it is optional on EntryService: every existing
+// caller and test builds this service without one, and a nil repository means
+// "no annotations in the dump", which is what the dump has always contained.
+func (s *ExportService) SetAnnotations(annotations *storage.AnnotationRepository) {
+	s.annotations = annotations
 }
 
 func NewExportService(
@@ -119,6 +205,7 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 				SessionCode: sessionIDToCode[e.SessionID],
 				CreatedAt:   e.CreatedAt,
 				UpdatedAt:   e.UpdatedAt,
+				Annotations: s.exportAnnotations(ctx, e.ID),
 			}
 			es.Entries = append(es.Entries, ee)
 		}
@@ -287,7 +374,7 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, tea
 				sessionID = sessionCodeToID[e.SessionCode]
 			}
 
-			if _, err := s.entry.Create(ctx, CreateEntryRequest{
+			created, err := s.entry.Create(ctx, CreateEntryRequest{
 				ResearchID:  research.ID,
 				SectionID:   sectionID,
 				SessionID:   sessionID,
@@ -298,9 +385,14 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, tea
 				Status:      e.Status,
 				Tags:        e.Tags,
 				Metadata:    e.Metadata,
-			}); err != nil {
+			})
+			if err != nil {
 				return nil, fmt.Errorf("create entry %q: %w", e.Title, err)
 			}
+			// After the document, because a mark needs the entry it marks. A
+			// failure here is logged and skipped rather than failing the import:
+			// losing the queue is bad, losing the research is worse.
+			s.importAnnotations(ctx, created, e.Annotations)
 		}
 	}
 

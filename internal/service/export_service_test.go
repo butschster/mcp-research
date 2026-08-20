@@ -1871,3 +1871,91 @@ func TestImport_LegacyFileWithoutEntryType(t *testing.T) {
 		t.Errorf("type = %q, want markdown for a file with no entry_type", got)
 	}
 }
+
+// A portable dump is a move. Dropping the marks would silently discard the only
+// record of what somebody did not believe — and the round trip is the whole
+// point of the format, so both halves are checked here.
+func TestExport_AnnotationsSurviveARoundTrip(t *testing.T) {
+	db := setupTestDB(t)
+	log := slog.Default()
+	notifier := &mockNotifier{}
+	access := testAccess(db)
+
+	researchRepo := storage.NewResearchRepository(db)
+	sectionRepo := storage.NewSectionRepository(db)
+	entryRepo := storage.NewEntryRepository(db)
+	sessionRepo := storage.NewSessionRepository(db)
+	annotationRepo := storage.NewAnnotationRepository(db)
+
+	researchSvc := NewResearchService(researchRepo, sectionRepo, storage.NewTeamRepository(db), access, notifier, log)
+	sectionSvc := NewSectionService(sectionRepo, entryRepo, researchRepo, access, notifier, log)
+	entrySvc := NewEntryService(entryRepo, sectionRepo, researchRepo, access, sessionRepo,
+		storage.NewBlockRepository(db), storage.NewEntryRevisionRepository(db),
+		storage.NewCrossRefRepository(db), nil, notifier, log)
+	sessionSvc := NewSessionService(db, sessionRepo, storage.NewQuestionRepository(db), researchRepo, access, entrySvc, notifier, log)
+	taskSvc := NewTaskService(storage.NewTaskRepository(db), researchRepo, access, entrySvc, notifier, log)
+	roadmapSvc := NewRoadmapService(storage.NewRoadmapRepository(db), storage.NewRoadmapNodeRepository(db),
+		storage.NewRoadmapEdgeRepository(db), researchRepo, access, notifier, log)
+	annSvc := NewAnnotationService(annotationRepo, entryRepo, storage.NewEntryRevisionRepository(db),
+		access, entrySvc, entrySvc, notifier, log)
+
+	exportSvc := NewExportService(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, taskSvc, roadmapSvc, log)
+	exportSvc.SetAnnotations(annotationRepo)
+
+	ctx := context.Background()
+	research, sections, err := researchSvc.Create(ctx, CreateResearchRequest{
+		Name: "Latency", Goal: "budget",
+		Sections: []CreateSectionRequest{{Name: "findings", DisplayName: "Findings"}},
+	})
+	if err != nil {
+		t.Fatalf("create research: %v", err)
+	}
+	entry, err := entrySvc.Create(ctx, CreateEntryRequest{
+		ResearchID: research.ID, SectionID: sections[0].ID,
+		Title: "Load test", Content: "p99 stays under 40 ms at 10k rps.",
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+	if _, err := annSvc.Create(ctx, CreateAnnotationRequest{
+		EntryID: entry.ID,
+		Quote:   domain.Quote{Exact: "under 40 ms"},
+		Kind:    domain.AnnotationVerify,
+		Body:    "where does this come from?",
+	}); err != nil {
+		t.Fatalf("create annotation: %v", err)
+	}
+
+	data, err := exportSvc.Export(ctx, research.ID)
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	marks := data.Research.Sections[0].Entries[0].Annotations
+	if len(marks) != 1 {
+		t.Fatalf("exported %d marks, want 1", len(marks))
+	}
+	if marks[0].Quote.Exact != "under 40 ms" || marks[0].Kind != domain.AnnotationVerify {
+		t.Errorf("mark travelled wrong: %+v", marks[0])
+	}
+
+	imported, err := exportSvc.Import(ctx, data, "")
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	open := domain.AnnotationOpen
+	got, err := annSvc.ListByResearch(ctx, imported.ID, storage.AnnotationFilter{Status: &open})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("imported %d marks, want 1", len(got))
+	}
+	if got[0].Body != "where does this come from?" {
+		t.Errorf("note lost: %q", got[0].Body)
+	}
+	// The anchor is resolved against the document as it arrived, so a mark whose
+	// sentence survived the move is anchored — no special case needed.
+	if got[0].Anchor == nil || got[0].Anchor.State != domain.AnchorAnchored {
+		t.Errorf("anchor = %+v, want anchored after the round trip", got[0].Anchor)
+	}
+}

@@ -278,7 +278,23 @@ watch(() => props.visible, (open) => {
 
 // reload: after a restore, where landing on the new head is the point.
 // refreshList: after somebody else's write, where it would be an interruption.
-defineExpose({ reload: load, refreshList })
+/**
+ * Open the panel already comparing a revision against the newest one.
+ *
+ * The caller is an annotation whose text drifted or vanished: the question is
+ * "what happened to this sentence since I marked it", and the answer is the
+ * diff from the revision it was anchored to. Without this the only route was
+ * open the panel, find revision N in the rail, and shift-click it as a base —
+ * a convention nothing on screen explains.
+ */
+async function compareFrom(revision: number) {
+  await load()
+  if (!revisions.value.length) return
+  base.value = revision
+  await select(revisions.value[0]!.revision)
+}
+
+defineExpose({ reload: load, refreshList, compareFrom })
 </script>
 
 <style scoped>

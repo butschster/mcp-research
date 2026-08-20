@@ -152,3 +152,35 @@ func addMetadataReport(out map[string]any, entry *domain.Entry) {
 	}
 	out["metadata_report"] = report
 }
+
+// addAnnotationReport tells a writer which marks its write moved or destroyed.
+//
+// The same contract as addMetadataReport and BlockSaveReport: attached to the
+// response, never stored. This one matters most of the three, because the loss
+// it reports is somebody else's: a person marked a sentence as needing a source
+// and the write just deleted it. Without this the agent finds out never, and
+// the reader finds out from a queue full of orphans nobody can explain.
+func addAnnotationReport(out map[string]any, entry *domain.Entry) {
+	r := entry.AnnReport
+	if r == nil || r.Empty() {
+		return
+	}
+	report := map[string]any{}
+	if len(r.Drifted) > 0 {
+		report["annotations_drifted"] = r.Drifted
+	}
+	if len(r.Orphaned) > 0 {
+		report["annotations_orphaned"] = r.Orphaned
+	}
+	report["hint"] = "Text somebody had marked changed or is gone. Say so when you answer those marks — a doubt quietly buried by a rewrite is the thing this reports. annotation_list(research_id, entry_id) shows where they stand now."
+	out["annotation_report"] = report
+}
+
+// derefInt reads an optional int input. Absent means "not mentioned", which for
+// an offset or a limit is not the same as zero.
+func derefInt(n *int) int {
+	if n == nil {
+		return 0
+	}
+	return *n
+}

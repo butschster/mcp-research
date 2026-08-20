@@ -87,8 +87,11 @@ func newShareServer(t *testing.T) *shareServer {
 	skillSvc := service.NewSkillService(storage.NewSkillRepository(db), researchRepo, teamRepo, access, events, log)
 	templateSvc := service.NewTemplateService(storage.NewTemplateRepository(db), storage.NewSkillRepository(db), teamRepo, access, log)
 
+	annotationSvc := service.NewAnnotationService(storage.NewAnnotationRepository(db), entryRepo,
+		storage.NewEntryRevisionRepository(db), access, entrySvc, entrySvc, events, log)
+
 	srv := NewServer(ServerConfig{Port: 0}, researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc,
-		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, access, nil, db,
+		roadmapSvc, exportSvc, obsidianSvc, teamSvc, shareSvc, skillSvc, templateSvc, annotationSvc, access, nil, db,
 		entryRepo, researchRepo, crossrefRepo, externalLinkRepo, hub, log)
 
 	// Auth is off in this fixture, which is the harder case: with nobody in the
@@ -322,11 +325,48 @@ func TestShareRoutes_OwnerRoutesRejectAShareToken(t *testing.T) {
 		// shape before.
 		{http.MethodPost, "/api/shared/" + token + "/sections/" + s.sectionID + "/import", `{"title":"x","body":"y"}`},
 		{http.MethodPost, "/api/shared/" + token + "/sections/" + s.sectionID + "/import/preview", ``},
+		// Marking a sentence is a write, and a visitor has no business making
+		// one — but the assertion that matters is the read below.
+		{http.MethodPost, "/api/shared/" + token + "/entries/" + s.entry.ID + "/annotations", `{"quote":{"exact":"x"},"kind":"verify"}`},
+		{http.MethodPut, "/api/shared/" + token + "/annotations/whatever", `{"status":"closed"}`},
 	}
 	for _, w := range writes {
 		code, body := s.do(w.method, w.path, w.body)
 		if code < 400 {
 			t.Errorf("%s %s succeeded through a share link: %d %s", w.method, w.path, code, body)
+		}
+	}
+
+	// Annotations are working process, like provenance and revision history: who
+	// doubted which sentence is not part of what a link shares. The sub-mux
+	// simply does not carry these routes, and this is what proves it stays that
+	// way when somebody adds one to the main mux.
+	for _, path := range []string{
+		"/api/shared/" + token + "/entries/" + s.entry.ID + "/annotations",
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/annotations",
+	} {
+		code, body := s.get(path)
+		if code < 400 {
+			t.Errorf("%s is reachable through a share link: %d %s", path, code, body)
+		}
+	}
+
+	// An annotation's resolution can name [[E19]], and that writes a crossref row
+	// carrying the annotation's own id. The crossref routes are shared, so a link
+	// exposing no annotation route at all was still answering "somebody disputes
+	// this document, here is the id of the objection".
+	if _, err := s.db.ExecContext(context.Background(),
+		`INSERT INTO crossrefs (source_type, source_id, source_research_id, target_entry_id, target_ref, resolved)
+		 VALUES ('annotation', 'a-leak', ?, ?, 'E1', 1)`, s.research.ID, s.entry.ID); err != nil {
+		t.Fatalf("seed annotation crossref: %v", err)
+	}
+	for _, path := range []string{
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/crossrefs",
+		"/api/shared/" + token + "/entries/" + s.entry.ID + "/crossrefs",
+	} {
+		code, body := s.get(path)
+		if code < 400 && strings.Contains(body, "a-leak") {
+			t.Errorf("%s exposed an annotation crossref: %s", path, body)
 		}
 	}
 

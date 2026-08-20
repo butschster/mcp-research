@@ -24,8 +24,12 @@ type Server struct {
 	team     *service.TeamService
 	skill    *service.SkillService
 	template *service.TemplateService
-	baseURL  string
-	log      *slog.Logger
+	// annotation serves the queue of marks a person left on the documents. It
+	// is read and answered over MCP and never written: an annotation is born
+	// from someone reading, and there is deliberately no tool that creates one.
+	annotation *service.AnnotationService
+	baseURL    string
+	log        *slog.Logger
 }
 
 // SetBaseURL gives the tools a public origin to build download links with. It
@@ -44,6 +48,7 @@ func NewServer(
 	team *service.TeamService,
 	skill *service.SkillService,
 	template *service.TemplateService,
+	annotation *service.AnnotationService,
 	log *slog.Logger,
 	version string,
 ) *Server {
@@ -55,17 +60,18 @@ func NewServer(
 			Logger:       log,
 			Instructions: "MCP Research Server — AI-driven structured research sessions. Use research/initialize prompt to start. Use task_create/task_list to manage your todo list.",
 		}),
-		research: research,
-		section:  section,
-		entry:    entry,
-		session:  session,
-		task:     task,
-		roadmap:  roadmap,
-		export:   export,
-		team:     team,
-		skill:    skill,
-		template: template,
-		log:      log,
+		research:   research,
+		section:    section,
+		entry:      entry,
+		session:    session,
+		task:       task,
+		roadmap:    roadmap,
+		export:     export,
+		team:       team,
+		skill:      skill,
+		template:   template,
+		annotation: annotation,
+		log:        log,
 	}
 
 	s.registerTools()

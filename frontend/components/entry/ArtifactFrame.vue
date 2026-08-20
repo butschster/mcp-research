@@ -63,10 +63,23 @@
       Sizing the artifact… if it stays at this height, the document did not report
       its size and is shown at the fallback height.
     </p>
+
+    <!-- Room for the page to say something about the frame from outside it —
+         chiefly that its contents cannot be annotated. Kept outside the figure
+         and out of print, so a caption never gains a line the author did not
+         write. -->
+    <div v-if="!enlarged && $slots.notice" class="artifact-notice no-print">
+      <slot name="notice" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+defineSlots<{
+  /** Shown under the frame, never inside it. */
+  notice?: () => any
+}>()
+
 const props = withDefaults(
   defineProps<{
     /** The artifact's full HTML document. */
@@ -524,6 +537,12 @@ onUnmounted(() => {
   display: block;
   /* No height transition: while it animates the frame is shorter than its
      content, which shows a scrollbar that then disappears. */
+}
+
+.artifact-notice {
+  padding: var(--space-2) 0 0;
+  font-size: var(--type-3xs);
+  color: var(--color-text-faint);
 }
 
 .artifact-hint {

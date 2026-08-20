@@ -24,6 +24,12 @@ var (
 	// of these, and a 500 tells them the server broke instead.
 	ErrInvalidFieldSpec = errors.New("invalid field_spec")
 	ErrAnswerRequired   = errors.New("answered questions must have a non-empty answer")
+	// ErrValidation is a caller mistake with nothing more specific to say — a
+	// missing required field, a value outside a closed vocabulary. It is one
+	// sentinel rather than a family of them because the useful half of the
+	// refusal is the message wrapped around it, and a handler only needs to know
+	// this is a 400 the caller can fix.
+	ErrValidation = errors.New("invalid request")
 	ErrMutualExclusion  = errors.New("mutually exclusive fields provided")
 )
 
