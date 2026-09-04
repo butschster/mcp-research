@@ -15,7 +15,7 @@ type Event struct {
 	Type       string // e.g. "research.created", "entry.updated"
 	ResearchID string
 	EntityID   string
-	Entity     string // "research", "section", "entry", "session", "question", "task", "team", "annotation"
+	Entity     string // "research", "section", "entry", "entry_view", "session", "question", "task", "team", "annotation"
 
 	// ParentID and ParentCode name the thing the entity hangs off, for the
 	// entities that are not addressable on their own. An annotation event
@@ -49,9 +49,9 @@ type Event struct {
 	Name string
 
 	// TargetUserID addresses the event to one person instead of to everyone who
-	// can read the research. It exists for the one case the research scope
-	// cannot express: telling somebody they have just lost access. By the time
-	// that event is sent, the ordinary check would already refuse to deliver it.
+	// can read the research. It covers personal state such as read receipts, and
+	// messages that the normal scope cannot deliver, such as telling somebody
+	// they have just lost access.
 	TargetUserID string
 }
 

@@ -66,6 +66,11 @@ export function annotationsPath(slug: string) {
   return shareActive() ? '' : `/research/${slug}/annotations`
 }
 
+/** Personal document-update queue. A public link has no reader identity. */
+export function updatesPath(slug: string) {
+  return shareActive() ? '' : `/research/${slug}/updates`
+}
+
 export function exportPath(slug: string) {
   return shareActive() ? `${shareBase()}/export` : `/research/${slug}/export`
 }

@@ -16,6 +16,8 @@ import EntryDiffView from '../components/entry/DiffView.vue'
 import EntryAuthorBadge from '../components/entry/AuthorBadge.vue'
 import EntryFieldChanges from '../components/entry/FieldChanges.vue'
 import EntryRevisionRow from '../components/entry/RevisionRow.vue'
+import EntryUpdateBadge from '../components/entry/UpdateBadge.vue'
+import ResearchUpdatesRow from '../components/research/UpdatesRow.vue'
 import ShortCode from '../components/ShortCode.vue'
 import ActionMenu from '../components/ActionMenu.vue'
 import ModalHeader from '../components/ModalHeader.vue'
@@ -52,7 +54,10 @@ setup((app) => {
   // Nuxt component stubs
   app.component('NuxtLink', {
     props: ['to', 'href'],
-    template: '<a :href="to || href"><slot /></a>',
+    // RouterLink understands both string and `{ path, query }` destinations,
+    // so stories can verify exact deep links instead of rendering
+    // `href="[object Object]"` for the latter.
+    template: '<RouterLink v-if="to" :to="to"><slot /></RouterLink><a v-else :href="href"><slot /></a>',
   })
   app.component('ClientOnly', {
     template: '<slot />',
@@ -74,6 +79,8 @@ setup((app) => {
   app.component('EntryAuthorBadge', EntryAuthorBadge)
   app.component('EntryFieldChanges', EntryFieldChanges)
   app.component('EntryRevisionRow', EntryRevisionRow)
+  app.component('EntryUpdateBadge', EntryUpdateBadge)
+  app.component('ResearchUpdatesRow', ResearchUpdatesRow)
   app.component('ShortCode', ShortCode)
   app.component('ActionMenu', ActionMenu)
   app.component('ModalHeader', ModalHeader)

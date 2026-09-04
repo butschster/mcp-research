@@ -184,6 +184,52 @@ func (s *EntryService) LatestRevision(ctx context.Context, entry *domain.Entry) 
 	return rev
 }
 
+// LatestSnapshot returns an entry and its provenance from one database
+// snapshot. The entries projection and history are committed together, but
+// reading them in two independent transactions can straddle a concurrent
+// commit: the first query sees body r5 and the second sees revision r6.
+//
+// The entry row remains the response body rather than reconstructing it from
+// the revision. That distinction matters: checklist state deliberately changes
+// without a revision, and a revision's session identifies where that edit was
+// authored rather than the session the entry itself is linked to.
+func (s *EntryService) LatestSnapshot(ctx context.Context, entry *domain.Entry) (*domain.Entry, *domain.EntryRevision, error) {
+	if s.revisions == nil || entry == nil {
+		return entry, nil, nil
+	}
+
+	tx, err := s.revisions.DB().BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin entry snapshot: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	snapshot, err := s.entries.FindByIDQuery(ctx, tx, entry.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read entry snapshot: %w", err)
+	}
+	if snapshot == nil {
+		return nil, nil, ErrNotFound
+	}
+	rev, err := s.revisions.Latest(ctx, tx, entry.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read latest entry snapshot: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("commit entry snapshot: %w", err)
+	}
+	if rev == nil {
+		s.attachMetadataStatus(ctx, snapshot)
+		redactEntryForShare(ctx, snapshot)
+		return snapshot, nil, nil
+	}
+
+	s.attachMetadataStatus(ctx, snapshot)
+	redactEntryForShare(ctx, snapshot)
+	s.enrichSessions(ctx, []*domain.EntryRevision{rev})
+	return snapshot, rev, nil
+}
+
 // Revision returns one revision with its content.
 func (s *EntryService) Revision(ctx context.Context, entryID string, number int) (*domain.EntryRevision, error) {
 	// Ownership first: Get refuses an entry the caller may not open, and a

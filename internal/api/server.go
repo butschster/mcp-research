@@ -67,6 +67,9 @@ func NewServer(
 
 	rh := handlers.NewResearchHandler(researchSvc, sectionSvc, entrySvc, entryRepo, sessionSvc, log)
 	eh := handlers.NewEntryHandler(entrySvc, researchSvc, entryRepo, researchRepo, storage.NewUserRepository(db), storage.NewTeamRepository(db), log)
+	entryViewSvc := service.NewEntryViewService(storage.NewEntryViewRepository(db), entryRepo, access, ws.NewHubNotifier(hub))
+	eh.SetEntryViewService(entryViewSvc)
+	evh := handlers.NewEntryViewHandler(entryViewSvc, researchSvc)
 	sh := handlers.NewSessionHandler(sessionSvc, entrySvc, researchSvc, log)
 	th := handlers.NewTaskHandler(taskSvc, researchSvc, log)
 	rmh := handlers.NewRoadmapHandler(roadmapSvc, researchSvc, log)
@@ -253,6 +256,7 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}", wrapRead(rh.Get))
 	mux.Handle("GET /api/researches/{id}/sections/{sectionId}/entries", wrapRead(rh.ListSectionEntries))
 	mux.Handle("GET /api/researches/{id}/entries", wrapRead(rh.ListAllEntries))
+	mux.Handle("GET /api/researches/{id}/updates", wrapRead(evh.List))
 	mux.Handle("GET /api/researches/{id}/tags", wrapRead(rh.ListTags))
 	// Constant data, but behind wrapRead all the same: it describes what this
 	// installation lets a team record, which is not for anonymous readers.
@@ -340,6 +344,11 @@ func NewServer(
 	mux.Handle("PUT /api/entries/{id}", wrap(wh.UpdateEntry))
 	mux.Handle("POST /api/entries/{id}/patch", wrap(wh.PatchEntry))
 	mux.Handle("DELETE /api/entries/{id}", wrap(wh.DeleteEntry))
+	// Read-state writes need only read permission: a viewer may acknowledge what
+	// they have read without acquiring the right to edit team content. The
+	// service enforces that distinction; `wrap` supplies the caller and tab id.
+	mux.Handle("PUT /api/entries/{id}/seen", wrap(evh.MarkSeen))
+	mux.Handle("POST /api/researches/{id}/updates/seen", wrap(evh.MarkAllSeen))
 	mux.Handle("POST /api/tasks", wrap(wh.CreateTask))
 	mux.Handle("PUT /api/tasks/{id}", wrap(wh.UpdateTask))
 	mux.Handle("DELETE /api/tasks/{id}", wrap(wh.DeleteTask))

@@ -195,11 +195,15 @@ The web UI renders it as the **Changes** tab on a session page.
 
 ## History size
 
-Every revision is kept: there is no configuration option that caps history, and
-nothing trims it today. An entry is kilobytes of markdown or JSON, so keeping
-everything is both cheap and the honest choice for a research tool. The cap the
-service can apply keeps the newest N **plus revision 1** — the only record of
-what the entry looked like when it was created — but nothing switches it on.
+Every revision is kept by default. An entry is kilobytes of markdown or JSON,
+so keeping everything is both cheap and the honest choice for a research tool.
+An operator may set `revision_limit` in YAML,
+`MCP_RESEARCH_REVISION_LIMIT`, or `--revision-limit` to cap each entry's
+history. The cap keeps the newest N **plus revision 1** — the only record of
+what the entry looked like when it was created — and every revision that is
+still a reader's personal last-seen checkpoint. Keeping those checkpoints is
+what lets the web UI show an exact diff from what each reader last saw even when
+older, otherwise-unused snapshots have been trimmed.
 
 Deleting an entry deletes its history with it (the rows cascade), and so does
 deleting the research. History does not travel: a portable export carries no

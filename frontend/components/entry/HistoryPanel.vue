@@ -155,6 +155,7 @@ const diffError = ref(false)
 const expandAll = ref(false)
 const announcement = ref('')
 const railList = ref<HTMLElement | null>(null)
+const requestedRange = ref<{ from: number; to: number } | null>(null)
 
 const railSummary = computed(() => {
   const n = revisions.value.length
@@ -187,8 +188,16 @@ async function load() {
     const res: any = await authFetch(`${apiBase}/api/entries/${props.entryId}/revisions`)
     revisions.value = res?.data?.revisions ?? []
     current.value = res?.data?.current ?? 0
-    base.value = 0
-    if (revisions.value.length) await select(revisions.value[0].revision)
+    const range = requestedRange.value
+    requestedRange.value = null
+    base.value = range?.from ?? 0
+    if (revisions.value.length) {
+      const newest = revisions.value[0].revision
+      const target = range?.to && revisions.value.some((revision: any) => revision.revision === range.to)
+        ? range.to
+        : newest
+      await select(target)
+    }
   } catch (e) {
     error.value = true
     revisions.value = []
@@ -287,14 +296,16 @@ watch(() => props.visible, (open) => {
  * open the panel, find revision N in the rail, and shift-click it as a base —
  * a convention nothing on screen explains.
  */
-async function compareFrom(revision: number) {
-  await load()
-  if (!revisions.value.length) return
-  base.value = revision
-  await select(revisions.value[0]!.revision)
+/**
+ * Queue links know both ends of the snapshot they displayed. Preparing the
+ * range before the modal opens lets its ordinary visible watcher issue one
+ * exact comparison instead of first jumping to whatever is newest now.
+ */
+function prepareRange(from: number, to: number) {
+  requestedRange.value = { from, to }
 }
 
-defineExpose({ reload: load, refreshList, compareFrom })
+defineExpose({ reload: load, refreshList, prepareRange })
 </script>
 
 <style scoped>

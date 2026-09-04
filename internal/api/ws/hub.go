@@ -403,6 +403,11 @@ func visibleToShare(share *auth.Share, event Event) bool {
 		// document is being disputed (`parent_code`), how many times, and when
 		// the agent answered.
 		return false
+	case "entry_view":
+		// Personal read receipts are never part of a shared document. In local
+		// mode they have no TargetUserID, so this explicit refusal is what keeps
+		// them off share sockets.
+		return false
 	}
 	return true
 }

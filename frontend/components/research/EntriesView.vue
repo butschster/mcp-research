@@ -28,6 +28,7 @@
           :entry="entry"
           :research-slug="researchSlug"
           :missing-required="entry.metadata_status?.missing_required?.length ?? 0"
+          :update="updates?.[entry.id]"
         />
       </div>
       <EmptyState
@@ -65,32 +66,14 @@
         <template v-for="group in groupedEntries" :key="group.section.id">
           <h3 class="group-section-title">{{ group.section.display_name || group.section.name }}</h3>
           <div class="grid entries-grid mb-4">
-            <NuxtLink
+            <EntryCard
               v-for="entry in group.entries"
               :key="entry.id"
-              :to="entryPath(researchSlug, entry.code || entry.id)"
-              class="card entry-card"
-            >
-              <div class="entry-card-header">
-                <div class="entry-title-row">
-                  <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-                  <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
-                  <h3 class="card-title">{{ entry.title }}</h3>
-                </div>
-                <div class="entry-card-flags">
-                  <span
-                    v-if="missingIn(group.section, entry)"
-                    class="badge badge-draft"
-                    :title="`${missingIn(group.section, entry)} required ${missingIn(group.section, entry) === 1 ? 'field is' : 'fields are'} unanswered`"
-                  >{{ missingIn(group.section, entry) }} missing</span>
-                  <StatusBadge :status="entry.status" />
-                </div>
-              </div>
-              <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
-              <div v-if="entry.tags?.length" class="entry-tags">
-                <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
-              </div>
-            </NuxtLink>
+              :entry="entry"
+              :research-slug="researchSlug"
+              :missing-required="missingIn(group.section, entry)"
+              :update="updates?.[entry.id]"
+            />
           </div>
         </template>
       </template>
@@ -203,6 +186,11 @@
             <tr v-for="entry in filteredEntries" :key="entry.id">
               <th scope="row" class="meta-table-doc">
                 <NuxtLink :to="entryPath(researchSlug, entry.code || entry.id)">
+                  <EntryUpdateBadge
+                    v-if="updates?.[entry.id]"
+                    :kind="updates[entry.id]!.kind"
+                    :unseen-revisions="updates[entry.id]!.unseen_revisions"
+                  />
                   <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
                   {{ entry.title }}
                 </NuxtLink>
@@ -236,32 +224,14 @@
       </div>
 
       <div v-else-if="filteredEntries.length" class="grid entries-grid">
-        <NuxtLink
+        <EntryCard
           v-for="entry in filteredEntries"
           :key="entry.id"
-          :to="entryPath(researchSlug, entry.code || entry.id)"
-          class="card entry-card"
-        >
-          <div class="entry-card-header">
-            <div class="entry-title-row">
-              <span v-if="entry.code" class="short-code">{{ entry.code }}</span>
-              <span v-if="entry.entry_type === 'artifact'" class="entry-artifact-badge" title="HTML artifact">artifact</span>
-              <h3 class="card-title">{{ entry.title }}</h3>
-            </div>
-            <div class="entry-card-flags">
-              <span
-                v-if="missingCount(entry)"
-                class="badge badge-draft"
-                :title="`${missingCount(entry)} required ${missingCount(entry) === 1 ? 'field is' : 'fields are'} unanswered`"
-              >{{ missingCount(entry) }} missing</span>
-              <StatusBadge :status="entry.status" />
-            </div>
-          </div>
-          <p v-if="entry.description" class="card-meta mt-2" v-html="renderRefs(entry.description, researchSlug)"></p>
-          <div v-if="entry.tags?.length" class="entry-tags">
-            <span v-for="tag in entry.tags" :key="tag" :class="['tag', `tag-hue-${tagHue(tag)}`]">{{ tag }}</span>
-          </div>
-        </NuxtLink>
+          :entry="entry"
+          :research-slug="researchSlug"
+          :missing-required="missingCount(entry)"
+          :update="updates?.[entry.id]"
+        />
       </div>
 
       <EmptyState
@@ -303,6 +273,7 @@ import { shareActive } from '~/composables/useShare'
 import { displayValue, fieldLabel, isFilled, isUnknown, missingRequired } from '~/composables/useFieldSpec'
 import { useSectionImport } from '~/composables/useSectionImport'
 import { useMetadataSchema } from '~/composables/useMetadataSchema'
+import type { EntryUpdate } from '~/composables/useEntryUpdates'
 
 const props = defineProps<{
   entries: any[]
@@ -314,6 +285,7 @@ const props = defineProps<{
   mode: 'all' | 'section'
   sectionInfo?: any
   tags: Array<{ tag: string; count: number }>
+  updates?: Record<string, EntryUpdate>
 }>()
 
 /* What this section declares, and the two things every surface needs from it.
@@ -565,10 +537,6 @@ const groupedEntries = computed(() => {
   border-bottom: 1px solid var(--color-border);
 }
 .entries-grid { grid-template-columns: 1fr; }
-.entry-card { display: block; text-decoration: none; color: inherit; }
-.entry-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
-.entry-title-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.entry-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 .short-code {
   font-size: var(--type-xs);
   font-weight: var(--weight-semibold);
@@ -581,16 +549,6 @@ const groupedEntries = computed(() => {
   line-height: 1;
 }
 .skeleton-entry { height: 90px; margin-bottom: var(--space-3); }
-.entry-artifact-badge {
-  padding: 0.1rem 0.4rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary-muted);
-  color: var(--color-primary);
-  font-size: var(--type-xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.02em;
-  flex-shrink: 0;
-}
 
 /* No auto margins here. `.section-header` is space-between with no gap, and an
    auto margin is resolved first — it absorbed all the free space, so the title
@@ -636,7 +594,14 @@ const groupedEntries = computed(() => {
 .meta-table tbody tr:last-child td { border-bottom: 0; }
 
 .meta-table-doc { font-weight: var(--weight-normal); max-width: 22rem; white-space: normal; }
-.meta-table-doc a { color: inherit; text-decoration: none; }
+.meta-table-doc a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: inherit;
+  text-decoration: none;
+}
 .meta-table-doc a:hover { text-decoration: underline; }
 
 .meta-table td.is-empty { color: var(--color-text-faint); }
@@ -645,8 +610,5 @@ const groupedEntries = computed(() => {
 .meta-table td.is-missing { color: var(--color-warning); }
 .meta-table td.is-invalid { color: var(--color-danger); text-decoration: underline dotted; }
 .meta-req { color: var(--color-warning); margin-left: 0.15em; }
-/* The chip and the status badge are one group, or the header's space-between
-   distributes free space between them and the chip floats mid-row. */
-.entry-card-flags { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 
 </style>

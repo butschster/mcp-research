@@ -156,6 +156,13 @@
 
     <!-- View mode content -->
     <template v-if="!editing">
+      <EntryUpdateNotice
+        v-if="viewNotice"
+        :state="viewNotice"
+        class="no-print"
+        @review="reviewUnseenChanges"
+      />
+
       <!-- View toggle -->
       <div class="view-toggle no-print">
         <button :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
@@ -393,12 +400,18 @@
 <script setup lang="ts">
 import type { Annotation, AnnotationKind } from '~/composables/useAnnotations'
 import { MARK_CLASS, type CapturedSegment } from '~/composables/useAnnotationOverlay'
+import type { EntryViewState } from '~/composables/useEntryUpdates'
 import { parseMarkdown } from '~/composables/useSafeMarkdown'
 import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { tagHue } from '~/composables/useTagHue'
 import { renderMermaidBlocks } from '~/composables/useMermaid'
+
+// Vue Router reuses a page component when only a dynamic parameter changes.
+// This page's primary fetch is bound to the route at setup time, so a document
+// navigation must create a fresh instance (query-only changes still do not).
+definePageMeta({ key: (currentRoute) => `${currentRoute.params.id}:${currentRoute.params.entryId}` })
 
 const route = useRoute()
 const router = useRouter()
@@ -438,6 +451,101 @@ const sections = computed(() => researchData.value?.data?.sections ?? [])
 
 // Entry data (pass research context for code-based lookup)
 const { data, pending, refresh } = await useApi<{ data: any }>(`/api/researches/${id}/entries/${entryId}`)
+
+// The server returns read state beside the exact document revision in this
+// response. The notice is a visit snapshot: marking the revision seen must not
+// make the explanation disappear while the reader is still using it.
+type UnseenEntryState = EntryViewState & { kind: 'new' | 'changed' }
+const viewNotice = ref<UnseenEntryState | null>(null)
+const pendingSeenRevision = ref(0)
+const markedThrough = ref(0)
+const { authFetch: viewFetch } = useAuth()
+const viewApiBase = useRuntimeConfig().public.apiBase || ''
+
+function currentRevision(): number {
+  return Number((data.value as any)?.revision || 0)
+}
+
+function unseenState(from = 0): UnseenEntryState | null {
+  const current = currentRevision()
+  const state = (data.value as any)?.view_state as EntryViewState | undefined
+  if (!current) return null
+  if (state?.kind === 'changed' && from === state.seen_revision && from < current) {
+    return { kind: 'changed', current_revision: current, seen_revision: from, unseen_revisions: current - from }
+  }
+  if (state?.kind === 'new' || state?.kind === 'changed') return { ...state }
+  return null
+}
+
+// Data is already awaited above and this application is client-rendered. Seed
+// the notice during setup so it is part of the first paint; onMounted performs
+// the acknowledgement after the page is actually visible.
+viewNotice.value = unseenState(Number(route.query.changes_from || 0))
+
+async function markDisplayedRevision(captureNotice = false) {
+  if (shareActive() || !entry.value?.id) return
+  const entryID = entry.value.id
+  const revision = currentRevision()
+  if (!revision || revision <= markedThrough.value) return
+  if (captureNotice && !viewNotice.value) {
+    const fromQuery = Number(route.query.changes_from || 0)
+    viewNotice.value = unseenState(fromQuery)
+  }
+  await nextTick()
+  // Navigation can reuse this page component. Never pair the previous
+  // document's revision with the next document's id across that tick.
+  if (entry.value?.id !== entryID) return
+  if (!import.meta.client || document.visibilityState !== 'visible') {
+    pendingSeenRevision.value = Math.max(pendingSeenRevision.value, revision)
+    return
+  }
+  try {
+    await viewFetch(`${viewApiBase}/api/entries/${entryID}/seen`, {
+      method: 'PUT',
+      body: { revision },
+    })
+    if (entry.value?.id !== entryID) return
+    markedThrough.value = Math.max(markedThrough.value, revision)
+    if (pendingSeenRevision.value <= markedThrough.value) pendingSeenRevision.value = 0
+  } catch {
+    // The queue remains conservative when acknowledgement fails, but the
+    // reader should not have to guess why the document is still listed.
+    pendingSeenRevision.value = Math.max(pendingSeenRevision.value, revision)
+    pushToast({
+      variant: 'error',
+      title: 'Could not mark this document as seen',
+      message: 'It remains in Updates.',
+      action: { label: 'Try again', onClick: () => { void markDisplayedRevision() } },
+    })
+  }
+}
+
+function onDocumentVisible() {
+  if (document.visibilityState === 'visible' && pendingSeenRevision.value) {
+    void markDisplayedRevision()
+  }
+}
+
+function beginEntryVisit() {
+  pendingSeenRevision.value = 0
+  markedThrough.value = 0
+  const fromQuery = Number(route.query.changes_from || 0)
+  viewNotice.value = unseenState(fromQuery)
+  void markDisplayedRevision()
+
+  if (route.query.review_changes === '1' && viewNotice.value?.kind === 'changed') {
+    const requestedTo = Number(route.query.changes_to || 0)
+    historyPanel.value?.prepareRange(
+      viewNotice.value.seen_revision,
+      requestedTo > viewNotice.value.seen_revision ? requestedTo : viewNotice.value.current_revision,
+    )
+    showHistory.value = true
+    // These parameters describe this one arrival. Keeping them in the URL
+    // resurrects a stale Changed notice on reload after the checkpoint moved.
+    const { review_changes: _review, changes_from: _from, changes_to: _to, ...query } = route.query
+    void router.replace({ query })
+  }
+}
 
 // This was the one reader-facing page with no live updates, which mattered less
 // while an agent was the only writer. Now a checkbox writes from here, and the
@@ -536,6 +644,7 @@ async function saveMetadata(values: Record<string, unknown>) {
     body: { metadata: values },
   })
   await refresh()
+  await markDisplayedRevision()
   // A key the server refused, or a required field still empty, is a thing the
   // person just did and cannot see from the entry they get back.
   const report = res?.metadata_report
@@ -982,9 +1091,8 @@ async function setStatus(a: Annotation, status: Annotation['status'], reason = '
 
 /** Open the history comparing the revision a mark was made against with now. */
 async function showMarkDiff(revision: number) {
+  historyPanel.value?.prepareRange(revision, 0)
   showHistory.value = true
-  await nextTick()
-  historyPanel.value?.compareFrom(revision)
 }
 
 /** A mis-drag is the person's own mistake to undo, and dismissing it would
@@ -1027,8 +1135,31 @@ function patchLocal(id: string, changes: Partial<Annotation>) {
  * catch.
  */
 async function refreshWithMarks() {
+  const beforeRevision = currentRevision()
   const before = new Map(annotations.value.map((a) => [a.id, a.anchor?.state]))
   await refresh()
+  const afterRevision = currentRevision()
+  if (afterRevision > beforeRevision) {
+    // A realtime write is not silently acknowledged. The reader may be in the
+    // middle of the old text; the notice gives them an explicit review step.
+    const serverState = unseenState()
+    if (serverState?.kind === 'new') {
+      // A background tab has not shown even the first revision yet. A remote
+      // write makes it a newer new document, not "changed since r1" — r1 was
+      // never seen either.
+      viewNotice.value = serverState
+    } else {
+      const seenRevision = serverState?.kind === 'changed'
+        ? serverState.seen_revision
+        : Math.max(1, beforeRevision)
+      viewNotice.value = {
+        kind: 'changed',
+        current_revision: afterRevision,
+        seen_revision: seenRevision,
+        unseen_revisions: Math.max(1, afterRevision - seenRevision),
+      }
+    }
+  }
   await loadAnnotations()
   await repaint()
 
@@ -1065,6 +1196,10 @@ onMounted(() => {
 
   loadAnnotations().then(() => repaint())
 
+  beginEntryVisit()
+  document.addEventListener('visibilitychange', onDocumentVisible)
+  onBeforeUnmount(() => document.removeEventListener('visibilitychange', onDocumentVisible))
+
   // Reflow moves the marked text; scrolling does not. Watching the card is what
   // keeps the gutter pins beside their sentences without a scroll listener.
   if (cardEl.value && typeof ResizeObserver !== 'undefined') {
@@ -1081,9 +1216,10 @@ watch(marksMode, (mode) => {
 })
 
 // Arriving at a different document by link keeps the page mounted.
-watch(() => entry.value?.id, () => {
+watch(() => entry.value?.id, (nextID, previousID) => {
   activeThreadId.value = null
   loadAnnotations().then(() => repaint())
+  if (nextID && previousID && nextID !== previousID) beginEntryVisit()
 })
 
 // Copy markdown
@@ -1207,6 +1343,16 @@ function openHistory() {
   showHistory.value = true
 }
 
+function reviewUnseenChanges() {
+  const state = viewNotice.value
+  if (!state || state.kind !== 'changed') return
+  historyPanel.value?.prepareRange(state.seen_revision, state.current_revision)
+  showHistory.value = true
+  // A realtime revision deliberately stayed unseen until the reader engaged
+  // with it. Opening its exact comparison is that engagement.
+  void markDisplayedRevision()
+}
+
 function cancelDelete() {
   showDeleteConfirm.value = false
   docMenu.value?.focusTrigger()
@@ -1316,6 +1462,8 @@ async function discardDraftForRemote() {
   editing.value = false
   remoteChangedWhileEditing.value = false
   await refresh()
+  viewNotice.value = unseenState() ?? viewNotice.value
+  await markDisplayedRevision()
 }
 
 // An open editor whose text differs from what was loaded is work that has not
@@ -1352,6 +1500,7 @@ async function saveEntry() {
     editing.value = false
     remoteChangedWhileEditing.value = false
     await refresh()
+    await markDisplayedRevision()
   } catch (e: any) {
     console.error('Failed to save entry:', e)
     // A native dialog over an editor full of unsaved work is the worst place
@@ -1397,6 +1546,8 @@ async function changeStatus(newStatus: string) {
       method: 'PUT',
       body: { status: newStatus },
     })
+    await refresh()
+    await markDisplayedRevision()
   } catch (e: any) {
     // Rollback on error
     data.value.data = { ...entry.value, status: prev }
@@ -1430,6 +1581,7 @@ async function completeAnyway() {
       body: { status: 'completed', allow_incomplete: true },
     })
     await refresh()
+    await markDisplayedRevision()
   } catch (e: any) {
     incompleteFields.value = fields
     useToasts().push({
@@ -1446,6 +1598,7 @@ const showHistory = ref(false)
 const historyPanel = ref<{
   reload: () => Promise<void>
   refreshList: () => Promise<void>
+  prepareRange: (from: number, to: number) => void
 } | null>(null)
 const restoreTarget = ref<number | null>(null)
 const restoring = ref(false)
@@ -1473,6 +1626,7 @@ async function confirmRestore() {
     })
     restoreTarget.value = null
     await refresh()
+    await markDisplayedRevision()
     // The restore itself is a new revision, so the open panel is now stale.
     await historyPanel.value?.reload()
   } catch (e: any) {

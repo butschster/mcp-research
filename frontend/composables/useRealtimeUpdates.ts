@@ -2,7 +2,7 @@ export interface WsEvent {
   type: string              // e.g. "research.updated", "entry.created", "access.revoked"
   research_id: string
   entity_id: string
-  entity: string            // "research", "section", "entry", "session", "question", "task", "team", "crossref"
+  entity: string            // "research", "section", "entry", "entry_view", "session", "question", "task", "team", "crossref"
   /** The same scope named the way the URLs are. Absent on events with no research. */
   research_code?: string
   /** Who caused it. Empty when auth is off, and for anything an agent wrote. */

@@ -22,6 +22,11 @@
           <TeamViewerNotice v-if="isViewer" :team-name="research.team_name" />
 
           <!-- Icon nav buttons -->
+          <NuxtLink :to="updatesPath(researchSlug)" class="btn" title="New and changed documents">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+            Updates
+            <span v-if="entryUpdates.count" class="btn-count">{{ entryUpdates.count }}</span>
+          </NuxtLink>
           <NuxtLink :to="`/research/${researchSlug}/tasks`" class="btn btn-icon" title="Tasks">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             <span v-if="tasks.length" class="btn-count">{{ tasks.length }}</span>
@@ -103,6 +108,11 @@
       </template>
     </PageHeader>
 
+    <p v-if="entryUpdatesFetchError" class="inline-error updates-load-error" role="alert">
+      <span>Could not load document updates. Counts and badges may be unavailable.</span>
+      <button type="button" class="btn btn-sm" @click="reloadUpdates()">Try again</button>
+    </p>
+
     <!-- Active sessions -->
     <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug"
           :research-id="research?.id"
@@ -132,6 +142,7 @@
           :loading="allEntriesPending"
           mode="all"
           :tags="globalTags"
+          :updates="updatesByEntry"
         />
 
         <!-- Single section view -->
@@ -146,6 +157,7 @@
           mode="section"
           :section-info="currentSection"
           :tags="[]"
+          :updates="updatesByEntry"
           @imported="onImported"
         />
 
@@ -325,6 +337,15 @@ const openMarks = computed(() => marksData.value?.meta?.counts?.open ?? 0)
 const { data: roadmapsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/roadmaps`)
 const roadmaps = computed(() => roadmapsData.value?.data ?? [])
 
+// Personal update queue. Besides the header count, this supplies the New /
+// Changed markers to cards and search results on this page.
+const {
+  updates: entryUpdates,
+  byEntry: updatesByEntry,
+  error: entryUpdatesFetchError,
+  refresh: reloadUpdates,
+} = await useEntryUpdates(id)
+
 // All sessions
 const { data: sessionsData } = await useApi<{ data: any[] }>(`/api/researches/${id}/sessions`)
 const allSessions = computed(() => sessionsData.value?.data ?? [])
@@ -498,11 +519,10 @@ async function reloadRoadmaps() {
 async function reloadTasks() {
   tasksData.value = await authFetch<any>(`${rtBase}/api/researches/${id}/tasks`)
 }
-
 async function reloadEverything() {
   await Promise.all([
     reloadResearch(), reloadEntries(), reloadLinks(),
-    reloadSessions(), reloadRoadmaps(), reloadTasks(),
+    reloadSessions(), reloadRoadmaps(), reloadTasks(), reloadUpdates(),
   ])
 }
 
@@ -512,8 +532,9 @@ useResearchRealtime(() => id, async (event) => {
     // The sidebar's totals and per-section counts come off the research
     // payload, not off the entry list — so refetching only the list left the
     // count beside it disagreeing, and every later write widened the gap.
-    await Promise.all([reloadEntries(), reloadLinks(), reloadResearch()])
+    await Promise.all([reloadEntries(), reloadLinks(), reloadResearch(), reloadUpdates()])
   }
+  if (event.entity === 'entry_view') await reloadUpdates()
   if (['question', 'session'].includes(event.entity)) await reloadSessions()
   if (event.entity === 'roadmap') await reloadRoadmaps()
   // The badge is rendered from this list and nothing else refetched it, so it
@@ -533,6 +554,8 @@ useResearchRealtime(() => id, async (event) => {
 </script>
 
 <style scoped>
+
+.updates-load-error { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
 
 /* Responsive */
 @media (max-width: 768px) {

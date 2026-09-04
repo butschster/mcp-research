@@ -198,6 +198,10 @@ ships with the app.
 
 ### Everything else that makes it a product
 
+- **A personal Updates queue for every research** — new documents and revisions
+  since you last opened each one, with `New` and `Changed` badges wherever you
+  browse them. Review the exact before-and-after diff, or mark the displayed
+  updates as seen in one click; another reader's queue stays their own.
 - **Revision history on every entry** — who wrote it (agent, human, import,
   restore), during which session, what changed, and a diff. Restore any revision.
   A session page can show everything that session changed.
