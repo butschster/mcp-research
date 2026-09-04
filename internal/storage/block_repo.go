@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	"github.com/uptrace/bun"
 )
 
 // BlockRow is one block of a `blocks` entry.
@@ -24,25 +25,28 @@ type BlockRow struct {
 }
 
 type BlockRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewBlockRepository(db *sql.DB) *BlockRepository {
+func NewBlockRepository(db *bun.DB) *BlockRepository {
 	return &BlockRepository{db: db}
 }
 
 // DB exposes the handle so a service can open the transaction a multi-statement
 // block write has to run in. Nothing else should reach for it.
-func (r *BlockRepository) DB() *sql.DB { return r.db }
+func (r *BlockRepository) DB() *bun.DB { return r.db }
 
 // FindByEntry returns a document's blocks in render order.
 func (r *BlockRepository) FindByEntry(ctx context.Context, q Querier, entryID string) ([]BlockRow, error) {
 	if q == nil {
 		q = r.db
 	}
-	rows, err := q.QueryContext(ctx,
-		`SELECT entry_id, research_id, block_id, position, type, data, state
-		   FROM entry_blocks WHERE entry_id=? ORDER BY position`, entryID)
+	rows, err := q.NewSelect().
+		ColumnExpr("entry_id, research_id, block_id, position, type, data, state").
+		TableExpr("entry_blocks").
+		Where("entry_id=?", entryID).
+		OrderExpr("position").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("find blocks: %w", err)
 	}
@@ -71,15 +75,19 @@ func (r *BlockRepository) ReplaceForEntry(ctx context.Context, q Querier, entryI
 	if q == nil {
 		q = r.db
 	}
-	if _, err := q.ExecContext(ctx, `DELETE FROM entry_blocks WHERE entry_id=?`, entryID); err != nil {
+	if _, err := q.NewDelete().Table("entry_blocks").Where("entry_id=?", entryID).Exec(ctx); err != nil {
 		return fmt.Errorf("clear blocks: %w", err)
 	}
 	for i, b := range blocks {
-		if _, err := q.ExecContext(ctx,
-			`INSERT INTO entry_blocks (entry_id, research_id, block_id, position, type, data, state)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			entryID, b.ResearchID, b.BlockID, i, b.Type, b.Data, b.State,
-		); err != nil {
+		if _, err := q.NewInsert().Table("entry_blocks").Model(&map[string]any{
+			"entry_id":    entryID,
+			"research_id": b.ResearchID,
+			"block_id":    b.BlockID,
+			"position":    i,
+			"type":        b.Type,
+			"data":        b.Data,
+			"state":       b.State,
+		}).Exec(ctx); err != nil {
 			return fmt.Errorf("insert block %d (%s): %w", i, b.BlockID, err)
 		}
 	}
@@ -96,8 +104,11 @@ func (r *BlockRepository) SetState(ctx context.Context, q Querier, entryID, bloc
 	if q == nil {
 		q = r.db
 	}
-	res, err := q.ExecContext(ctx,
-		`UPDATE entry_blocks SET state=? WHERE entry_id=? AND block_id=?`, state, entryID, blockID)
+	res, err := q.NewUpdate().
+		Table("entry_blocks").
+		Set("state=?", state).
+		Where("entry_id=? AND block_id=?", entryID, blockID).
+		Exec(ctx)
 	if err != nil {
 		return false, fmt.Errorf("set block state: %w", err)
 	}
@@ -114,7 +125,7 @@ func (r *BlockRepository) DeleteForEntry(ctx context.Context, q Querier, entryID
 	if q == nil {
 		q = r.db
 	}
-	if _, err := q.ExecContext(ctx, `DELETE FROM entry_blocks WHERE entry_id=?`, entryID); err != nil {
+	if _, err := q.NewDelete().Table("entry_blocks").Where("entry_id=?", entryID).Exec(ctx); err != nil {
 		return fmt.Errorf("delete blocks: %w", err)
 	}
 	return nil

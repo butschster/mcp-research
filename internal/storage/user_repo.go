@@ -7,23 +7,27 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
+func NewUserRepository(db *bun.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		user.ID, user.Email, user.PasswordHash, user.Name, now, now,
-	)
+	_, err := r.db.NewInsert().Table("users").Model(&map[string]any{
+		"id":            user.ID,
+		"email":         user.Email,
+		"password_hash": user.PasswordHash,
+		"name":          user.Name,
+		"created_at":    now,
+		"updated_at":    now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert user: %w", err)
 	}
@@ -33,24 +37,28 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 }
 
 func (r *UserRepository) FindByID(ctx context.Context, id string) (*domain.User, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, email, password_hash, name, created_at, updated_at").
+		TableExpr("users").
+		Where("id=?", id))
 	return r.scanUser(row)
 }
 
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE email=?`, email)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, email, password_hash, name, created_at, updated_at").
+		TableExpr("users").
+		Where("email=?", email))
 	return r.scanUser(row)
 }
 
 func (r *UserRepository) Count(ctx context.Context) (int, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	err := selectRow(ctx, r.db.NewSelect().ColumnExpr("COUNT(*)").TableExpr("users")).Scan(&count)
 	return count, err
 }
 
-func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
+func (r *UserRepository) scanUser(row scanner) (*domain.User, error) {
 	var u domain.User
 	var createdAt, updatedAt string
 	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &createdAt, &updatedAt)

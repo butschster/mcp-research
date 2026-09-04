@@ -2,19 +2,19 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/config"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/butschster/mcp-research/internal/testdb"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
-func setupTestDB(t *testing.T) *sql.DB {
+func setupTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	db, err := storage.NewDB(config.Config{}, slog.Default())
+	db, err := storage.NewDB(testdb.Config(t), slog.Default())
 	if err != nil {
 		t.Fatalf("setup test db: %v", err)
 	}
@@ -46,14 +46,14 @@ func ptr[T any](v T) *T { return &v }
 
 // testAccess builds the guard every service is handed. Tests construct
 // services by hand, so this is the one place the wiring lives for them.
-func testAccess(db *sql.DB) *Access {
+func testAccess(db *bun.DB) *Access {
 	return NewAccess(storage.NewTeamRepository(db))
 }
 
 // createTestUser makes a user with the personal team registration would have
 // given them. Without the team the account cannot create a research at all, so
 // a test that skips it is testing a state the product never produces.
-func createTestUser(t *testing.T, db *sql.DB, email, name string) *domain.User {
+func createTestUser(t *testing.T, db *bun.DB, email, name string) *domain.User {
 	t.Helper()
 	ctx := context.Background()
 
@@ -70,7 +70,7 @@ func createTestUser(t *testing.T, db *sql.DB, email, name string) *domain.User {
 
 // addToTeam puts a user in an existing team with a role, which is how a test
 // builds the shared-team cases the ownership model never had.
-func addToTeam(t *testing.T, db *sql.DB, teamID, userID string, role domain.TeamRole) {
+func addToTeam(t *testing.T, db *bun.DB, teamID, userID string, role domain.TeamRole) {
 	t.Helper()
 	if err := storage.NewTeamRepository(db).AddMember(context.Background(), teamID, userID, role, ""); err != nil {
 		t.Fatalf("add member: %v", err)
@@ -78,7 +78,7 @@ func addToTeam(t *testing.T, db *sql.DB, teamID, userID string, role domain.Team
 }
 
 // createTestResearch is a helper that creates a research record for FK constraints.
-func createTestResearch(t *testing.T, db *sql.DB) *domain.Research {
+func createTestResearch(t *testing.T, db *bun.DB) *domain.Research {
 	t.Helper()
 	ctx := context.Background()
 	repo := storage.NewResearchRepository(db)
@@ -95,7 +95,7 @@ func createTestResearch(t *testing.T, db *sql.DB) *domain.Research {
 }
 
 // createTestResearchWithSection creates a research with one section.
-func createTestResearchWithSection(t *testing.T, db *sql.DB) (*domain.Research, *domain.Section) {
+func createTestResearchWithSection(t *testing.T, db *bun.DB) (*domain.Research, *domain.Section) {
 	t.Helper()
 	ctx := context.Background()
 	repo := storage.NewResearchRepository(db)

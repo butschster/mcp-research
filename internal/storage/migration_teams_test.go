@@ -5,6 +5,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 // The teams migration is the one place in this change where existing data can
@@ -14,13 +17,14 @@ import (
 // applies it.
 
 // migrateUpTo applies migrations in order, up to and including `last`.
-func migrateUpTo(t *testing.T, last string) *sql.DB {
+func migrateUpTo(t *testing.T, last string) *bun.DB {
 	t.Helper()
 
-	db, err := sql.Open("sqlite", ":memory:")
+	sqldb, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
+	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { db.Close() })
 	db.SetMaxOpenConns(1)
 	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
@@ -52,7 +56,7 @@ func migrationNames(t *testing.T) []string {
 	return names
 }
 
-func applyMigration(t *testing.T, db *sql.DB, name string) {
+func applyMigration(t *testing.T, db *bun.DB, name string) {
 	t.Helper()
 	data, err := migrationsFS.ReadFile("migrations/" + name)
 	if err != nil {
@@ -204,7 +208,7 @@ func stripComments(s string) string {
 
 type teamCounts struct{ Teams, Members, Researches int }
 
-func counts(t *testing.T, db *sql.DB) teamCounts {
+func counts(t *testing.T, db *bun.DB) teamCounts {
 	t.Helper()
 	var c teamCounts
 	row := func(q string, dest *int) {

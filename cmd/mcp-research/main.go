@@ -192,6 +192,7 @@ func main() {
 		"transport", cfg.Transport,
 		"web_port", cfg.WebPort,
 		"db", cfg.DBPath,
+		"db_driver", db.Dialect().Name().String(),
 		"auth_enabled", cfg.AuthEnabled,
 	)
 
@@ -201,7 +202,7 @@ func main() {
 	// Start REST API + WebSocket server in background
 	apiCfg := api.ServerConfig{
 		Port:           cfg.WebPort,
-		IsInMemory:     cfg.DBPath == "",
+		IsInMemory:     cfg.DatabaseInMemory(),
 		APIToken:       cfg.APIToken,
 		AuthEnabled:    cfg.AuthEnabled,
 		BaseURL:        cfg.BaseURL,

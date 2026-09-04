@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type RoadmapRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewRoadmapRepository(db *sql.DB) *RoadmapRepository {
+func NewRoadmapRepository(db *bun.DB) *RoadmapRepository {
 	return &RoadmapRepository{db: db}
 }
 
@@ -29,13 +30,19 @@ func (r *RoadmapRepository) Create(ctx context.Context, rm *domain.Roadmap) erro
 		rm.Code = code
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO roadmaps (id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		rm.ID, rm.Code, rm.ResearchID, rm.Title, rm.Description,
-		marshalJSON(rm.Statuses), rm.Status, marshalJSON(rm.Stages), rm.View,
-		now, now,
-	)
+	_, err := r.db.NewInsert().Table("roadmaps").Model(&map[string]any{
+		"id":          rm.ID,
+		"code":        rm.Code,
+		"research_id": rm.ResearchID,
+		"title":       rm.Title,
+		"description": rm.Description,
+		"statuses":    marshalJSON(rm.Statuses),
+		"status":      rm.Status,
+		"stages":      marshalJSON(rm.Stages),
+		"view":        rm.View,
+		"created_at":  now,
+		"updated_at":  now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert roadmap: %w", err)
 	}
@@ -47,10 +54,17 @@ func (r *RoadmapRepository) Create(ctx context.Context, rm *domain.Roadmap) erro
 // Update updates roadmap metadata.
 func (r *RoadmapRepository) Update(ctx context.Context, rm *domain.Roadmap) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE roadmaps SET title=?, description=?, statuses=?, status=?, stages=?, view=?, updated_at=? WHERE id=?`,
-		rm.Title, rm.Description, marshalJSON(rm.Statuses), rm.Status, marshalJSON(rm.Stages), rm.View, now, rm.ID,
-	)
+	_, err := r.db.NewUpdate().
+		Table("roadmaps").
+		Set("title=?", rm.Title).
+		Set("description=?", rm.Description).
+		Set("statuses=?", marshalJSON(rm.Statuses)).
+		Set("status=?", rm.Status).
+		Set("stages=?", marshalJSON(rm.Stages)).
+		Set("view=?", rm.View).
+		Set("updated_at=?", now).
+		Where("id=?", rm.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update roadmap: %w", err)
 	}
@@ -60,33 +74,39 @@ func (r *RoadmapRepository) Update(ctx context.Context, rm *domain.Roadmap) erro
 
 // FindByID returns a roadmap without nodes/edges.
 func (r *RoadmapRepository) FindByID(ctx context.Context, id string) (*domain.Roadmap, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
-		 FROM roadmaps WHERE id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at").
+		TableExpr("roadmaps").
+		Where("id=?", id))
 	return r.scanRoadmap(row)
 }
 
 // FindByCode returns a roadmap by its short code (e.g. RM1).
 func (r *RoadmapRepository) FindByCode(ctx context.Context, code string) (*domain.Roadmap, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
-		 FROM roadmaps WHERE code=?`, code)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at").
+		TableExpr("roadmaps").
+		Where("code=?", code))
 	return r.scanRoadmap(row)
 }
 
 // FindByCodeAndResearch returns a roadmap by its short code scoped to a research.
 func (r *RoadmapRepository) FindByCodeAndResearch(ctx context.Context, code, researchID string) (*domain.Roadmap, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
-		 FROM roadmaps WHERE code=? AND research_id=?`, code, researchID)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at").
+		TableExpr("roadmaps").
+		Where("code=? AND research_id=?", code, researchID))
 	return r.scanRoadmap(row)
 }
 
 // FindByResearch returns all roadmaps for a research.
 func (r *RoadmapRepository) FindByResearch(ctx context.Context, researchID string) ([]*domain.Roadmap, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at
-		 FROM roadmaps WHERE research_id=? ORDER BY created_at ASC`, researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, description, statuses, status, stages, view, created_at, updated_at").
+		TableExpr("roadmaps").
+		Where("research_id=?", researchID).
+		OrderExpr("created_at ASC, LENGTH(code), code, id").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query roadmaps: %w", err)
 	}
@@ -105,11 +125,11 @@ func (r *RoadmapRepository) FindByResearch(ctx context.Context, researchID strin
 
 // Delete removes a roadmap (cascade deletes nodes and edges).
 func (r *RoadmapRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM roadmaps WHERE id=?", id)
+	_, err := r.db.NewDelete().Table("roadmaps").Where("id=?", id).Exec(ctx)
 	return err
 }
 
-func (r *RoadmapRepository) scanRoadmap(row *sql.Row) (*domain.Roadmap, error) {
+func (r *RoadmapRepository) scanRoadmap(row scanner) (*domain.Roadmap, error) {
 	var rm domain.Roadmap
 	var createdAt, updatedAt string
 	var statuses, stages sql.NullString
@@ -155,10 +175,10 @@ func (r *RoadmapRepository) scanRoadmapRow(rows *sql.Rows) (*domain.Roadmap, err
 // --- Roadmap Nodes ---
 
 type RoadmapNodeRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewRoadmapNodeRepository(db *sql.DB) *RoadmapNodeRepository {
+func NewRoadmapNodeRepository(db *bun.DB) *RoadmapNodeRepository {
 	return &RoadmapNodeRepository{db: db}
 }
 
@@ -189,14 +209,26 @@ func (r *RoadmapNodeRepository) Create(ctx context.Context, node *domain.Roadmap
 		metadata = &node.Metadata
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO roadmap_nodes (id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		node.ID, node.Code, node.RoadmapID, node.Title, node.Description,
-		node.NodeType, node.Status, node.PositionX, node.PositionY, parentID,
-		refType, refID, metadata, node.Stage, node.NodeDate, node.NodeEndDate,
-		now, now,
-	)
+	_, err := r.db.NewInsert().Table("roadmap_nodes").Model(&map[string]any{
+		"id":            node.ID,
+		"code":          node.Code,
+		"roadmap_id":    node.RoadmapID,
+		"title":         node.Title,
+		"description":   node.Description,
+		"node_type":     node.NodeType,
+		"status":        node.Status,
+		"position_x":    node.PositionX,
+		"position_y":    node.PositionY,
+		"parent_id":     parentID,
+		"ref_type":      refType,
+		"ref_id":        refID,
+		"metadata":      metadata,
+		"stage":         node.Stage,
+		"node_date":     node.NodeDate,
+		"node_end_date": node.NodeEndDate,
+		"created_at":    now,
+		"updated_at":    now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert roadmap node: %w", err)
 	}
@@ -224,11 +256,24 @@ func (r *RoadmapNodeRepository) Update(ctx context.Context, node *domain.Roadmap
 		metadata = &node.Metadata
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE roadmap_nodes SET title=?, description=?, node_type=?, status=?, position_x=?, position_y=?, parent_id=?, ref_type=?, ref_id=?, metadata=?, stage=?, node_date=?, node_end_date=?, updated_at=? WHERE id=?`,
-		node.Title, node.Description, node.NodeType, node.Status,
-		node.PositionX, node.PositionY, parentID, refType, refID, metadata, node.Stage, node.NodeDate, node.NodeEndDate, now, node.ID,
-	)
+	_, err := r.db.NewUpdate().
+		Table("roadmap_nodes").
+		Set("title=?", node.Title).
+		Set("description=?", node.Description).
+		Set("node_type=?", node.NodeType).
+		Set("status=?", node.Status).
+		Set("position_x=?", node.PositionX).
+		Set("position_y=?", node.PositionY).
+		Set("parent_id=?", parentID).
+		Set("ref_type=?", refType).
+		Set("ref_id=?", refID).
+		Set("metadata=?", metadata).
+		Set("stage=?", node.Stage).
+		Set("node_date=?", node.NodeDate).
+		Set("node_end_date=?", node.NodeEndDate).
+		Set("updated_at=?", now).
+		Where("id=?", node.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update roadmap node: %w", err)
 	}
@@ -238,25 +283,31 @@ func (r *RoadmapNodeRepository) Update(ctx context.Context, node *domain.Roadmap
 
 // FindByID returns a single node.
 func (r *RoadmapNodeRepository) FindByID(ctx context.Context, id string) (*domain.RoadmapNode, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at
-		 FROM roadmap_nodes WHERE id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at").
+		TableExpr("roadmap_nodes").
+		Where("id=?", id))
 	return r.scanNode(row)
 }
 
 // FindByCode returns a node by its short code (e.g. N3) within a roadmap.
 func (r *RoadmapNodeRepository) FindByCode(ctx context.Context, roadmapID, code string) (*domain.RoadmapNode, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at
-		 FROM roadmap_nodes WHERE roadmap_id=? AND code=?`, roadmapID, code)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at").
+		TableExpr("roadmap_nodes").
+		Where("roadmap_id=? AND code=?", roadmapID, code))
 	return r.scanNode(row)
 }
 
 // FindByRoadmap returns all nodes for a roadmap.
+// Codes break timestamp ties in creation order, including N10 and beyond.
 func (r *RoadmapNodeRepository) FindByRoadmap(ctx context.Context, roadmapID string) ([]*domain.RoadmapNode, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at
-		 FROM roadmap_nodes WHERE roadmap_id=? ORDER BY created_at ASC`, roadmapID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("id, code, roadmap_id, title, description, node_type, status, position_x, position_y, parent_id, ref_type, ref_id, metadata, stage, node_date, node_end_date, created_at, updated_at").
+		TableExpr("roadmap_nodes").
+		Where("roadmap_id=?", roadmapID).
+		OrderExpr("created_at ASC, LENGTH(code), code, id").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query roadmap nodes: %w", err)
 	}
@@ -275,11 +326,11 @@ func (r *RoadmapNodeRepository) FindByRoadmap(ctx context.Context, roadmapID str
 
 // Delete removes a node (cascade deletes edges).
 func (r *RoadmapNodeRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM roadmap_nodes WHERE id=?", id)
+	_, err := r.db.NewDelete().Table("roadmap_nodes").Where("id=?", id).Exec(ctx)
 	return err
 }
 
-func (r *RoadmapNodeRepository) scanNode(row *sql.Row) (*domain.RoadmapNode, error) {
+func (r *RoadmapNodeRepository) scanNode(row scanner) (*domain.RoadmapNode, error) {
 	var n domain.RoadmapNode
 	var createdAt, updatedAt string
 	var parentID, refType, refID, metadata sql.NullString
@@ -347,22 +398,25 @@ func (r *RoadmapNodeRepository) scanNodeRow(rows *sql.Rows) (*domain.RoadmapNode
 // --- Roadmap Edges ---
 
 type RoadmapEdgeRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewRoadmapEdgeRepository(db *sql.DB) *RoadmapEdgeRepository {
+func NewRoadmapEdgeRepository(db *bun.DB) *RoadmapEdgeRepository {
 	return &RoadmapEdgeRepository{db: db}
 }
 
 // Create inserts an edge.
 func (r *RoadmapEdgeRepository) Create(ctx context.Context, edge *domain.RoadmapEdge) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO roadmap_edges (id, roadmap_id, source_node_id, target_node_id, label, edge_type, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		edge.ID, edge.RoadmapID, edge.SourceNodeID, edge.TargetNodeID,
-		edge.Label, edge.EdgeType, now,
-	)
+	_, err := r.db.NewInsert().Table("roadmap_edges").Model(&map[string]any{
+		"id":             edge.ID,
+		"roadmap_id":     edge.RoadmapID,
+		"source_node_id": edge.SourceNodeID,
+		"target_node_id": edge.TargetNodeID,
+		"label":          edge.Label,
+		"edge_type":      edge.EdgeType,
+		"created_at":     now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert roadmap edge: %w", err)
 	}
@@ -372,9 +426,12 @@ func (r *RoadmapEdgeRepository) Create(ctx context.Context, edge *domain.Roadmap
 
 // FindByRoadmap returns all edges for a roadmap.
 func (r *RoadmapEdgeRepository) FindByRoadmap(ctx context.Context, roadmapID string) ([]*domain.RoadmapEdge, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, roadmap_id, source_node_id, target_node_id, label, edge_type, created_at
-		 FROM roadmap_edges WHERE roadmap_id=? ORDER BY created_at ASC`, roadmapID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("id, roadmap_id, source_node_id, target_node_id, label, edge_type, created_at").
+		TableExpr("roadmap_edges").
+		Where("roadmap_id=?", roadmapID).
+		OrderExpr("created_at ASC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query roadmap edges: %w", err)
 	}
@@ -393,7 +450,7 @@ func (r *RoadmapEdgeRepository) FindByRoadmap(ctx context.Context, roadmapID str
 
 // DeleteByRoadmap removes all edges for a roadmap.
 func (r *RoadmapEdgeRepository) DeleteByRoadmap(ctx context.Context, roadmapID string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM roadmap_edges WHERE roadmap_id=?", roadmapID)
+	_, err := r.db.NewDelete().Table("roadmap_edges").Where("roadmap_id=?", roadmapID).Exec(ctx)
 	return err
 }
 

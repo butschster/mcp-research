@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/uptrace/bun"
 )
 
 // userCtx creates a context with the given user.
@@ -21,7 +21,7 @@ func userCtx(user *domain.User) context.Context {
 // setupTwoUsers creates two unrelated users, each with the personal team
 // registration would have given them. They share no team, which is the case
 // every test below is about.
-func setupTwoUsers(t *testing.T, db *sql.DB) (*domain.User, *domain.User) {
+func setupTwoUsers(t *testing.T, db *bun.DB) (*domain.User, *domain.User) {
 	t.Helper()
 	return createTestUser(t, db, "alice@test.com", "Alice"),
 		createTestUser(t, db, "bob@test.com", "Bob")

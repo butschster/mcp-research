@@ -8,19 +8,20 @@ import (
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 type EntryRevisionRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewEntryRevisionRepository(db *sql.DB) *EntryRevisionRepository {
+func NewEntryRevisionRepository(db *bun.DB) *EntryRevisionRepository {
 	return &EntryRevisionRepository{db: db}
 }
 
 // DB exposes the handle so a service can open the transaction that writes an
 // entry and its revision together. Nothing else should reach for it.
-func (r *EntryRevisionRepository) DB() *sql.DB { return r.db }
+func (r *EntryRevisionRepository) DB() *bun.DB { return r.db }
 
 // Create appends a revision, numbering it inside the caller's transaction.
 //
@@ -37,25 +38,36 @@ func (r *EntryRevisionRepository) Create(ctx context.Context, q Querier, rev *do
 	}
 	if rev.Revision == 0 {
 		var last sql.NullInt64
-		if err := q.QueryRowContext(ctx,
-			`SELECT MAX(revision) FROM entry_revisions WHERE entry_id=?`, rev.EntryID,
-		).Scan(&last); err != nil {
+		if err := selectRow(ctx, q.NewSelect().
+			ColumnExpr("MAX(revision)").
+			TableExpr("entry_revisions").
+			Where("entry_id=?", rev.EntryID)).
+			Scan(&last); err != nil {
 			return fmt.Errorf("next revision: %w", err)
 		}
 		rev.Revision = int(last.Int64) + 1
 	}
 	now := time.Now().UTC().Format(time.DateTime)
 
-	_, err := q.ExecContext(ctx,
-		`INSERT INTO entry_revisions
-		   (id, entry_id, research_id, revision, title, description, content, entry_type, status, tags, metadata, spec_version, author_kind, session_id, user_id, summary, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		rev.ID, rev.EntryID, rev.ResearchID, rev.Revision,
-		rev.Title, rev.Description, rev.Content, rev.Type, rev.Status,
-		marshalJSON(rev.Tags), marshalObject(rev.Metadata), rev.SpecVersion,
-		rev.AuthorKind,
-		nullable(rev.SessionID), nullable(rev.UserID), rev.Summary, now,
-	)
+	_, err := q.NewInsert().Table("entry_revisions").Model(&map[string]any{
+		"id":           rev.ID,
+		"entry_id":     rev.EntryID,
+		"research_id":  rev.ResearchID,
+		"revision":     rev.Revision,
+		"title":        rev.Title,
+		"description":  rev.Description,
+		"content":      rev.Content,
+		"entry_type":   rev.Type,
+		"status":       rev.Status,
+		"tags":         marshalJSON(rev.Tags),
+		"metadata":     marshalObject(rev.Metadata),
+		"spec_version": rev.SpecVersion,
+		"author_kind":  rev.AuthorKind,
+		"session_id":   nullable(rev.SessionID),
+		"user_id":      nullable(rev.UserID),
+		"summary":      rev.Summary,
+		"created_at":   now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert revision: %w", err)
 	}
@@ -69,31 +81,36 @@ func (r *EntryRevisionRepository) Latest(ctx context.Context, q Querier, entryID
 	if q == nil {
 		q = r.db
 	}
-	row := q.QueryRowContext(ctx,
-		`SELECT `+revisionColumns+`
-		   FROM entry_revisions WHERE entry_id=? ORDER BY revision DESC LIMIT 1`, entryID)
+	row := selectRow(ctx, q.NewSelect().
+		ColumnExpr(revisionColumns).
+		TableExpr("entry_revisions").
+		Where("entry_id=?", entryID).
+		OrderExpr("revision DESC").
+		Limit(1))
 	return scanRevisionRow(row, true)
 }
 
 // FindByNumber returns one revision with its content.
 func (r *EntryRevisionRepository) FindByNumber(ctx context.Context, entryID string, revision int) (*domain.EntryRevision, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+revisionColumns+`
-		   FROM entry_revisions WHERE entry_id=? AND revision=?`, entryID, revision)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(revisionColumns).
+		TableExpr("entry_revisions").
+		Where("entry_id=? AND revision=?", entryID, revision))
 	return scanRevisionRow(row, true)
 }
 
 // ListByEntry returns an entry's history, newest first. Content is left out:
 // a history listing of a long document would otherwise be mostly copies of it.
 func (r *EntryRevisionRepository) ListByEntry(ctx context.Context, entryID string, limit int) ([]*domain.EntryRevision, error) {
-	query := `SELECT ` + revisionColumns + `
-	            FROM entry_revisions WHERE entry_id=? ORDER BY revision DESC`
-	args := []any{entryID}
+	query := r.db.NewSelect().
+		ColumnExpr(revisionColumns).
+		Table("entry_revisions").
+		Where("entry_id=?", entryID).
+		Order("revision DESC")
 	if limit > 0 {
-		query += ` LIMIT ?`
-		args = append(args, limit)
+		query.Limit(limit)
 	}
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := query.Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list revisions: %w", err)
 	}
@@ -104,9 +121,12 @@ func (r *EntryRevisionRepository) ListByEntry(ctx context.Context, entryID strin
 // ListBySession returns every revision written while a session was active,
 // oldest first. This is what "what did this session change" is built from.
 func (r *EntryRevisionRepository) ListBySession(ctx context.Context, sessionID string) ([]*domain.EntryRevision, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+revisionColumns+`
-		   FROM entry_revisions WHERE session_id=? ORDER BY created_at, revision`, sessionID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(revisionColumns).
+		TableExpr("entry_revisions").
+		Where("session_id=?", sessionID).
+		OrderExpr("created_at, revision").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list session revisions: %w", err)
 	}
@@ -117,8 +137,11 @@ func (r *EntryRevisionRepository) ListBySession(ctx context.Context, sessionID s
 // CountByEntry reports how many revisions an entry has.
 func (r *EntryRevisionRepository) CountByEntry(ctx context.Context, entryID string) (int, error) {
 	var n int
-	if err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM entry_revisions WHERE entry_id=?`, entryID).Scan(&n); err != nil {
+	if err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("COUNT(*)").
+		TableExpr("entry_revisions").
+		Where("entry_id=?", entryID)).
+		Scan(&n); err != nil {
 		return 0, fmt.Errorf("count revisions: %w", err)
 	}
 	return n, nil
@@ -138,16 +161,13 @@ func (r *EntryRevisionRepository) Trim(ctx context.Context, q Querier, entryID s
 	if q == nil {
 		q = r.db
 	}
-	_, err := q.ExecContext(ctx,
-		`DELETE FROM entry_revisions
-		  WHERE entry_id=?
-		    AND revision <> 1
-		    AND revision NOT IN (
-		        SELECT seen_revision FROM entry_views WHERE entry_id=?
-		    )
-		    AND revision NOT IN (
-		        SELECT revision FROM entry_revisions WHERE entry_id=? ORDER BY revision DESC LIMIT ?
-		    )`, entryID, entryID, entryID, keep)
+	newest := q.NewSelect().Column("revision").Table("entry_revisions").Where("entry_id=?", entryID).Order("revision DESC").Limit(keep)
+	// The derived table also supports MySQL, which rejects LIMIT directly in
+	// an IN subquery and modifying the table selected by an unwrapped subquery.
+	retained := q.NewSelect().Column("revision").TableExpr("(?) AS retained", newest)
+	seen := q.NewSelect().Column("seen_revision").Table("entry_views").Where("entry_id=?", entryID)
+	_, err := q.NewDelete().Table("entry_revisions").Where("entry_id=?", entryID).
+		Where("revision <> 1").Where("revision NOT IN (?)", seen).Where("revision NOT IN (?)", retained).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("trim revisions: %w", err)
 	}

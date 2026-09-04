@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type TemplateRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewTemplateRepository(db *sql.DB) *TemplateRepository {
+func NewTemplateRepository(db *bun.DB) *TemplateRepository {
 	return &TemplateRepository{db: db}
 }
 
@@ -42,14 +43,23 @@ func (r *TemplateRepository) Create(ctx context.Context, tp *domain.Template) er
 	if source == "" {
 		source = domain.TemplateSourceUser
 	}
-	_, err = r.db.ExecContext(ctx,
-		`INSERT INTO research_templates (id, team_id, user_id, slug, name, description,
-		                                 when_to_use, when_not_to_use, body, skills,
-		                                 source, forked_from, version, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		tp.ID, nullable(tp.TeamID), nullable(tp.UserID), tp.Slug, tp.Name, tp.Description,
-		tp.WhenToUse, tp.WhenNotToUse, tp.Body, string(skills),
-		string(source), nullable(tp.ForkedFrom), tp.Version, now, now)
+	_, err = r.db.NewInsert().Table("research_templates").Model(&map[string]any{
+		"id":              tp.ID,
+		"team_id":         nullable(tp.TeamID),
+		"user_id":         nullable(tp.UserID),
+		"slug":            tp.Slug,
+		"name":            tp.Name,
+		"description":     tp.Description,
+		"when_to_use":     tp.WhenToUse,
+		"when_not_to_use": tp.WhenNotToUse,
+		"body":            tp.Body,
+		"skills":          string(skills),
+		"source":          string(source),
+		"forked_from":     nullable(tp.ForkedFrom),
+		"version":         tp.Version,
+		"created_at":      now,
+		"updated_at":      now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert template: %w", err)
 	}
@@ -66,12 +76,18 @@ func (r *TemplateRepository) Update(ctx context.Context, tp *domain.Template) er
 	if err != nil {
 		return fmt.Errorf("marshal template skills: %w", err)
 	}
-	res, err := r.db.ExecContext(ctx,
-		`UPDATE research_templates
-		    SET name=?, description=?, when_to_use=?, when_not_to_use=?, body=?, skills=?,
-		        version=version+1, updated_at=?
-		  WHERE id=?`,
-		tp.Name, tp.Description, tp.WhenToUse, tp.WhenNotToUse, tp.Body, string(skills), now, tp.ID)
+	res, err := r.db.NewUpdate().
+		Table("research_templates").
+		Set("name=?", tp.Name).
+		Set("description=?", tp.Description).
+		Set("when_to_use=?", tp.WhenToUse).
+		Set("when_not_to_use=?", tp.WhenNotToUse).
+		Set("body=?", tp.Body).
+		Set("skills=?", string(skills)).
+		Set("version=version+1").
+		Set("updated_at=?", now).
+		Where("id=?", tp.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update template: %w", err)
 	}
@@ -85,7 +101,7 @@ func (r *TemplateRepository) Update(ctx context.Context, tp *domain.Template) er
 }
 
 func (r *TemplateRepository) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM research_templates WHERE id=?`, id)
+	res, err := r.db.NewDelete().Table("research_templates").Where("id=?", id).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("delete template: %w", err)
 	}
@@ -96,8 +112,10 @@ func (r *TemplateRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *TemplateRepository) FindByID(ctx context.Context, id string) (*domain.Template, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+templateColumns+` FROM research_templates t WHERE t.id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, templateColumns)).
+		TableExpr("research_templates t").
+		Where("t.id=?", id))
 	return scanTemplate(row)
 }
 
@@ -105,9 +123,10 @@ func (r *TemplateRepository) FindByID(ctx context.Context, id string) (*domain.T
 // deliberately cannot see a team's fork of the same slug — Fork copies what we
 // publish, not what a team already edited.
 func (r *TemplateRepository) FindGlobalBySlug(ctx context.Context, slug string) (*domain.Template, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+templateColumns+` FROM research_templates t
-		  WHERE t.slug=? AND t.team_id IS NULL`, slug)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, templateColumns)).
+		TableExpr("research_templates t").
+		Where("t.slug=? AND t.team_id IS NULL", slug))
 	return scanTemplate(row)
 }
 
@@ -121,9 +140,10 @@ func (r *TemplateRepository) FindGlobalBySlug(ctx context.Context, slug string) 
 // loader reports a name clash it cannot resolve rather than resolving it in our
 // favour.
 func (r *TemplateRepository) FindBuiltinBySlug(ctx context.Context, slug string) (*domain.Template, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+templateColumns+` FROM research_templates t
-		  WHERE t.slug=? AND t.team_id IS NULL AND t.source='builtin'`, slug)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, templateColumns)).
+		TableExpr("research_templates t").
+		Where("t.slug=? AND t.team_id IS NULL AND t.source='builtin'", slug))
 	return scanTemplate(row)
 }
 
@@ -144,11 +164,12 @@ func (r *TemplateRepository) FindVisibleBySlug(ctx context.Context, scope Templa
 	args := []any{slug}
 	teamClause, teamArgs := scope.clause()
 	args = append(args, teamArgs...)
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+templateColumns+` FROM research_templates t
-		  WHERE t.slug = ? AND (`+teamClause+` OR t.team_id IS NULL)
-		  ORDER BY CASE WHEN t.team_id IS NULL THEN 1 ELSE 0 END, t.created_at, t.id
-		  LIMIT 1`, args...)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, templateColumns)).
+		TableExpr("research_templates t").
+		Where("t.slug = ? AND ("+teamClause+" OR t.team_id IS NULL)", args...).
+		OrderExpr("CASE WHEN t.team_id IS NULL THEN 1 ELSE 0 END, t.created_at, t.id").
+		Limit(1))
 	return scanTemplate(row)
 }
 
@@ -165,10 +186,12 @@ func (r *TemplateRepository) ListVisible(ctx context.Context, scope TemplateScop
 	shadowInner, shadowArgs := scope.clauseFor("f")
 	shadow := `EXISTS (SELECT 1 FROM research_templates f WHERE f.slug = t.slug AND ` + shadowInner + `)`
 	args = append(args, shadowArgs...)
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+templateColumns+` FROM research_templates t
-		  WHERE (`+teamClause+` OR (t.team_id IS NULL AND NOT (`+shadow+`)))
-		  ORDER BY CASE WHEN t.team_id IS NULL THEN 1 ELSE 0 END, t.name`, args...)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, templateColumns)).
+		TableExpr("research_templates t").
+		Where("("+teamClause+" OR (t.team_id IS NULL AND NOT ("+shadow+")))", args...).
+		OrderExpr("CASE WHEN t.team_id IS NULL THEN 1 ELSE 0 END, t.name").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query templates: %w", err)
 	}
@@ -187,8 +210,12 @@ func (r *TemplateRepository) ListVisible(ctx context.Context, scope TemplateScop
 
 // ListByTeam is one team's own library, without the global set mixed in.
 func (r *TemplateRepository) ListByTeam(ctx context.Context, teamID string) ([]*domain.Template, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+templateColumns+` FROM research_templates t WHERE t.team_id = ? ORDER BY t.name`, teamID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, templateColumns)).
+		TableExpr("research_templates t").
+		Where("t.team_id = ?", teamID).
+		OrderExpr("t.name").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query team templates: %w", err)
 	}
@@ -208,7 +235,11 @@ func (r *TemplateRepository) ListByTeam(ctx context.Context, teamID string) ([]*
 // Body is read separately so that no list query can pick it up by accident.
 func (r *TemplateRepository) Body(ctx context.Context, id string) (string, error) {
 	var body string
-	err := r.db.QueryRowContext(ctx, `SELECT body FROM research_templates WHERE id=?`, id).Scan(&body)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("body").
+		TableExpr("research_templates").
+		Where("id=?", id)).
+		Scan(&body)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -247,14 +278,15 @@ func (r *TemplateRepository) ResearchCount(ctx context.Context, scope TemplateSc
 		if len(scope.TeamIDs) == 0 {
 			return 0, nil
 		}
-		where += " AND r.team_id IN (" + placeholders(len(scope.TeamIDs)) + ")"
-		for _, id := range scope.TeamIDs {
-			args = append(args, id)
-		}
+		where += " AND r.team_id IN (?)"
+		args = append(args, bun.In(scope.TeamIDs))
 	}
 	var n int
-	if err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM researches r WHERE `+where, args...).Scan(&n); err != nil {
+	if err := r.db.NewSelect().
+		ColumnExpr("COUNT(*)").
+		TableExpr("researches r").
+		Where(where, args...).
+		Scan(ctx, &n); err != nil {
 		return 0, fmt.Errorf("count researches from template: %w", err)
 	}
 	return n, nil
@@ -262,14 +294,14 @@ func (r *TemplateRepository) ResearchCount(ctx context.Context, scope TemplateSc
 
 // SlugTaken answers within one tier, matching the two partial unique indexes.
 func (r *TemplateRepository) SlugTaken(ctx context.Context, teamID, slug string) (bool, error) {
-	query := `SELECT 1 FROM research_templates WHERE team_id IS NULL AND slug=?`
-	args := []any{slug}
+	query := r.db.NewSelect().ColumnExpr("1").Table("research_templates").Where("slug=?", slug)
 	if teamID != "" {
-		query = `SELECT 1 FROM research_templates WHERE team_id=? AND slug=?`
-		args = []any{teamID, slug}
+		query.Where("team_id=?", teamID)
+	} else {
+		query.Where("team_id IS NULL")
 	}
 	var one int
-	err := r.db.QueryRowContext(ctx, query, args...).Scan(&one)
+	err := selectRow(ctx, query).Scan(&one)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -283,9 +315,12 @@ func (r *TemplateRepository) SlugTaken(ctx context.Context, teamID, slug string)
 // version is stored because built-ins are refreshed on every boot: without it,
 // an upgrade would silently change the text behind a research already running.
 func (r *TemplateRepository) StampResearch(ctx context.Context, researchID, slug string, version int) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE researches SET template_slug=?, template_version=? WHERE id=?`,
-		slug, version, researchID)
+	_, err := r.db.NewUpdate().
+		Table("researches").
+		Set("template_slug=?", slug).
+		Set("template_version=?", version).
+		Where("id=?", researchID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("stamp research template: %w", err)
 	}
@@ -369,17 +404,9 @@ func (s TemplateScope) clauseFor(alias string) (string, []any) {
 		return alias + ".team_id IS NOT NULL", nil
 	}
 	if len(s.TeamIDs) == 0 {
-		return "0", nil
+		return "1=0", nil
 	}
-	args := make([]any, 0, len(s.TeamIDs))
-	for _, id := range s.TeamIDs {
-		args = append(args, id)
-	}
-	return alias + ".team_id IN (" + placeholders(len(s.TeamIDs)) + ")", args
-}
-
-func placeholders(n int) string {
-	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
+	return alias + ".team_id IN (?)", []any{bun.In(s.TeamIDs)}
 }
 
 // countWords matches what the SQL expression above counts — whitespace runs —

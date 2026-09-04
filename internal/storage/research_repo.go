@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type ResearchFilter struct {
@@ -29,10 +30,10 @@ type ResearchFilter struct {
 const researchColumns = `id, code, user_id, team_id, name, description, goal, status, instruction, memory, tags, created_at, updated_at, template_slug, template_version`
 
 type ResearchRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewResearchRepository(db *sql.DB) *ResearchRepository {
+func NewResearchRepository(db *bun.DB) *ResearchRepository {
 	return &ResearchRepository{db: db}
 }
 
@@ -57,14 +58,21 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 		teamID = research.TeamID
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO researches (id, code, user_id, team_id, name, description, goal, status, instruction, memory, tags, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		research.ID, research.Code, userID, teamID, research.Name, research.Description, research.Goal,
-		research.Status, research.Instruction,
-		marshalJSON(research.Memory), marshalJSON(research.Tags),
-		now, now,
-	)
+	_, err := r.db.NewInsert().Table("researches").Model(&map[string]any{
+		"id":          research.ID,
+		"code":        research.Code,
+		"user_id":     userID,
+		"team_id":     teamID,
+		"name":        research.Name,
+		"description": research.Description,
+		"goal":        research.Goal,
+		"status":      research.Status,
+		"instruction": research.Instruction,
+		"memory":      marshalJSON(research.Memory),
+		"tags":        marshalJSON(research.Tags),
+		"created_at":  now,
+		"updated_at":  now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert research: %w", err)
 	}
@@ -75,14 +83,19 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 
 func (r *ResearchRepository) Update(ctx context.Context, research *domain.Research) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE researches SET name=?, description=?, goal=?, status=?, instruction=?, memory=?, tags=?, code=?, updated_at=?
-		 WHERE id=?`,
-		research.Name, research.Description, research.Goal,
-		research.Status, research.Instruction,
-		marshalJSON(research.Memory), marshalJSON(research.Tags),
-		research.Code, now, research.ID,
-	)
+	_, err := r.db.NewUpdate().
+		Table("researches").
+		Set("name=?", research.Name).
+		Set("description=?", research.Description).
+		Set("goal=?", research.Goal).
+		Set("status=?", research.Status).
+		Set("instruction=?", research.Instruction).
+		Set("memory=?", marshalJSON(research.Memory)).
+		Set("tags=?", marshalJSON(research.Tags)).
+		Set("code=?", research.Code).
+		Set("updated_at=?", now).
+		Where("id=?", research.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update research: %w", err)
 	}
@@ -91,53 +104,36 @@ func (r *ResearchRepository) Update(ctx context.Context, research *domain.Resear
 }
 
 func (r *ResearchRepository) FindByID(ctx context.Context, id string) (*domain.Research, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+researchColumns+` FROM researches WHERE id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().ColumnExpr(researchColumns).TableExpr("researches").Where("id=?", id))
 	return r.scanResearch(row)
 }
 
 func (r *ResearchRepository) FindByCode(ctx context.Context, code string) (*domain.Research, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+researchColumns+` FROM researches WHERE code=?`, code)
+	row := selectRow(ctx, r.db.NewSelect().ColumnExpr(researchColumns).TableExpr("researches").Where("code=?", code))
 	return r.scanResearch(row)
 }
 
 func (r *ResearchRepository) FindAll(ctx context.Context, filter ResearchFilter) ([]*domain.Research, error) {
-	query := `SELECT ` + researchColumns + ` FROM researches`
-	var args []any
-	var conditions []string
+	query := r.db.NewSelect().ColumnExpr(researchColumns).Table("researches")
 
 	if filter.Status != nil {
-		conditions = append(conditions, "status=?")
-		args = append(args, *filter.Status)
+		query.Where("status=?", *filter.Status)
 	}
 	if filter.UserID != nil {
-		conditions = append(conditions, "user_id=?")
-		args = append(args, *filter.UserID)
+		query.Where("user_id=?", *filter.UserID)
 	}
 	if filter.MemberOf != nil {
 		// The local team is included for every authenticated caller: it holds
 		// researches created with no user at all, which everybody could see
 		// before teams and which would otherwise vanish from every list.
-		conditions = append(conditions,
-			"(team_id = 'team-local' OR team_id IN (SELECT team_id FROM team_members WHERE user_id=?))")
-		args = append(args, *filter.MemberOf)
+		query.Where("(team_id = 'team-local' OR team_id IN (?))",
+			r.db.NewSelect().Column("team_id").Table("team_members").Where("user_id=?", *filter.MemberOf))
 	}
 	if filter.TeamID != nil {
-		conditions = append(conditions, "team_id=?")
-		args = append(args, *filter.TeamID)
+		query.Where("team_id=?", *filter.TeamID)
 	}
 
-	if len(conditions) > 0 {
-		query += " WHERE " + conditions[0]
-		for _, c := range conditions[1:] {
-			query += " AND " + c
-		}
-	}
-
-	query += " ORDER BY created_at DESC"
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := query.Order("created_at DESC").Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query researches: %w", err)
 	}
@@ -156,7 +152,7 @@ func (r *ResearchRepository) FindAll(ctx context.Context, filter ResearchFilter)
 
 func (r *ResearchRepository) Exists(ctx context.Context, id string) (bool, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM researches WHERE id=?", id).Scan(&count)
+	err := selectRow(ctx, r.db.NewSelect().ColumnExpr("COUNT(*)").TableExpr("researches").Where("id=?", id)).Scan(&count)
 	return count > 0, err
 }
 
@@ -165,8 +161,12 @@ func (r *ResearchRepository) Exists(ctx context.Context, id string) (bool, error
 // still be readable by an unauthenticated caller, which is the opposite of
 // what turning auth on is for.
 func (r *ResearchRepository) ClaimOrphanedResearches(ctx context.Context, userID, teamID string) (int64, error) {
-	res, err := r.db.ExecContext(ctx,
-		`UPDATE researches SET user_id=?, team_id=? WHERE user_id IS NULL`, userID, teamID)
+	res, err := r.db.NewUpdate().
+		Table("researches").
+		Set("user_id=?", userID).
+		Set("team_id=?", teamID).
+		Where("user_id IS NULL").
+		Exec(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("claim orphaned researches: %w", err)
 	}
@@ -177,8 +177,12 @@ func (r *ResearchRepository) ClaimOrphanedResearches(ctx context.Context, userID
 // list changes, since access is the team's membership.
 func (r *ResearchRepository) SetTeam(ctx context.Context, researchID, teamID string) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE researches SET team_id=?, updated_at=? WHERE id=?`, teamID, now, researchID)
+	_, err := r.db.NewUpdate().
+		Table("researches").
+		Set("team_id=?", teamID).
+		Set("updated_at=?", now).
+		Where("id=?", researchID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("set research team: %w", err)
 	}
@@ -189,7 +193,11 @@ func (r *ResearchRepository) SetTeam(ctx context.Context, researchID, teamID str
 // team being deleted out from under its content.
 func (r *ResearchRepository) CountByTeam(ctx context.Context, teamID string) (int, error) {
 	var n int
-	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM researches WHERE team_id=?`, teamID).Scan(&n)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("COUNT(*)").
+		TableExpr("researches").
+		Where("team_id=?", teamID)).
+		Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count researches by team: %w", err)
 	}
@@ -234,7 +242,7 @@ func scanResearchInto(s scanner) (*domain.Research, error) {
 	return &res, nil
 }
 
-func (r *ResearchRepository) scanResearch(row *sql.Row) (*domain.Research, error) {
+func (r *ResearchRepository) scanResearch(row scanner) (*domain.Research, error) {
 	return scanResearchInto(row)
 }
 

@@ -2,17 +2,17 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type CrossRefRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewCrossRefRepository(db *sql.DB) *CrossRefRepository {
+func NewCrossRefRepository(db *bun.DB) *CrossRefRepository {
 	return &CrossRefRepository{db: db}
 }
 
@@ -24,17 +24,14 @@ func (r *CrossRefRepository) ReplaceForSource(ctx context.Context, sourceType, s
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, "DELETE FROM crossrefs WHERE source_type=? AND source_id=?", sourceType, sourceID); err != nil {
+	if _, err := tx.NewDelete().
+		Table("crossrefs").
+		Where("source_type=? AND source_id=?", sourceType, sourceID).
+		Exec(ctx); err != nil {
 		return fmt.Errorf("delete old crossrefs: %w", err)
 	}
 
-	stmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO crossrefs (source_type, source_id, source_entry_id, source_research_id, target_entry_id, target_research_id, target_roadmap_id, target_node_id, target_ref, resolved)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-	if err != nil {
-		return fmt.Errorf("prepare insert: %w", err)
-	}
-	defer stmt.Close()
+	// Inserts below are built by Bun on the same transaction.
 
 	for _, ref := range refs {
 		resolved := 0
@@ -59,13 +56,18 @@ func (r *CrossRefRepository) ReplaceForSource(ctx context.Context, sourceType, s
 		if ref.SourceType == "entry" {
 			sourceEntryID = &ref.SourceID
 		}
-		if _, err := stmt.ExecContext(ctx,
-			ref.SourceType, ref.SourceID,
-			sourceEntryID, ref.SourceResearchID,
-			targetEntryID, targetResearchID,
-			targetRoadmapID, targetNodeID,
-			ref.TargetRef, resolved,
-		); err != nil {
+		if _, err := tx.NewInsert().Table("crossrefs").Model(&map[string]any{
+			"source_type":        ref.SourceType,
+			"source_id":          ref.SourceID,
+			"source_entry_id":    sourceEntryID,
+			"source_research_id": ref.SourceResearchID,
+			"target_entry_id":    targetEntryID,
+			"target_research_id": targetResearchID,
+			"target_roadmap_id":  targetRoadmapID,
+			"target_node_id":     targetNodeID,
+			"target_ref":         ref.TargetRef,
+			"resolved":           resolved,
+		}).Exec(ctx); err != nil {
 			return fmt.Errorf("insert crossref: %w", err)
 		}
 	}
@@ -75,13 +77,12 @@ func (r *CrossRefRepository) ReplaceForSource(ctx context.Context, sourceType, s
 
 // FindByResearch returns all cross-references where the source belongs to the given research.
 func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID string) ([]domain.CrossRef, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT source_type, source_id, source_research_id,
-		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
-		        COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''),
-		        target_ref, resolved
-		 FROM crossrefs WHERE source_research_id=?
-		 ORDER BY created_at`, researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("source_type, source_id, source_research_id, COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''), COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''), target_ref, resolved").
+		TableExpr("crossrefs").
+		Where("source_research_id=?", researchID).
+		OrderExpr("created_at").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query crossrefs: %w", err)
 	}
@@ -107,13 +108,12 @@ func (r *CrossRefRepository) FindByResearch(ctx context.Context, researchID stri
 
 // FindBySourceEntry returns all cross-references where the given entry is the source (outgoing links).
 func (r *CrossRefRepository) FindBySourceEntry(ctx context.Context, entryID string) ([]domain.CrossRef, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT source_type, source_id, source_research_id,
-		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
-		        COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''),
-		        target_ref, resolved
-		 FROM crossrefs WHERE source_type='entry' AND source_id=?
-		 ORDER BY created_at`, entryID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("source_type, source_id, source_research_id, COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''), COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''), target_ref, resolved").
+		TableExpr("crossrefs").
+		Where("source_type='entry' AND source_id=?", entryID).
+		OrderExpr("created_at").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query outgoing crossrefs: %w", err)
 	}
@@ -139,13 +139,12 @@ func (r *CrossRefRepository) FindBySourceEntry(ctx context.Context, entryID stri
 
 // FindByTargetEntry returns all sources that reference the given entry (incoming links).
 func (r *CrossRefRepository) FindByTargetEntry(ctx context.Context, entryID string) ([]domain.CrossRef, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT source_type, source_id, source_research_id,
-		        COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''),
-		        COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''),
-		        target_ref, resolved
-		 FROM crossrefs WHERE target_entry_id=?
-		 ORDER BY created_at`, entryID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("source_type, source_id, source_research_id, COALESCE(target_entry_id, ''), COALESCE(target_research_id, ''), COALESCE(target_roadmap_id, ''), COALESCE(target_node_id, ''), target_ref, resolved").
+		TableExpr("crossrefs").
+		Where("target_entry_id=?", entryID).
+		OrderExpr("created_at").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query incoming crossrefs: %w", err)
 	}

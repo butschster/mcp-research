@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type ExternalLinkRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewExternalLinkRepository(db *sql.DB) *ExternalLinkRepository {
+func NewExternalLinkRepository(db *bun.DB) *ExternalLinkRepository {
 	return &ExternalLinkRepository{db: db}
 }
 
@@ -25,7 +26,10 @@ func (r *ExternalLinkRepository) ReplaceForSource(ctx context.Context, sourceTyp
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, "DELETE FROM external_links WHERE source_type=? AND source_id=?", sourceType, sourceID); err != nil {
+	if _, err := tx.NewDelete().
+		Table("external_links").
+		Where("source_type=? AND source_id=?", sourceType, sourceID).
+		Exec(ctx); err != nil {
 		return fmt.Errorf("delete old links: %w", err)
 	}
 
@@ -33,20 +37,20 @@ func (r *ExternalLinkRepository) ReplaceForSource(ctx context.Context, sourceTyp
 		return tx.Commit()
 	}
 
-	stmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO external_links (id, source_type, source_id, research_id, url, title, domain, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-	if err != nil {
-		return fmt.Errorf("prepare insert: %w", err)
-	}
-	defer stmt.Close()
+	// Inserts below are built by Bun on the same transaction.
 
 	now := time.Now().UTC().Format(time.DateTime)
 	for _, link := range links {
-		if _, err := stmt.ExecContext(ctx,
-			link.ID, link.SourceType, link.SourceID, link.ResearchID,
-			link.URL, link.Title, link.Domain, now,
-		); err != nil {
+		if _, err := tx.NewInsert().Table("external_links").Model(&map[string]any{
+			"id":          link.ID,
+			"source_type": link.SourceType,
+			"source_id":   link.SourceID,
+			"research_id": link.ResearchID,
+			"url":         link.URL,
+			"title":       link.Title,
+			"domain":      link.Domain,
+			"created_at":  now,
+		}).Exec(ctx); err != nil {
 			return fmt.Errorf("insert link: %w", err)
 		}
 	}
@@ -56,13 +60,12 @@ func (r *ExternalLinkRepository) ReplaceForSource(ctx context.Context, sourceTyp
 
 // FindByResearch returns all external links for a research, ordered by domain then URL.
 func (r *ExternalLinkRepository) FindByResearch(ctx context.Context, researchID string) ([]domain.ExternalLink, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT l.id, l.source_type, l.source_id, l.research_id, l.url, l.title, l.domain, l.created_at,
-		        COALESCE(e.code, ''), COALESCE(e.title, '')
-		 FROM external_links l
-		 LEFT JOIN entries e ON l.source_type='entry' AND l.source_id=e.id
-		 WHERE l.research_id=?
-		 ORDER BY l.domain, l.url`, researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("l.id, l.source_type, l.source_id, l.research_id, l.url, l.title, l.domain, l.created_at, COALESCE(e.code, ''), COALESCE(e.title, '')").
+		TableExpr("external_links l LEFT JOIN entries e ON l.source_type='entry' AND l.source_id=e.id").
+		Where("l.research_id=?", researchID).
+		OrderExpr("l.domain, l.url").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query links: %w", err)
 	}
@@ -73,13 +76,12 @@ func (r *ExternalLinkRepository) FindByResearch(ctx context.Context, researchID 
 
 // FindBySource returns all external links from a specific source.
 func (r *ExternalLinkRepository) FindBySource(ctx context.Context, sourceType, sourceID string) ([]domain.ExternalLink, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT l.id, l.source_type, l.source_id, l.research_id, l.url, l.title, l.domain, l.created_at,
-		        COALESCE(e.code, ''), COALESCE(e.title, '')
-		 FROM external_links l
-		 LEFT JOIN entries e ON l.source_type='entry' AND l.source_id=e.id
-		 WHERE l.source_type=? AND l.source_id=?
-		 ORDER BY l.created_at`, sourceType, sourceID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("l.id, l.source_type, l.source_id, l.research_id, l.url, l.title, l.domain, l.created_at, COALESCE(e.code, ''), COALESCE(e.title, '')").
+		TableExpr("external_links l LEFT JOIN entries e ON l.source_type='entry' AND l.source_id=e.id").
+		Where("l.source_type=? AND l.source_id=?", sourceType, sourceID).
+		OrderExpr("l.created_at").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query links: %w", err)
 	}

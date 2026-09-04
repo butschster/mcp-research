@@ -1,0 +1,4 @@
+CREATE TABLE storage_counters (
+    scope_key VARCHAR(512) PRIMARY KEY,
+    value BIGINT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

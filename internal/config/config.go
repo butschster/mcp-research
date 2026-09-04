@@ -2,16 +2,23 @@ package config
 
 import (
 	"flag"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Transport         string `yaml:"transport"`
-	MCPPort           int    `yaml:"mcp_port"`
-	WebPort           int    `yaml:"web_port"`
+	Transport string `yaml:"transport"`
+	MCPPort   int    `yaml:"mcp_port"`
+	WebPort   int    `yaml:"web_port"`
+	// DBDriver selects the SQL backend: sqlite, postgres, or mysql. DBPath is
+	// kept as the backwards-compatible SQLite file setting; network databases
+	// use DBDSN.
+	DBDriver          string `yaml:"db_driver"`
+	DBDSN             string `yaml:"db_dsn"`
 	DBPath            string `yaml:"db"`
 	LogLevel          string `yaml:"log_level"`
 	APIToken          string `yaml:"api_token"`
@@ -28,6 +35,27 @@ type Config struct {
 	Version       bool `yaml:"-"`
 }
 
+// DatabaseInMemory describes the effective configuration, including SQLite URI
+// DSNs. Network databases never report the ephemeral local mode.
+func (c Config) DatabaseInMemory() bool {
+	driver := strings.ToLower(strings.TrimSpace(c.DBDriver))
+	if driver != "" && driver != "sqlite" && driver != "sqlite3" {
+		return false
+	}
+	dsn := c.DBDSN
+	if dsn == "" {
+		dsn = c.DBPath
+	}
+	if dsn == "" || dsn == ":memory:" {
+		return true
+	}
+	if strings.HasPrefix(dsn, "file:") {
+		u, err := url.Parse(dsn)
+		return err == nil && (u.Opaque == ":memory:" || u.Query().Get("mode") == "memory")
+	}
+	return false
+}
+
 // Load reads config from config file (if present), then env vars, then CLI flags.
 // Priority: flags > env > yaml > defaults.
 func Load() Config {
@@ -35,6 +63,7 @@ func Load() Config {
 		Transport:         "stdio",
 		MCPPort:           8081,
 		WebPort:           8088,
+		DBDriver:          "sqlite",
 		LogLevel:          "info",
 		AllowRegistration: true,
 	}
@@ -66,6 +95,12 @@ func Load() Config {
 	}
 	if v := os.Getenv("MCP_RESEARCH_DB"); v != "" {
 		cfg.DBPath = v
+	}
+	if v := os.Getenv("MCP_RESEARCH_DB_DRIVER"); v != "" {
+		cfg.DBDriver = v
+	}
+	if v := os.Getenv("MCP_RESEARCH_DB_DSN"); v != "" {
+		cfg.DBDSN = v
 	}
 	if v := os.Getenv("MCP_RESEARCH_LOG_LEVEL"); v != "" {
 		cfg.LogLevel = v
@@ -100,7 +135,9 @@ func Load() Config {
 	flag.StringVar(&cfg.Transport, "transport", cfg.Transport, "transport: stdio or sse")
 	flag.IntVar(&cfg.MCPPort, "mcp-port", cfg.MCPPort, "MCP SSE port")
 	flag.IntVar(&cfg.WebPort, "web-port", cfg.WebPort, "Web/API port")
-	flag.StringVar(&cfg.DBPath, "db", cfg.DBPath, "SQLite database path (empty = in-memory)")
+	flag.StringVar(&cfg.DBDriver, "db-driver", cfg.DBDriver, "database driver: sqlite, postgres, or mysql")
+	flag.StringVar(&cfg.DBDSN, "db-dsn", cfg.DBDSN, "database DSN (required for postgres and mysql)")
+	flag.StringVar(&cfg.DBPath, "db", cfg.DBPath, "SQLite database path (legacy; empty = in-memory)")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "log level: debug, info, warn, error")
 	flag.StringVar(&cfg.APIToken, "api-token", cfg.APIToken, "Bearer token for write API endpoints (empty = write API disabled)")
 	flag.BoolVar(&cfg.AuthEnabled, "auth-enabled", cfg.AuthEnabled, "Enable multi-user authentication")

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -548,7 +547,7 @@ func (s *EntryService) update(ctx context.Context, id string, req UpdateEntryReq
 		}
 		entry.BlockReport = &report
 	} else {
-		if terr := s.inTx(ctx, func(tx *sql.Tx) error {
+		if terr := s.inTx(ctx, func(tx storage.Querier) error {
 			if err := s.entries.UpdateTx(ctx, tx, entry); err != nil {
 				return fmt.Errorf("update entry: %w", err)
 			}

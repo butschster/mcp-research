@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type SessionRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewSessionRepository(db *sql.DB) *SessionRepository {
+func NewSessionRepository(db *bun.DB) *SessionRepository {
 	return &SessionRepository{db: db}
 }
 
@@ -28,13 +29,17 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		session.Code = code
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sessions (id, code, research_id, title, focus, status, notes, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		session.ID, session.Code, session.ResearchID, session.Title, session.Focus,
-		session.Status, session.Notes,
-		now, now,
-	)
+	_, err := r.db.NewInsert().Table("sessions").Model(&map[string]any{
+		"id":          session.ID,
+		"code":        session.Code,
+		"research_id": session.ResearchID,
+		"title":       session.Title,
+		"focus":       session.Focus,
+		"status":      session.Status,
+		"notes":       session.Notes,
+		"created_at":  now,
+		"updated_at":  now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
 	}
@@ -43,7 +48,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	return nil
 }
 
-func (r *SessionRepository) CreateTx(ctx context.Context, tx *sql.Tx, session *domain.Session) error {
+func (r *SessionRepository) CreateTx(ctx context.Context, tx bun.Tx, session *domain.Session) error {
 	now := time.Now().UTC().Format(time.DateTime)
 
 	if session.Code == "" {
@@ -54,13 +59,17 @@ func (r *SessionRepository) CreateTx(ctx context.Context, tx *sql.Tx, session *d
 		session.Code = code
 	}
 
-	_, err := tx.ExecContext(ctx,
-		`INSERT INTO sessions (id, code, research_id, title, focus, status, notes, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		session.ID, session.Code, session.ResearchID, session.Title, session.Focus,
-		session.Status, session.Notes,
-		now, now,
-	)
+	_, err := tx.NewInsert().Table("sessions").Model(&map[string]any{
+		"id":          session.ID,
+		"code":        session.Code,
+		"research_id": session.ResearchID,
+		"title":       session.Title,
+		"focus":       session.Focus,
+		"status":      session.Status,
+		"notes":       session.Notes,
+		"created_at":  now,
+		"updated_at":  now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
 	}
@@ -71,12 +80,16 @@ func (r *SessionRepository) CreateTx(ctx context.Context, tx *sql.Tx, session *d
 
 func (r *SessionRepository) Update(ctx context.Context, session *domain.Session) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE sessions SET title=?, focus=?, status=?, notes=?, code=?, updated_at=?
-		 WHERE id=?`,
-		session.Title, session.Focus, session.Status, session.Notes,
-		session.Code, now, session.ID,
-	)
+	_, err := r.db.NewUpdate().
+		Table("sessions").
+		Set("title=?", session.Title).
+		Set("focus=?", session.Focus).
+		Set("status=?", session.Status).
+		Set("notes=?", session.Notes).
+		Set("code=?", session.Code).
+		Set("updated_at=?", now).
+		Where("id=?", session.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update session: %w", err)
 	}
@@ -85,30 +98,36 @@ func (r *SessionRepository) Update(ctx context.Context, session *domain.Session)
 }
 
 func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Session, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
-		 FROM sessions WHERE id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, focus, status, notes, created_at, updated_at").
+		TableExpr("sessions").
+		Where("id=?", id))
 	return r.scanSession(row)
 }
 
 func (r *SessionRepository) FindByCode(ctx context.Context, code string) (*domain.Session, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
-		 FROM sessions WHERE code=?`, code)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, focus, status, notes, created_at, updated_at").
+		TableExpr("sessions").
+		Where("code=?", code))
 	return r.scanSession(row)
 }
 
 func (r *SessionRepository) FindByCodeAndResearch(ctx context.Context, code string, researchID string) (*domain.Session, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
-		 FROM sessions WHERE code=? AND research_id=?`, code, researchID)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, focus, status, notes, created_at, updated_at").
+		TableExpr("sessions").
+		Where("code=? AND research_id=?", code, researchID))
 	return r.scanSession(row)
 }
 
 func (r *SessionRepository) FindByResearch(ctx context.Context, researchID string) ([]*domain.Session, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
-		 FROM sessions WHERE research_id=? ORDER BY created_at DESC`, researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, focus, status, notes, created_at, updated_at").
+		TableExpr("sessions").
+		Where("research_id=?", researchID).
+		OrderExpr("created_at DESC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query sessions: %w", err)
 	}
@@ -126,20 +145,25 @@ func (r *SessionRepository) FindByResearch(ctx context.Context, researchID strin
 }
 
 func (r *SessionRepository) FindActive(ctx context.Context, researchID string) (*domain.Session, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
-		 FROM sessions WHERE research_id=? AND status='active' LIMIT 1`, researchID)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, focus, status, notes, created_at, updated_at").
+		TableExpr("sessions").
+		Where("research_id=? AND status='active'", researchID).
+		Limit(1))
 	return r.scanSession(row)
 }
 
 func (r *SessionRepository) FindLatest(ctx context.Context, researchID string) (*domain.Session, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, focus, status, notes, created_at, updated_at
-		 FROM sessions WHERE research_id=? ORDER BY created_at DESC LIMIT 1`, researchID)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, focus, status, notes, created_at, updated_at").
+		TableExpr("sessions").
+		Where("research_id=?", researchID).
+		OrderExpr("created_at DESC").
+		Limit(1))
 	return r.scanSession(row)
 }
 
-func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
+func (r *SessionRepository) scanSession(row scanner) (*domain.Session, error) {
 	var s domain.Session
 	var createdAt, updatedAt string
 	err := row.Scan(

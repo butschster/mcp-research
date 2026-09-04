@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 type CreateSessionRequest struct {
@@ -50,7 +50,7 @@ type QuestionProgress struct {
 }
 
 type SessionService struct {
-	db         *sql.DB
+	db         *bun.DB
 	sessions   *storage.SessionRepository
 	questions  *storage.QuestionRepository
 	researches *storage.ResearchRepository
@@ -60,7 +60,7 @@ type SessionService struct {
 	log        *slog.Logger
 }
 
-func NewSessionService(db *sql.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, researches *storage.ResearchRepository, access *Access, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *SessionService {
+func NewSessionService(db *bun.DB, sessions *storage.SessionRepository, questions *storage.QuestionRepository, researches *storage.ResearchRepository, access *Access, crossrefs CrossRefParser, events EventNotifier, log *slog.Logger) *SessionService {
 	return &SessionService{db: db, sessions: sessions, questions: questions, researches: researches, access: access, crossrefs: crossrefs, events: events, log: log}
 }
 

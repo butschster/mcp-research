@@ -13,9 +13,9 @@ import (
 
 	"github.com/butschster/mcp-research/internal/api/ws"
 	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/config"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/butschster/mcp-research/internal/testdb"
 )
 
 // This file drives the real mux, because for the server-wide template library
@@ -35,7 +35,7 @@ func newTemplateServer(t *testing.T) *templateServer {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	db, err := storage.NewDB(config.Config{}, log)
+	db, err := storage.NewDB(testdb.Config(t), log)
 	if err != nil {
 		t.Fatalf("db: %v", err)
 	}

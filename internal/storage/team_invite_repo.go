@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type TeamInviteRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewTeamInviteRepository(db *sql.DB) *TeamInviteRepository {
+func NewTeamInviteRepository(db *bun.DB) *TeamInviteRepository {
 	return &TeamInviteRepository{db: db}
 }
 
@@ -29,11 +30,16 @@ const inviteFrom = ` FROM team_invites i
 
 func (r *TeamInviteRepository) Create(ctx context.Context, inv *domain.TeamInvite, tokenHash string) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO team_invites (id, team_id, email, role, token_hash, invited_by, expires_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		inv.ID, inv.TeamID, inv.Email, inv.Role, tokenHash, inv.InvitedBy,
-		inv.ExpiresAt.UTC().Format(time.DateTime), now)
+	_, err := r.db.NewInsert().Table("team_invites").Model(&map[string]any{
+		"id":         inv.ID,
+		"team_id":    inv.TeamID,
+		"email":      inv.Email,
+		"role":       inv.Role,
+		"token_hash": tokenHash,
+		"invited_by": inv.InvitedBy,
+		"expires_at": inv.ExpiresAt.UTC().Format(time.DateTime),
+		"created_at": now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert invite: %w", err)
 	}
@@ -44,14 +50,18 @@ func (r *TeamInviteRepository) Create(ctx context.Context, inv *domain.TeamInvit
 // FindByHash is the lookup a link performs. The plaintext token is never
 // stored, so a leaked database hands out no working invitations.
 func (r *TeamInviteRepository) FindByHash(ctx context.Context, tokenHash string) (*domain.TeamInvite, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+inviteColumns+inviteFrom+` WHERE i.token_hash = ?`, tokenHash)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(inviteColumns).
+		TableExpr("team_invites i LEFT JOIN teams t ON t.id = i.team_id LEFT JOIN users u ON u.id = i.invited_by").
+		Where("i.token_hash = ?", tokenHash))
 	return scanInvite(row)
 }
 
 func (r *TeamInviteRepository) FindByID(ctx context.Context, id string) (*domain.TeamInvite, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+inviteColumns+inviteFrom+` WHERE i.id = ?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(inviteColumns).
+		TableExpr("team_invites i LEFT JOIN teams t ON t.id = i.team_id LEFT JOIN users u ON u.id = i.invited_by").
+		Where("i.id = ?", id))
 	return scanInvite(row)
 }
 
@@ -62,11 +72,12 @@ func (r *TeamInviteRepository) FindByID(ctx context.Context, id string) (*domain
 // exactly what an owner needs to see — the recipient is looking at "expired"
 // and the owner, with the row filtered away, has no idea why nobody joined.
 func (r *TeamInviteRepository) ListOpenByTeam(ctx context.Context, teamID string) ([]*domain.TeamInvite, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+inviteColumns+inviteFrom+`
-		 WHERE i.team_id = ? AND i.accepted_at IS NULL AND i.revoked_at IS NULL
-		 ORDER BY i.created_at DESC`,
-		teamID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(inviteColumns).
+		TableExpr("team_invites i LEFT JOIN teams t ON t.id = i.team_id LEFT JOIN users u ON u.id = i.invited_by").
+		Where("i.team_id = ? AND i.accepted_at IS NULL AND i.revoked_at IS NULL", teamID).
+		OrderExpr("i.created_at DESC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query invites: %w", err)
 	}
@@ -85,8 +96,11 @@ func (r *TeamInviteRepository) ListOpenByTeam(ctx context.Context, teamID string
 
 func (r *TeamInviteRepository) Revoke(ctx context.Context, id string) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	res, err := r.db.ExecContext(ctx,
-		`UPDATE team_invites SET revoked_at=? WHERE id=? AND revoked_at IS NULL`, now, id)
+	res, err := r.db.NewUpdate().
+		Table("team_invites").
+		Set("revoked_at=?", now).
+		Where("id=? AND revoked_at IS NULL", id).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("revoke invite: %w", err)
 	}
@@ -100,9 +114,12 @@ func (r *TeamInviteRepository) Revoke(ctx context.Context, id string) error {
 // people opening the same link cannot both consume it.
 func (r *TeamInviteRepository) MarkAccepted(ctx context.Context, id, userID string) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	res, err := r.db.ExecContext(ctx,
-		`UPDATE team_invites SET accepted_at=?, accepted_by=?
-		 WHERE id=? AND accepted_at IS NULL AND revoked_at IS NULL`, now, userID, id)
+	res, err := r.db.NewUpdate().
+		Table("team_invites").
+		Set("accepted_at=?", now).
+		Set("accepted_by=?", userID).
+		Where("id=? AND accepted_at IS NULL AND revoked_at IS NULL", id).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("accept invite: %w", err)
 	}

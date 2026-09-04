@@ -198,7 +198,9 @@ func (s *EntryService) LatestSnapshot(ctx context.Context, entry *domain.Entry) 
 		return entry, nil, nil
 	}
 
-	tx, err := s.revisions.DB().BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	// PostgreSQL's default READ COMMITTED starts a new snapshot per statement.
+	// Both reads must retain the same snapshot even if another writer commits.
+	tx, err := s.revisions.DB().BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {
 		return nil, nil, fmt.Errorf("begin entry snapshot: %w", err)
 	}
@@ -687,7 +689,7 @@ func (s *EntryService) enrichSessions(ctx context.Context, revs []*domain.EntryR
 
 // inTx runs fn inside a transaction, so an entry and the revision describing it
 // land together or not at all.
-func (s *EntryService) inTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+func (s *EntryService) inTx(ctx context.Context, fn func(tx storage.Querier) error) error {
 	if s.revisions == nil {
 		return fn(nil)
 	}
