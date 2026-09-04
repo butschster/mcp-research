@@ -244,6 +244,54 @@ body is not searched as text and contributes no cross-references.
 - One document can be taken out on its own: `GET /api/entries/{id}/markdown` returns it as a `.md` file with YAML front matter — the vault's, minus `aliases` and `session` — named `E50 — Title.md`. The `{id}` is the entry UUID, not an `E`-code. There is no MCP tool for it (`entry_read` already gives an agent the content), the file leaves `[[E3]]` exactly as stored, and the route is not on the share sub-mux. See [Export](/llms/export.md).
 - One document can also be put in on its own: `POST /api/sections/{id}/import/preview` parses an uploaded `.md` file and writes nothing, `POST /api/sections/{id}/import` commits the accepted fields as one entry. `{id}` is the section UUID. Both need `editor` or `owner`, the preview included; neither is on the share sub-mux. The file always lands as a `markdown` entry with a new `E`-code and revision 1 authored `import`; title, description, status, tags and declared metadata survive the round trip from the download, codes and cross-references deliberately do not. There is no MCP tool — an agent writes with `entry_create`. See [Export → One File into a Section](/llms/export.md).
 
+**Personal document updates (REST and web UI only).** A reader has one
+server-side checkpoint per entry: the numbered revision they actually saw. It
+belongs to the reader, not to the team document. With authentication it follows
+the user between devices and one member cannot clear another member's queue;
+with authentication off the installation has one `local` reader.
+
+An ordinary REST document read carries this object at the **response root**, not
+inside `data`, captured from the same database snapshot as the root `revision`:
+
+```json
+{
+  "view_state": {
+    "current_revision": 7,
+    "seen_revision": 4,
+    "unseen_revisions": 3,
+    "kind": "changed"
+  }
+}
+```
+
+No checkpoint is `seen_revision: 0`, `kind: "new"`; one behind the current
+revision is `changed`; one at the current revision is `seen`. The GET itself
+does not mark anything. The web client calls the seen route only after it has
+rendered the document, and sends the exact `current_revision` it rendered — the
+server never substitutes whatever is newest by the time that write arrives.
+
+```
+GET  /api/researches/{id}/updates       this reader's new and changed documents
+PUT  /api/entries/{id}/seen             {"revision": 7}
+POST /api/researches/{id}/updates/seen  {"entries": [{"entry_id": "…", "revision": 7}]}
+```
+
+The queue response is `data: {entries, new, changed, count}`. A row has no
+content; it carries the entry and section ids, entry code, title, description,
+type, status, `current_revision`, `seen_revision`, `unseen_revisions`, `kind`
+and the current revision's `updated_at`. The single-entry route takes an entry
+UUID. The bulk route accepts at most 2000 exact entry/revision pairs and is
+atomic: one pair outside that research or one nonexistent revision rejects the
+whole operation. Checkpoints only advance, so a late request from an older tab
+cannot make a document unread again. More importantly, a revision committed
+after the page took its bulk snapshot remains in the queue.
+
+A `viewer` may read and acknowledge this state; acknowledging is not an edit to
+the shared document. There is no MCP tool, no export field and no share route,
+and a share document response carries no `view_state`. An MCP client that needs
+to understand a change uses `entry_history` / `entry_diff` and never consumes a
+person's queue.
+
 **Cross-reference syntax in content:**
 - `[[E3]]` — entry E3 in same research
 - `[[R2:E5]]` — entry E5 in research R2
@@ -729,7 +777,7 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | Field | Type | Present |
 |-------|------|---------|
 | `type` | string | always — `entity.verb`, listed below |
-| `entity` | string | always — `research`, `section`, `entry`, `session`, `question`, `task`, `roadmap`, `team`, `crossref`, `share`, `skill`, `annotation` |
+| `entity` | string | always — `research`, `section`, `entry`, `entry_view`, `session`, `question`, `task`, `roadmap`, `team`, `crossref`, `share`, `skill`, `annotation` |
 | `entity_id` | string | always — the id of the thing that changed, not of its parent |
 | `research_id` | string | always present, empty for team-scoped events |
 | `research_code` | string | when the id resolves — the same scope as a short code (`R7`), so a page routed as `/research/R7` can match an event without resolving a UUID first |
@@ -751,6 +799,7 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | `research.transferred` | `research` | research | the research now belongs to another team |
 | `section.created`, `section.updated` | `section` | section | |
 | `entry.created`, `entry.updated`, `entry.deleted` | `entry` | entry | `entry.updated` also covers `entry_patch` and a revision restore |
+| `entry_view.updated` | `entry_view` | entry for one acknowledgement; research for a bulk acknowledgement | Personal read state changed. With authentication it is directed to that reader alone, so their other tabs re-read the queue without telling another member what they read. With authentication off it reaches ordinary local connections for the one `local` reader. Never delivered to a share connection |
 | `crossrefs.rebuilt` | `crossref` | research | `POST /api/researches/{id}/crossrefs/rebuild` finished. Every link in the research may have moved, so the graph and mindmap views re-read wholesale rather than patching |
 | `session.created`, `session.updated` | `session` | session | |
 | `question.created` | `question` | question | **one event per question**, so a batch of twelve sends twelve. It used to fire once per batch carrying the *session* id; a client written against that will now see the session id nowhere |
@@ -777,9 +826,9 @@ Delivery is decided per event per connection, at send time — not once when the
 
 - With `auth_enabled: false` there are no users and one local team: every connection receives everything.
 - With auth on, a research-scoped event goes to the users who may read that research — the same rule a REST read applies — and a team event to that team's members. An unidentified connection receives nothing.
-- A **directed** event (`access.revoked`, `access.changed`) is addressed to one user and skips the research check, which is the whole point: by the time somebody is told they lost access, the ordinary rule already refuses to deliver it. Directed events therefore only occur with auth on.
+- A **directed** event (`access.revoked`, `access.changed`, and `entry_view.updated` with authentication on) is addressed to one user and skips the research-wide audience. Access events use that path because the ordinary rule already refuses somebody who just lost access; the entry-view event uses it because one member's reading is not another member's business. Directed events therefore only occur with auth on.
 - `access.revoked` carries `name` and `reason` because its recipient can no longer look either up — the moment it is sent, fetching what they lost answers 404.
-- A **share** connection is scoped by the link, not by membership: events for its one research, filtered by the same `include` flags that gate its read routes — an event about a task on a link that excludes tasks is not harmless noise, it says a task exists and when somebody touched it. Team events, directed events and `share.*` events never reach it. `actor_user_id` and `actor_client_id` are stripped from what it receives: they name an account and a browser tab inside the owner's organisation, and there is no tab on the other side of a link to recognise its own writes.
+- A **share** connection is scoped by the link, not by membership: events for its one research, filtered by the same `include` flags that gate its read routes — an event about a task on a link that excludes tasks is not harmless noise, it says a task exists and when somebody touched it. Team events, directed events, `share.*` events and `entry_view.*` events never reach it. The explicit entry-view rule also protects auth-disabled installations, where the local reader's event has no target user id. `actor_user_id` and `actor_client_id` are stripped from what a share receives: they name an account and a browser tab inside the owner's organisation, and there is no tab on the other side of a link to recognise its own writes.
 - Membership verdicts are cached for at most a minute and dropped outright whenever anything touches a team, so the cache is never the reason someone keeps seeing what they lost.
 - The broadcast queue is bounded. Under a burst the server drops events rather than stalling the write that produced them, so a client must be able to recover by re-reading, not by replaying.
 

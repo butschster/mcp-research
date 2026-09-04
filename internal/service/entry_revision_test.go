@@ -355,6 +355,35 @@ func TestRevisions_BlockPatchWritesRevisionButTickDoesNot(t *testing.T) {
 	}
 }
 
+func TestLatestSnapshot_KeepsUnrevisionedChecklistState(t *testing.T) {
+	svc, ctx, entry := patchFixture(t)
+
+	checked := true
+	if _, err := svc.PatchBlocks(ctx, entry.ID, PatchBlocksRequest{Ops: []BlockOp{{
+		Op: OpSetState, ID: "cccc3333", Item: "k1", Checked: &checked,
+	}}}); err != nil {
+		t.Fatalf("tick: %v", err)
+	}
+
+	snapshot, rev, err := svc.LatestSnapshot(ctx, entry)
+	if err != nil {
+		t.Fatalf("latest snapshot: %v", err)
+	}
+	if rev == nil || rev.Revision != 1 {
+		t.Fatalf("tick must keep revision 1, got %+v", rev)
+	}
+	doc, err := ParseStoredBlockDocument(snapshot.Content)
+	if err != nil {
+		t.Fatalf("parse snapshot: %v", err)
+	}
+	for _, block := range doc.Blocks {
+		if block.ID == "cccc3333" && checklistItems(block.Data)[0].Checked {
+			return
+		}
+	}
+	t.Fatal("latest snapshot lost the current checklist tick")
+}
+
 func TestRevisions_RestoreKeepsBlockIDsAndTicks(t *testing.T) {
 	svc, ctx, entry := patchFixture(t)
 
@@ -618,6 +647,48 @@ func TestRevisions_CreateHonoursExplicitSession(t *testing.T) {
 	}
 	if len(byActive) != 0 {
 		t.Fatalf("the active session claimed %d entries it did not write", len(byActive))
+	}
+}
+
+func TestLatestSnapshot_KeepsEntrySessionSeparateFromAuthoringSession(t *testing.T) {
+	entrySvc, sessionSvc, ctx, research, section := revisionFixture(t)
+
+	linked, _, err := sessionSvc.Create(ctx, CreateSessionRequest{
+		ResearchID: research.ID, Title: "Linked session", Focus: "a",
+	})
+	if err != nil {
+		t.Fatalf("create linked session: %v", err)
+	}
+	completed := domain.SessionCompleted
+	if _, err := sessionSvc.Update(ctx, linked.ID, UpdateSessionRequest{Status: &completed}); err != nil {
+		t.Fatalf("complete linked session: %v", err)
+	}
+	authoring, _, err := sessionSvc.Create(ctx, CreateSessionRequest{
+		ResearchID: research.ID, Title: "Authoring session", Focus: "b",
+	})
+	if err != nil {
+		t.Fatalf("create authoring session: %v", err)
+	}
+
+	entry, err := entrySvc.Create(ctx, CreateEntryRequest{
+		ResearchID: research.ID, SectionID: section.ID, SessionID: linked.ID, Content: "v1",
+	})
+	if err != nil {
+		t.Fatalf("create entry: %v", err)
+	}
+	if _, err := entrySvc.Update(ctx, entry.ID, UpdateEntryRequest{Content: ptr("v2")}); err != nil {
+		t.Fatalf("update entry: %v", err)
+	}
+
+	snapshot, rev, err := entrySvc.LatestSnapshot(ctx, entry)
+	if err != nil {
+		t.Fatalf("latest snapshot: %v", err)
+	}
+	if snapshot.SessionID != linked.ID {
+		t.Fatalf("entry linked session = %q, want %q", snapshot.SessionID, linked.ID)
+	}
+	if rev == nil || rev.SessionID != authoring.ID {
+		t.Fatalf("revision authoring session = %+v, want %q", rev, authoring.ID)
 	}
 }
 

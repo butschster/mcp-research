@@ -64,9 +64,20 @@ func openAPISpec(_ bool) map[string]any {
 	}
 
 	paths["/api/entries/{id}"] = map[string]any{
-		"get": endpoint("Get entry", "Returns full entry including markdown content.",
+		"get": endpoint("Get entry", "Returns the full entry, its current revision and provenance. An authenticated reader also receives personal view_state; share responses omit it.",
 			[]param{pathParam("id", "Entry UUID")},
-			response200(obj(field("data", "object", "Entry with id, code, research_id, section_id, title, content, description, status, tags, created_at, updated_at"))),
+			response200(obj(
+				field("data", "object", "Entry with id, code, research_id, section_id, title, content, description, status, tags, created_at, updated_at"),
+				field("revision", "integer", "Exact revision represented by this response"),
+				field("view_state", "object", "Personal state: kind (new, changed or seen), current_revision, seen_revision and unseen_revisions; omitted for shares"),
+			)),
+		),
+	}
+
+	paths["/api/researches/{id}/updates"] = map[string]any{
+		"get": endpoint("List personal document updates", "Returns documents created or revised since this reader last viewed them. The queue is personal, available to viewers, and absent from share routes.",
+			[]param{pathParam("id", "Research UUID or short code")},
+			response200(obj(field("data", "object", "Contains entries plus new, changed and count totals. Each entry includes entry_id, entry_code, section_id, title, current_revision, seen_revision, unseen_revisions, kind and updated_at"))),
 		),
 	}
 
@@ -263,6 +274,22 @@ func openAPISpec(_ bool) map[string]any {
 				field("text_replace", "object", "Surgical edit: {from: string, to: string} replaces first occurrence"),
 			)),
 			response200(obj(field("data", "object", "Updated entry object"))),
+		))
+
+		addMethod(paths, "/api/entries/{id}/seen", "put", writeEndpoint(
+			"Mark one displayed revision as seen",
+			"Advances this reader's personal checkpoint to the exact displayed revision. It is monotonic and viewers may call it.",
+			[]param{pathParam("id", "Entry UUID")},
+			body(obj(field("revision", "integer", "Displayed revision number (required)"))),
+			response200(obj(field("data", "object", "Acknowledged entry_id and displayed revision"))),
+		))
+
+		addMethod(paths, "/api/researches/{id}/updates/seen", "post", writeEndpoint(
+			"Mark a displayed Updates snapshot as seen",
+			"Atomically advances this reader's checkpoints for the exact entry/revision pairs supplied. Revisions created after the snapshot remain unseen. Viewers may call it.",
+			[]param{pathParam("id", "Research UUID or short code")},
+			body(obj(field("entries", "array", "Displayed snapshot: [{entry_id, revision}] (required)"))),
+			response200(obj(field("data", "object", "Contains marked: the number of unique entry checkpoints processed"))),
 		))
 
 		addMethod(paths, "/api/tasks", "post", writeEndpoint(

@@ -15,6 +15,7 @@ import (
 
 type EntryHandler struct {
 	entry       *service.EntryService
+	views       *service.EntryViewService
 	researchSvc *service.ResearchService
 	entries     *storage.EntryRepository
 	research    *storage.ResearchRepository
@@ -32,6 +33,13 @@ type EntryHandler struct {
 
 func NewEntryHandler(entry *service.EntryService, researchSvc *service.ResearchService, entries *storage.EntryRepository, research *storage.ResearchRepository, users *storage.UserRepository, teams *storage.TeamRepository, log *slog.Logger) *EntryHandler {
 	return &EntryHandler{entry: entry, researchSvc: researchSvc, entries: entries, research: research, users: users, teams: teams, log: log}
+}
+
+// SetEntryViewService adds the caller's personal revision checkpoint to a
+// document response. Kept optional so handler fixtures that do not exercise
+// the update queue stay small.
+func (h *EntryHandler) SetEntryViewService(views *service.EntryViewService) {
+	h.views = views
 }
 
 func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +69,7 @@ func (h *EntryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), entry.ResearchID, h.teamOf, h.authorName))
+	h.writeEntry(w, r, entry)
 }
 
 func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +90,7 @@ func (h *EntryHandler) GetByResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), entry.ResearchID, h.teamOf, h.authorName))
+	h.writeEntry(w, r, entry)
 }
 
 func (h *EntryHandler) GetRelatedByResearch(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +143,32 @@ func (h *EntryHandler) ResolveCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, withProvenance(entryPayload(entry), h.entry.LatestRevision(r.Context(), entry), r.Context(), entry.ResearchID, h.teamOf, h.authorName))
+	h.writeEntry(w, r, entry)
+}
+
+// writeEntry holds the snapshot boundary for the document and its read state.
+// LatestSnapshot reads the document and immutable revision that supplies its
+// number from one database snapshot; StateAt then receives that number too. A concurrent
+// commit therefore returns either complete old or complete new content, never
+// old content labelled as the new revision.
+func (h *EntryHandler) writeEntry(w http.ResponseWriter, r *http.Request, entry *domain.Entry) {
+	snapshot, rev, err := h.entry.LatestSnapshot(r.Context(), entry)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	payload := withProvenance(entryPayload(snapshot), rev, r.Context(), snapshot.ResearchID, h.teamOf, h.authorName)
+	if h.views != nil && rev != nil {
+		state, err := h.views.StateAt(r.Context(), snapshot, rev.Revision)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		if state != nil {
+			payload["view_state"] = state
+		}
+	}
+	writeJSON(w, http.StatusOK, payload)
 }
 
 // ResolveResearchCode resolves a research short code to its ID and metadata.

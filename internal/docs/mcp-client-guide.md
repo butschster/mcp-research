@@ -13,6 +13,12 @@ The Research server exposes two interfaces. Use the one that matches your integr
 
 Both interfaces operate on the same data and produce the same results. MCP tools are thin wrappers around the same service layer that the REST API uses.
 
+The personal document-update queue is deliberately outside that shared
+research data. It records the numbered revision a person actually rendered in
+the web UI, has REST routes only, and is absent from MCP, exports and public
+shares. Do not acknowledge it on a user's behalf; use `entry_history` and
+`entry_diff` when you need to understand what changed.
+
 **MCP prompts** (`research/initialize`, `research/conduct`) return workflow instructions that tell you which tools to call in which order. `research/initialize` takes an optional `topic` argument; `research/conduct` requires `research_id`. They are the recommended starting point for new research projects, but every action they describe can also be done with individual tool calls.
 
 ## Available MCP Tools

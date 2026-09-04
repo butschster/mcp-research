@@ -124,7 +124,8 @@ func (r *EntryRevisionRepository) CountByEntry(ctx context.Context, entryID stri
 	return n, nil
 }
 
-// Trim keeps the newest `keep` revisions plus revision 1, deleting the rest.
+// Trim keeps the newest `keep` revisions, revision 1, and every revision that
+// is still a reader's "last seen" comparison base.
 //
 // Revision 1 survives because it is the only record of what the entry looked
 // like when it was created, and that is the one snapshot a reader asks for
@@ -142,8 +143,11 @@ func (r *EntryRevisionRepository) Trim(ctx context.Context, q Querier, entryID s
 		  WHERE entry_id=?
 		    AND revision <> 1
 		    AND revision NOT IN (
+		        SELECT seen_revision FROM entry_views WHERE entry_id=?
+		    )
+		    AND revision NOT IN (
 		        SELECT revision FROM entry_revisions WHERE entry_id=? ORDER BY revision DESC LIMIT ?
-		    )`, entryID, entryID, keep)
+		    )`, entryID, entryID, entryID, keep)
 	if err != nil {
 		return fmt.Errorf("trim revisions: %w", err)
 	}

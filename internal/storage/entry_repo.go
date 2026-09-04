@@ -98,7 +98,14 @@ func (r *EntryRepository) UpdateTx(ctx context.Context, q Querier, entry *domain
 }
 
 func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entry, error) {
-	row := r.db.QueryRowContext(ctx,
+	return r.FindByIDQuery(ctx, r.db, id)
+}
+
+// FindByIDQuery reads an entry through the caller's connection or transaction.
+// Snapshot readers use this together with the revision repository so the entry
+// projection and its revision number cannot straddle a concurrent commit.
+func (r *EntryRepository) FindByIDQuery(ctx context.Context, q Querier, id string) (*domain.Entry, error) {
+	row := q.QueryRowContext(ctx,
 		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at
 		 FROM entries WHERE id=?`, id)
 	return r.scanEntry(row, true)

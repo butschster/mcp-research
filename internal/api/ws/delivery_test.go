@@ -79,6 +79,38 @@ func TestDeliver_DirectedEventDoesNotShipTheTargetID(t *testing.T) {
 	}
 }
 
+// A read receipt changes a personal queue, not the team's document. It must
+// wake the same person's other tabs without telling another member which
+// documents they have or have not read.
+func TestDeliver_EntryViewEventReachesOnlyTheReader(t *testing.T) {
+	hub := quietHub()
+	hub.SetAuthorizer(fakeAuth{research: map[string][]string{
+		"r1": {"alice", "bob"},
+	}}, true)
+	alice := hub.attach("alice", 4)
+	bob := hub.attach("bob", 4)
+
+	hub.deliver(Event{
+		Type:          "entry_view.updated",
+		ResearchID:    "r1",
+		EntityID:      "e1",
+		Entity:        "entry_view",
+		ActorClientID: "alice-tab-1",
+		TargetUserID:  "alice",
+	})
+
+	got, ok := received(t, alice)
+	if !ok {
+		t.Fatal("the reader's other tabs were not notified")
+	}
+	if got.Type != "entry_view.updated" || got.Entity != "entry_view" || got.ActorClientID != "alice-tab-1" {
+		t.Errorf("entry view event lost routing data: %+v", got)
+	}
+	if _, ok := received(t, bob); ok {
+		t.Error("a personal read receipt reached another team member")
+	}
+}
+
 // Events name the research by id; every URL names it by short code. Carrying
 // both is what stopped six pages from silently dropping everything they got.
 func TestDeliver_FillsInTheShortCode(t *testing.T) {

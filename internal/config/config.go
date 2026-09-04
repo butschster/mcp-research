@@ -21,8 +21,9 @@ type Config struct {
 	BaseURL           string `yaml:"base_url"`
 	DefaultUser       string `yaml:"default_user"` // email of user for stdio transport
 	// RevisionLimit caps how many revisions an entry keeps, newest first, plus
-	// revision 1. Zero keeps everything, which is the default: an entry is
-	// kilobytes of text and a complete history is the point of the feature.
+	// revision 1 and every reader's last-seen revision. Zero keeps everything,
+	// which is the default: an entry is kilobytes of text and a complete history
+	// is the point of the feature.
 	RevisionLimit int  `yaml:"revision_limit"`
 	Version       bool `yaml:"-"`
 }
@@ -107,7 +108,7 @@ func Load() Config {
 	flag.BoolVar(&cfg.AllowRegistration, "allow-registration", cfg.AllowRegistration, "Allow user self-registration")
 	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Public base URL for OAuth metadata (e.g. https://mcp.example.com)")
 	flag.StringVar(&cfg.DefaultUser, "default-user", cfg.DefaultUser, "Default user email for stdio transport (auto-login)")
-	flag.IntVar(&cfg.RevisionLimit, "revision-limit", cfg.RevisionLimit, "keep only the newest N revisions per entry, plus revision 1 (0 = keep everything)")
+	flag.IntVar(&cfg.RevisionLimit, "revision-limit", cfg.RevisionLimit, "keep newest N revisions, revision 1, and reader diff checkpoints (0 = keep everything)")
 	flag.BoolVar(&cfg.Version, "version", false, "print version and exit")
 
 	flag.Parse()

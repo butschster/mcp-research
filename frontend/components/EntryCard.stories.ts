@@ -35,6 +35,76 @@ export const FullEntry: Story = {
   },
 }
 
+export const NewDocument: Story = {
+  args: {
+    entry: mockEntry,
+    researchSlug: 'R1',
+    update: {
+      entry_id: mockEntry.id,
+      entry_code: mockEntry.code,
+      research_id: 'research-1',
+      section_id: 'section-1',
+      title: mockEntry.title,
+      entry_type: 'markdown',
+      status: mockEntry.status,
+      current_revision: 1,
+      seen_revision: 0,
+      unseen_revisions: 1,
+      kind: 'new',
+      updated_at: new Date().toISOString(),
+    },
+  },
+}
+
+export const ChangedDocument: Story = {
+  args: {
+    entry: mockEntry,
+    researchSlug: 'R1',
+    update: {
+      entry_id: mockEntry.id,
+      entry_code: mockEntry.code,
+      research_id: 'research-1',
+      section_id: 'section-1',
+      title: mockEntry.title,
+      entry_type: 'markdown',
+      status: mockEntry.status,
+      current_revision: 8,
+      seen_revision: 4,
+      unseen_revisions: 4,
+      kind: 'changed',
+      updated_at: new Date().toISOString(),
+    },
+  },
+}
+
+/** Every header signal at the narrow width used by a small phone. */
+export const NarrowChangedWithFlags: Story = {
+  decorators: [() => ({ template: '<div style="width: 320px"><story /></div>' })],
+  args: {
+    entry: {
+      ...mockEntry,
+      title: 'Очень длинное название документа без короткого варианта для карточки',
+      status: 'draft',
+    },
+    researchSlug: 'R1',
+    missingRequired: 3,
+    update: {
+      entry_id: mockEntry.id,
+      entry_code: mockEntry.code,
+      research_id: 'research-1',
+      section_id: 'section-1',
+      title: mockEntry.title,
+      entry_type: 'markdown',
+      status: 'draft',
+      current_revision: 14,
+      seen_revision: 8,
+      unseen_revisions: 6,
+      kind: 'changed',
+      updated_at: new Date().toISOString(),
+    },
+  },
+}
+
 export const DraftStatus: Story = {
   args: {
     entry: mockEntryDraft,
