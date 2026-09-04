@@ -11,6 +11,9 @@ func (s *Server) registerTools() {
 	tools.RegisterResearchList(s.server, s.research, s.log)
 	tools.RegisterResearchUpdate(s.server, s.research, s.log)
 	tools.RegisterResearchAddSection(s.server, s.research, s.log)
+	// Read-only, and next to research_get on purpose: one carries the
+	// constraints a research works under, the other the work still open in it.
+	tools.RegisterResearchResume(s.server, s.resume, s.log)
 
 	// Section tools
 	tools.RegisterSectionList(s.server, s.section, s.log)

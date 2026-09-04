@@ -30,11 +30,11 @@
       </template>
     </PageHeader>
 
-    <p v-if="bulkError" class="inline-error updates-error" role="alert">
+    <p v-if="bulkError" class="inline-error inline-error--action updates-error" role="alert">
       <span>{{ bulkError }}</span>
       <button v-if="bulkNeedsRefresh" type="button" class="btn btn-sm" @click="retryUpdates()">Try again</button>
     </p>
-    <p v-if="refreshError && !bulkError" class="inline-error updates-error" role="alert">
+    <p v-if="refreshError && !bulkError" class="inline-error inline-error--action updates-error" role="alert">
       <span>{{ refreshError }}</span>
       <button type="button" class="btn btn-sm" @click="retryUpdates()">Try again</button>
     </p>
@@ -199,5 +199,5 @@ useResearchRealtime(
 </script>
 
 <style scoped>
-.updates-error { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+.updates-error { margin-bottom: var(--space-4); }
 </style>

@@ -28,8 +28,11 @@ type Server struct {
 	// is read and answered over MCP and never written: an annotation is born
 	// from someone reading, and there is deliberately no tool that creates one.
 	annotation *service.AnnotationService
-	baseURL    string
-	log        *slog.Logger
+	// resume answers "what was I doing" for a chat that has no history of this
+	// research. It is read-only and aggregates what the other services own.
+	resume  *service.ResumeService
+	baseURL string
+	log     *slog.Logger
 }
 
 // SetBaseURL gives the tools a public origin to build download links with. It
@@ -49,6 +52,7 @@ func NewServer(
 	skill *service.SkillService,
 	template *service.TemplateService,
 	annotation *service.AnnotationService,
+	resume *service.ResumeService,
 	log *slog.Logger,
 	version string,
 ) *Server {
@@ -71,6 +75,7 @@ func NewServer(
 		skill:      skill,
 		template:   template,
 		annotation: annotation,
+		resume:     resume,
 		log:        log,
 	}
 

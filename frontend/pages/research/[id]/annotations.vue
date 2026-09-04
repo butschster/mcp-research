@@ -103,7 +103,25 @@ const error = ref<string | null>(null)
 // Open by default, so this page and the counter that links to it are counting
 // the same thing. A queue is a work list; everything ever marked is an archive,
 // and the filter is right there for when somebody wants it.
-const filters = ref<QueueFilters>({ status: 'open' })
+// Open by default, but the route wins: the resume block links here with
+// `?status=answered` for the marks waiting on a person, and a page that ignored
+// that would land them on a different queue than the one they clicked.
+// Open by default, but the route wins: the resume block links here with
+// `?status=answered` for the marks waiting on a person, and a page that ignored
+// that would land them on a different queue than the one they clicked.
+//
+// `?a=1&a=2` parses as an array, and a value the API does not know is worse
+// than no filter — so anything that is not a single known value is dropped.
+function queryFilter<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : undefined
+}
+
+const initialQuery = useRoute().query
+const filters = ref<QueueFilters>({
+  status: queryFilter(initialQuery.status, ['open', 'answered', 'closed', 'dismissed'] as const) ?? 'open',
+  kind: queryFilter(initialQuery.kind, ['verify', 'dig', 'disagree'] as const),
+  anchor: queryFilter(initialQuery.anchor, ['anchored', 'drifted', 'moved', 'orphaned'] as const),
+} as QueueFilters)
 
 const reviewOpen = ref(false)
 const reviewBusy = ref(false)
@@ -159,6 +177,19 @@ async function load(background = false) {
 
 function setFilters(next: QueueFilters) {
   filters.value = next
+  // The URL follows the filter, so a queue somebody is looking at can be sent
+  // to a colleague — and so a reload keeps the list they were reading.
+  useRouter().replace({
+    query: {
+      ...useRoute().query,
+      status: next.status || undefined,
+      kind: next.kind || undefined,
+      // The orphaned-marks shortcut on this very page goes through here too;
+      // leaving it out of the URL meant reloading dropped you back on the full
+      // queue, which is what writing the URL was supposed to prevent.
+      anchor: next.anchor || undefined,
+    },
+  })
   load()
 }
 

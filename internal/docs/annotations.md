@@ -48,6 +48,14 @@ property**, using `null` for the ones you are skipping:
   nothing recorded cannot be reviewed. `task_id` is nullable, and is only for a
   mark somebody promoted to a task.
 
+`research_resume` also carries marks, and the difference matters: it returns the
+first few `open` ones as `annotations.to_work` and the first few `answered` ones
+as `annotations.awaiting_human`, each group with a `total` and a `more` link back
+to `annotation_list`. It takes an `R1` code where this tool will not, and it
+orders oldest-first rather than by document. Use it to see that a queue exists;
+use `annotation_list` to work one, because a pass is scoped by document and only
+this tool groups them that way.
+
 Refusals arrive as ordinary tool results with `isError: true`:
 
 | Text | Means |

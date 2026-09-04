@@ -36,6 +36,63 @@ Top-level container for an investigation project. Owned by a [team](#team) when 
 - `team_name`, `team_is_personal` and `role` are computed per request and returned by `research_get`, `GET /api/researches/{id}` and `GET /api/researches`. They are not stored and are ignored on input.
 - Moving a research between teams is `POST /api/researches/{id}/transfer` — there is no MCP tool for it, and it is the only way a research changes audience.
 
+**The continuation summary.** `research_resume` and `GET /api/researches/{id}/resume`
+answer one question — a new chat has opened on this research, what is unfinished?
+It is a **projection**: nothing here is stored, and reading it creates no session,
+moves no status and marks no document as seen.
+
+```
+GET /api/researches/{id}/resume?session_id=SS2&limit=5
+```
+
+`{id}` is a UUID or an `R` code; `session_id` is a UUID or an `SS` code resolved
+inside that research, and one from another research answers `not found`. `limit`
+is per group, 1–15, default 5 — out of range is clamped, and over REST a
+non-numeric `limit` is `400` rather than a silent default. A `viewer` may read
+it; `research.can_write` on the response says whether the actions it proposes are
+ones you may actually take.
+
+The payload is `schema_version`, `generated_at`, `research`, `sessions`,
+`work.{in_progress,blocked,pending}`, `questions.{open,deferred}`,
+`annotations.{to_work,awaiting_human}`, `recent_entries`, `next_actions` and
+`truncated` / `note`.
+
+- **Every group is `{items, returned, total, has_more, more}`.** `total` is
+  nullable so "we could not count" is distinguishable from zero, and `more`
+  names the tool and the page that open the rest. A failed read is an error, never
+  an empty queue — an agent that reads "0 tasks" from an outage concludes the work
+  is done.
+- **It never chooses between two open sessions.** `SessionRepository.FindActive`
+  is a `LIMIT 1` with no `ORDER BY`, so the `active_session` on `research_get` is
+  an arbitrary pick when several are active. This returns them all with
+  `selection_required: true`, no `selected_id`, and empty question groups. With
+  none active it shows the most recently created session with its real status.
+- **The annotation split is the contract, not a convenience.** `to_work` is
+  `open` — work an agent may do. `awaiting_human` is `answered` — waiting for the
+  person who raised the objection to accept it, which no amount of agent effort
+  moves. See [Annotation](#annotation).
+- **`recent_entries` is not a change log.** It is the newest `updated_at` first,
+  its `total` is how many documents the research has rather than how many changed,
+  and a deleted document leaves no trace. Each row carries `author_kind` and
+  `revision` of the newest [revision](#revision): `human` there is a person's
+  correction made in the web UI, and the reason to read before rewriting. Both
+  are **absent** for a document written before revisions existed, and absent
+  again if the revision lookup itself fails — that one failure degrades the two
+  numbers rather than the list. Absent means unknown; it does not mean `agent`.
+- **`next_actions` is at most three**, in a fixed order — resolve session
+  ambiguity, continue an `in_progress` task, settle an open mark, start the
+  highest-priority pending task, take the next question — each with `kind`,
+  `target` (type, id, code, and the `session_code` / `entry_code` a URL needs),
+  a closed-vocabulary `reason_code`, a sentence, and `actor`. `actor: "human"`
+  means a person must act; it is not a statement about importance.
+- **The size cap is 24 KiB.** Over it, previews are cut first, then items, and
+  `truncated` plus a one-line `note` say so. Totals, `has_more` and the `more`
+  links survive every step, and the JSON is valid at each — a row that did not
+  fit is not a row that does not exist. Text is cut by rune, never by byte.
+- **It is not the personal document queue** described under [Entry](#entry):
+  that one is per reader and is acknowledged by writing to it, this one is the
+  same for every reader of the research and acknowledges nothing.
+
 ---
 
 ### Team
@@ -165,6 +222,7 @@ That list is the whole surface. Anything else under the prefix — another metho
 - The Obsidian vault and the portable JSON. The vault builds its payload from the repository rather than from the redacted read path, so it is refused outright; the portable route is not mounted.
 - Any [template](#template) — no list, no body, and no stamp. `TemplateService` refuses a share context before it resolves anything, and `template_slug` / `template_version` are blanked on the research alongside `instruction`: a slug is a name a team chose, and it would read back as that name.
 - Revision history, the knowledge graph, the mindmap and search — none of those routes exist under the prefix.
+- The continuation summary. `/api/researches/{id}/resume` is not mounted under the prefix, and `ResumeService` refuses a share context before it resolves anything — ahead of `Access.Read`, which would allow it, since a share does resolve to `viewer` on this very research. What is unfinished, what a person disputed and what the agent should do next is working process, like `instruction`.
 - Every write, without exception. `Access.Write` refuses a share context before it looks at any role, so this does not depend on the `viewer` it resolves to.
 
 **Cross-references** out of the shared research (`[[R2:E5]]`) render as inert text — not a link, not a 404, because a share must not confirm that R2 exists. An *incoming* reference from a research the visitor cannot open is dropped from the list rather than blanked: the stripped row would still announce that something unseen cites this entry.

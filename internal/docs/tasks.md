@@ -11,6 +11,14 @@ Tasks are AI-managed todo items within a research. Use them to plan work, track 
 | `task_update` | Update task status, priority, title, description, or result |
 | `task_delete` | Remove a task from the list |
 
+`research_resume` reads the same tasks from the other direction: the first few
+`in_progress`, `blocked` and `pending` as three separate groups, each with a
+`total`, a `has_more` and a link back to `task_list`. It is where a new chat
+learns that work is outstanding; `task_list` is where it reads the whole list.
+Note that the `note` on a resume row is the task's `result`, so a `blocked` task
+usually shows none — the blocker belongs in `description`, which resume does not
+carry.
+
 ## When to Create Tasks
 
 - Breaking down a complex research into concrete work items

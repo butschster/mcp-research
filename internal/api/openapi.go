@@ -74,6 +74,20 @@ func openAPISpec(_ bool) map[string]any {
 		),
 	}
 
+	paths["/api/researches/{id}/resume"] = map[string]any{
+		"get": endpoint("Resume a research",
+			"Outstanding work in one research: tasks in progress, blocked and pending, the open questions of the selected session, the marks left on documents, the most recently changed entries, and up to three candidate next actions with the reason for each. Read-only: it starts no session, changes no status and marks nothing as seen. Not available through a share link.",
+			[]param{
+				pathParam("id", "Research UUID or short code (R1)"),
+				query("session_id", "Which session to summarise — UUID or short code (SS1) inside this research. A session belonging to another research is 404. Omitted: one active session is selected, several return selection_required with no selected_id, none shows the most recently created session with its real status", false),
+				query("limit", "Items per group, 1-15, default 5. Out of range is clamped; a non-numeric value is 400", false),
+			},
+			response200(obj(
+				field("data", "object", "Contains: schema_version, generated_at, research (id, code, name, status, role, can_write), sessions (items, selected_id, selection_required, active_count), work (in_progress, blocked, pending), questions (open, deferred), annotations (to_work, awaiting_human), recent_entries (with author_kind and revision of the newest revision), next_actions (at most three; kind, target, reason_code, reason, actor, tool, href), and truncated with a one-line note when the 24 KiB cap shortened the payload. Every group carries items, returned, total (nullable, so an uncounted group is not reported as zero), has_more and a more link naming the tool and page that open the rest"),
+			)),
+		),
+	}
+
 	paths["/api/researches/{id}/updates"] = map[string]any{
 		"get": endpoint("List personal document updates", "Returns documents created or revised since this reader last viewed them. The queue is personal, available to viewers, and absent from share routes.",
 			[]param{pathParam("id", "Research UUID or short code")},

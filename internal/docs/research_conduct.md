@@ -19,6 +19,7 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 |--------------------------------------------------------|--------------------------------------|
 | Find every research you can reach, and which are read-only | `research_list`                  |
 | Load full research context (sections + active session + skills index) | `research_get`             |
+| See what is unfinished, and what to do next             | `research_resume`                    |
 | Re-read the methodology the research was started from | `template_get`                     |
 | Open one skill's full text, by slug                    | `skill_load`                         |
 | Change which methodology this research works by        | `skill_list`, then `skill_attach` / `skill_detach` |
@@ -83,6 +84,25 @@ Clarifying question patterns:
 
 ### Step 4: Analyze Existing Entries
 
+- **Call `research_resume` first.** It returns the work still open — tasks in
+  progress, blocked and waiting, the unanswered questions of the session you are
+  continuing, the marks a person left on the documents, and the documents changed
+  most recently — with up to three candidate next actions and the reason for
+  each. It is the cheapest way to learn where the last session stopped, and it
+  repeats nothing `research_get` already gave you
+- **Read what it says about who acts.** An action marked `human` is waiting on a
+  person: an answered mark needs the person who raised it to accept it, and you
+  cannot accept your own answer. Do not queue it as your own work
+- **Do not read an empty top-N as "everything is done".** Each group carries
+  `returned`, `total` and `has_more` with the tool that opens the rest
+  (`task_list`, `session_get`, `annotation_list`, `entry_list`). A `truncated`
+  response was shortened to fit a size limit; the totals beside it are still the
+  real ones
+- **A document whose newest revision has `author_kind: human` is a correction.**
+  Read it before touching that document; building on it is the point, undoing it
+  is the failure
+- With several sessions active, `research_resume` returns them and asks which one
+  you are continuing rather than guessing. Ask the user, then pass `session_id`
 - For each section with entries, use `entry_list` to see what exists
 - Use `entry_read` on relevant entries to understand current depth and coverage
 - Map what has been completed, what is in progress, and where meaningful gaps remain

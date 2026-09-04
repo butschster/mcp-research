@@ -52,7 +52,7 @@ What that changes in practice:
 | Without it | With it |
 |---|---|
 | Findings live in scrollback | Findings live in sections and entries with short codes (`E3`, `R2:E5`) |
-| Every session starts from zero | Working instructions and memory persist per research |
+| Every session starts from zero | Working instructions and memory persist per research, and the AI can ask what is still unfinished |
 | "Didn't we decide this already?" | Decision entries, revision history, and who wrote what |
 | Copy-paste into Notion afterwards | Markdown, PDF, an Obsidian vault, or portable JSON on demand |
 | The AI's plan is invisible | A task board and roadmaps the AI maintains itself |
@@ -196,6 +196,25 @@ They belong to a team and are reused across its researches, with a
 research-private tier for a rule that applies to one and a built-in tier that
 ships with the app.
 
+### Picking it up next week, in a new chat
+
+The context is gone, the scrollback is gone, and the honest first question is
+"where were we?". The assistant asks the research itself: **`research_resume`**
+returns the queue rather than the archive — the tasks in flight, blocked and
+waiting, the open questions of the session it is continuing, the marks you left,
+the documents that changed most recently, and up to three candidate next actions,
+each with the reason for it and whether it is waiting on the agent or on you.
+
+The same picture is the **Continue** block at the top of the research page, so
+you can see what it is about to pick up before it does. Nothing here is a guess
+and nothing here is a write: every group reports its real total beside the few it
+shows, so "nothing left" is something the summary says rather than something you
+infer from a short list — and a response the size cap shortened says so outright;
+a document last edited by a *person* is flagged as one, because that is a
+correction to build on rather than stale work to redo; and with two sessions open
+it asks which one you mean instead of choosing for you. No session is started and nothing is marked as read until
+somebody says so.
+
 ### Everything else that makes it a product
 
 - **A personal Updates queue for every research** — new documents and revisions
@@ -226,6 +245,8 @@ flowchart TD
     C --> D["research_create — R1 exists, web UI live"]
     D --> E["research/conduct prompt<br/>session SS1 opens"]
     E --> F{Interview loop}
+    Z["Next week, a new chat: 'continue R1'"] --> Z2["research_get — the constraints<br/>research_resume — what is still open"]
+    Z2 --> F
     F -->|answer| G["question_update — answer recorded"]
     F -->|follow-up| H["question_create — new question"]
     G --> I["entry_create — finding written to a section"]
@@ -267,6 +288,18 @@ AI:   [annotation_list — 3 open marks in E2: two verify, one disagree]
       [A1: cites the vendor's pricing page. A2: could not confirm, asked [[Q7]]]
       [A3: records both positions in the document instead of rewriting it]
       Three marks answered. Accept them, or send any back.
+```
+
+A week later, in a chat that knows none of the above:
+
+```
+You:  Continue R1.
+
+AI:   [research_get, then research_resume]
+      Session SS2 "Migration planning". Open: 1 task in flight (benchmark
+      harness), 2 questions unanswered, 1 mark you still have to accept.
+      E3 changed since SS1 — you edited it, so I will read it first.
+      I would start with the harness. Go?
 ```
 
 Everything the assistant writes appears in the browser as it happens. You are
@@ -377,7 +410,7 @@ same process and the same database.
 ### 1. Local MCP client over stdio
 
 Claude Code, Claude Desktop and Cursor spawn the binary themselves. The assistant
-gets **50 tools** and **2 research prompts**.
+gets **51 tools** and **2 research prompts**.
 
 **Claude Code** — `~/.claude/mcp.json`:
 
@@ -459,7 +492,7 @@ access rules, and an index of deeper guides that are served as plain markdown at
 | Document | What it covers |
 |---|---|
 | `/llms.txt` | Entry point — data model, short codes, `[[refs]]`, entry types, index |
-| `/llms/mcp-client-guide.md` | All 50 tools, the input-schema contract, nullable fields, common pitfalls |
+| `/llms/mcp-client-guide.md` | All 51 tools, the input-schema contract, nullable fields, common pitfalls |
 | `/llms/domain-guide.md` | Every entity in full: fields, statuses, lifecycle, the role matrix, the real-time event stream |
 | `/llms/conducting-research.md` | The workflow itself — initialize, interview, write entries, complete |
 | `/llms/tasks.md` | When to open a task, statuses, tasks vs questions |
@@ -548,8 +581,8 @@ information.
 token, optionally password-protected and time-limited, that opens a read-only
 copy at `/s/{token}`. You choose what the link includes — sessions, tasks,
 roadmaps, export. Working process is never shared: instructions, memory, entry
-provenance, revision history and the marks people left on sentences stay behind
-the login.
+provenance, revision history, the marks people left on sentences and the
+continuation summary stay behind the login.
 
 Other auth features:
 
@@ -603,11 +636,11 @@ Short codes are assigned automatically and accepted wherever an id is:
 
 ## MCP tools
 
-50 tools, 2 prompts.
+51 tools, 2 prompts.
 
 | Category | Tools |
 |---|---|
-| **Research** | `research_create`, `research_get`, `research_list`, `research_update`, `research_add_section` |
+| **Research** | `research_create`, `research_get`, `research_resume`, `research_list`, `research_update`, `research_add_section` |
 | **Sections** | `section_list`, `section_update` |
 | **Entries** | `entry_create`, `entry_read`, `entry_list`, `entry_update`, `entry_patch`, `entry_delete`, `entry_history`, `entry_diff` |
 | **Sessions** | `session_create`, `session_get`, `session_update` |
