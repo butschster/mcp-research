@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type ShareRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewShareRepository(db *sql.DB) *ShareRepository {
+func NewShareRepository(db *bun.DB) *ShareRepository {
 	return &ShareRepository{db: db}
 }
 
@@ -49,12 +50,19 @@ func (r *ShareRepository) Create(ctx context.Context, sh *domain.Share, tokenHas
 	if sh.UserID != "" {
 		creator = sh.UserID
 	}
-	_, err = r.db.ExecContext(ctx,
-		`INSERT INTO shares (id, token_hash, research_id, user_id, scope, target_id, label,
-		                     include, password_hash, expires_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		sh.ID, tokenHash, sh.ResearchID, creator, string(sh.Scope), sh.TargetID, sh.Label,
-		string(include), passwordHash, expires, now)
+	_, err = r.db.NewInsert().Table("shares").Model(&map[string]any{
+		"id":            sh.ID,
+		"token_hash":    tokenHash,
+		"research_id":   sh.ResearchID,
+		"user_id":       creator,
+		"scope":         string(sh.Scope),
+		"target_id":     sh.TargetID,
+		"label":         sh.Label,
+		"include":       string(include),
+		"password_hash": passwordHash,
+		"expires_at":    expires,
+		"created_at":    now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert share: %w", err)
 	}
@@ -68,8 +76,10 @@ func (r *ShareRepository) Create(ctx context.Context, sh *domain.Share, tokenHas
 // those a caller is told is the service's job, and the answer is the same for
 // all three.
 func (r *ShareRepository) FindByHash(ctx context.Context, tokenHash string) (*domain.Share, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+shareColumns+shareFrom+` WHERE s.token_hash = ?`, tokenHash)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(shareColumns).
+		TableExpr("shares s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN researches r ON r.id = s.research_id").
+		Where("s.token_hash = ?", tokenHash))
 	return scanShare(row)
 }
 
@@ -77,7 +87,11 @@ func (r *ShareRepository) FindByHash(ctx context.Context, tokenHash string) (*do
 // itself so it cannot ride along into a response.
 func (r *ShareRepository) PasswordHash(ctx context.Context, id string) (string, error) {
 	var hash string
-	err := r.db.QueryRowContext(ctx, `SELECT password_hash FROM shares WHERE id = ?`, id).Scan(&hash)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("password_hash").
+		TableExpr("shares").
+		Where("id = ?", id)).
+		Scan(&hash)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -88,8 +102,10 @@ func (r *ShareRepository) PasswordHash(ctx context.Context, id string) (string, 
 }
 
 func (r *ShareRepository) FindByID(ctx context.Context, id string) (*domain.Share, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+shareColumns+shareFrom+` WHERE s.id = ?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(shareColumns).
+		TableExpr("shares s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN researches r ON r.id = s.research_id").
+		Where("s.id = ?", id))
 	return scanShare(row)
 }
 
@@ -100,9 +116,12 @@ func (r *ShareRepository) FindByID(ctx context.Context, id string) (*domain.Shar
 // this to, and did I take it back" is the question this list answers, and a row
 // that silently disappears on revocation leaves no record that it existed.
 func (r *ShareRepository) ListByResearch(ctx context.Context, researchID string) ([]*domain.Share, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+shareColumns+shareFrom+` WHERE s.research_id = ? ORDER BY s.created_at DESC`,
-		researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(shareColumns).
+		TableExpr("shares s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN researches r ON r.id = s.research_id").
+		Where("s.research_id = ?", researchID).
+		OrderExpr("s.created_at DESC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query shares: %w", err)
 	}
@@ -123,11 +142,13 @@ func (r *ShareRepository) ListByResearch(ctx context.Context, researchID string)
 // owner a research is exposed without making them open a dialog to find out.
 func (r *ShareRepository) CountActive(ctx context.Context, researchID string) (int, error) {
 	var n int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM shares
-		  WHERE research_id = ? AND revoked_at IS NULL
-		    AND (expires_at IS NULL OR expires_at > ?)`,
-		researchID, time.Now().UTC().Format(time.DateTime)).Scan(&n)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("COUNT(*)").
+		TableExpr("shares").
+		Where("research_id = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)", researchID, time.Now().
+			UTC().
+			Format(time.DateTime))).
+		Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count active shares: %w", err)
 	}
@@ -139,8 +160,11 @@ func (r *ShareRepository) CountActive(ctx context.Context, researchID string) (i
 // timestamp.
 func (r *ShareRepository) Revoke(ctx context.Context, id string) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	res, err := r.db.ExecContext(ctx,
-		`UPDATE shares SET revoked_at=? WHERE id=? AND revoked_at IS NULL`, now, id)
+	res, err := r.db.NewUpdate().
+		Table("shares").
+		Set("revoked_at=?", now).
+		Where("id=? AND revoked_at IS NULL", id).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("revoke share: %w", err)
 	}
@@ -155,8 +179,12 @@ func (r *ShareRepository) Revoke(ctx context.Context, id string) error {
 // could not be written.
 func (r *ShareRepository) TouchSeen(ctx context.Context, id string) {
 	now := time.Now().UTC().Format(time.DateTime)
-	r.db.ExecContext(ctx,
-		`UPDATE shares SET view_count = view_count + 1, last_seen_at = ? WHERE id = ?`, now, id)
+	r.db.NewUpdate().
+		Table("shares").
+		Set("view_count = view_count + 1").
+		Set("last_seen_at = ?", now).
+		Where("id = ?", id).
+		Exec(ctx)
 }
 
 func scanShare(s scanner) (*domain.Share, error) {

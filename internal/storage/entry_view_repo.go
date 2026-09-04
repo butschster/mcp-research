@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 var ErrEntryViewTargetNotFound = errors.New("entry view target not found")
@@ -15,10 +16,10 @@ var ErrEntryViewTargetNotFound = errors.New("entry view target not found")
 // EntryViewRepository stores the one mutable fact behind the update queue:
 // which numbered snapshot a particular reader has seen.
 type EntryViewRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewEntryViewRepository(db *sql.DB) *EntryViewRepository {
+func NewEntryViewRepository(db *bun.DB) *EntryViewRepository {
 	return &EntryViewRepository{db: db}
 }
 
@@ -30,10 +31,11 @@ func (r *EntryViewRepository) Find(ctx context.Context, viewerID, entryID string
 		userID sql.NullString
 		seenAt string
 	)
-	err := r.db.QueryRowContext(ctx,
-		`SELECT viewer_id, user_id, entry_id, seen_revision, seen_at
-		   FROM entry_views WHERE viewer_id=? AND entry_id=?`, viewerID, entryID,
-	).Scan(&view.ViewerID, &userID, &view.EntryID, &view.SeenRevision, &seenAt)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("viewer_id, user_id, entry_id, seen_revision, seen_at").
+		TableExpr("entry_views").
+		Where("viewer_id=? AND entry_id=?", viewerID, entryID)).
+		Scan(&view.ViewerID, &userID, &view.EntryID, &view.SeenRevision, &seenAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -49,25 +51,19 @@ func (r *EntryViewRepository) Find(ctx context.Context, viewerID, entryID string
 // MAX(revision) aggregation is scoped to one research before it joins entries,
 // so a queue read does not scan the history of every research on the server.
 func (r *EntryViewRepository) ListUpdates(ctx context.Context, viewerID, researchID string) ([]*domain.EntryUpdate, error) {
-	rows, err := r.db.QueryContext(ctx, `
-		WITH latest AS (
-			SELECT entry_id, MAX(revision) AS current_revision
-			  FROM entry_revisions
-			 WHERE research_id=?
-			 GROUP BY entry_id
-		)
-		SELECT e.id, e.code, e.research_id, e.section_id, e.title,
-		       e.description, e.entry_type, e.status,
-		       latest.current_revision, COALESCE(v.seen_revision, 0), current_rev.created_at
-		  FROM entries e
-		  JOIN latest ON latest.entry_id = e.id
-		  JOIN entry_revisions current_rev
-		    ON current_rev.entry_id=e.id AND current_rev.revision=latest.current_revision
-		  LEFT JOIN entry_views v ON v.viewer_id=? AND v.entry_id=e.id
-		 WHERE e.research_id=?
-		   AND (v.seen_revision IS NULL OR v.seen_revision < latest.current_revision)
-		 ORDER BY CASE WHEN v.seen_revision IS NULL THEN 0 ELSE 1 END,
-		          current_rev.created_at DESC, e.code`, researchID, viewerID, researchID)
+	latest := r.db.NewSelect().
+		Column("entry_id").
+		ColumnExpr("MAX(revision) AS current_revision").
+		Table("entry_revisions").
+		Where("research_id=?", researchID).
+		Group("entry_id")
+	rows, err := r.db.NewSelect().With("latest", latest).
+		ColumnExpr("e.id, e.code, e.research_id, e.section_id, e.title, e.description, e.entry_type, e.status, latest.current_revision, COALESCE(v.seen_revision, 0), current_rev.created_at").
+		TableExpr("entries e").Join("JOIN latest ON latest.entry_id=e.id").
+		Join("JOIN entry_revisions current_rev ON current_rev.entry_id=e.id AND current_rev.revision=latest.current_revision").
+		Join("LEFT JOIN entry_views v ON v.viewer_id=? AND v.entry_id=e.id", viewerID).
+		Where("e.research_id=?", researchID).Where("v.seen_revision IS NULL OR v.seen_revision < latest.current_revision").
+		OrderExpr("CASE WHEN v.seen_revision IS NULL THEN 0 ELSE 1 END, current_rev.created_at DESC, e.code").Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list entry updates: %w", err)
 	}
@@ -157,7 +153,7 @@ func (r *EntryViewRepository) MarkSeenMany(
 
 func markSeen(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx bun.Tx,
 	viewerID, userID, researchID, entryID string,
 	revision int,
 ) (bool, error) {
@@ -166,19 +162,11 @@ func markSeen(
 	if userID != "" {
 		storedUser = userID
 	}
-	result, err := tx.ExecContext(ctx, `
-		INSERT INTO entry_views (viewer_id, user_id, entry_id, seen_revision, seen_at)
-		SELECT ?, ?, er.entry_id, er.revision, ?
-		  FROM entry_revisions er
-		 WHERE er.research_id=? AND er.entry_id=? AND er.revision=?
-		ON CONFLICT(viewer_id, entry_id) DO UPDATE SET
-			seen_revision = MAX(entry_views.seen_revision, excluded.seen_revision),
-			seen_at = CASE
-				WHEN excluded.seen_revision >= entry_views.seen_revision THEN excluded.seen_at
-				ELSE entry_views.seen_at
-			END`,
-		viewerID, storedUser, now, researchID, entryID, revision,
-	)
+	source := tx.NewSelect().
+		ColumnExpr("?, ?, er.entry_id, er.revision, ?", viewerID, storedUser, now).
+		TableExpr("entry_revisions er").
+		Where("er.research_id=? AND er.entry_id=? AND er.revision=?", researchID, entryID, revision)
+	result, err := advanceCheckpoint(ctx, tx, source)
 	if err != nil {
 		return false, fmt.Errorf("mark entry seen: %w", err)
 	}

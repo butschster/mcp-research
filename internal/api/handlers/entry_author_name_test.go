@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/config"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/butschster/mcp-research/internal/testdb"
 	"github.com/google/uuid"
 )
 
@@ -24,7 +24,7 @@ import (
 // is made: EntryService was always scoped correctly.
 func TestAuthorName_OnlyForSomebodyInTheOwningTeam(t *testing.T) {
 	log := slog.Default()
-	db, err := storage.NewDB(config.Config{}, log)
+	db, err := storage.NewDB(testdb.Config(t), log)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

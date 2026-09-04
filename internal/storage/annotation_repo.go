@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 // AnnotationFilter narrows a queue read. Anchor state is deliberately absent:
@@ -22,10 +23,10 @@ type AnnotationFilter struct {
 }
 
 type AnnotationRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewAnnotationRepository(db *sql.DB) *AnnotationRepository {
+func NewAnnotationRepository(db *bun.DB) *AnnotationRepository {
 	return &AnnotationRepository{db: db}
 }
 
@@ -46,16 +47,32 @@ func (r *AnnotationRepository) Create(ctx context.Context, a *domain.Annotation)
 		a.Code = code
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO annotations (`+annotationColumns+`)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.ID, a.Code, a.ResearchID, a.EntryID, a.BlockID,
-		a.Quote.Exact, a.Quote.Prefix, a.Quote.Suffix, a.AnchoredRevision,
-		a.Kind, a.Body, a.AuthorKind, nullString(a.UserID),
-		a.Status, a.Resolution, a.ResolvedRevision, nullString(a.SessionID), nullString(a.TaskID),
-		marshalRejections(a.Rejections), a.Attempts,
-		now, now, nil, nil,
-	)
+	_, err := r.db.NewInsert().Table("annotations").Model(&map[string]any{
+		"id":                a.ID,
+		"code":              a.Code,
+		"research_id":       a.ResearchID,
+		"entry_id":          a.EntryID,
+		"block_id":          a.BlockID,
+		"quote_exact":       a.Quote.Exact,
+		"quote_prefix":      a.Quote.Prefix,
+		"quote_suffix":      a.Quote.Suffix,
+		"anchored_revision": a.AnchoredRevision,
+		"kind":              a.Kind,
+		"body":              a.Body,
+		"author_kind":       a.AuthorKind,
+		"user_id":           nullString(a.UserID),
+		"status":            a.Status,
+		"resolution":        a.Resolution,
+		"resolved_revision": a.ResolvedRevision,
+		"session_id":        nullString(a.SessionID),
+		"task_id":           nullString(a.TaskID),
+		"rejections":        marshalRejections(a.Rejections),
+		"attempts":          a.Attempts,
+		"created_at":        now,
+		"updated_at":        now,
+		"answered_at":       nil,
+		"closed_at":         nil,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert annotation: %w", err)
 	}
@@ -70,20 +87,27 @@ func (r *AnnotationRepository) Create(ctx context.Context, a *domain.Annotation)
 func (r *AnnotationRepository) Update(ctx context.Context, a *domain.Annotation) error {
 	now := time.Now().UTC().Format(time.DateTime)
 
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE annotations SET
-		    block_id=?, quote_exact=?, quote_prefix=?, quote_suffix=?, anchored_revision=?,
-		    kind=?, body=?,
-		    status=?, resolution=?, resolved_revision=?, session_id=?, task_id=?, rejections=?, attempts=?,
-		    updated_at=?, answered_at=?, closed_at=?
-		 WHERE id=?`,
-		a.BlockID, a.Quote.Exact, a.Quote.Prefix, a.Quote.Suffix, a.AnchoredRevision,
-		a.Kind, a.Body,
-		a.Status, a.Resolution, a.ResolvedRevision, nullString(a.SessionID), nullString(a.TaskID),
-		marshalRejections(a.Rejections), a.Attempts,
-		now, nullTime(a.AnsweredAt), nullTime(a.ClosedAt),
-		a.ID,
-	)
+	_, err := r.db.NewUpdate().
+		Table("annotations").
+		Set("block_id=?", a.BlockID).
+		Set("quote_exact=?", a.Quote.Exact).
+		Set("quote_prefix=?", a.Quote.Prefix).
+		Set("quote_suffix=?", a.Quote.Suffix).
+		Set("anchored_revision=?", a.AnchoredRevision).
+		Set("kind=?", a.Kind).
+		Set("body=?", a.Body).
+		Set("status=?", a.Status).
+		Set("resolution=?", a.Resolution).
+		Set("resolved_revision=?", a.ResolvedRevision).
+		Set("session_id=?", nullString(a.SessionID)).
+		Set("task_id=?", nullString(a.TaskID)).
+		Set("rejections=?", marshalRejections(a.Rejections)).
+		Set("attempts=?", a.Attempts).
+		Set("updated_at=?", now).
+		Set("answered_at=?", nullTime(a.AnsweredAt)).
+		Set("closed_at=?", nullTime(a.ClosedAt)).
+		Where("id=?", a.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update annotation: %w", err)
 	}
@@ -92,23 +116,29 @@ func (r *AnnotationRepository) Update(ctx context.Context, a *domain.Annotation)
 }
 
 func (r *AnnotationRepository) FindByID(ctx context.Context, id string) (*domain.Annotation, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT `+annotationColumns+` FROM annotations WHERE id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().ColumnExpr(annotationColumns).TableExpr("annotations").Where("id=?", id))
 	return scanAnnotationRow(row)
 }
 
 // FindByCode resolves A7 within a research, so [[A7]] and a code typed by a
 // person both land somewhere.
 func (r *AnnotationRepository) FindByCode(ctx context.Context, researchID, code string) (*domain.Annotation, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+annotationColumns+` FROM annotations WHERE research_id=? AND code=?`, researchID, code)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(annotationColumns).
+		TableExpr("annotations").
+		Where("research_id=? AND code=?", researchID, code))
 	return scanAnnotationRow(row)
 }
 
 // FindByEntry is the read the entry page makes: everything marked in this
 // document, oldest first so the order on screen matches the order of writing.
 func (r *AnnotationRepository) FindByEntry(ctx context.Context, entryID string) ([]*domain.Annotation, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+annotationColumns+` FROM annotations WHERE entry_id=? ORDER BY created_at ASC`, entryID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(annotationColumns).
+		TableExpr("annotations").
+		Where("entry_id=?", entryID).
+		OrderExpr("created_at ASC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query annotations: %w", err)
 	}
@@ -123,40 +153,36 @@ func (r *AnnotationRepository) FindByEntry(ctx context.Context, entryID string) 
 // a mark on a deleted entry from appearing at all — the row is gone by cascade,
 // but an inner join makes that structural rather than incidental.
 func (r *AnnotationRepository) FindByResearch(ctx context.Context, researchID string, filter AnnotationFilter) ([]*domain.Annotation, error) {
-	query := `SELECT ` + prefixColumns("a.", annotationColumns) + `, e.code, e.title, e.entry_type
-		 FROM annotations a JOIN entries e ON e.id = a.entry_id
-		 WHERE a.research_id=?`
-	args := []any{researchID}
+	query := r.db.NewSelect().
+		ColumnExpr(prefixColumns("a.", annotationColumns)+", e.code, e.title, e.entry_type").
+		TableExpr("annotations a").
+		Join("JOIN entries e ON e.id = a.entry_id").
+		Where("a.research_id=?", researchID)
 
 	if filter.Status != nil {
-		query += " AND a.status=?"
-		args = append(args, *filter.Status)
+		query.Where("a.status=?", *filter.Status)
 	}
 	if filter.Kind != nil {
-		query += " AND a.kind=?"
-		args = append(args, *filter.Kind)
+		query.Where("a.kind=?", *filter.Kind)
 	}
 	if filter.EntryID != "" {
-		query += " AND a.entry_id=?"
-		args = append(args, filter.EntryID)
+		query.Where("a.entry_id=?", filter.EntryID)
 	}
 
 	// Grouped by entry, then by age. The grouping is not cosmetic: it is what
 	// lets a caller take a batch that is one document rather than fifteen
 	// scattered ones, which is the difference between one read of the document
 	// and fifteen.
-	query += " ORDER BY e.code, a.created_at ASC"
+	query.Order("e.code", "a.created_at ASC")
 
 	if filter.Limit > 0 {
-		query += " LIMIT ?"
-		args = append(args, filter.Limit)
+		query.Limit(filter.Limit)
 		if filter.Offset > 0 {
-			query += " OFFSET ?"
-			args = append(args, filter.Offset)
+			query.Offset(filter.Offset)
 		}
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := query.Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query annotations: %w", err)
 	}
@@ -175,8 +201,12 @@ func (r *AnnotationRepository) FindByResearch(ctx context.Context, researchID st
 
 // CountByStatus backs the badge on the research page.
 func (r *AnnotationRepository) CountByStatus(ctx context.Context, researchID string) (map[domain.AnnotationStatus]int, error) {
-	rows, err := r.db.QueryContext(ctx,
-		"SELECT status, COUNT(*) FROM annotations WHERE research_id=? GROUP BY status", researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("status, COUNT(*)").
+		TableExpr("annotations").
+		Where("research_id=?", researchID).
+		GroupExpr("status").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("count annotations: %w", err)
 	}
@@ -195,7 +225,7 @@ func (r *AnnotationRepository) CountByStatus(ctx context.Context, researchID str
 }
 
 func (r *AnnotationRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM annotations WHERE id=?", id)
+	_, err := r.db.NewDelete().Table("annotations").Where("id=?", id).Exec(ctx)
 	return err
 }
 
@@ -251,7 +281,7 @@ type annotationScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanAnnotationRow(row *sql.Row) (*domain.Annotation, error) {
+func scanAnnotationRow(row scanner) (*domain.Annotation, error) {
 	a, err := scanAnnotation(row)
 	if err == sql.ErrNoRows {
 		return nil, nil

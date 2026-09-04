@@ -2,16 +2,16 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/uptrace/bun"
 )
 
-func setupRoadmapService(t *testing.T) (*RoadmapService, *mockNotifier, *sql.DB, context.Context) {
+func setupRoadmapService(t *testing.T) (*RoadmapService, *mockNotifier, *bun.DB, context.Context) {
 	t.Helper()
 	db := setupTestDB(t)
 	notifier := &mockNotifier{}

@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/uptrace/bun"
 )
 
 // The ownership suite next door asks one question: can a stranger reach this?
@@ -22,16 +22,16 @@ import (
 // would notice.
 
 type roleKit struct {
-	db       *sql.DB
-	research *ResearchService
-	section  *SectionService
-	entry    *EntryService
-	session  *SessionService
+	db         *bun.DB
+	research   *ResearchService
+	section    *SectionService
+	entry      *EntryService
+	session    *SessionService
 	task       *TaskService
 	roadmap    *RoadmapService
 	annotation *AnnotationService
-	team     *TeamService
-	teamRepo *storage.TeamRepository
+	team       *TeamService
+	teamRepo   *storage.TeamRepository
 	// events is what the WebSocket hub would have been handed. Delivery is
 	// decided from these fields, so what is in them is a correctness question.
 	events *mockNotifier

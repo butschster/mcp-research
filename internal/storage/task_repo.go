@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type TaskFilter struct {
@@ -15,10 +16,10 @@ type TaskFilter struct {
 }
 
 type TaskRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewTaskRepository(db *sql.DB) *TaskRepository {
+func NewTaskRepository(db *bun.DB) *TaskRepository {
 	return &TaskRepository{db: db}
 }
 
@@ -33,13 +34,18 @@ func (r *TaskRepository) Create(ctx context.Context, task *domain.Task) error {
 		task.Code = code
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO tasks (id, code, research_id, title, description, status, priority, result, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		task.ID, task.Code, task.ResearchID, task.Title, task.Description,
-		task.Status, task.Priority, task.Result,
-		now, now,
-	)
+	_, err := r.db.NewInsert().Table("tasks").Model(&map[string]any{
+		"id":          task.ID,
+		"code":        task.Code,
+		"research_id": task.ResearchID,
+		"title":       task.Title,
+		"description": task.Description,
+		"status":      task.Status,
+		"priority":    task.Priority,
+		"result":      task.Result,
+		"created_at":  now,
+		"updated_at":  now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert task: %w", err)
 	}
@@ -55,12 +61,18 @@ func (r *TaskRepository) Update(ctx context.Context, task *domain.Task) error {
 		s := task.CompletedAt.UTC().Format(time.DateTime)
 		completedAt = &s
 	}
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE tasks SET title=?, description=?, status=?, priority=?, result=?, code=?, updated_at=?, completed_at=?
-		 WHERE id=?`,
-		task.Title, task.Description, task.Status, task.Priority, task.Result,
-		task.Code, now, completedAt, task.ID,
-	)
+	_, err := r.db.NewUpdate().
+		Table("tasks").
+		Set("title=?", task.Title).
+		Set("description=?", task.Description).
+		Set("status=?", task.Status).
+		Set("priority=?", task.Priority).
+		Set("result=?", task.Result).
+		Set("code=?", task.Code).
+		Set("updated_at=?", now).
+		Set("completed_at=?", completedAt).
+		Where("id=?", task.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update task: %w", err)
 	}
@@ -69,9 +81,10 @@ func (r *TaskRepository) Update(ctx context.Context, task *domain.Task) error {
 }
 
 func (r *TaskRepository) FindByID(ctx context.Context, id string) (*domain.Task, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
-		 FROM tasks WHERE id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at").
+		TableExpr("tasks").
+		Where("id=?", id))
 	return r.scanTask(row)
 }
 
@@ -79,29 +92,28 @@ func (r *TaskRepository) FindByID(ctx context.Context, id string) (*domain.Task,
 // research, so both halves are needed — `T1` names a different task in every
 // research that has one.
 func (r *TaskRepository) FindByCode(ctx context.Context, researchID, code string) (*domain.Task, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
-		 FROM tasks WHERE research_id=? AND code=?`, researchID, code)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at").
+		TableExpr("tasks").
+		Where("research_id=? AND code=?", researchID, code))
 	return r.scanTask(row)
 }
 
 func (r *TaskRepository) FindByResearch(ctx context.Context, researchID string, filter TaskFilter) ([]*domain.Task, error) {
-	query := `SELECT id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at
-		 FROM tasks WHERE research_id=?`
-	args := []any{researchID}
+	query := r.db.NewSelect().
+		ColumnExpr("id, code, research_id, title, description, status, priority, result, created_at, updated_at, completed_at").
+		Table("tasks").
+		Where("research_id=?", researchID)
 
 	if filter.Status != nil {
-		query += " AND status=?"
-		args = append(args, *filter.Status)
+		query.Where("status=?", *filter.Status)
 	}
 	if filter.Priority != nil {
-		query += " AND priority=?"
-		args = append(args, *filter.Priority)
+		query.Where("priority=?", *filter.Priority)
 	}
 
-	query += " ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 END, created_at ASC"
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := query.OrderExpr("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 END, created_at ASC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query tasks: %w", err)
 	}
@@ -119,13 +131,17 @@ func (r *TaskRepository) FindByResearch(ctx context.Context, researchID string, 
 }
 
 func (r *TaskRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM tasks WHERE id=?", id)
+	_, err := r.db.NewDelete().Table("tasks").Where("id=?", id).Exec(ctx)
 	return err
 }
 
 func (r *TaskRepository) CountByStatus(ctx context.Context, researchID string) (map[domain.TaskStatus]int, error) {
-	rows, err := r.db.QueryContext(ctx,
-		"SELECT status, COUNT(*) FROM tasks WHERE research_id=? GROUP BY status", researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("status, COUNT(*)").
+		TableExpr("tasks").
+		Where("research_id=?", researchID).
+		GroupExpr("status").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("count tasks: %w", err)
 	}
@@ -143,7 +159,7 @@ func (r *TaskRepository) CountByStatus(ctx context.Context, researchID string) (
 	return result, rows.Err()
 }
 
-func (r *TaskRepository) scanTask(row *sql.Row) (*domain.Task, error) {
+func (r *TaskRepository) scanTask(row scanner) (*domain.Task, error) {
 	var t domain.Task
 	var createdAt, updatedAt string
 	var completedAt sql.NullString

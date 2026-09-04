@@ -2,16 +2,16 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/uptrace/bun"
 )
 
-func newEntryService(db *sql.DB, n EventNotifier) *EntryService {
+func newEntryService(db *bun.DB, n EventNotifier) *EntryService {
 	return NewEntryService(storage.NewEntryRepository(db),
 		storage.NewSectionRepository(db),
 		storage.NewResearchRepository(db),

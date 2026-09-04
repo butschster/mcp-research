@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/uptrace/bun"
 )
 
 func patchFixture(t *testing.T) (*EntryService, context.Context, *domain.Entry) {
@@ -512,4 +512,4 @@ func TestBlockDefectsFoundInReview(t *testing.T) {
 	})
 }
 
-func dbOf(svc *EntryService) *sql.DB { return svc.blocks.DB() }
+func dbOf(svc *EntryService) *bun.DB { return svc.blocks.DB() }

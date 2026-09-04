@@ -3,6 +3,11 @@ transport: sse       # sse for Docker (stdio for local MCP clients)
 mcp_port: 8081       # MCP SSE port
 web_port: 8088       # REST API + Web UI port
 db: "/data/research.db"  # SQLite path (mounted volume)
+db_driver: sqlite      # sqlite (default), postgres, or mysql
+# For a server database, set MCP_RESEARCH_DB_DSN in the environment:
+# postgres: postgres://user:password@localhost:5432/research?sslmode=require
+# mysql: user:password@tcp(localhost:3306)/research
+# db_dsn overrides db for SQLite as well.
 log_level: info
 
 # The operator credential. Enables the write REST API, and it is the only way to

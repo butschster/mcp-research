@@ -7,7 +7,7 @@ through the [Model Context Protocol](https://modelcontextprotocol.io). The
 assistant designs the structure of a topic, interviews you, writes up what it
 learns as cross-referenced entries, tracks its own todo list, draws roadmaps —
 and every bit of it lands in a web UI you can browse, share and export, backed by
-a single SQLite file you own.
+a single SQLite file you own, or your PostgreSQL/MySQL database.
 
 One Go binary. No account, no cloud, no vendor. Download it, point Claude, Cursor
 or ChatGPT at it, and start.
@@ -321,8 +321,25 @@ That is the whole setup. You now have:
 | OpenAPI spec | [http://localhost:8088/api/openapi.yaml](http://localhost:8088/api/openapi.yaml) |
 | MCP over stdio | ready for local clients |
 
-Without `--db` everything runs in memory and disappears on exit — fine for a
-first look, not for real work.
+With SQLite and no database path/DSN configured, everything runs in memory and
+disappears on exit. Existing `--db` and `MCP_RESEARCH_DB` settings keep working.
+
+PostgreSQL (16+) and MySQL (8.4+) are also supported through Bun. Create an empty
+database and configure its connection; schema migrations run at startup:
+
+```bash
+MCP_RESEARCH_DB_DRIVER=postgres \
+MCP_RESEARCH_DB_DSN='postgres://user:password@localhost:5432/research?sslmode=require' \
+./mcp-research
+
+MCP_RESEARCH_DB_DRIVER=mysql \
+MCP_RESEARCH_DB_DSN='user:password@tcp(localhost:3306)/research' \
+./mcp-research
+```
+
+Switching the driver selects another database; it does not transfer existing
+SQLite data. See [database development and testing](docs/databases.md) for the
+migration rules, test matrix and recovery behavior.
 
 ### Docker
 
@@ -552,7 +569,9 @@ Priority: **CLI flags > env vars > `config.yaml` > defaults.**
 | Transport | `--transport` | `MCP_RESEARCH_TRANSPORT` | `stdio` |
 | MCP port (SSE) | `--mcp-port` | — | `8081` |
 | Web port | `--web-port` | — | `8088` |
-| Database path | `--db` | `MCP_RESEARCH_DB` | in-memory |
+| Database driver | `--db-driver` | `MCP_RESEARCH_DB_DRIVER` | `sqlite` |
+| Database DSN | `--db-dsn` | `MCP_RESEARCH_DB_DSN` | — |
+| SQLite path | `--db` | `MCP_RESEARCH_DB` | in-memory |
 | Log level | `--log-level` | `MCP_RESEARCH_LOG_LEVEL` | `info` |
 | Write API token | `--api-token` | `MCP_RESEARCH_API_TOKEN` | write API disabled |
 | ↳ also the **operator** credential — the only way to add a server-wide methodology | | | |
@@ -659,8 +678,9 @@ make frontend-dev  # Nuxt dev server on :3000, proxying the API to :8088
 ```
 
 Architecture: one Go process serving MCP (stdio + Streamable HTTP + SSE), a REST
-API, a WebSocket hub, OAuth2 endpoints, and the embedded Nuxt 4 SPA — over SQLite
-through a pure-Go driver. `CLAUDE.md` documents the layering for contributors.
+API, a WebSocket hub, OAuth2 endpoints, and the embedded Nuxt 4 SPA — over Bun
+with SQLite (pure-Go driver), PostgreSQL, or MySQL. `CLAUDE.md` documents the
+layering for contributors.
 
 ---
 

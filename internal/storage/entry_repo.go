@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type EntryFilter struct {
@@ -16,10 +17,10 @@ type EntryFilter struct {
 }
 
 type EntryRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewEntryRepository(db *sql.DB) *EntryRepository {
+func NewEntryRepository(db *bun.DB) *EntryRepository {
 	return &EntryRepository{db: db}
 }
 
@@ -40,15 +41,23 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 		sessionID = &entry.SessionID
 	}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO entries (id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		entry.ID, entry.Code, entry.ResearchID, entry.SectionID, sessionID, entry.Type,
-		entry.Title, entry.Content, entry.Description,
-		entry.Status, marshalJSON(entry.Tags),
-		marshalObject(entry.Metadata), entry.SpecVersion,
-		now, now,
-	)
+	_, err := r.db.NewInsert().Table("entries").Model(&map[string]any{
+		"id":           entry.ID,
+		"code":         entry.Code,
+		"research_id":  entry.ResearchID,
+		"section_id":   entry.SectionID,
+		"session_id":   sessionID,
+		"entry_type":   entry.Type,
+		"title":        entry.Title,
+		"content":      entry.Content,
+		"description":  entry.Description,
+		"status":       entry.Status,
+		"tags":         marshalJSON(entry.Tags),
+		"metadata":     marshalObject(entry.Metadata),
+		"spec_version": entry.SpecVersion,
+		"created_at":   now,
+		"updated_at":   now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert entry: %w", err)
 	}
@@ -58,9 +67,10 @@ func (r *EntryRepository) Create(ctx context.Context, entry *domain.Entry) error
 }
 
 func (r *EntryRepository) FindByCode(ctx context.Context, researchID, code string) (*domain.Entry, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at
-		 FROM entries WHERE research_id=? AND code=?`, researchID, code)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at").
+		TableExpr("entries").
+		Where("research_id=? AND code=?", researchID, code))
 	return r.scanEntry(row, true)
 }
 
@@ -81,15 +91,21 @@ func (r *EntryRepository) UpdateTx(ctx context.Context, q Querier, entry *domain
 		sessionID = &entry.SessionID
 	}
 
-	_, err := q.ExecContext(ctx,
-		`UPDATE entries SET entry_type=?, title=?, content=?, description=?, status=?, tags=?, metadata=?, spec_version=?, code=?, session_id=?, updated_at=?
-		 WHERE id=?`,
-		entry.Type, entry.Title, entry.Content, entry.Description,
-		entry.Status, marshalJSON(entry.Tags),
-		marshalObject(entry.Metadata), entry.SpecVersion,
-		entry.Code, sessionID,
-		now, entry.ID,
-	)
+	_, err := q.NewUpdate().
+		Table("entries").
+		Set("entry_type=?", entry.Type).
+		Set("title=?", entry.Title).
+		Set("content=?", entry.Content).
+		Set("description=?", entry.Description).
+		Set("status=?", entry.Status).
+		Set("tags=?", marshalJSON(entry.Tags)).
+		Set("metadata=?", marshalObject(entry.Metadata)).
+		Set("spec_version=?", entry.SpecVersion).
+		Set("code=?", entry.Code).
+		Set("session_id=?", sessionID).
+		Set("updated_at=?", now).
+		Where("id=?", entry.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update entry: %w", err)
 	}
@@ -105,9 +121,10 @@ func (r *EntryRepository) FindByID(ctx context.Context, id string) (*domain.Entr
 // Snapshot readers use this together with the revision repository so the entry
 // projection and its revision number cannot straddle a concurrent commit.
 func (r *EntryRepository) FindByIDQuery(ctx context.Context, q Querier, id string) (*domain.Entry, error) {
-	row := q.QueryRowContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at
-		 FROM entries WHERE id=?`, id)
+	row := selectRow(ctx, q.NewSelect().
+		ColumnExpr("id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at").
+		TableExpr("entries").
+		Where("id=?", id))
 	return r.scanEntry(row, true)
 }
 
@@ -136,30 +153,13 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 		limit = 20
 	}
 	pattern := "%" + query + "%"
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at,
-		        CASE
-		          WHEN title LIKE ? THEN 3
-		          WHEN description LIKE ? THEN 2
-		          WHEN content LIKE ? THEN 1
-		          ELSE 0
-		        END AS relevance
-		 FROM entries
-		 WHERE (title LIKE ? OR description LIKE ? OR content LIKE ?)
-		   AND (? = '' OR research_id = ?)
-		   AND (? = '' OR EXISTS (
-		         SELECT 1 FROM researches res
-		          WHERE res.id = entries.research_id
-		            AND (res.team_id = 'team-local'
-		                 OR res.team_id IN (SELECT team_id FROM team_members WHERE user_id = ?))))
-		 ORDER BY relevance DESC, created_at DESC
-		 LIMIT ?`,
-		pattern, pattern, pattern,
-		pattern, pattern, pattern,
-		researchID, researchID,
-		userID, userID,
-		limit,
-	)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at, CASE WHEN LOWER(title) LIKE LOWER(?) THEN 3 WHEN LOWER(description) LIKE LOWER(?) THEN 2 WHEN LOWER(content) LIKE LOWER(?) THEN 1 ELSE 0 END AS relevance", pattern, pattern, pattern).
+		TableExpr("entries").
+		Where("(LOWER(title) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?) OR LOWER(content) LIKE LOWER(?)) AND (? = '' OR research_id = ?) AND (? = '' OR EXISTS ( SELECT 1 FROM researches res WHERE res.id = entries.research_id AND (res.team_id = 'team-local' OR res.team_id IN (SELECT team_id FROM team_members WHERE user_id = ?))))", pattern, pattern, pattern, researchID, researchID, userID, userID).
+		OrderExpr("relevance DESC, created_at DESC").
+		Limit(limit).
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("search entries: %w", err)
 	}
@@ -192,26 +192,8 @@ func (r *EntryRepository) SearchEntries(ctx context.Context, query string, limit
 
 // FindBySection returns entries without content for token efficiency.
 func (r *EntryRepository) FindBySection(ctx context.Context, researchID, sectionID string, filter EntryFilter) ([]*domain.Entry, error) {
-	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at
-		 FROM entries WHERE research_id=? AND section_id=?`
-	args := []any{researchID, sectionID}
-
-	if filter.Status != nil {
-		query += " AND status=?"
-		args = append(args, *filter.Status)
-	}
-	if filter.Tag != "" {
-		query += ` AND EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value=?)`
-		args = append(args, filter.Tag)
-	}
-	if filter.SessionID != "" {
-		query += " AND session_id=?"
-		args = append(args, filter.SessionID)
-	}
-
-	query += " ORDER BY created_at DESC"
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	query := r.filteredEntries(researchID, filter).Where("section_id=?", sectionID)
+	rows, err := query.Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query entries: %w", err)
 	}
@@ -230,26 +212,7 @@ func (r *EntryRepository) FindBySection(ctx context.Context, researchID, section
 
 // FindByResearch returns entries without content for token efficiency.
 func (r *EntryRepository) FindByResearch(ctx context.Context, researchID string, filter EntryFilter) ([]*domain.Entry, error) {
-	query := `SELECT id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at
-		 FROM entries WHERE research_id=?`
-	args := []any{researchID}
-
-	if filter.Status != nil {
-		query += " AND status=?"
-		args = append(args, *filter.Status)
-	}
-	if filter.Tag != "" {
-		query += ` AND EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value=?)`
-		args = append(args, filter.Tag)
-	}
-	if filter.SessionID != "" {
-		query += " AND session_id=?"
-		args = append(args, filter.SessionID)
-	}
-
-	query += " ORDER BY created_at DESC"
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.filteredEntries(researchID, filter).Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query entries: %w", err)
 	}
@@ -266,6 +229,27 @@ func (r *EntryRepository) FindByResearch(ctx context.Context, researchID string,
 	return result, rows.Err()
 }
 
+func (r *EntryRepository) filteredEntries(researchID string, filter EntryFilter) *bun.SelectQuery {
+	query := r.db.NewSelect().
+		ColumnExpr("id, code, research_id, section_id, session_id, entry_type, title, description, status, tags, metadata, spec_version, created_at, updated_at").
+		Table("entries").
+		Where("research_id=?", researchID).
+		Order("created_at DESC")
+	if filter.Status != nil {
+		query.Where("status=?", *filter.Status)
+	}
+	if filter.SessionID != "" {
+		query.Where("session_id=?", filter.SessionID)
+	}
+	if filter.Tag != "" {
+		query.Where("EXISTS (?)", r.db.NewSelect().
+			ColumnExpr("1").
+			TableExpr("?", tagValues(r.db, "entries.tags")).
+			Where("jt.value=?", filter.Tag))
+	}
+	return query
+}
+
 // TagCount represents a tag and how many entries have it.
 type TagCount struct {
 	Tag   string `json:"tag"`
@@ -274,12 +258,14 @@ type TagCount struct {
 
 // FindTagsByResearch returns all unique tags in a research with their entry counts.
 func (r *EntryRepository) FindTagsByResearch(ctx context.Context, researchID string) ([]TagCount, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT json_each.value AS tag, COUNT(*) AS cnt
-		 FROM entries, json_each(entries.tags)
-		 WHERE entries.research_id=?
-		 GROUP BY json_each.value
-		 ORDER BY cnt DESC, tag ASC`, researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("jt.value AS tag, COUNT(*) AS cnt").
+		Table("entries").
+		TableExpr("?", tagValues(r.db, "entries.tags")).
+		Where("entries.research_id=?", researchID).
+		GroupExpr("jt.value").
+		OrderExpr("cnt DESC, tag ASC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query tags: %w", err)
 	}
@@ -315,33 +301,28 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 		return nil, nil
 	}
 
-	// Build placeholders for tags
-	placeholders := ""
-	args := make([]any, 0, len(tags)+1)
-	for i, t := range tags {
-		if i > 0 {
-			placeholders += ","
-		}
-		placeholders += "?"
-		args = append(args, t)
+	query := r.db.NewSelect().
+		ColumnExpr("e.id, e.code, e.research_id, e.section_id, e.session_id, e.entry_type, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at, COUNT(*) AS shared").
+		TableExpr("entries e").
+		TableExpr("?", tagValues(r.db, "e.tags")).
+		Where("jt.value IN (?)", bun.In(tags)).
+		Where("e.id != ?", entryID)
+	if researchID != "" {
+		query.Where("e.research_id=?", researchID)
 	}
-	args = append(args, entryID, researchID, researchID, userID, userID)
-
-	query := fmt.Sprintf(
-		`SELECT e.id, e.code, e.research_id, e.section_id, e.session_id, e.entry_type, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at,
-		        COUNT(*) as shared
-		 FROM entries e, json_each(e.tags) jt
-		 WHERE jt.value IN (%s) AND e.id != ?
-		   AND (? = '' OR e.research_id = ?)
-		   AND (? = '' OR EXISTS (
-		         SELECT 1 FROM researches res
-		          WHERE res.id = e.research_id
-		            AND (res.team_id = 'team-local'
-		                 OR res.team_id IN (SELECT team_id FROM team_members WHERE user_id = ?))))
-		 GROUP BY e.id
-		 ORDER BY shared DESC, e.created_at DESC`, placeholders)
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	if userID != "" {
+		query.Where("EXISTS (?)", r.db.NewSelect().
+			ColumnExpr("1").
+			TableExpr("researches res").
+			Where("res.id=e.research_id").
+			Where("(res.team_id='team-local' OR res.team_id IN (?))", r.db.NewSelect().
+				Column("team_id").
+				Table("team_members").
+				Where("user_id=?", userID)))
+	}
+	rows, err := query.GroupExpr("e.id, e.code, e.research_id, e.section_id, e.session_id, e.entry_type, e.title, e.description, e.status, e.tags, e.created_at, e.updated_at").
+		OrderExpr("shared DESC, e.created_at DESC").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query related entries: %w", err)
 	}
@@ -372,11 +353,12 @@ func (r *EntryRepository) FindRelatedByTags(ctx context.Context, entryID string,
 
 // FindByResearchWithContent returns all entries with content for cross-reference scanning.
 func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researchID string) ([]*domain.Entry, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at
-		 FROM entries WHERE research_id=? ORDER BY created_at`,
-		researchID,
-	)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("id, code, research_id, section_id, session_id, entry_type, title, content, description, status, tags, metadata, spec_version, created_at, updated_at").
+		TableExpr("entries").
+		Where("research_id=?", researchID).
+		OrderExpr("created_at").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query entries with content: %w", err)
 	}
@@ -409,17 +391,21 @@ func (r *EntryRepository) FindByResearchWithContent(ctx context.Context, researc
 }
 
 func (r *EntryRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM entries WHERE id=?", id)
+	_, err := r.db.NewDelete().Table("entries").Where("id=?", id).Exec(ctx)
 	return err
 }
 
 func (r *EntryRepository) CountBySection(ctx context.Context, sectionID string) (int, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM entries WHERE section_id=?", sectionID).Scan(&count)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("COUNT(*)").
+		TableExpr("entries").
+		Where("section_id=?", sectionID)).
+		Scan(&count)
 	return count, err
 }
 
-func (r *EntryRepository) scanEntry(row *sql.Row, withContent bool) (*domain.Entry, error) {
+func (r *EntryRepository) scanEntry(row scanner, withContent bool) (*domain.Entry, error) {
 	var e domain.Entry
 	var tags sql.NullString
 	var metadata sql.NullString

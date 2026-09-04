@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/uptrace/bun"
 )
 
 type SkillRepository struct {
-	db *sql.DB
+	db *bun.DB
 }
 
-func NewSkillRepository(db *sql.DB) *SkillRepository {
+func NewSkillRepository(db *bun.DB) *SkillRepository {
 	return &SkillRepository{db: db}
 }
 
@@ -50,14 +51,23 @@ const tierRank = `CASE s.tier WHEN 'private' THEN 0 WHEN 'team' THEN 1 ELSE 2 EN
 
 func (r *SkillRepository) Create(ctx context.Context, sk *domain.Skill) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO skills (id, team_id, research_id, user_id, slug, name, tier, description,
-		                     body, ambient, forked_from, needs_trigger, version, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		sk.ID, nullable(sk.TeamID), nullable(sk.ResearchID), nullable(sk.UserID),
-		sk.Slug, sk.Name, string(sk.Tier), sk.Description, sk.Body,
-		boolToInt(sk.Ambient), nullable(sk.ForkedFrom), boolToInt(sk.NeedsTrigger),
-		sk.Version, now, now)
+	_, err := r.db.NewInsert().Table("skills").Model(&map[string]any{
+		"id":            sk.ID,
+		"team_id":       nullable(sk.TeamID),
+		"research_id":   nullable(sk.ResearchID),
+		"user_id":       nullable(sk.UserID),
+		"slug":          sk.Slug,
+		"name":          sk.Name,
+		"tier":          string(sk.Tier),
+		"description":   sk.Description,
+		"body":          sk.Body,
+		"ambient":       boolToInt(sk.Ambient),
+		"forked_from":   nullable(sk.ForkedFrom),
+		"needs_trigger": boolToInt(sk.NeedsTrigger),
+		"version":       sk.Version,
+		"created_at":    now,
+		"updated_at":    now,
+	}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("insert skill: %w", err)
 	}
@@ -69,11 +79,16 @@ func (r *SkillRepository) Create(ctx context.Context, sk *domain.Skill) error {
 
 func (r *SkillRepository) Update(ctx context.Context, sk *domain.Skill) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	res, err := r.db.ExecContext(ctx,
-		`UPDATE skills SET name=?, description=?, body=?, needs_trigger=?,
-		        version=version+1, updated_at=?
-		  WHERE id=?`,
-		sk.Name, sk.Description, sk.Body, boolToInt(sk.NeedsTrigger), now, sk.ID)
+	res, err := r.db.NewUpdate().
+		Table("skills").
+		Set("name=?", sk.Name).
+		Set("description=?", sk.Description).
+		Set("body=?", sk.Body).
+		Set("needs_trigger=?", boolToInt(sk.NeedsTrigger)).
+		Set("version=version+1").
+		Set("updated_at=?", now).
+		Where("id=?", sk.ID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("update skill: %w", err)
 	}
@@ -90,7 +105,7 @@ func (r *SkillRepository) Update(ctx context.Context, sk *domain.Skill) error {
 // editorial: it decides whether a skill counts against a research's budget, and
 // nothing a user edits should be able to change that.
 func (r *SkillRepository) SetAmbient(ctx context.Context, id string, ambient bool) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE skills SET ambient=? WHERE id=?`, boolToInt(ambient), id)
+	_, err := r.db.NewUpdate().Table("skills").Set("ambient=?", boolToInt(ambient)).Where("id=?", id).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("set skill ambient: %w", err)
 	}
@@ -98,7 +113,7 @@ func (r *SkillRepository) SetAmbient(ctx context.Context, id string, ambient boo
 }
 
 func (r *SkillRepository) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM skills WHERE id=?`, id)
+	res, err := r.db.NewDelete().Table("skills").Where("id=?", id).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("delete skill: %w", err)
 	}
@@ -109,7 +124,10 @@ func (r *SkillRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *SkillRepository) FindByID(ctx context.Context, id string) (*domain.Skill, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT `+skillColumns+` FROM skills s WHERE s.id=?`, id)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		TableExpr("skills s").
+		Where("s.id=?", id))
 	return scanSkill(row)
 }
 
@@ -118,7 +136,7 @@ func (r *SkillRepository) FindByID(ctx context.Context, id string) (*domain.Skil
 // and a `SELECT *` added later would silently undo it.
 func (r *SkillRepository) Body(ctx context.Context, id string) (string, error) {
 	var body string
-	err := r.db.QueryRowContext(ctx, `SELECT body FROM skills WHERE id=?`, id).Scan(&body)
+	err := selectRow(ctx, r.db.NewSelect().ColumnExpr("body").TableExpr("skills").Where("id=?", id)).Scan(&body)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -131,11 +149,13 @@ func (r *SkillRepository) Body(ctx context.Context, id string) (string, error) {
 // FindInResearchScope resolves a slug the way the agent means it: the skill of
 // that name this research can actually see, highest tier first.
 func (r *SkillRepository) FindInResearchScope(ctx context.Context, researchID, slug string) (*domain.Skill, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+skillColumns+` FROM skills s
-		  WHERE s.slug = ? AND `+skillScope+`
-		  ORDER BY `+tierRank+` LIMIT 1`,
-		slug, researchID, researchID)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		TableExpr("skills s").
+		Where("s.slug = ?", slug).
+		Where(skillScope, researchID, researchID).
+		OrderExpr(tierRank).
+		Limit(1))
 	return scanSkill(row)
 }
 
@@ -151,12 +171,14 @@ func (r *SkillRepository) FindInResearchScope(ctx context.Context, researchID, s
 // body by skill_load: the agent reading something other than what it was told it
 // had.
 func (r *SkillRepository) FindAttachedBySlug(ctx context.Context, researchID, slug string) (*domain.Skill, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+skillColumns+`
-		   FROM research_skills rs JOIN skills s ON s.id = rs.skill_id
-		  WHERE rs.research_id = ? AND s.slug = ? AND `+skillScope+`
-		  ORDER BY `+tierRank+` LIMIT 1`,
-		researchID, slug, researchID, researchID)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		TableExpr("research_skills rs JOIN skills s ON s.id = rs.skill_id").
+		Where("rs.research_id = ?", researchID).
+		Where("s.slug = ?", slug).
+		Where(skillScope, researchID, researchID).
+		OrderExpr(tierRank).
+		Limit(1))
 	return scanSkill(row)
 }
 
@@ -164,9 +186,10 @@ func (r *SkillRepository) FindAttachedBySlug(ctx context.Context, researchID, sl
 // team's fork of the same slug: an upgrade refreshes what we ship and must
 // never touch what somebody edited.
 func (r *SkillRepository) FindBuiltinBySlug(ctx context.Context, slug string) (*domain.Skill, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+skillColumns+` FROM skills s
-		  WHERE s.slug=? AND s.team_id IS NULL AND s.research_id IS NULL`, slug)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		TableExpr("skills s").
+		Where("s.slug=? AND s.team_id IS NULL AND s.research_id IS NULL", slug))
 	return scanSkill(row)
 }
 
@@ -185,12 +208,14 @@ func (r *SkillRepository) FindBuiltinBySlug(ctx context.Context, slug string) (*
 // would otherwise be whatever the query planner felt like — a list that
 // rearranges itself between page loads.
 func (r *SkillRepository) ListAttached(ctx context.Context, researchID string) ([]*domain.Skill, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+skillColumns+`, rs.via_template, rs.attached_at
-		   FROM research_skills rs JOIN skills s ON s.id = rs.skill_id
-		  WHERE rs.research_id = ? AND `+skillScope+`
-		  ORDER BY `+tierRank+`, rs.attached_at, s.name`,
-		researchID, researchID, researchID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		ColumnExpr("rs.via_template, rs.attached_at").
+		TableExpr("research_skills rs JOIN skills s ON s.id = rs.skill_id").
+		Where("rs.research_id = ?", researchID).
+		Where(skillScope, researchID, researchID).
+		OrderExpr(tierRank + ", rs.attached_at, s.name").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query attached skills: %w", err)
 	}
@@ -220,28 +245,20 @@ func (r *SkillRepository) ListAttached(ctx context.Context, researchID string) (
 // forgets it is a cross-research leak.
 func (r *SkillRepository) ListLibrary(ctx context.Context, researchID, q string) ([]*domain.Skill, error) {
 	like := "%" + q + "%"
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+skillColumns+`,
-		        EXISTS(SELECT 1 FROM research_skills rs
-		                WHERE rs.skill_id = s.id AND rs.research_id = ?) AS attached
-		   FROM skills s
-		  WHERE s.research_id IS NULL
-		    -- The always-on product skills are not on offer: they are already
-		    -- in every list, so a row inviting somebody to attach one is a
-		    -- control with nothing behind it.
-		    AND s.ambient = 0
-		    AND (s.team_id IS NULL
-		         OR s.team_id = (SELECT team_id FROM researches WHERE id = ?))
-		    -- A built-in whose slug this team has forked is shadowed: attaching
-		    -- resolves by slug and lands on the fork, so listing it produces a
-		    -- row with a live Attach button that always answers already_attached.
-		    AND NOT (s.team_id IS NULL AND EXISTS (
-		        SELECT 1 FROM skills f
-		         WHERE f.slug = s.slug
-		           AND f.team_id = (SELECT team_id FROM researches WHERE id = ?)))
-		    AND (? = '' OR s.name LIKE ? OR s.description LIKE ?)
-		  ORDER BY `+tierRank+`, s.name`,
-		researchID, researchID, researchID, q, like, like)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		ColumnExpr("CASE WHEN EXISTS(SELECT 1 FROM research_skills rs WHERE rs.skill_id = s.id AND rs.research_id = ?) THEN 1 ELSE 0 END AS attached", researchID).
+		TableExpr("skills s").
+		Where("s.research_id IS NULL").
+		// Ambient skills are already attached; team forks shadow built-ins.
+		Where("s.ambient = 0").
+		Where("s.team_id IS NULL OR s.team_id = (SELECT team_id FROM researches WHERE id = ?)", researchID).
+		Where(`NOT (s.team_id IS NULL AND EXISTS (
+			SELECT 1 FROM skills f WHERE f.slug = s.slug
+			AND f.team_id = (SELECT team_id FROM researches WHERE id = ?)))`, researchID).
+		Where("? = '' OR LOWER(s.name) LIKE LOWER(?) OR LOWER(s.description) LIKE LOWER(?)", q, like, like).
+		OrderExpr(tierRank + ", s.name").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query skill library: %w", err)
 	}
@@ -262,10 +279,12 @@ func (r *SkillRepository) ListLibrary(ctx context.Context, researchID, q string)
 
 func (r *SkillRepository) Attach(ctx context.Context, researchID, skillID string, viaTemplate bool) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO research_skills (research_id, skill_id, via_template, attached_at)
-		 VALUES (?, ?, ?, ?)`,
-		researchID, skillID, boolToInt(viaTemplate), now)
+	_, err := onConflict(r.db.NewInsert().Table("research_skills").Model(&map[string]any{
+		"research_id":  researchID,
+		"skill_id":     skillID,
+		"via_template": boolToInt(viaTemplate),
+		"attached_at":  now,
+	}), r.db, []string{"research_id", "skill_id"}).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("attach skill: %w", err)
 	}
@@ -273,8 +292,10 @@ func (r *SkillRepository) Attach(ctx context.Context, researchID, skillID string
 }
 
 func (r *SkillRepository) Detach(ctx context.Context, researchID, skillID string) error {
-	res, err := r.db.ExecContext(ctx,
-		`DELETE FROM research_skills WHERE research_id=? AND skill_id=?`, researchID, skillID)
+	res, err := r.db.NewDelete().
+		Table("research_skills").
+		Where("research_id=? AND skill_id=?", researchID, skillID).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("detach skill: %w", err)
 	}
@@ -297,26 +318,31 @@ func (r *SkillRepository) Replace(ctx context.Context, researchID, oldSkillID, n
 
 	var viaTemplate int
 	var attachedAt string
-	err = tx.QueryRowContext(ctx,
-		`SELECT via_template, attached_at FROM research_skills WHERE research_id=? AND skill_id=?`,
-		researchID, oldSkillID).Scan(&viaTemplate, &attachedAt)
+	err = selectRow(ctx, tx.NewSelect().
+		ColumnExpr("via_template, attached_at").
+		TableExpr("research_skills").
+		Where("research_id=? AND skill_id=?", researchID, oldSkillID)).
+		Scan(&viaTemplate, &attachedAt)
 	if err == sql.ErrNoRows {
 		return sql.ErrNoRows
 	}
 	if err != nil {
 		return fmt.Errorf("read attachment: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx,
-		`DELETE FROM research_skills WHERE research_id=? AND skill_id=?`,
-		researchID, oldSkillID); err != nil {
+	if _, err := tx.NewDelete().
+		Table("research_skills").
+		Where("research_id=? AND skill_id=?", researchID, oldSkillID).
+		Exec(ctx); err != nil {
 		return fmt.Errorf("drop old attachment: %w", err)
 	}
 	// The original attachment time is carried over: the research has followed
 	// this methodology since then, and a fork is not a fresh choice.
-	if _, err := tx.ExecContext(ctx,
-		`INSERT OR REPLACE INTO research_skills (research_id, skill_id, via_template, attached_at)
-		 VALUES (?, ?, ?, ?)`,
-		researchID, newSkillID, viaTemplate, attachedAt); err != nil {
+	if _, err := onConflict(tx.NewInsert().Table("research_skills").Model(&map[string]any{
+		"research_id":  researchID,
+		"skill_id":     newSkillID,
+		"via_template": viaTemplate,
+		"attached_at":  attachedAt,
+	}), tx, []string{"research_id", "skill_id"}, "via_template", "attached_at").Exec(ctx); err != nil {
 		return fmt.Errorf("write new attachment: %w", err)
 	}
 	return tx.Commit()
@@ -329,10 +355,13 @@ func (r *SkillRepository) Replace(ctx context.Context, researchID, oldSkillID, n
 // budget.
 func (r *SkillRepository) CountChosen(ctx context.Context, researchID string) (int, error) {
 	var n int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM research_skills rs JOIN skills s ON s.id = rs.skill_id
-		  WHERE rs.research_id = ? AND s.ambient = 0 AND `+skillScope,
-		researchID, researchID, researchID).Scan(&n)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("COUNT(*)").
+		TableExpr("research_skills rs JOIN skills s ON s.id = rs.skill_id").
+		Where("rs.research_id = ?", researchID).
+		Where("s.ambient = 0").
+		Where(skillScope, researchID, researchID)).
+		Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count attached skills: %w", err)
 	}
@@ -343,8 +372,11 @@ func (r *SkillRepository) CountChosen(ctx context.Context, researchID string) (i
 // what it would take away instead of silently taking it.
 func (r *SkillRepository) UsageCount(ctx context.Context, skillID string) (int, error) {
 	var n int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM research_skills WHERE skill_id = ?`, skillID).Scan(&n)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("COUNT(*)").
+		TableExpr("research_skills").
+		Where("skill_id = ?", skillID)).
+		Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count skill usage: %w", err)
 	}
@@ -355,21 +387,17 @@ func (r *SkillRepository) UsageCount(ctx context.Context, skillID string) (int, 
 // indexes. Passing the wrong scope here would report a clash that the database
 // would not have raised, or miss one it would.
 func (r *SkillRepository) SlugTaken(ctx context.Context, tier domain.SkillTier, teamID, researchID, slug string) (bool, error) {
-	var query string
-	var args []any
+	query := r.db.NewSelect().ColumnExpr("1").Table("skills").Where("slug=?", slug)
 	switch tier {
 	case domain.SkillPrivate:
-		query = `SELECT 1 FROM skills WHERE research_id=? AND slug=?`
-		args = []any{researchID, slug}
+		query.Where("research_id=?", researchID)
 	case domain.SkillTeam:
-		query = `SELECT 1 FROM skills WHERE team_id=? AND slug=?`
-		args = []any{teamID, slug}
+		query.Where("team_id=?", teamID)
 	default:
-		query = `SELECT 1 FROM skills WHERE team_id IS NULL AND research_id IS NULL AND slug=?`
-		args = []any{slug}
+		query.Where("team_id IS NULL AND research_id IS NULL")
 	}
 	var one int
-	err := r.db.QueryRowContext(ctx, query, args...).Scan(&one)
+	err := selectRow(ctx, query).Scan(&one)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -428,8 +456,11 @@ func boolToInt(b bool) int {
 // *before* a delete, because the attachment rows cascade away with the skill and
 // afterwards there is nobody left to notify.
 func (r *SkillRepository) ResearchesFollowing(ctx context.Context, skillID string) ([]string, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT research_id FROM research_skills WHERE skill_id = ?`, skillID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr("research_id").
+		TableExpr("research_skills").
+		Where("skill_id = ?", skillID).
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query skill followers: %w", err)
 	}
@@ -452,10 +483,12 @@ func (r *SkillRepository) ResearchesFollowing(ctx context.Context, skillID strin
 // made it a promise the product broke on every research nobody had curated: the
 // index came back empty, so the agent never learned skills existed at all.
 func (r *SkillRepository) ListAmbient(ctx context.Context) ([]*domain.Skill, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+skillColumns+` FROM skills s
-		  WHERE s.ambient = 1 AND s.team_id IS NULL AND s.research_id IS NULL
-		  ORDER BY s.name`)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		TableExpr("skills s").
+		Where("s.ambient = 1 AND s.team_id IS NULL AND s.research_id IS NULL").
+		OrderExpr("s.name").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query ambient skills: %w", err)
 	}
@@ -475,8 +508,12 @@ func (r *SkillRepository) ListAmbient(ctx context.Context) ([]*domain.Skill, err
 // ListByTeam is a team's library on its own terms, for a team that has no
 // research to browse it through yet.
 func (r *SkillRepository) ListByTeam(ctx context.Context, teamID string) ([]*domain.Skill, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+skillColumns+` FROM skills s WHERE s.team_id = ? ORDER BY s.name`, teamID)
+	rows, err := r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		TableExpr("skills s").
+		Where("s.team_id = ?", teamID).
+		OrderExpr("s.name").
+		Rows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query team skills: %w", err)
 	}
@@ -499,8 +536,11 @@ func (r *SkillRepository) ListByTeam(ctx context.Context, teamID string) ([]*dom
 // worth more than finding it out from somebody's kickoff.
 func (r *SkillRepository) BuiltinSkillExists(ctx context.Context, slug string) (bool, error) {
 	var one int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT 1 FROM skills WHERE slug=? AND team_id IS NULL AND research_id IS NULL`, slug).Scan(&one)
+	err := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr("1").
+		TableExpr("skills").
+		Where("slug=? AND team_id IS NULL AND research_id IS NULL", slug)).
+		Scan(&one)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -515,11 +555,11 @@ func (r *SkillRepository) BuiltinSkillExists(ctx context.Context, slug string) (
 // here — a template is read before one exists — so the research tier is out of
 // scope by construction.
 func (r *SkillRepository) FindForTemplate(ctx context.Context, teamID, slug string) (*domain.Skill, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT `+skillColumns+` FROM skills s
-		  WHERE s.slug = ? AND s.research_id IS NULL
-		    AND (s.team_id IS NULL OR s.team_id = ?)
-		  ORDER BY CASE WHEN s.team_id IS NULL THEN 1 ELSE 0 END
-		  LIMIT 1`, slug, teamID)
+	row := selectRow(ctx, r.db.NewSelect().
+		ColumnExpr(portableProjection(r.db, skillColumns)).
+		TableExpr("skills s").
+		Where("s.slug = ? AND s.research_id IS NULL AND (s.team_id IS NULL OR s.team_id = ?)", slug, teamID).
+		OrderExpr("CASE WHEN s.team_id IS NULL THEN 1 ELSE 0 END").
+		Limit(1))
 	return scanSkill(row)
 }

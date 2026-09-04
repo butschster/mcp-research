@@ -68,7 +68,7 @@ Go Process
     |-- OAuth2 endpoints (/auth/*)
     +-- Embedded Nuxt SPA (static files at /)
          |
-      SQLite (file or in-memory)
+      Bun: SQLite (file/in-memory), PostgreSQL, or MySQL
 ```
 
 ### MCP Transports
@@ -91,7 +91,7 @@ internal/
   auth/                            -- JWT, bcrypt, API key hashing, context helpers, middleware
   config/                          -- YAML / env / CLI flag cascade
   domain/                          -- plain structs + status enums (no logic)
-  storage/                         -- SQLite repos + embedded migrations (001-010)
+  storage/                         -- Bun repos + embedded migrations per SQL dialect
   service/                         -- business logic, validation, event emission, access control
   mcp/                             -- MCP server wrapper, tool + prompt registration
     tools/                         -- 39 tool files (one per tool)
@@ -328,7 +328,7 @@ mcp.AddTool(srv, &mcp.Tool{Name: "tool_name", Description: "..."},
 - Optional fields must be pointers, and tools must never return a Go error —
   both enforced by `.claude/hooks/lint-go.py` after every edit
 
-**SQLite:** Pure Go driver (`modernc.org/sqlite`), no CGo. `MaxOpenConns(1)`, WAL mode for file DBs, `foreign_keys=ON`.
+**Database:** Bun query builders over `database/sql`, supporting SQLite (default), PostgreSQL 16+, and MySQL 8.4+. Repositories accept `*bun.DB`; transaction-aware methods use `Querier` (`bun.IDB`) or `bun.Tx`. Keep raw dialect SQL in `internal/storage/dialect.go`; all repository CRUD uses Bun. SQLite retains the pure Go `modernc.org/sqlite` driver, `MaxOpenConns(1)`, WAL for file DBs, and `foreign_keys=ON`. Every schema change needs SQLite/PostgreSQL/MySQL migrations. See `docs/databases.md` for test configuration.
 
 **Frontend embedding:** `//go:embed all:static` (the `all:` prefix is required to include `_nuxt/` directory). MIME types registered manually in `embed.go` init().
 

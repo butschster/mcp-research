@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -15,11 +14,12 @@ import (
 
 	"github.com/butschster/mcp-research/internal/api/ws"
 	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/config"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/butschster/mcp-research/internal/testdb"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 // These tests drive the real mux, because the routing *is* the security
@@ -31,7 +31,7 @@ import (
 type shareServer struct {
 	t        *testing.T
 	mux      http.Handler
-	db       *sql.DB
+	db       *bun.DB
 	research *domain.Research
 	entry    *domain.Entry
 	other    *domain.Research
@@ -49,7 +49,7 @@ func newShareServer(t *testing.T) *shareServer {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	db, err := storage.NewDB(config.Config{}, log)
+	db, err := storage.NewDB(testdb.Config(t), log)
 	if err != nil {
 		t.Fatalf("db: %v", err)
 	}

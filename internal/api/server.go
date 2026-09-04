@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -14,6 +13,7 @@ import (
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/service"
 	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/uptrace/bun"
 )
 
 type Server struct {
@@ -55,7 +55,7 @@ func NewServer(
 	annotationSvc *service.AnnotationService,
 	access *service.Access,
 	authSvc *service.AuthService, // nil when auth disabled
-	db *sql.DB,
+	db *bun.DB,
 	entryRepo *storage.EntryRepository,
 	researchRepo *storage.ResearchRepository,
 	crossrefRepo *storage.CrossRefRepository,

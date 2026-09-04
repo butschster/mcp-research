@@ -2,47 +2,82 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 )
 
-// Querier is an interface for *sql.DB and *sql.Tx.
-type Querier interface {
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-}
+// Querier lets repository operations use either a database or the caller's
+// transaction, including Bun's query builders.
+type Querier = bun.IDB
 
 // NextCode generates the next short code for a table with the given prefix, scoped by a parent ID.
 func NextCode(ctx context.Context, q Querier, table, prefix, scopeColumn, scopeValue string) (string, error) {
-	var maxNum int
-	query := fmt.Sprintf(
-		`SELECT COALESCE(MAX(CAST(SUBSTR(code, %d) AS INTEGER)), 0) FROM %s WHERE %s=? AND code LIKE '%s%%'`,
-		len(prefix)+1, table, scopeColumn, prefix,
-	)
-	err := q.QueryRowContext(ctx, query, scopeValue).Scan(&maxNum)
+	num, err := reserveCode(ctx, q, table, prefix, scopeColumn, scopeValue)
 	if err != nil {
 		return "", fmt.Errorf("next code for %s: %w", table, err)
 	}
-	return fmt.Sprintf("%s%d", prefix, maxNum+1), nil
+	return fmt.Sprintf("%s%d", prefix, num), nil
 }
 
 // NextCodeGlobal generates the next short code for a table with the given prefix, globally scoped.
 func NextCodeGlobal(ctx context.Context, q Querier, table, prefix string) (string, error) {
-	var maxNum int
-	query := fmt.Sprintf(
-		`SELECT COALESCE(MAX(CAST(SUBSTR(code, %d) AS INTEGER)), 0) FROM %s WHERE code LIKE '%s%%'`,
-		len(prefix)+1, table, prefix,
-	)
-	err := q.QueryRowContext(ctx, query).Scan(&maxNum)
+	num, err := reserveCode(ctx, q, table, prefix, "", "")
 	if err != nil {
 		return "", fmt.Errorf("next code for %s: %w", table, err)
 	}
-	return fmt.Sprintf("%s%d", prefix, maxNum+1), nil
+	return fmt.Sprintf("%s%d", prefix, num), nil
+}
+
+// Reserve under a row lock (a write lock on SQLite). A counter survives deletes
+// and concurrent creates; MAX only seeds it from legacy or explicitly set codes.
+func reserveCode(ctx context.Context, db Querier, table, prefix, scopeColumn, scopeValue string) (int, error) {
+	key := table + ":" + prefix + ":" + scopeValue
+	var next int
+	allocate := func(q Querier) error {
+		insert := q.NewInsert().Table("storage_counters").Model(&map[string]any{"scope_key": key, "value": 0})
+		if _, err := onConflict(insert, q, []string{"scope_key"}).Exec(ctx); err != nil {
+			return err
+		}
+		// A no-op UPDATE acquires the row lock on every dialect before MAX.
+		if _, err := q.NewUpdate().Table("storage_counters").Set("value=value").Where("scope_key=?", key).Exec(ctx); err != nil {
+			return err
+		}
+		query := codeQuery(q, table, prefix)
+		if scopeColumn != "" {
+			query.Where("?=?", bun.Ident(scopeColumn), scopeValue)
+		}
+		var max int
+		if err := query.Scan(ctx, &max); err != nil {
+			return err
+		}
+		if _, err := q.NewUpdate().Table("storage_counters").Set("value=CASE WHEN value < ? THEN ? ELSE value END + 1", max, max).Where("scope_key=?", key).Exec(ctx); err != nil {
+			return err
+		}
+		return q.NewSelect().Column("value").Table("storage_counters").Where("scope_key=?", key).Scan(ctx, &next)
+	}
+	switch db.(type) {
+	case bun.Tx, *bun.Tx:
+		err := allocate(db)
+		return next, err
+	}
+	err := db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error { return allocate(tx) })
+	return next, err
+}
+
+func codeQuery(q Querier, table, prefix string) *bun.SelectQuery {
+	castType := "INTEGER"
+	if q.Dialect().Name() == dialect.MySQL {
+		castType = "SIGNED"
+	}
+	return q.NewSelect().Table(table).
+		ColumnExpr("COALESCE(MAX(CAST(SUBSTR(code, ?) AS "+castType+")), 0)", len(prefix)+1).
+		Where("code LIKE ?", prefix+"%")
 }
 
 // BackfillCodes generates codes for all records that don't have one yet.
-func BackfillCodes(ctx context.Context, db *sql.DB) (int, error) {
+func BackfillCodes(ctx context.Context, db *bun.DB) (int, error) {
 	total := 0
 
 	n, err := backfillGlobal(ctx, db, "researches", "R")
@@ -96,10 +131,9 @@ func BackfillCodes(ctx context.Context, db *sql.DB) (int, error) {
 	return total, nil
 }
 
-func backfillGlobal(ctx context.Context, db *sql.DB, table, prefix string) (int, error) {
+func backfillGlobal(ctx context.Context, db *bun.DB, table, prefix string) (int, error) {
 	// Collect IDs first, then close cursor before updating (avoids MaxOpenConns(1) deadlock)
-	rows, err := db.QueryContext(ctx,
-		fmt.Sprintf(`SELECT id FROM %s WHERE code = '' ORDER BY created_at ASC`, table))
+	rows, err := db.NewSelect().Column("id").Table(table).Where("code = ''").Order("created_at ASC").Rows(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -119,17 +153,15 @@ func backfillGlobal(ctx context.Context, db *sql.DB, table, prefix string) (int,
 		if err != nil {
 			return 0, err
 		}
-		if _, err := db.ExecContext(ctx,
-			fmt.Sprintf(`UPDATE %s SET code=? WHERE id=?`, table), code, id); err != nil {
+		if _, err := db.NewUpdate().Table(table).Set("code=?", code).Where("id=?", id).Exec(ctx); err != nil {
 			return 0, err
 		}
 	}
 	return len(ids), nil
 }
 
-func backfillScoped(ctx context.Context, db *sql.DB, table, prefix, scopeColumn string) (int, error) {
-	rows, err := db.QueryContext(ctx,
-		fmt.Sprintf(`SELECT id, %s FROM %s WHERE code = '' ORDER BY created_at ASC`, scopeColumn, table))
+func backfillScoped(ctx context.Context, db *bun.DB, table, prefix, scopeColumn string) (int, error) {
+	rows, err := db.NewSelect().Column("id", scopeColumn).Table(table).Where("code = ''").Order("created_at ASC").Rows(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -150,8 +182,7 @@ func backfillScoped(ctx context.Context, db *sql.DB, table, prefix, scopeColumn 
 		if err != nil {
 			return 0, err
 		}
-		if _, err := db.ExecContext(ctx,
-			fmt.Sprintf(`UPDATE %s SET code=? WHERE id=?`, table), code, i.id); err != nil {
+		if _, err := db.NewUpdate().Table(table).Set("code=?", code).Where("id=?", i.id).Exec(ctx); err != nil {
 			return 0, err
 		}
 	}
