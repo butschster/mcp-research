@@ -1,92 +1,16 @@
 <template>
   <div>
-    <!-- Searching inside one research.
-         The command palette has always been global, and tags were the only
-         in-research filter — which exist only if the agent applied them. In a
-         sixty-entry research that left nothing to search with, on the surface
-         where finding one paragraph is most of the job. -->
-    <div class="entries-search cluster">
-      <input
-        v-model="query"
-        type="search"
-        class="text-input entries-search-input"
-        placeholder="Search this research…"
-        :aria-label="`Search ${researchName || 'this research'}`"
-      />
-      <span v-if="query.length === 1" class="card-meta">Keep typing…</span>
-      <span v-else-if="query.length > 1" class="card-meta" role="status">
-        {{ searching ? 'Searching…' : `${found.length} ${found.length === 1 ? 'match' : 'matches'}` }}
-      </span>
+    <!-- One live region for the tag filter, mounted for the life of the pane
+         and its text swapped — a `role` on an element that appears when it
+         should speak is announced unreliably. Same pattern as the import line
+         below and as ToastHost. -->
+    <p class="sr-only" role="status">{{ filterAnnouncement }}</p>
+
+    <!-- The header names the thing; the toolbar under it filters it. -->
+    <div v-if="mode === 'all'" class="section-header">
+      <h2 class="section-title">All entries</h2>
     </div>
 
-    <!-- Results replace the list while a query stands. -->
-    <div v-if="query.length > 1">
-      <div v-if="found.length" class="grid grid-2">
-        <EntryCard
-          v-for="entry in found"
-          :key="entry.id"
-          :entry="entry"
-          :research-slug="researchSlug"
-          :missing-required="entry.metadata_status?.missing_required?.length ?? 0"
-          :update="updates?.[entry.id]"
-        />
-      </div>
-      <EmptyState
-        v-else-if="!searching"
-        icon="&#x1F50D;"
-        :title="`Nothing matches “${query}”`"
-        description="Titles, descriptions and the body of every entry in this research were searched."
-      />
-    </div>
-
-    <template v-else>
-    <!-- All entries view -->
-    <template v-if="mode === 'all'">
-      <div class="section-header">
-        <h2 class="section-title">All entries</h2>
-      </div>
-
-      <!-- Global tags with counters -->
-      <div v-if="tags.length" class="tags-panel mb-4">
-        <span
-          v-for="tc in tags"
-          :key="tc.tag"
-          :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tc.tag)}`, { 'tag-active': activeTag === tc.tag }]"
-          @click="activeTag = activeTag === tc.tag ? '' : tc.tag"
-        >{{ tc.tag }}<span v-if="tc.count > 1" class="tag-count">{{ tc.count }}</span></span>
-      </div>
-
-      <!-- Loading -->
-      <div v-if="loading">
-        <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
-      </div>
-
-      <template v-else-if="filteredEntries.length">
-        <!-- Group by section -->
-        <template v-for="group in groupedEntries" :key="group.section.id">
-          <h3 class="group-section-title">{{ group.section.display_name || group.section.name }}</h3>
-          <div class="grid entries-grid mb-4">
-            <EntryCard
-              v-for="entry in group.entries"
-              :key="entry.id"
-              :entry="entry"
-              :research-slug="researchSlug"
-              :missing-required="missingIn(group.section, entry)"
-              :update="updates?.[entry.id]"
-            />
-          </div>
-        </template>
-      </template>
-
-      <EmptyState
-        v-else
-        icon="&#x1F4C4;"
-        title="No entries yet"
-        :description="emptyDescription('research')"
-      />
-    </template>
-
-    <!-- Single section view -->
     <template v-else-if="sectionInfo">
       <div class="section-header">
         <!-- Grouped, because `space-between` over three loose children put the
@@ -138,28 +62,136 @@
            exist until it should speak is announced unreliably. Same pattern as
            ToastHost. -->
       <p class="sr-only" role="status">{{ importAnnouncement }}</p>
+    </template>
 
-      <ResearchImportDropZone
-        ref="dropZone"
-        :enabled="canImport"
-        :section-name="sectionInfo.display_name || sectionInfo.name"
-        :max-bytes="maxBytes"
-        :extensions="extensions"
-        :reading="importer.phase.value === 'reading'"
-        @file="importer.read"
-        @refuse="onRefuse"
+    <!-- Search and tag filter, one row. Hidden over an empty surface: a search
+         box above nothing is furniture, and the EmptyState says what to do. -->
+    <ResearchEntriesToolbar
+      v-if="showToolbar"
+      ref="toolbar"
+      v-model="activeTag"
+      v-model:query="query"
+      :tags="toolbarTags"
+      :search-label="shareActive() ? 'Filter these entries' : `Search ${researchName || 'this research'}`"
+      :search-placeholder="shareActive() ? 'Filter these entries…' : 'Search this research…'"
+    >
+      <template #meta>
+        <span v-if="query.length === 1" class="card-meta">Keep typing…</span>
+        <span v-else-if="query.length > 1" class="card-meta">
+          {{ searching ? 'Searching…' : matchesLabel }}
+        </span>
+      </template>
+    </ResearchEntriesToolbar>
+
+    <!-- The drop zone wraps everything below the toolbar, in both modes and
+         whether or not a search stands. It is inert in all-entries mode
+         (`enabled` false — its own contract names that case), but mounted, so
+         a dropped file cannot navigate the browser away wherever it lands, and
+         the header's Import button — rendered whenever the person may import —
+         always has a picker to open. It used to unmount during a search, and
+         the button then did nothing. -->
+    <ResearchImportDropZone
+      ref="dropZone"
+      :enabled="canImport"
+      :section-name="sectionInfo?.display_name || sectionInfo?.name || ''"
+      :max-bytes="maxBytes"
+      :extensions="extensions"
+      :reading="importer.phase.value === 'reading'"
+      @file="importer.read"
+      @refuse="onRefuse"
+    >
+    <!-- Results replace the list while a query stands. The active tag filters
+         them too: two filters that compose is the only behaviour nobody has to
+         learn a rule for. -->
+    <div v-if="query.length > 1">
+      <!-- The search is research-wide and the section header now stays on
+           screen above the results; saying nothing would be a lie of layout. -->
+      <p v-if="mode === 'section' && !shareActive()" class="card-meta mb-4">
+        Results from the whole research, not just this section.
+      </p>
+      <!-- A failed request is not "no results". It used to be rendered as one,
+           which told the reader their query was wrong when the network was. -->
+      <EmptyState
+        v-if="searchError"
+        icon="&#x26A0;&#xFE0F;"
+        title="The search did not go through"
+        :description="searchError"
       >
+        <button type="button" class="btn btn-sm" @click="retrySearch">Try again</button>
+      </EmptyState>
+      <div v-else-if="foundFiltered.length" class="grid grid-2">
+        <EntryCard
+          v-for="entry in foundFiltered"
+          :key="entry.id"
+          :entry="entry"
+          :research-slug="researchSlug"
+          :missing-required="entry.metadata_status?.missing_required?.length ?? 0"
+          :update="updates?.[entry.id]"
+        />
+      </div>
+      <EmptyState
+        v-else-if="!searching && activeTag && found.length"
+        icon="&#x1F50D;"
+        :title="`No matches with “${activeTag}”`"
+        :description="`${found.length} ${found.length === 1 ? 'entry matches' : 'entries match'} “${query}”, but none of them carry this tag.`"
+      >
+        <button type="button" class="btn btn-sm" @click="activeTag = ''">Clear filter</button>
+        <button type="button" class="btn btn-sm" @click="query = ''">Clear search</button>
+      </EmptyState>
+      <EmptyState
+        v-else-if="!searching"
+        icon="&#x1F50D;"
+        :title="`Nothing matches “${query}”`"
+        :description="searchScope"
+      />
+    </div>
 
-      <!-- Tag filter for entries -->
-      <div v-if="sectionTags.length" class="tags-panel mb-4">
-        <span
-          v-for="tc in sectionTags"
-          :key="tc.tag"
-          :class="['tag', 'tag-clickable', `tag-hue-${tagHue(tc.tag)}`, { 'tag-active': activeTag === tc.tag }]"
-          @click="activeTag = activeTag === tc.tag ? '' : tc.tag"
-        >{{ tc.tag }}<span v-if="tc.count > 1" class="tag-count">{{ tc.count }}</span></span>
+    <!-- All entries view -->
+    <template v-else-if="mode === 'all'">
+      <!-- Loading -->
+      <div v-if="loading">
+        <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
       </div>
 
+      <template v-else-if="filteredEntries.length">
+        <!-- Group by section -->
+        <template v-for="group in groupedEntries" :key="group.section.id">
+          <h3 class="group-section-title">{{ group.section.display_name || group.section.name }}</h3>
+          <div class="grid entries-grid mb-4">
+            <EntryCard
+              v-for="entry in group.entries"
+              :key="entry.id"
+              :entry="entry"
+              :research-slug="researchSlug"
+              :missing-required="missingIn(group.section, entry)"
+              :update="updates?.[entry.id]"
+            />
+          </div>
+        </template>
+      </template>
+
+      <!-- A tag can vanish from under an active filter — a realtime update
+           removed the last entry carrying it. The filter is never cleared on
+           the user's behalf; the state says so and offers the way out. -->
+      <EmptyState
+        v-else-if="activeTag"
+        icon="&#x1F4C4;"
+        :title="`No entries tagged “${activeTag}”`"
+        :description="`The filter is still on. Clear it to see the other ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}.`"
+      >
+        <button type="button" class="btn btn-sm" @click="activeTag = ''">Clear filter</button>
+      </EmptyState>
+
+      <EmptyState
+        v-else
+        icon="&#x1F4C4;"
+        title="No entries yet"
+        :description="emptyDescription('research')"
+      />
+    </template>
+
+    <!-- Single section view -->
+    <template v-else-if="sectionInfo">
       <!-- Entries loading -->
       <div v-if="loading">
         <div v-for="i in 3" :key="i" class="skeleton-card skeleton-entry"></div>
@@ -235,6 +267,15 @@
       </div>
 
       <EmptyState
+        v-else-if="activeTag"
+        icon="&#x1F4C4;"
+        :title="`No entries tagged “${activeTag}”`"
+        :description="`The filter is still on. Clear it to see the other ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}.`"
+      >
+        <button type="button" class="btn btn-sm" @click="activeTag = ''">Clear filter</button>
+      </EmptyState>
+
+      <EmptyState
         v-else
         icon="&#x1F4C4;"
         :title="shareActive() ? 'No entries in this section' : 'No entries yet'"
@@ -244,29 +285,27 @@
           Import .md
         </button>
       </EmptyState>
-      </ResearchImportDropZone>
-
-
-      <ResearchImportPreviewDialog
-        :visible="importer.phase.value === 'previewing' || importer.phase.value === 'committing'"
-        :file-bytes="importer.file.value?.size ?? 0"
-        :section-name="sectionInfo.display_name || sectionInfo.name"
-        :preview="importer.preview.value"
-        :committing="importer.phase.value === 'committing'"
-        :error="importer.commitError.value"
-        :stale-spec="importer.staleSpec.value"
-        @commit="onCommit"
-        @reread="importer.reread"
-        @close="importer.reset"
-      />
     </template>
-    </template>
+    </ResearchImportDropZone>
+
+    <ResearchImportPreviewDialog
+      v-if="sectionInfo"
+      :visible="importer.phase.value === 'previewing' || importer.phase.value === 'committing'"
+      :file-bytes="importer.file.value?.size ?? 0"
+      :section-name="sectionInfo.display_name || sectionInfo.name"
+      :preview="importer.preview.value"
+      :committing="importer.phase.value === 'committing'"
+      :error="importer.commitError.value"
+      :stale-spec="importer.staleSpec.value"
+      @commit="onCommit"
+      @reread="importer.reread"
+      @close="importer.reset"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { tagHue } from '~/composables/useTagHue'
 import { renderRefs } from '~/composables/useCrossRefs'
 import { entryPath } from '~/composables/useResearchPaths'
 import { shareActive } from '~/composables/useShare'
@@ -397,7 +436,49 @@ function missingIn(section: any, entry: any): number {
    not in the payload this component is handed. */
 const query = ref('')
 const searching = ref(false)
-const found = ref<any[]>([])
+const fetched = ref<any[]>([])
+const searchError = ref('')
+
+/* The server caps a search at twenty (`server.go`, `/api/search`) and returns
+   no total, so twenty is the one count that cannot be read as exact. */
+const SEARCH_CAP = 20
+
+/* `/api/search` is not on the share sub-mux, and a visitor has no research id
+   to scope it by — so a shared page used to fire an unscoped, whole-database
+   query the moment two characters were typed. A visitor gets the entries the
+   page already holds, filtered by title, description and tags. It searches less
+   (no bodies), and the placeholder says so. */
+function localMatches(q: string): any[] {
+  const needle = q.toLowerCase()
+  return props.entries.filter((e: any) =>
+    [e.title, e.description, ...(e.tags ?? [])].some(
+      (s: unknown) => typeof s === 'string' && s.toLowerCase().includes(needle),
+    ),
+  )
+}
+const found = computed<any[]>(() => {
+  if (query.value.trim().length < 2) return []
+  return shareActive() ? localMatches(query.value.trim()) : fetched.value
+})
+const foundFiltered = computed(() =>
+  activeTag.value ? found.value.filter((e: any) => e.tags?.includes(activeTag.value)) : found.value,
+)
+
+const matchesLabel = computed(() => {
+  const total = found.value.length
+  const capped = !shareActive() && total === SEARCH_CAP
+  const totalText = capped ? `${SEARCH_CAP}+` : String(total)
+  if (activeTag.value && foundFiltered.value.length !== total) {
+    return `${foundFiltered.value.length} of ${totalText} matches`
+  }
+  return `${totalText} ${total === 1 ? 'match' : 'matches'}`
+})
+
+const searchScope = computed(() =>
+  shareActive()
+    ? 'Titles, descriptions and tags of the entries on this page were searched.'
+    : 'Titles, descriptions and the body of every entry in this research were searched.',
+)
 const { authFetch } = useAuth()
 const base = useRuntimeConfig().public.apiBase || ''
 
@@ -407,14 +488,18 @@ let timer: ReturnType<typeof setTimeout> | null = null
 async function run(q: string) {
   const mine = ++seq
   searching.value = true
+  searchError.value = ''
   try {
     const res = await authFetch<{ entries: any[] }>(
       `${base}/api/search?q=${encodeURIComponent(q)}&research=${encodeURIComponent(props.researchId ?? '')}`,
     )
     // An earlier request that lands late must not overwrite a later one.
-    if (mine === seq) found.value = res?.entries ?? []
-  } catch {
-    if (mine === seq) found.value = []
+    if (mine === seq) fetched.value = res?.entries ?? []
+  } catch (e: any) {
+    if (mine === seq) {
+      fetched.value = []
+      searchError.value = e?.data?.error || e?.message || 'The server could not be reached.'
+    }
   } finally {
     if (mine === seq) searching.value = false
   }
@@ -425,9 +510,14 @@ async function run(q: string) {
    fourteen. */
 watch(query, (q) => {
   if (timer) clearTimeout(timer)
-  if (q.trim().length < 2) { found.value = []; searching.value = false; return }
+  searchError.value = ''
+  if (q.trim().length < 2 || shareActive()) { fetched.value = []; searching.value = false; return }
   timer = setTimeout(() => run(q.trim()), 200)
 })
+
+function retrySearch() {
+  if (query.value.trim().length >= 2) run(query.value.trim())
+}
 
 onUnmounted(() => { if (timer) clearTimeout(timer) })
 
@@ -448,11 +538,56 @@ function emptyDescription(scope: 'research' | 'section') {
 }
 
 const activeTag = ref('')
+const toolbar = ref<{ close: () => void } | null>(null)
 
-// Reset tag filter when mode or section changes
-watch(() => [props.mode, props.sectionInfo?.id], () => {
+// A filter belongs to the surface it was set on. Another section or another
+// mode is another surface, and a popover left open over it is a list of tags
+// the new surface does not have. The query goes too: the header now stays on
+// screen during a search, and section B's title over results typed on section
+// A is a screen contradicting itself.
+//
+// Two sources compared one by one, not a getter returning an array. The array
+// form is a new value on every evaluation, and `sectionInfo` is a new object on
+// every realtime reload — which cleared the filter under the reader's hands
+// each time an agent wrote an entry anywhere in the research.
+watch([() => props.mode, () => props.sectionInfo?.id], () => {
   activeTag.value = ''
+  query.value = ''
+  toolbar.value?.close()
 })
+
+/* The tags the toolbar offers. All-entries mode gets the research-wide counts
+   from the endpoint; a section gets counts over its own entries. The same tag
+   legitimately shows two numbers on the two surfaces — each is right for the
+   list it sits above. */
+const toolbarTags = computed(() => (props.mode === 'all' ? props.tags : sectionTags.value))
+
+// While loading the input is already useful and the row's height is its own,
+// so chips landing later shift nothing. Over a surface with no entries and no
+// filter standing there is nothing to search and nothing to clear.
+const showToolbar = computed(
+  () => props.loading || props.entries.length > 0 || query.value.length > 0 || !!activeTag.value,
+)
+
+/* One live region for the whole pane, spoken once per change with the count
+   that resulted. Set after the DOM settles so the number is the one on screen.
+   The visible counter beside the input carries no `role`: a second region
+   saying the same number is two utterances, queued or clobbered depending on
+   the reader. */
+const filterAnnouncement = ref('')
+watch(activeTag, (tag, prev) => {
+  if (!tag && !prev) return
+  const n = query.value.length > 1
+    ? matchesLabel.value
+    : `${filteredEntries.value.length} ${filteredEntries.value.length === 1 ? 'entry' : 'entries'}`
+  filterAnnouncement.value = tag ? `Filtered to “${tag}”. ${n}.` : `Tag filter cleared. ${n}.`
+}, { flush: 'post' })
+watch([found, searching, searchError], () => {
+  if (query.value.length < 2 || searching.value) return
+  filterAnnouncement.value = searchError.value
+    ? 'The search did not go through.'
+    : `${matchesLabel.value} for “${query.value}”.`
+}, { flush: 'post' })
 
 // Compute section-level tag counts from entries
 const sectionTags = computed(() => {
@@ -496,9 +631,6 @@ const groupedEntries = computed(() => {
 </script>
 
 <style scoped>
-.entries-search { margin-bottom: var(--space-4); }
-.entries-search-input { flex: 1; min-width: 12rem; }
-
 /* Wrapping, because a fourth control overflows the row at the widths this pane
    actually gets. */
 .section-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
@@ -519,15 +651,6 @@ const groupedEntries = computed(() => {
 .import-refusal span { min-width: 0; overflow-wrap: anywhere; }
 .import-refusal .btn { flex: none; }
 .section-title { font-size: var(--type-xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; }
-.tags-panel { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.tag-active { background: var(--color-primary-muted); color: var(--color-primary); }
-.tag-clickable { cursor: pointer; transition: all var(--transition-fast); }
-.tag-clickable:hover { background: var(--color-primary-muted); color: var(--color-primary); }
-.tag-count {
-  font-size: 0.75em;
-  opacity: 0.7;
-  margin-left: 0.15em;
-}
 .group-section-title {
   font-size: var(--type-base);
   font-weight: var(--weight-semibold);

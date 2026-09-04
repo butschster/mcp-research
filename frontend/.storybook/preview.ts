@@ -24,6 +24,8 @@ import ModalHeader from '../components/ModalHeader.vue'
 import TeamRoleSelect from '../components/team/RoleSelect.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
+import EntryCard from '../components/EntryCard.vue'
+import ResearchEntriesToolbar from '../components/research/EntriesToolbar.vue'
 import SegmentedToggle from '../components/SegmentedToggle.vue'
 import ResearchImportDropZone from '../components/research/ImportDropZone.vue'
 import ResearchImportPreviewDialog from '../components/research/ImportPreviewDialog.vue'
@@ -87,6 +89,11 @@ setup((app) => {
   app.component('TeamRoleSelect', TeamRoleSelect)
   app.component('StatusBadge', StatusBadge)
   app.component('TagList', TagList)
+  // EntriesView renders its list through EntryCard and its filter row through
+  // the toolbar; without these two the grouped stories were section headings
+  // over nothing, and the catalogue said so to nobody.
+  app.component('EntryCard', EntryCard)
+  app.component('ResearchEntriesToolbar', ResearchEntriesToolbar)
   // Four components reach for this by name without importing it — the two
   // roadmap toggles, and now the section view switch in EntriesView. Unregistered,
   // Vue resolves nothing and the control silently does not render, which is the

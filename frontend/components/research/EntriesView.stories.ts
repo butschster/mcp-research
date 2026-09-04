@@ -4,16 +4,22 @@ import { mockEntry, mockEntryDraft } from '../../__mocks__/entry'
 import { markupDescription, markupImg } from '../../__mocks__/markup'
 import { mockSections, mockSection, mockSectionCompleted } from '../../__mocks__/section'
 import { withShare, withoutShare } from '../../__mocks__/share'
+import { mockApi } from '../../__mocks__/api'
 import { mockSpecEntries, mockSpecSection, specAtCap, specSingleField } from '../../__mocks__/metadata'
 
 /**
  * The entry grid, either grouped by section or filtered to one.
  *
- * The cards are built inline here rather than reusing `EntryCard`, twice — so
- * the path each of them points at is written in three places in this component
- * alone. All three now ask `entryPath()`, which is the only reason the same grid
- * can be rendered under a share link without dropping an anonymous visitor onto
- * the login wall.
+ * Three grids live in this one component and each is reached by a different
+ * `v-if`: the search results, the grouped list, and the single section's list
+ * (which a declaring section can swap for a table). All three draw `EntryCard`
+ * and all three therefore link through `entryPath()`, which is what lets the
+ * same grid render under a share link without dropping an anonymous visitor
+ * onto the login wall.
+ *
+ * Above them sits one `EntriesToolbar` — search and tag filter in a row. The
+ * two filters compose: a query narrows to matches, a tag narrows those further,
+ * and each of the four outcomes has its own empty state and its own story here.
  */
 const meta: Meta<typeof EntriesView> = {
   title: 'Research/EntriesView',
@@ -88,6 +94,11 @@ export const SectionMode: Story = {
   },
 }
 
+/**
+ * A tag applied. The chip moves out of the quick row into its fixed place after
+ * the search box, with a `×`; the list narrows to the two entries tagged
+ * `composables`; the other groups disappear rather than showing empty headings.
+ */
 export const TagFilterActive: Story = {
   args: {
     entries: entriesWithSections,
@@ -96,6 +107,134 @@ export const TagFilterActive: Story = {
     loading: false,
     mode: 'all',
     tags,
+  },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'composables')
+  },
+}
+
+/**
+ * The state that motivated the toolbar: a research whose sections between them
+ * carry a hundred and twenty tags. Before, they were a cloud twenty rows deep
+ * above the first entry. Now the row is one control tall — six chips and
+ * `Tags 120` — and the list starts where the eye expects it.
+ */
+export const ManyTags: Story = {
+  args: {
+    entries: entriesWithSections,
+    sections: [mockSection, mockSectionCompleted],
+    researchSlug: 'R1',
+    loading: false,
+    mode: 'all',
+    tags: [
+      ...tags,
+      ...Array.from({ length: 115 }, (_, i) => ({ tag: `topic-${String(i + 1).padStart(3, '0')}`, count: 1 })),
+    ],
+  },
+}
+
+/**
+ * A filter whose tag no longer exists on the surface — a realtime update
+ * removed the last entry carrying it. The filter is never cleared on the
+ * user's behalf; the empty state says the filter is still on and offers the
+ * way out.
+ */
+export const TagFilterWithNoEntries: Story = {
+  args: {
+    entries: entriesWithSections,
+    sections: [mockSection, mockSectionCompleted],
+    researchSlug: 'R1',
+    loading: false,
+    mode: 'all',
+    tags: [...tags, { tag: 'orphan', count: 1 }],
+  },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'orphan')
+  },
+}
+
+/**
+ * Section mode with a tag applied. The counts are the section's own — `vue`
+ * reads 2 here and 4 in all-entries mode, and both are right for the list they
+ * sit above.
+ */
+export const SectionModeTagFilter: Story = {
+  args: {
+    entries: [
+      { ...mockEntry, section_id: 'sec_001' },
+      { ...mockEntryDraft, section_id: 'sec_001' },
+    ],
+    sections: mockSections,
+    researchSlug: 'R1',
+    loading: false,
+    mode: 'section',
+    sectionInfo: mockSection,
+    tags: [],
+  },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'reactivity')
+  },
+}
+
+/**
+ * Nothing in the research, and therefore **no toolbar**: a search box above
+ * nothing is furniture, and with no entries there is nothing to filter and
+ * nothing to clear. The row comes back the moment there is a query, a tag or
+ * one entry — including while loading, which is why `Loading` shows it.
+ */
+/**
+ * A query and a tag at once.
+ *
+ * The search is the server's — `/api/search`, debounced, research-wide — and it
+ * replaces the list while it stands. The tag then narrows *the results*, which
+ * is the only rule nobody has to learn: two filters that compose. The meta line
+ * beside the box says `1 of 4 matches` rather than `1 match`, because the four
+ * is the fact a reader needs to decide whether the tag was worth applying.
+ *
+ * The four results are routed through the mock `authFetch`; nothing here
+ * touches a network.
+ */
+export const SearchNarrowedByTag: Story = {
+  decorators: [withSearchResults(entriesWithSections)],
+  args: {
+    entries: entriesWithSections,
+    sections: [mockSection, mockSectionCompleted],
+    researchSlug: 'R1',
+    researchId: 'res_001',
+    loading: false,
+    mode: 'all',
+    tags,
+  },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await typeQuery(canvasElement, 'vue')
+    await clickButton(canvasElement, 'composables')
+  },
+}
+
+/**
+ * The search found something and the tag excludes all of it.
+ *
+ * Distinct from "nothing matches the query", and worth its own state: the
+ * entries are there, one filter is hiding them from the other, and a reader who
+ * is told only "nothing matches “vue”" would go looking for a search problem.
+ * So the count of what the query alone found is in the description, and both
+ * filters are offered separately for clearing — the component never clears
+ * either one on the reader's behalf.
+ */
+export const SearchWithNoTagOverlap: Story = {
+  decorators: [withSearchResults([{ ...mockEntryDraft, section_id: 'sec_001' }])],
+  args: {
+    entries: entriesWithSections,
+    sections: [mockSection, mockSectionCompleted],
+    researchSlug: 'R1',
+    researchId: 'res_001',
+    loading: false,
+    mode: 'all',
+    tags,
+  },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await typeQuery(canvasElement, 'vue')
+    await clickButton(canvasElement, 'composables')
   },
 }
 
@@ -122,11 +261,11 @@ const markupEntry = {
 /**
  * A description with markup in it, in the **grouped** branch.
  *
- * This component writes the entry card three times — twice in its own template
- * and once again in `EntryCard` — and each copy calls `renderRefs` into
- * `v-html`. Duplicated markup is duplicated exposure: a fix applied to one copy
- * leaves the other two, and nothing in the catalogue would have shown which was
- * which. Hence a story per branch rather than one for the component.
+ * The escaping itself is `EntryCard`'s now — this component used to write the
+ * card three times and each copy called `renderRefs` into `v-html` of its own.
+ * What these two stories still check is that each branch actually routes through
+ * that one implementation: a branch that ever stops doing so is invisible from
+ * `EntryCard`'s own stories, and there are three branches.
  *
  * The markup must read as text and `[[E3]]` must still be a link. An executed
  * payload prints `XSS EXECUTED` in place of the image tag.
@@ -142,8 +281,8 @@ export const MarkupInDescription: Story = {
   },
 }
 
-/** The same description in the **section** branch — the second copy of the card,
- *  reached by a different `v-if` and fixed separately from the one above. */
+/** The same description in the **section** branch — the second of the three
+ *  grids, reached by a different `v-if` from the one above. */
 export const MarkupInDescriptionSectionMode: Story = {
   args: {
     entries: [markupEntry, { ...mockEntryDraft, section_id: 'sec_001' }],
@@ -207,6 +346,40 @@ export const InsideAShareSectionMode: Story = {
     mode: 'section',
     sectionInfo: mockSection,
     tags: [],
+  },
+}
+
+/**
+ * A visitor typing in the box.
+ *
+ * `/api/search` is not on the share sub-mux and a visitor has no research id to
+ * scope it by, so a shared page firing that query would have been an unscoped
+ * search of the whole database on the second keystroke. Instead the entries the
+ * page already holds are filtered by title, description and tags — and the box
+ * must not promise more than that, which is why the placeholder reads “Filter
+ * these entries…” and the no-match copy names the three fields it read.
+ *
+ * Both entries match `vue` on their tags alone; neither title contains it.
+ *
+ * The line "Results from the whole research, not just this section" is absent
+ * here on purpose — under a share the search never left the section's entries.
+ */
+export const InsideAShareFiltering: Story = {
+  decorators: [withShare()],
+  args: {
+    entries: [
+      { ...mockEntry, section_id: 'sec_001' },
+      { ...mockEntryDraft, section_id: 'sec_001' },
+    ],
+    sections: mockSections,
+    researchSlug: 'R7',
+    loading: false,
+    mode: 'section',
+    sectionInfo: mockSection,
+    tags: [],
+  },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await typeQuery(canvasElement, 'vue')
   },
 }
 
@@ -285,6 +458,26 @@ export const SectionTable: Story = {
   args: { ...SectionWithFields.args },
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     await clickButton(canvasElement, 'Table')
+  },
+}
+
+/**
+ * The table with a tag applied — the two controls are independent state.
+ *
+ * Worth a story because the table is the one grid whose `v-if` reads
+ * `filteredEntries` while its *columns* come from the section's declaration:
+ * narrowing to `config` leaves one row and all six columns, not the columns that
+ * row happens to fill. E53's `unknown` owner is the row that survives.
+ *
+ * Clearing the filter to nothing would drop back to the "No entries tagged"
+ * empty state and take the table with it — the toggle stays, so there is a way
+ * back.
+ */
+export const SectionTableTagFilter: Story = {
+  args: { ...SectionWithFields.args },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Table')
+    await clickButton(canvasElement, 'config')
   },
 }
 
@@ -371,9 +564,9 @@ export const SectionTableInsideAShare: Story = {
 /**
  * Markup inside a table cell.
  *
- * The cell is a fourth `v-html` in this one component, written separately from
- * the three card copies above, and field values are agent-authored text like
- * every other string here. `<b>bold</b>` must read as text and `[[E47]]` must
+ * The table cell is the only `v-html` left in this component — the card copies
+ * that used to surround it are `EntryCard`'s — and field values are
+ * agent-authored text like every other string here. `<b>bold</b>` must read as text and `[[E47]]` must
  * still be a link; an executed payload prints `XSS EXECUTED` where the image
  * tag was.
  *
@@ -402,14 +595,49 @@ export const SectionTableMarkup: Story = {
 }
 
 /**
+ * Answers the one request this component makes — `/api/search` — through the
+ * mock `authFetch`. A decorator rather than a `render`, so the stories keep
+ * their args and their controls.
+ */
+function withSearchResults(entries: any[]) {
+  return (story: any) => ({
+    components: { story },
+    setup() {
+      mockApi({ '/api/search': { entries } })
+      return {}
+    },
+    template: '<story />',
+  })
+}
+
+/**
+ * Types into the toolbar's search box. The component debounces by 200ms before
+ * it asks the server, so the results land a moment after the play function has
+ * returned — that is the real timing and the story shows it.
+ */
+async function typeQuery(root: HTMLElement, text: string): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    const input = root.querySelector<HTMLInputElement>('input[type="search"]')
+    if (input) {
+      input.value = text
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+}
+
+/**
  * Clicks the first button whose label matches, once it exists. No
  * `@storybook/test` in this project, so the catalogue polls — same helper shape
  * as `HistoryPanel.stories.ts`.
  */
 async function clickButton(root: HTMLElement, label: string): Promise<void> {
   for (let i = 0; i < 50; i++) {
+    // A chip's text is `name` + a count span, so the match is on the name
+    // alone; a plain button's whole label is its name.
     const button = Array.from(root.querySelectorAll('button'))
-      .find(b => b.textContent?.trim() === label) as HTMLElement | undefined
+      .find(b => (b.querySelector('.tag-text')?.textContent ?? b.textContent)?.trim() === label) as HTMLElement | undefined
     if (button) {
       button.click()
       return
