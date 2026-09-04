@@ -110,6 +110,14 @@
      name. Height is now stated, not derived. */
   --control-h: 30px;
   --control-h-sm: 26px;
+  /* The touch-target height `.btn` and `.btn-icon` grow to at ≤768px (`.btn-sm`
+     keeps its own 32). It was a raw 36px written three times in system.css, and
+     a fourth control matching it did so by luck. */
+  --control-h-touch: 36px;
+  /* How wide a tag chip may grow before its text is cut. About twenty
+     characters at chip size; a caller that truncates reads this, so the list
+     and the toolbar agree without knowing about each other. */
+  --tag-max: 12rem;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
