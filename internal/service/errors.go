@@ -29,8 +29,8 @@ var (
 	// sentinel rather than a family of them because the useful half of the
 	// refusal is the message wrapped around it, and a handler only needs to know
 	// this is a 400 the caller can fix.
-	ErrValidation = errors.New("invalid request")
-	ErrMutualExclusion  = errors.New("mutually exclusive fields provided")
+	ErrValidation      = errors.New("invalid request")
+	ErrMutualExclusion = errors.New("mutually exclusive fields provided")
 )
 
 // isCode returns true if s looks like a short code (e.g. R1, E23, SS1, T5, Q3) rather than a UUID.

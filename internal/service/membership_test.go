@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 func TestInvite_Lifecycle(t *testing.T) {

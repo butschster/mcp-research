@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 // Blocks of a `blocks` entry live in entry_blocks, one row each. This file owns

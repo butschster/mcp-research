@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 // Telling a writer what its write did to marks it never mentioned.

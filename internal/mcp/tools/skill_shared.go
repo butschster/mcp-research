@@ -3,8 +3,8 @@ package tools
 import (
 	"errors"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/service"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

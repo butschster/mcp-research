@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 func TestMemoryRepository_AtomicUpdateAndForeignKeys(t *testing.T) {

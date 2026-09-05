@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // ExportObsidian streams a research as a zip shaped like an Obsidian vault.

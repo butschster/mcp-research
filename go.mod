@@ -1,4 +1,4 @@
-module github.com/butschster/mcp-research
+module github.com/dovod-app/app
 
 go 1.25.0
 

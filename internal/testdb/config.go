@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/config"
+	"github.com/dovod-app/app/internal/config"
 	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun/driver/pgdriver"

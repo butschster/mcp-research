@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // A task_ref holds references and nothing else. Everything below is about the

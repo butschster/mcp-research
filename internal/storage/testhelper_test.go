@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/testdb"
+	"github.com/dovod-app/app/internal/testdb"
 	"github.com/uptrace/bun"
 )
 

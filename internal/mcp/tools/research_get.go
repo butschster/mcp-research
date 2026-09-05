@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/service"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

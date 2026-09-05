@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/butschster/mcp-research/internal/docs"
+	"github.com/dovod-app/app/internal/docs"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
