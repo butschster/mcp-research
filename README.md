@@ -354,4 +354,4 @@ Nuxt SPA. See [CLAUDE.md](CLAUDE.md) for architecture and contributor guidance.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
