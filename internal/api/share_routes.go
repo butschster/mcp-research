@@ -68,7 +68,7 @@ func registerShareRoutes(rt *router, deps shareDeps, sShare *huma.Schema) {
 	// --- Owner side: ordinary authenticated routes, no share involved ---
 	rt.route(accessWrite, op("POST", "/api/researches/{id}/shares", "Create a share link",
 		"Issues a read-only link to this research for people with no account here.\n\n"+
-			"**The token is returned once, from this call, and cannot be recovered** — only its SHA-256 is stored. Choose what the link exposes with the `include` flags; everything not named stays private, and the research's `instruction`, its memory, session notes and every document's revision history are never exposed by any link.").
+			"**The token is returned once, from this call, and cannot be recovered** — only its SHA-256 is stored. Choose what the link exposes with the `include` flags; everything not named stays private, and private skills, research memory, session notes and every document's revision history are never exposed by any link.").
 		tag("Share links").
 		body("What the link may show, and optionally a password and an expiry.", envelope(map[string]*huma.Schema{
 			"include": envelope(map[string]*huma.Schema{

@@ -96,10 +96,14 @@ func TestProductionUpgrade_SQLiteFilePreservesExistingData(t *testing.T) {
 			t.Fatalf("foreign-key violations after upgrade: %v", scanErr)
 		}
 		var migrations int
-		if err := db.NewSelect().Table("schema_migrations").ColumnExpr("COUNT(*)").Scan(ctx, &migrations); err != nil || migrations != 28 {
+		if err := db.NewSelect().Table("schema_migrations").ColumnExpr("COUNT(*)").Scan(ctx, &migrations); err != nil || migrations != 29 {
 			t.Fatalf("migration ledger: %d %v", migrations, err)
 		}
 		entry, err := NewEntryRepository(db).FindByID(ctx, "e1")
+		memory, memoryErr := NewMemoryRepository(db).List(ctx, "r1")
+		if memoryErr != nil || len(memory) != 1 || memory[0].Text != "keep this memory" || memory[0].Author != "unknown" || memory[0].CreatedAt != nil {
+			t.Fatalf("legacy memory was not preserved: %+v %v", memory, memoryErr)
+		}
 		if err != nil || entry == nil || entry.Content != content || entry.Code != "E99" {
 			t.Fatalf("Bun cannot read old entry: %+v %v", entry, err)
 		}
@@ -135,7 +139,13 @@ func snapshotUpgradeTables(t *testing.T, db *bun.DB, tables []string) map[string
 	t.Helper()
 	out := map[string]string{}
 	for _, table := range tables {
-		rows, err := db.Query("SELECT * FROM ? ORDER BY rowid", bun.Ident(table))
+		projection := "*"
+		// The old memory/instruction columns intentionally move to separate
+		// records. Compare every remaining research field across the upgrade.
+		if table == "researches" {
+			projection = researchColumns
+		}
+		rows, err := db.Query("SELECT "+projection+" FROM ? ORDER BY rowid", bun.Ident(table))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -174,7 +184,7 @@ func snapshotUpgradeTables(t *testing.T, db *bun.DB, tables []string) map[string
 func upgradeSchema(t *testing.T, db *bun.DB) []string {
 	t.Helper()
 	var schema []string
-	if err := db.NewSelect().Table("sqlite_master").ColumnExpr("COALESCE(sql, '')").Where("tbl_name <> 'storage_counters'").Order("type", "name").Scan(context.Background(), &schema); err != nil {
+	if err := db.NewSelect().Table("sqlite_master").ColumnExpr("COALESCE(sql, '')").Where("tbl_name NOT IN ('storage_counters', 'research_memory') AND NOT (type='table' AND name='researches')").Order("type", "name").Scan(context.Background(), &schema); err != nil {
 		t.Fatal(err)
 	}
 	return schema

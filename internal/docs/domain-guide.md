@@ -1,6 +1,6 @@
 # Domain Guide
 
-Complete reference for every entity in the Research system.
+Complete reference for every entity in Dovod.
 
 ## Entities
 
@@ -13,8 +13,7 @@ Top-level container for an investigation project. Owned by a [team](#team) when 
 | `name` | string | Project name |
 | `goal` | string | Single declarative sentence — success criteria |
 | `description` | string | What this research covers |
-| `instruction` | string | Working methodology — tone, depth, rules for entries |
-| `memory` | string[] | Key insights persisted across sessions |
+| `memory` | MemoryItem[] | Notes: id, text, created_at, author, version, optional session_id/session_code |
 | `tags` | string[] | Categorization tags |
 | `status` | enum | `active` / `completed` / `archived` |
 | `code` | string | Auto-assigned: `R1`, `R2`... (global scope) |
@@ -28,8 +27,8 @@ Top-level container for an investigation project. Owned by a [team](#team) when 
 
 **Key rules:**
 - One research per topic. Don't mix unrelated investigations.
-- `instruction` governs all future sessions — set it during initialization. It says what **this research** is; how a **kind of work** is done belongs in a [skill](#skill), which other researches can follow too.
-- `memory` survives across sessions. Use `add_memory` to append, not replace.
+- Research-specific methodology lives in private [skills](#skill). Legacy `instruction` text is migrated to an attached private skill marked `needs_trigger`.
+- `memory` survives across sessions. Use `add_memory` plus the actual research `session_id` to append. `research_memory` edits/deletes individual IDs; edits require `version`. Legacy notes have unknown authors and null creation dates. REST: GET/POST `/api/researches/{id}/memory`, PATCH/DELETE `/api/researches/{id}/memory/{itemId}`, POST `/api/researches/{id}/memory/bulk-delete` with explicit `ids`.
 - `goal` is a success criterion, not a question. "Identify top 3 competitive threats" not "What are the threats?"
 - A new research lands in the creator's personal team unless another is named: `research_create` and `research_import` take an optional `team_id`, as do `POST /api/researches` and `POST /api/researches/import?team=`.
 - `template_slug` and `template_version` are written once, by `research_create` with a `template_slug`, and never again — no tool or route updates them, and `POST /api/researches` has no such field. They record what was followed, not what governs: the methodology text lives in the [template](#template) and the how-to-work text in the [skills](#skill) it attached.
@@ -215,14 +214,14 @@ That list is the whole surface. Anything else under the prefix — another metho
 
 **What a visitor never sees:**
 
-- `instruction` and `memory` — stripped from the research on every read path, the export included. They are the agent's working notes about how to conduct the research, not a result, and their author did not publish them by sending a link to the findings.
+- Private skills and memory — memory is redacted on research reads, and skill services and exports exclude skills for share contexts. They are the agent's working notes about how to conduct the research, not a result, and their author did not publish them by sending a link to the findings.
 - `user_id`, `team_id`, `team_name`, `team_is_personal` — a share is about one research, not about the organisation behind it. `role` survives and is always `viewer`.
 - Document metadata, values and declaration both. An entry's `metadata`, `spec_version` and `metadata_status` are stripped, and so is the section's `field_spec` — a list of twelve field labels with nothing in them still says what the team decided to track, and the values are exactly the facts a declaration invites a team to record: an owner, a cost, an interviewee, an internal ticket.
 - Any other research. There is no list route under the prefix, and the listing service itself answers empty for a share rather than falling through to "no user in context, so no filter" — which would have returned every research on the server.
-- The Obsidian vault and the portable JSON. The vault builds its payload from the repository rather than from the redacted read path, so it is refused outright; the portable route is not mounted.
-- Any [template](#template) — no list, no body, and no stamp. `TemplateService` refuses a share context before it resolves anything, and `template_slug` / `template_version` are blanked on the research alongside `instruction`: a slug is a name a team chose, and it would read back as that name.
+- The portable JSON: its route is not mounted. The Obsidian vault is available when `include.export` allows it, with memory and private skills excluded; revisions and provenance are refused. See [Export](/llms/export.md#export-through-a-share-link).
+- Any [template](#template) — no list, no body, and no stamp. `TemplateService` refuses a share context before it resolves anything, and `template_slug` / `template_version` are blanked on the research alongside memory: a slug is a name a team chose, and it would read back as that name.
 - Revision history, the knowledge graph, the mindmap and search — none of those routes exist under the prefix.
-- The continuation summary. `/api/researches/{id}/resume` is not mounted under the prefix, and `ResumeService` refuses a share context before it resolves anything — ahead of `Access.Read`, which would allow it, since a share does resolve to `viewer` on this very research. What is unfinished, what a person disputed and what the agent should do next is working process, like `instruction`.
+- The continuation summary. `/api/researches/{id}/resume` is not mounted under the prefix, and `ResumeService` refuses a share context before it resolves anything — ahead of `Access.Read`, which would allow it, since a share does resolve to `viewer` on this very research. What is unfinished, what a person disputed and what the agent should do next is working process, like private skills.
 - Every write, without exception. `Access.Write` refuses a share context before it looks at any role, so this does not depend on the `viewer` it resolves to.
 
 **Cross-references** out of the shared research (`[[R2:E5]]`) render as inert text — not a link, not a 404, because a share must not confirm that R2 exists. An *incoming* reference from a research the visitor cannot open is dropped from the list rather than blanked: the stripped row would still announce that something unseen cites this entry.
@@ -706,7 +705,7 @@ Links between documents, extracted automatically from `[[...]]` patterns.
 
 ### Skill
 
-A methodology document — how to run an interview, how to grade a source, how to build a roadmap — that a research *follows* and an agent opens at the moment it needs it. `instruction` says what **this research** is; a skill says how a **kind of work** is done, and the same skill can be followed by many researches without being copied.
+A methodology document — how to run an interview, how to grade a source, how to build a roadmap — that a research *follows* and an agent opens at the moment it needs it. Private skills carry rules for **this research**; team and built-in skills explain how a **kind of work** is done, and the same skill can be followed by many researches without being copied.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -736,7 +735,7 @@ A methodology document — how to run an interview, how to grade a source, how t
 
 **A slug is fixed at creation.** `Slugify(name)` runs in `build` and nowhere else: `Update` rewrites the name, the description and the body, and never the slug. Uniqueness is per tier scope, which is why a fork keeps its parent's slug and a second fork in the same team is `slug_taken`.
 
-**A share link never exposes a skill** — not the index, not a body. Which methodology a team follows is working process, the same class as `instruction` and `memory`. There are no skills routes under `/api/shared/{token}/`, `SkillService.Load` refuses a share context before it resolves the slug, and the index is empty for one — so a route added later still fails closed.
+**A share link never exposes a skill** — not the index, not a body. Which methodology a team follows is working process, the same class as private skills and memory. There are no skills routes under `/api/shared/{token}/`, `SkillService.Load` refuses a share context before it resolves the slug, and the index is empty for one — so a route added later still fails closed.
 
 Full reference, including the route table and the conflict codes: [Skills](/llms/skills.md).
 
@@ -744,7 +743,7 @@ Full reference, including the route table and the conflict codes: [Skills](/llms
 
 ### Template
 
-A **kickoff methodology**, read once before a research exists. It carries no sections, no questions and no rows: only the criteria an agent matches on and a markdown body saying what to ask the person before proposing anything, what structure to suggest, what good work looks like here, and when the research is finished. The model then designs the research itself. A template says how a kind of research is **started**; a [skill](#skill) says how a kind of work is **done**; `instruction` says what **this** research is.
+A **kickoff methodology**, read once before a research exists. It carries no sections, no questions and no rows: only the criteria an agent matches on and a markdown body saying what to ask the person before proposing anything, what structure to suggest, what good work looks like here, and when the research is finished. The model then designs the research itself. A template says how a kind of research is **started**; a [skill](#skill) says how a kind of work is **done**; private skills carry this research's specific rules.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -775,7 +774,7 @@ A **kickoff methodology**, read once before a research exists. It carries no sec
 
 **No short code.** A template is never referenced from content, so there is no `[[…]]` form for one; at kickoff it is addressed by slug and everywhere else by id.
 
-**A share link exposes no template** — not the list, not a body, not the stamp. `TemplateService` refuses a share context before it resolves anything, no template route is mounted under `/api/shared/{token}/`, and `redactForShare` blanks `template_slug` and `template_version` on the research a visitor reads, next to `instruction` and `memory`.
+**A share link exposes no template** — not the list, not a body, not the stamp. `TemplateService` refuses a share context before it resolves anything, no template route is mounted under `/api/shared/{token}/`, and `redactForShare` blanks `template_slug` and `template_version` on the research a visitor reads, next to private skills and memory.
 
 **Templates emit no events.** Writing, forking, editing or deleting one sends nothing over `/ws` — re-read `GET /api/templates`. Nor do the attachments a template makes: the skills `research_create` attaches from a `template_slug` are written without a `skill.attached` event, so a client that watches the socket to keep a skills index fresh must re-read it after creating a research from a template.
 
@@ -788,7 +787,7 @@ Full reference, including the route table, the draft skeleton and the conflict c
 ```
 0. template_list → template_get → the methodology to follow (optional, but read it before you design anything)
 1. research_create → Research + Sections (+ template_slug: stamps provenance, attaches that methodology's skills)
-2. research_update → Set instruction + seed memory
+2. skill_create → Set private working rules; research_update → Append initial memory
 3. session_create → Session + initial Questions
 4. question_update → Record answers
 5. question_create → Follow-up questions (if needed)

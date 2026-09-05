@@ -78,6 +78,10 @@ func (h *WriteHandler) UpdateResearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var status *domain.ResearchStatus
+	if input.Instruction != nil || input.Memory != nil {
+		writeError(w, http.StatusBadRequest, "instruction has moved to private skills; edit memory through per-item /memory endpoints (add_memory remains supported)")
+		return
+	}
 	if input.Status != nil {
 		s := domain.ResearchStatus(*input.Status)
 		status = &s
@@ -85,8 +89,8 @@ func (h *WriteHandler) UpdateResearch(w http.ResponseWriter, r *http.Request) {
 
 	research, err := h.research.Update(r.Context(), id, service.UpdateResearchRequest{
 		Name: input.Name, Description: input.Description, Goal: input.Goal,
-		Status: status, Instruction: input.Instruction, Tags: input.Tags,
-		Memory: input.Memory, AddMemory: input.AddMemory,
+		Status: status, Tags: input.Tags,
+		AddMemory: input.AddMemory, SessionID: input.SessionID,
 	})
 	if err != nil {
 		writeServiceError(w, err)

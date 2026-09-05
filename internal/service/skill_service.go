@@ -333,12 +333,21 @@ func (s *SkillService) Update(ctx context.Context, id string, in SkillInput) (*d
 	if err := s.authorizeSkillWrite(ctx, sk); err != nil {
 		return nil, err
 	}
-	if err := validateSkill(in); err != nil {
+	// Historical instructions may exceed today's body rules. Metadata repair
+	// must preserve their exact bytes; only a changed body is newly validated.
+	sk.Body, err = s.skills.Body(ctx, sk.ID)
+	if err != nil {
+		return nil, err
+	}
+	bodyChanged := in.Body != sk.Body
+	if err := validateSkillFields(in, bodyChanged); err != nil {
 		return nil, err
 	}
 	sk.Name = normalizeTitle(in.Name)
 	sk.Description = normalizeContent(in.Description)
-	sk.Body = normalizeContent(in.Body)
+	if bodyChanged {
+		sk.Body = normalizeContent(in.Body)
+	}
 	// A person has now written the trigger line, whatever a migration put there
 	// — unless they never sent one, in which case nothing about it was reviewed.
 	if !in.DescriptionUntouched {
@@ -889,10 +898,14 @@ func inheritFrom(in SkillInput, src *domain.Skill, body func() (string, error)) 
 }
 
 func validateSkill(in SkillInput) error {
+	return validateSkillFields(in, true)
+}
+
+func validateSkillFields(in SkillInput, checkBody bool) error {
 	if strings.TrimSpace(in.Name) == "" {
 		return ErrSkillNameEmpty
 	}
-	if strings.TrimSpace(in.Body) == "" {
+	if checkBody && strings.TrimSpace(in.Body) == "" {
 		return ErrSkillBodyEmpty
 	}
 	// The description is the only line always in the agent's context and the
@@ -907,7 +920,7 @@ func validateSkill(in SkillInput) error {
 	if len([]rune(in.Description)) > domain.SkillDescriptionMax {
 		return ErrSkillDescriptionLong
 	}
-	if len([]rune(in.Body)) > domain.SkillBodyMax {
+	if checkBody && len([]rune(in.Body)) > domain.SkillBodyMax {
 		return ErrSkillBodyLong
 	}
 	return nil

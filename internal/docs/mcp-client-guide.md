@@ -50,9 +50,10 @@ shares. Do not acknowledge it on a user's behalf; use `entry_history` and
 |------|---------|
 | `research_create` | Create research with sections, tags, and goal. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team. Optional `template_slug` records the methodology you followed and attaches the skills it names |
 | `research_get` | Load full research context (sections with their `spec_version` and, where non-empty, `field_spec`; entry counts; active session; and the skills index when the research follows any) |
-| `research_resume` | The outstanding work: tasks in progress, blocked and pending, the open and deferred questions of one session, the marks a person left, the documents changed most recently, and up to three candidate next actions each carrying its reason and whether it is yours or a person's. Read-only — no session is created, no status moves, nothing is marked as seen. It carries no `instruction`, `memory`, `field_spec` or skills index: `research_get` owns those, and the two are meant to be called in that order |
+| `research_resume` | The outstanding work: tasks in progress, blocked and pending, the open and deferred questions of one session, the marks a person left, the documents changed most recently, and up to three candidate next actions each carrying its reason and whether it is yours or a person's. Read-only — no session is created, no status moves, nothing is marked as seen. It carries no `memory`, `field_spec` or skills index: `research_get` owns those, and the two are meant to be called in that order |
 | `research_list` | List every research you can reach, with optional status filter. Marks a shared one with `team` and a read-only one with `access: "read-only"` |
-| `research_update` | Update name, goal, status, instruction, memory, tags |
+| `research_update` | Update metadata or append one note with `add_memory` and optional `session_id` |
+| `research_memory` | List/add/edit/delete memory items by ID; edits require `version` |
 | `research_add_section` | Add a new section to an existing research |
 | `research_export` | Export a full research (sections, entries, sessions, questions, tasks, roadmaps). `format` defaults to `portable` (JSON for `research_import`); `format: "obsidian"` returns a link to download it as an Obsidian vault |
 | `research_import` | Re-create a research from a portable export payload. Optional `team_id` picks the team it lands in; omitted, it goes to your personal team |
@@ -223,7 +224,7 @@ available and `/templates/{id}` to read a body, not to edit one.
 
 ## Skills: An Index You Are Given, A Body You Ask For
 
-A research may **follow** skills — methodology documents saying how a kind of work is done (running an interview, grading a source, building a roadmap), as opposed to `instruction`, which says what this particular research is.
+A research may **follow** skills — methodology documents saying how a kind of work is done (running an interview, grading a source, building a roadmap), with research-specific rules in private skills and reusable rules in team/built-in skills.
 
 `research_get` returns them as `skills`: `slug`, `name`, `tier` and a `description` that says **when** to use each one. No bodies. Alongside it comes `skills_hint`. **The index is never empty in a working install** — the four product skills are in it whether or not anybody attached anything — so a missing `skills` key means the built-ins failed to load, not that this research follows nothing.
 
@@ -246,7 +247,7 @@ The four product skills need no attaching: they are in the index of every resear
 
 ## Nullable and Optional Fields
 
-Read this before composing any tool call. Input schemas are generated from Go structs, and the generated schema lists **every** property of a tool (and of every nested object) in `required`, with `additionalProperties: false`. Optionality is expressed by nullability, not by absence:
+Read this before composing any tool call. Input schemas are generated from Go structs, and the generated schema lists most properties of a tool (and of nested objects) in `required`, with `additionalProperties: false`. Usually optionality is expressed by nullability; the omission exceptions below also allow absence:
 
 | Parameter kind in the schema | How to skip it | Effect of `null` |
 |------------------------------|----------------|------------------|
@@ -258,11 +259,11 @@ Read this before composing any tool call. Input schemas are generated from Go st
 
 Consequences:
 
-- **Send every property.** Omitting one currently fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
-- **Eleven exceptions**, the only tools whose schema does not require everything: `entry_history` (`limit`), `entry_diff` (`from`, `to`), `research_export` (`format`), `research_import` (`team_id`), `research_create` (`team_id`, `template_slug`), `skill_create` (`research_id`, `team_id`), `skill_fork` (`name`, `description`, `body`), and `skill_list`, `skill_load`, `skill_update` and `skill_delete` (every property — each is addressed two ways and validates that itself). All of them are nullable too, so "send every property as `null`" is still a correct strategy everywhere.
+- **Send every required property.** Omitting one fails schema validation with `-32602 invalid params: required: missing properties: [...]` before the tool code runs. Use `null` (or `""` / `0`) rather than leaving a property out.
+- **Thirteen exceptions**, the only tools whose schema does not require everything: `entry_history` (`limit`), `entry_diff` (`from`, `to`), `research_export` (`format`), `research_import` (`team_id`), `research_create` (`team_id`, `template_slug`), `research_update` (`add_memory`, `session_id`), `research_memory` (`text`, `item_id`, `version`, `ids`, `session_id`), `skill_create` (`research_id`, `team_id`), `skill_fork` (`name`, `description`, `body`), and `skill_list`, `skill_load`, `skill_update` and `skill_delete` (every property — each is addressed two ways and validates that itself). The new memory tools distinguish omission from null: `research_update.session_id` and `research_memory.text`, `item_id`, `version`, `session_id` may be omitted but reject `null`. `research_update.add_memory` and `research_memory.ids` also accept `null`. The other omission exceptions accept `null`.
 - **A schema that requires nothing is not a tool that accepts nothing.** `skill_update` and `skill_delete` require no property because the skill may be addressed two ways — `research_id` + `slug`, or `skill_id` — and the tool checks that itself: give one form or the other, never both and never neither. `skill_create` is the same shape for ownership, `research_id` or `team_id`. `skill_update` also refuses a call that changes nothing: send at least one of `name`, `description`, `body`.
 - **Two tools take no input at all**: `template_list` and `team_list`. Their schemas are empty objects — send `{}`.
-- **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`.
+- **Never send `null` into a plain scalar.** The optional-but-not-nullable parameters are: `research_create` → `description`, `goal`; each `sections[]` item → `display_name`, `description`, `position`; `research_add_section` → `display_name`, `description`, `position`; each question item → `position`; `research_update` → `session_id`; `research_memory` → `text`, `item_id`, `version`, `session_id`.
 - **List filters are nullable**: `research_list.status`, `entry_list.status`, `question_list.status` / `area` / `priority`, `task_list.status` / `priority`, `annotation_list.status` / `kind` / `entry_id` / `limit` / `offset`. `null` or `""` means "no filter".
 - **The two annotation tools are in the ordinary regime**, not among the exceptions above: send every property. `annotation_list` carries one plain string (`research_id`) and five nullable filters, so the queue read is `research_id` plus five `null`s. `annotation_answer` carries two plain strings — `annotation_id` and `resolution`, neither of which may be `null` or empty — and one nullable `task_id`.
 - **`research_resume` is in the ordinary regime as well.** `research_id` is a plain string, and it does resolve an `R1` code; `session_id` and `limit` are nullable, so the ordinary call is the research plus two `null`s. `session_id: null` selects the one active session, or returns the candidates with `selection_required` when several are open — it never picks for you. `limit: null` is 5, and a number outside 1–15 is clamped rather than refused.
@@ -549,7 +550,25 @@ When answering a question, set both `answer` and `status: "answered"` in the sam
 
 ### 6. Combining replace and append parameters
 
-`research_update` rejects `memory` together with `add_memory`, and `session_update` rejects `notes` together with `add_note`. Pick one per call: the plain field replaces the whole value, the `add_*` field appends a single item. Set the other to `null`.
+`research_update` no longer accepts `instruction` or whole-array `memory`. Use private skills for rules, `add_memory` for one new note, or `research_memory` to edit/delete explicit IDs. Notes expose `id`, `text`, `created_at`, `author`, `version` and optional session provenance. Pass the real research session in `session_id`; never infer it from whichever session was most recently active. For `session_update`, `notes` and `add_note` remain mutually exclusive.
+
+`research_memory` requires `research_id` (UUID or R code) and `action`. Send
+only the additional fields needed for the action:
+
+```json
+{"research_id":"R1","action":"list"}
+{"research_id":"R1","action":"add","text":"Customer interviews changed our initial assumption.","session_id":"SS1"}
+{"research_id":"R1","action":"update","item_id":"item-uuid","text":"Corrected finding.","version":1}
+{"research_id":"R1","action":"delete","ids":["item-uuid"]}
+```
+
+Add/update text must be nonblank and at most 64,000 bytes. Delete accepts
+1–500 explicit IDs. List returns an array of items; add returns the new item;
+update/delete return `{"updated":true}`. After an edit, list or `research_get`
+provides the new version for the next edit. A stale version fails with a
+conflict: reload and reconcile the text before retrying. An omitted session
+records no session provenance. Authors are stamped by the server (`agent` or
+`user`); imported legacy notes have `unknown` authors and null creation times.
 
 ### 7. Editing a blocks entry as if it were text
 
@@ -662,6 +681,6 @@ Where codes are accepted as tool input:
 
 | Accepts UUID **or** code | Accepts UUID only |
 |--------------------------|-------------------|
-| `research_get`, `research_update`, `research_export`, `research_resume` (`research_id`), every `skill_*` tool (`research_id`), `session_get` and `research_resume` (`session_id` — an `SS` code is resolved inside the research you named, and one from another research reads as `not found`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list` / **`annotation_list`**, `entry_id`, `question_id`, `task_id`, `annotation_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
+| `research_get`, `research_update`, `research_memory`, `research_export`, `research_resume` (`research_id`), every `skill_*` tool (`research_id`), `session_get`, `research_resume`, `research_update` and `research_memory` (`session_id` — an `SS` code is resolved inside the research you named, and one from another research reads as `not found`), `roadmap_get` (`roadmap_id`) | every other tool — `research_id` in `entry_create` / `entry_list` / `section_list` / `session_create` / `task_create` / `task_list` / `roadmap_create` / `roadmap_list` / **`annotation_list`**, `entry_id`, `question_id`, `task_id`, `annotation_id`, `session_id` in `session_update`, `roadmap_id` in `roadmap_update` / `roadmap_delete` / `roadmap_add_nodes` / `roadmap_remove_nodes`, `node_id` |
 
 So keep the UUIDs returned by create calls. Short codes are for humans, URLs, and `[[...]]` cross-references — REST routes resolve them in `{id}` / `{sessionId}` / `{entryId}` / `{roadmapId}` path segments, MCP tools mostly do not.

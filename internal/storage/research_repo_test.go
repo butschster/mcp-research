@@ -19,8 +19,7 @@ func TestResearchRepository_CreateAndFindByID(t *testing.T) {
 		Description: "A test research project",
 		Goal:        "Test goal",
 		Status:      domain.ResearchActive,
-		Instruction: "Some instructions",
-		Memory:      []string{"mem1", "mem2"},
+		Memory:      domain.Memory{{Text: "mem1", Author: "unknown"}, {Text: "mem2", Author: "unknown"}},
 		Tags:        []string{"tag1", "tag2"},
 	}
 
@@ -57,9 +56,6 @@ func TestResearchRepository_CreateAndFindByID(t *testing.T) {
 	}
 	if found.Status != r.Status {
 		t.Errorf("Status: got %s, want %s", found.Status, r.Status)
-	}
-	if found.Instruction != r.Instruction {
-		t.Errorf("Instruction: got %s, want %s", found.Instruction, r.Instruction)
 	}
 }
 
@@ -250,7 +246,7 @@ func TestResearchRepository_MemoryAndTags(t *testing.T) {
 			ID:     uuid.New().String(),
 			Name:   "With Memory",
 			Status: domain.ResearchActive,
-			Memory: []string{"fact1", "fact2"},
+			Memory: domain.Memory{{Text: "fact1", Author: "unknown"}, {Text: "fact2", Author: "unknown"}},
 			Tags:   []string{"go", "testing"},
 		}
 		if err := repo.Create(ctx, r); err != nil {
@@ -264,7 +260,7 @@ func TestResearchRepository_MemoryAndTags(t *testing.T) {
 		if len(found.Memory) != 2 {
 			t.Fatalf("Memory length: got %d, want 2", len(found.Memory))
 		}
-		if found.Memory[0] != "fact1" || found.Memory[1] != "fact2" {
+		if found.Memory[0].Text != "fact1" || found.Memory[1].Text != "fact2" {
 			t.Errorf("Memory: got %v, want [fact1 fact2]", found.Memory)
 		}
 		if len(found.Tags) != 2 {

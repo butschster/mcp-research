@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
 	"github.com/butschster/mcp-research/internal/storage"
 	"github.com/google/uuid"
@@ -227,23 +228,37 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 		})
 	}
 
+	var privateSkills []domain.ExportPrivateSkill
+	if auth.ShareFromContext(ctx) == nil {
+		privateSkills, err = s.research.researches.ExportPrivateSkills(ctx, research.ID)
+		if err != nil {
+			return nil, fmt.Errorf("export private skills: %w", err)
+		}
+	}
+	// Local IDs are not portable; session codes are remapped during import.
+	memory := append(domain.Memory{}, research.Memory...)
+	for i := range memory {
+		memory[i].ID = ""
+		memory[i].SessionID = ""
+		memory[i].Version = 0
+	}
 	return &domain.ExportData{
-		Version:    1,
+		Version:    2,
 		ExportedAt: time.Now().UTC(),
 		Research: domain.ExportResearch{
-			Name:        research.Name,
-			Description: research.Description,
-			Goal:        research.Goal,
-			Status:      research.Status,
-			Instruction: research.Instruction,
-			Memory:      research.Memory,
-			Tags:        research.Tags,
-			CreatedAt:   research.CreatedAt,
-			UpdatedAt:   research.UpdatedAt,
-			Sections:    exportSections,
-			Sessions:    exportSessions,
-			Tasks:       exportTasks,
-			Roadmaps:    exportRoadmaps,
+			Name:          research.Name,
+			Description:   research.Description,
+			Goal:          research.Goal,
+			Status:        research.Status,
+			Memory:        memory,
+			PrivateSkills: privateSkills,
+			Tags:          research.Tags,
+			CreatedAt:     research.CreatedAt,
+			UpdatedAt:     research.UpdatedAt,
+			Sections:      exportSections,
+			Sessions:      exportSessions,
+			Tasks:         exportTasks,
+			Roadmaps:      exportRoadmaps,
 		},
 	}, nil
 }
@@ -253,13 +268,16 @@ func (s *ExportService) Export(ctx context.Context, researchID string) (*domain.
 // Import rebuilds a research from an export file, in the caller's personal
 // team unless teamID names another one they may write to.
 func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, teamID string) (*domain.Research, error) {
-	if data.Version != 1 {
+	if data.Version != 1 && data.Version != 2 {
 		return nil, fmt.Errorf("unsupported export version: %d", data.Version)
 	}
 
 	r := data.Research
 
 	if err := validateImportEntries(r); err != nil {
+		return nil, err
+	}
+	if err := validateImportProcess(r); err != nil {
 		return nil, err
 	}
 
@@ -293,16 +311,10 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, tea
 	}
 
 	// Update research fields that Create doesn't set
-	if r.Instruction != "" || r.Status != domain.ResearchActive || len(r.Memory) > 0 {
+	if r.Status != domain.ResearchActive {
 		updateReq := UpdateResearchRequest{}
-		if r.Instruction != "" {
-			updateReq.Instruction = &r.Instruction
-		}
 		if r.Status != domain.ResearchActive {
 			updateReq.Status = &r.Status
-		}
-		if len(r.Memory) > 0 {
-			updateReq.Memory = r.Memory
 		}
 		if _, err := s.research.Update(ctx, research.ID, updateReq); err != nil {
 			return nil, fmt.Errorf("update research fields: %w", err)
@@ -363,6 +375,18 @@ func (s *ExportService) Import(ctx context.Context, data *domain.ExportData, tea
 		if err == nil {
 			updateImportedQuestions(ctx, s.session, sess.Questions, swq.Questions)
 		}
+	}
+
+	// Restore notes only after sessions exist. Never trust foreign-instance IDs.
+	memory := append(domain.Memory{}, r.Memory...)
+	for i := range memory {
+		memory[i].SessionID = ""
+		if memory[i].SessionCode != "" {
+			memory[i].SessionID = sessionCodeToID[memory[i].SessionCode]
+		}
+	}
+	if err := s.research.researches.ImportProcess(ctx, research.ID, r.Instruction, memory, r.PrivateSkills); err != nil {
+		return nil, fmt.Errorf("import research memory and private skills: %w", err)
 	}
 
 	// 3. Create entries (ordered by section position to preserve code order)

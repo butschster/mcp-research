@@ -106,10 +106,7 @@ func newShareServer(t *testing.T) *shareServer {
 	if err != nil {
 		t.Fatalf("create research: %v", err)
 	}
-	if _, err := researchSvc.Update(ctx, research.ID, service.UpdateResearchRequest{
-		Instruction: strPtr("internal working note"),
-		Memory:      []string{"a memory the client must not read"},
-	}); err != nil {
+	if err := storage.NewResearchRepository(db).ImportProcess(ctx, research.ID, "internal working note", domain.Memory{{Text: "a memory the client must not read", Author: "unknown"}}, nil); err != nil {
 		t.Fatalf("set instruction: %v", err)
 	}
 	entry, err := entrySvc.Create(ctx, service.CreateEntryRequest{

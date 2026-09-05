@@ -53,10 +53,10 @@ it call by call:
    and attaches the skills the methodology names — read `skills_attached` and
    `skills_unavailable` in the reply. The slug is an MCP argument only; `POST
    /api/researches` has no field for it
-7. Set working instructions for future sessions. `instruction` is what **this**
-   research is — its scope, its constraints, what counts as done here. How the
-   work is done belongs to the template and the skills; do not copy methodology
-   into it
+7. Record scope and success criteria in `description` and `goal`. For working
+   rules specific to this research, use `skill_create` with `research_id` to
+   create an attached private skill with a concrete trigger description. Keep
+   reusable methodology in team or built-in skills.
 
 See [Templates](/llms/templates.md).
 
@@ -76,9 +76,8 @@ slug and read it at that moment. One slug per call. A skill read three steps
 before the work it describes has usually been forgotten by the time it matters.
 
 Where two skills conflict, the higher tier wins: research-private over team over
-built-in, which is why the index arrives in that order. `instruction` is not part
-of that ordering — it answers a different question, what this research is, and
-still governs tone and depth. See [Skills](/llms/skills.md).
+built-in, which is why the index arrives in that order. Research-specific tone
+and depth requirements belong in private skills. See [Skills](/llms/skills.md).
 
 When the index does not cover the work in front of you, you can change it.
 `skill_list` shows what this research could attach and how many of its six slots
@@ -110,7 +109,7 @@ deferred questions; the marks a person left, split into `to_work` and
 `awaiting_human`; the documents changed most recently; and at most three
 `next_actions`, each with a `reason_code`, a sentence saying what it was derived
 from, and an `actor`. Call it after `research_get` — that one carries the
-constraints (`instruction`, `memory`, `field_spec`, the skills index), this one
+constraints (`memory`, `field_spec`, the skills index), this one
 carries the work — and before you start reading documents.
 
 Four things about the answer decide whether you use it correctly:
@@ -242,7 +241,7 @@ See [Annotations](/llms/annotations.md).
 
 ### Track Progress
 
-- Use `research_update` with `add_memory` to record key insights
+- Use `research_update` with `add_memory` and the actual research `session_id` to record key insights; use `research_memory` for individual edits/deletes
 - Update session notes with `session_update` using `add_note`
 - Use tasks (`task_create`) to track work items
 - When a document *is* the plan, show those tasks in it with a `task_ref` block
@@ -353,7 +352,7 @@ Use `[[...]]` syntax in entry content to create links between documents:
 - Ask one question at a time for clarity
 - Prioritize high-priority questions first
 - Write entries that are self-contained and useful on their own
-- Use the research's instruction field as your guide for tone and depth
+- Load relevant private skills for the research's tone and depth requirements
 - Load a skill when you reach the work it names, not while orienting — and one at a time
 - Read the open annotations before writing into a research somebody has already read — a marked sentence is a person telling you where the document is wrong
 - Answer a mark, never close it: `closed` and `dismissed` belong to the reader

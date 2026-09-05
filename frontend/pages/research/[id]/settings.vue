@@ -69,16 +69,6 @@
               <span v-else class="field-empty">No tags yet</span>
             </template>
           </EditableField>
-          <EditableField
-            label="AI instructions"
-            :value="research.instruction"
-            :editable="canWrite"
-            multiline
-            :rows="6"
-            placeholder="How should your AI assistant work on this project?"
-            empty-text="No instructions set"
-            @save="v => save('instruction', v)"
-          />
         </div>
       </div>
     </div>
@@ -136,23 +126,16 @@
 
     <!-- Memory -->
     <div v-else-if="activeTab === 'memory'" id="panel-memory" role="tabpanel" aria-labelledby="tab-memory" tabindex="0" class="panel">
-      <p class="lead">
-        Context your AI assistant can use in later sessions. Each session starts with these notes.
-      </p>
-      <div class="card card--list">
-        <div v-if="research.memory?.length" class="data-rows">
-          <div v-for="(item, i) in (research.memory as string[])" :key="i" class="data-row memory-row">
-            <span class="memory-index">{{ i + 1 }}</span>
-            <span class="memory-text">{{ item }}</span>
-          </div>
-        </div>
-        <p v-else class="list-empty">
-          No notes yet. Your AI assistant can save context here for future sessions.
-        </p>
-      </div>
-      <p class="lead footnote">
-        Ask your connected AI assistant to update these notes.
-      </p>
+      <p v-if="memoryRefreshError" role="alert">{{ memoryRefreshError }}</p>
+      <ResearchSettingsMemoryList
+        :items="research.memory ?? []"
+        :research-id="researchSlug"
+        :can-write="canWrite"
+        :on-add="addMemory"
+        :on-update="updateMemory"
+        :on-delete="deleteMemory"
+        :on-reload="reloadMemory"
+      />
     </div>
 
     <!-- Sections -->
@@ -214,6 +197,28 @@ const activeTab = computed<Tab>({
 
 const { authFetch } = useAuth()
 const base = useRuntimeConfig().public.apiBase || ''
+
+// --- Memory ---
+const memoryRefreshError = ref('')
+async function reloadMemory() {
+  const response = await authFetch<any>(`${base}/api/researches/${id}/memory`)
+  // Nuxt's fetched data is shallow: replace the root to publish the new list.
+  if (research.value) researchData.value = {
+    ...researchData.value,
+    data: { ...researchData.value.data, research: { ...research.value, memory: response.data } },
+  }
+  memoryRefreshError.value = ''
+}
+async function memoryWrite(path: string, method: 'POST' | 'PATCH', body: unknown) {
+  await authFetch(`${base}/api/researches/${id}/memory${path}`, { method, body })
+  // The mutation succeeded. A failed follow-up read must not invite a retry
+  // of the already committed append (which would create a duplicate note).
+  try { await reloadMemory() }
+  catch { memoryRefreshError.value = 'Saved, but the list could not be refreshed. Click Refresh before making further changes.' }
+}
+const addMemory = (text: string) => memoryWrite('', 'POST', { text })
+const updateMemory = (itemId: string, text: string, version: number) => memoryWrite(`/${itemId}`, 'PATCH', { text, version })
+const deleteMemory = (ids: string[]) => memoryWrite('/bulk-delete', 'POST', { ids })
 
 // --- Skills ---
 const skillsData = ref<any>(null)
@@ -416,17 +421,4 @@ async function save(field: string, value: any) {
 .field-group > :deep(* + *) { border-top: 1px solid var(--color-border); }
 .team-link { color: var(--color-primary); }
 
-.memory-row { display: flex; gap: var(--space-3); align-items: baseline; }
-.memory-index {
-  font-size: var(--type-3xs);
-  color: var(--color-text-faint);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  min-width: 1.5rem;
-}
-.memory-text {
-  font-size: var(--type-sm);
-  /* A memory note can be a pasted log line with no spaces in it. */
-  overflow-wrap: anywhere;
-}
 </style>

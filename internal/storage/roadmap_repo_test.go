@@ -417,11 +417,18 @@ func TestRoadmapEdgeRepository_CreateAndFindByRoadmap(t *testing.T) {
 	if len(found) != 2 {
 		t.Fatalf("expected 2 edges, got %d", len(found))
 	}
-	if found[0].Label != "next" {
-		t.Errorf("first edge label: got %s, want 'next'", found[0].Label)
+	// Both edges may share the same second-resolution created_at. SQL makes
+	// no promise about their order within that tie (MySQL can return either).
+	// Check every field by identity instead of depending on physical row order.
+	byID := make(map[string]*domain.RoadmapEdge, len(found))
+	for _, edge := range found {
+		byID[edge.ID] = edge
 	}
-	if found[1].EdgeType != "success" {
-		t.Errorf("second edge type: got %s, want 'success'", found[1].EdgeType)
+	for _, want := range edges {
+		got := byID[want.ID]
+		if got == nil || got.RoadmapID != want.RoadmapID || got.SourceNodeID != want.SourceNodeID || got.TargetNodeID != want.TargetNodeID || got.Label != want.Label || got.EdgeType != want.EdgeType {
+			t.Errorf("edge %s: got %+v, want %+v", want.ID, got, want)
+		}
 	}
 }
 

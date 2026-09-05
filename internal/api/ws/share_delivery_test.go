@@ -83,6 +83,7 @@ func TestShareDelivery_IncludeFlagsFilterTheStream(t *testing.T) {
 		// Auth-disabled read receipts have no target user, so their entity is the
 		// only signal that they are still private working state.
 		{Type: "entry_view.updated", Entity: "entry_view", EntityID: "e1", ResearchID: "r1"},
+		{Type: "research.updated", Entity: "memory", EntityID: "private-note-id", ResearchID: "r1"},
 	} {
 		hub.deliver(e)
 		if got, ok := received(t, visitor); ok {

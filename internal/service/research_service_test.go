@@ -176,7 +176,6 @@ func TestResearchService_Update(t *testing.T) {
 			Description: ptr("Updated Desc"),
 			Goal:        ptr("Updated Goal"),
 			Status:      ptr(domain.ResearchCompleted),
-			Instruction: ptr("new instruction"),
 			Tags:        []string{"new-tag"},
 		})
 		if err != nil {
@@ -194,9 +193,6 @@ func TestResearchService_Update(t *testing.T) {
 		if updated.Status != domain.ResearchCompleted {
 			t.Errorf("expected status %q, got %q", domain.ResearchCompleted, updated.Status)
 		}
-		if updated.Instruction != "new instruction" {
-			t.Errorf("expected instruction %q, got %q", "new instruction", updated.Instruction)
-		}
 		if len(updated.Tags) != 1 || updated.Tags[0] != "new-tag" {
 			t.Errorf("expected tags [new-tag], got %v", updated.Tags)
 		}
@@ -212,10 +208,13 @@ func TestResearchService_Update(t *testing.T) {
 		}
 	})
 
-	t.Run("memory replace", func(t *testing.T) {
+	t.Run("independent memory appends", func(t *testing.T) {
 		r, _, _ := svc.Create(ctx, CreateResearchRequest{Name: "MemTest", Description: "d", Goal: "g"})
+		if _, err := svc.AddMemory(ctx, r.ID, "mem1", ""); err != nil {
+			t.Fatal(err)
+		}
 		updated, err := svc.Update(ctx, r.ID, UpdateResearchRequest{
-			Memory: []string{"mem1", "mem2"},
+			AddMemory: ptr("mem2"),
 		})
 		if err != nil {
 			t.Fatalf("update: %v", err)
@@ -227,7 +226,7 @@ func TestResearchService_Update(t *testing.T) {
 
 	t.Run("add memory", func(t *testing.T) {
 		r, _, _ := svc.Create(ctx, CreateResearchRequest{Name: "AddMemTest", Description: "d", Goal: "g"})
-		_, _ = svc.Update(ctx, r.ID, UpdateResearchRequest{Memory: []string{"existing"}})
+		_, _ = svc.Update(ctx, r.ID, UpdateResearchRequest{AddMemory: ptr("existing")})
 		updated, err := svc.Update(ctx, r.ID, UpdateResearchRequest{AddMemory: ptr("appended")})
 		if err != nil {
 			t.Fatalf("update: %v", err)
@@ -235,19 +234,18 @@ func TestResearchService_Update(t *testing.T) {
 		if len(updated.Memory) != 2 {
 			t.Errorf("expected 2 memory entries, got %d", len(updated.Memory))
 		}
-		if updated.Memory[1] != "appended" {
+		if updated.Memory[1].Text != "appended" {
 			t.Errorf("expected second memory %q, got %q", "appended", updated.Memory[1])
 		}
 	})
 
-	t.Run("mutual exclusion memory and add_memory", func(t *testing.T) {
+	t.Run("empty memory is rejected", func(t *testing.T) {
 		r, _, _ := svc.Create(ctx, CreateResearchRequest{Name: "MutExTest", Description: "d", Goal: "g"})
 		_, err := svc.Update(ctx, r.ID, UpdateResearchRequest{
-			Memory:    []string{"a"},
-			AddMemory: ptr("b"),
+			AddMemory: ptr("  "),
 		})
-		if !errors.Is(err, ErrMutualExclusion) {
-			t.Errorf("expected ErrMutualExclusion, got %v", err)
+		if !errors.Is(err, ErrValidation) {
+			t.Errorf("expected ErrValidation, got %v", err)
 		}
 	})
 }

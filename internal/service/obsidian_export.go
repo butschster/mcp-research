@@ -113,7 +113,7 @@ func NewObsidianService(
 //
 // Ownership is settled by the first call: ResearchService.Get returns ErrNotFound
 // for a research belonging to someone else, and every read below is by that
-// research's id. That call is also what redacts `instruction` and `memory` for
+// research's id. That call is also what redacts `memory` for
 // a share visitor, so the research this builds from is already the published
 // one.
 //
@@ -133,6 +133,12 @@ func (s *ObsidianService) Vault(ctx context.Context, idOrCode string, opts Vault
 		research: research,
 		names:    map[string]string{},
 		missing:  map[string]string{},
+	}
+	if auth.ShareFromContext(ctx) == nil {
+		b.privateSkills, err = s.research.researches.ExportPrivateSkills(ctx, research.ID)
+		if err != nil {
+			return nil, fmt.Errorf("export private skills: %w", err)
+		}
 	}
 
 	sections, err := s.section.List(ctx, research.ID)
@@ -240,9 +246,10 @@ func clampForShare(ctx context.Context, opts VaultOptions) VaultOptions {
 // ── the builder ──
 
 type vaultBuilder struct {
-	opts     VaultOptions
-	research *domain.Research
-	files    []VaultFile
+	privateSkills []domain.ExportPrivateSkill
+	opts          VaultOptions
+	research      *domain.Research
+	files         []VaultFile
 	// names maps a short code to the note that answers to it, by filename. It is
 	// what makes a link resolve — see linkify.
 	names map[string]string
@@ -914,14 +921,25 @@ func (b *vaultBuilder) writeReadme(
 	if len(r.Memory) > 0 {
 		body.WriteString("## Memory\n\n")
 		for _, m := range r.Memory {
-			body.WriteString("- " + oneLine(m) + "\n")
+			body.WriteString("- " + oneLine(m.Text))
+			if !b.opts.RedactProvenance {
+				body.WriteString(" (" + m.Author)
+				if m.CreatedAt != nil {
+					body.WriteString(", " + m.CreatedAt.UTC().Format(time.RFC3339))
+				}
+				if m.SessionCode != "" {
+					body.WriteString(", " + m.SessionCode)
+				}
+				body.WriteString(")")
+			}
+			body.WriteString("\n")
 		}
 		body.WriteString("\n")
 	}
-	if r.Instruction != "" {
-		body.WriteString("## Instruction\n\n" + normalizeContent(r.Instruction) + "\n")
-	}
 
+	for _, skill := range b.privateSkills {
+		body.WriteString("## Private skill: " + oneLine(skill.Name) + "\n\n" + skill.Body + "\n\n")
+	}
 	b.addNote(indexNote+".md", body.String())
 }
 

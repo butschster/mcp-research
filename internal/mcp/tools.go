@@ -10,6 +10,7 @@ func (s *Server) registerTools() {
 	tools.RegisterResearchGet(s.server, s.research, s.section, s.session, s.skill, s.log)
 	tools.RegisterResearchList(s.server, s.research, s.log)
 	tools.RegisterResearchUpdate(s.server, s.research, s.log)
+	tools.RegisterResearchMemory(s.server, s.research)
 	tools.RegisterResearchAddSection(s.server, s.research, s.log)
 	// Read-only, and next to research_get on purpose: one carries the
 	// constraints a research works under, the other the work still open in it.

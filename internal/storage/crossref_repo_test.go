@@ -17,7 +17,7 @@ func TestCrossRefRepository_ReplaceAndFind(t *testing.T) {
 	entryRepo := NewEntryRepository(db)
 	crossrefRepo := NewCrossRefRepository(db)
 
-	r := &domain.Research{ID: uuid.New().String(), Name: "Test", Status: domain.ResearchActive, Memory: []string{}, Tags: []string{}}
+	r := &domain.Research{ID: uuid.New().String(), Name: "Test", Status: domain.ResearchActive, Memory: domain.Memory{}, Tags: []string{}}
 	researchRepo.Create(ctx, r)
 
 	s := &domain.Section{ID: uuid.New().String(), ResearchID: r.ID, Name: "s1", Status: domain.SectionDraft}
@@ -83,7 +83,7 @@ func TestCrossRefRepository_QuestionSource(t *testing.T) {
 	entryRepo := NewEntryRepository(db)
 	crossrefRepo := NewCrossRefRepository(db)
 
-	r := &domain.Research{ID: uuid.New().String(), Name: "Test", Status: domain.ResearchActive, Memory: []string{}, Tags: []string{}}
+	r := &domain.Research{ID: uuid.New().String(), Name: "Test", Status: domain.ResearchActive, Memory: domain.Memory{}, Tags: []string{}}
 	researchRepo.Create(ctx, r)
 
 	s := &domain.Section{ID: uuid.New().String(), ResearchID: r.ID, Name: "s1", Status: domain.SectionDraft}

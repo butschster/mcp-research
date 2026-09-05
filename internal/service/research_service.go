@@ -39,10 +39,9 @@ type UpdateResearchRequest struct {
 	Description *string
 	Goal        *string
 	Status      *domain.ResearchStatus
-	Instruction *string
 	Tags        []string
-	Memory      []string // replace entire memory
-	AddMemory   *string  // append single entry
+	AddMemory   *string // append single entry
+	SessionID   string  // optional research session for add_memory
 }
 
 type ResearchService struct {
@@ -72,7 +71,7 @@ func (s *ResearchService) Create(ctx context.Context, req CreateResearchRequest)
 		Description: normalizeContent(req.Description),
 		Goal:        normalizeContent(req.Goal),
 		Status:      domain.ResearchActive,
-		Memory:      []string{},
+		Memory:      domain.Memory{},
 		Tags:        req.Tags,
 	}
 	if research.Tags == nil {
@@ -191,7 +190,7 @@ func (s *ResearchService) Get(ctx context.Context, id string) (*domain.Research,
 //
 // It lives here, on the one function every reader of a research goes through —
 // the page, both exports and the portable dump all call Get — rather than in
-// each of them. `instruction` and `memory` are the agent's working notes about
+// each of them. Memory holds the agent's working notes about
 // how to conduct the research; they are not a result, and their author did not
 // choose to publish them by sending someone a link to the findings.
 //
@@ -202,10 +201,9 @@ func redactForShare(ctx context.Context, research *domain.Research) {
 	if research == nil || auth.ShareFromContext(ctx) == nil {
 		return
 	}
-	research.Instruction = ""
 	// An empty slice, not nil: `"memory": null` is not a list, and the frontend
 	// renders one either way.
-	research.Memory = []string{}
+	research.Memory = domain.Memory{}
 	research.UserID = ""
 	research.TeamID = ""
 	research.TeamName = ""
@@ -214,7 +212,7 @@ func redactForShare(ctx context.Context, research *domain.Research) {
 	// whether to draw an editing control at all.
 	research.Role = domain.TeamViewer
 	// Which methodology a team follows is working process, exactly like the
-	// instruction above it. The slug is Slugify(a name the team chose), so it
+	// memory above it. The slug is Slugify(a name the team chose), so it
 	// reads back as that name — "acme-q4-layoff-diligence" is not something a
 	// client holding a read-only link should learn. The version leaks too: for
 	// a research started from a shipped template it is a number about our
@@ -282,17 +280,19 @@ func (s *ResearchService) List(ctx context.Context, filter storage.ResearchFilte
 }
 
 func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResearchRequest) (*domain.Research, error) {
-	// Mutual exclusion: memory and add_memory
-	if req.Memory != nil && req.AddMemory != nil {
-		return nil, fmt.Errorf("memory and add_memory: %w", ErrMutualExclusion)
-	}
-
 	research, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	if err := s.access.Write(ctx, research.ID); err != nil {
 		return nil, err
+	}
+	// A memory-only request must not write a stale metadata snapshot back.
+	if req.AddMemory != nil && req.Name == nil && req.Description == nil && req.Goal == nil && req.Status == nil && req.Tags == nil {
+		if _, err := s.AddMemory(ctx, research.ID, *req.AddMemory, req.SessionID); err != nil {
+			return nil, err
+		}
+		return s.Get(ctx, research.ID)
 	}
 
 	if req.Name != nil {
@@ -307,25 +307,23 @@ func (s *ResearchService) Update(ctx context.Context, id string, req UpdateResea
 	if req.Status != nil {
 		research.Status = *req.Status
 	}
-	if req.Instruction != nil {
-		research.Instruction = normalizeContent(*req.Instruction)
-	}
 	if req.Tags != nil {
 		research.Tags = req.Tags
 	}
-	if req.Memory != nil {
-		research.Memory = req.Memory
-	}
+	var memoryItem *domain.MemoryItem
 	if req.AddMemory != nil {
-		research.Memory = append(research.Memory, *req.AddMemory)
+		memoryItem, err = s.prepareMemory(ctx, research.ID, *req.AddMemory, req.SessionID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if err := s.researches.Update(ctx, research); err != nil {
+	if err := s.researches.UpdateWithMemory(ctx, research, memoryItem); err != nil {
 		return nil, fmt.Errorf("update research: %w", err)
 	}
 
 	emit(ctx, s.events, Event{Type: "research.updated", ResearchID: research.ID, EntityID: research.ID, Entity: "research"})
-	return research, nil
+	return s.Get(ctx, research.ID)
 }
 
 func (s *ResearchService) AddSection(ctx context.Context, researchID string, req CreateSectionRequest) (*domain.Section, error) {

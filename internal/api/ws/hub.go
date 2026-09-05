@@ -387,10 +387,10 @@ func visibleToShare(share *auth.Share, event Event) bool {
 		// template.* event carrying a research id, this file is not where they
 		// will think to look.
 		return false
-	case "skill":
+	case "skill", "memory":
 		// Never. Which methodology a team follows is working process — the same
 		// class as `instruction` and `memory`, which no share has ever carried.
-		// The HTTP surface refuses skills and the service refuses a share
+		// The HTTP surface refuses skills/memory and the service refuses a share
 		// context; without this line the socket announced every change anyway,
 		// telling a stranger that the set changed, when, and with which ids.
 		return false

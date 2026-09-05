@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build -o storybook-static"
+    "build-storybook": "storybook build -o storybook-static",
+    "test:memory-ui": "node scripts/test-memory-ui.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

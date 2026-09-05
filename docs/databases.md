@@ -45,10 +45,9 @@ create can leave a gap; deleted codes are not recycled automatically.
 
 ## Schema upgrades
 
-SQLite keeps migrations `001` through `027` and upgrades with `028`. Its data is
-not rebuilt or exported during this change. PostgreSQL and MySQL have fresh
-baselines matching that schema and their own counter migration. Switching the
-configured driver does not copy existing data between databases.
+SQLite retains its historical migrations and now upgrades through `029`.
+PostgreSQL and MySQL have equivalent baselines and upgrade through `003`.
+Switching the configured driver does not copy existing data between databases.
 
 Add a migration for each supported database whenever the schema changes.
 PostgreSQL and SQLite execute each migration and its history record in one
@@ -71,11 +70,18 @@ SQLite deployment, leave `db_driver` unset or set it to `sqlite`; do not set a
 new `db_dsn` accidentally, since it overrides the existing path. An empty
 effective path starts an in-memory database, not your existing deployment.
 
-The upgrade from schema `027` is additive: `028` creates `storage_counters`.
-Historical migrations `001`–`027` are unchanged. A file-based regression test
-compares all old table contents and definitions before and after two startups,
-checks SQLite integrity and foreign keys, exercises legacy short-code numbering,
-and verifies the old SQL interface still reads/writes the upgraded schema.
+Migration `028` adds `storage_counters`; `029` moves memory into `research_memory`
+and each nonempty legacy instruction into an attached private skill with
+`needs_trigger=true`. Text, note order, duplicates and empty legacy notes are
+preserved. Slug collisions receive a suffix; oversized instructions are not
+truncated. Legacy authors/dates are unknown, not inferred from research dates.
+The old `researches.memory` and `researches.instruction` columns are removed.
+**This is not a binary-only rollback-compatible upgrade. Stop old writers before
+migration; rollback requires restoring the pre-upgrade database backup.**
+Malformed legacy memory stops migration instead of being silently discarded.
+Historical migrations `001`–`028` are unchanged. File-based tests compare all
+unaffected table data/definitions across two startups and verify the transformed
+notes separately, plus SQLite integrity, foreign keys and short-code numbering.
 This does not replace a rehearsal with the actual production backup, especially
 for older releases or manually modified schemas.
 
@@ -103,6 +109,28 @@ for older releases or manually modified schemas.
 
 Creating/merging a PR is not a production deployment. Do not deploy until the
 database CI matrix and the production-copy rehearsal have passed.
+
+### API and backup compatibility
+
+`research.memory` is now an array of objects, not strings. Clients must read
+`item.text` and use per-item IDs. Whole-array writes and `instruction` writes
+are rejected; `add_memory` remains available. Deploy frontend/backend together
+and reconnect MCP clients to refresh tool schemas. Memory edit requests require
+the current `version`; HTTP 409 means reload and reconcile, not blindly retry.
+Pass an actual research session UUID/SS code for provenance; omitted session
+does not guess which concurrent agent's active session to use.
+
+Portable JSON export version 2 carries structured notes and research-private
+skills (including detached ones); version 1 imports remain supported and convert
+old string notes/instructions. Foreign session IDs are never reused: session
+codes are remapped to newly imported sessions. Team libraries/built-ins remain
+instance-level content; use a full database backup for an entire-instance move.
+
+The memory UI has browser regression tests without added npm dependencies.
+Start `npm run storybook` in `frontend`, then run `npm run test:memory-ui` in a
+second terminal. Requires Chrome and Node 22+; set `CHROME_BIN` or `STORYBOOK_URL`
+when using a different executable or port. Tests cover create/edit, confirmed
+selected deletion, viewer controls, conflict draft retention and mobile layout.
 
 ## Test matrix
 

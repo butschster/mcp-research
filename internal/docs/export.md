@@ -160,7 +160,7 @@ current directory.
 
 ```
 R1 — Competitive Landscape.zip
-├── README.md                     goal, description, memory, instruction, and a
+├── README.md                     goal, description, memory, private skills, and a
 │                                 linked table of contents of every entry,
 │                                 session, task and roadmap in the vault
 ├── 01 — Market Analysis/         one folder per section, numbered in section order
@@ -643,9 +643,22 @@ its declaration starts at version 1.
 
 **Where the import lands.** The new research goes into the caller's personal team unless another one is named: `?team={id}` on the REST route, `team_id` on the `research_import` tool. Naming a team you are not in is `not found`; naming one where you are only a `viewer` is refused with `your role in this team does not allow this`. Ownership does not travel with the payload — the export carries no team and no user.
 
-**No skills travel with an export either.** Which [skills](/llms/skills.md) a research follows is not in the portable payload and not in any of the reading formats, so an imported research follows nothing and its team library is not reconstructed. Re-attach them on the destination server.
+**Private skills and memory travel in portable version 2.** Exports emit version
+`2`; imports accept `1` and `2`. Structured memory carries text, author, nullable
+creation time and optional session code. Local memory IDs and session UUIDs are
+cleared on export; import creates fresh item IDs and versions and remaps session
+codes to the new sessions. Version 1 string notes become items with unknown
+authors and null creation times. Legacy `instruction` becomes an attached
+private skill marked `needs_trigger`, preserving its full text.
 
-**No template provenance either.** `template_slug` and `template_version` are on the research record but not in `ExportResearch`, so an import lands with no methodology recorded — and could not honour one anyway: a slug names a row in *this* server's template library, and the destination may have a different set, a fork under the same slug, or none. The stamp says which methodology this research was started from on this server; it is not a portable reference. If it matters to the reader, write it into `instruction` or an entry, which do travel. See [Templates](/llms/templates.md).
+`private_skills` carries each research-owned skill's slug, name, description,
+body, `needs_trigger` and `attached` state, including detached private skills.
+Import restores these with fresh IDs. Team and built-in libraries and their
+attachments do not travel; re-attach reusable skills on the destination. The
+Obsidian vault includes private skill bodies and memory with provenance in its
+README for authenticated exports. Share exports exclude both memory and skills.
+
+**No template provenance either.** `template_slug` and `template_version` are on the research record but not in `ExportResearch`, so an import lands with no methodology recorded — and could not honour one anyway: a slug names a row in *this* server's template library, and the destination may have a different set, a fork under the same slug, or none. The stamp says which methodology this research was started from on this server; it is not a portable reference. If it matters to the reader, record it in a private skill or an entry, which do travel. See [Templates](/llms/templates.md).
 
 **No history travels with an export.** Revisions are not in the portable payload, and every entry an import creates starts at revision 1 attributed to `import` rather than to an agent that never wrote it. Export a research, import it elsewhere, and who wrote what before the export is only in the original server. The vault's `_history/` tables (`revisions=true`) are a readable record, not a transferable one — nothing imports them back.
 
@@ -661,7 +674,7 @@ GET /api/shared/{token}/researches/{id}/export?format=obsidian
 
 Same handler, same payload shape as the authenticated route above, with four differences that are the point of the feature:
 
-- `instruction` and `memory` are absent, along with `user_id` and every team field. They are stripped on the read path every export goes through, so there is no format that carries them out.
+- Private skills and memory are absent, along with `user_id` and every team field. Research reads redact memory and ownership; export code excludes private skills for a share context. No shared format carries them out.
 - **A share sees neither document metadata nor the declaration behind it.** `field_spec` is stripped from every section a share reads and `metadata` from every entry, so the shared markdown renders no metadata block and the shared vault emits no user front-matter keys — both render *from* the declaration, and a share has none. A list of field labels with nothing in them still says what a team decided to track. See [Document Metadata](/llms/metadata.md).
 - `sessions` is empty unless the link includes sessions, and `tasks` unless it includes tasks. An export that carried the interview transcript would hand over in one file exactly what the creator chose to leave out of the pages.
 - `/export/portable` is not mounted under the prefix at all: it is a re-importable copy of the record rather than a reading of it. **Session export is not shared either** — only the research-scoped route is mounted.
@@ -679,9 +692,9 @@ Same handler, same payload shape as the authenticated route above, with four dif
 | `revisions=true` | never — no flag publishes an entry's history |
 | — | the `session:` key in an entry's frontmatter is dropped, and the `Session:` footer link with it |
 
-Revisions and provenance are refused outright rather than gated, for the same reason the shared entry pages omit them: who edited what, when, and from which session is working process, like `instruction`.
+Revisions and provenance are refused outright rather than gated, for the same reason the shared entry pages omit them: who edited what, when, and from which session is working process, like private skills.
 
-The research itself needs no special handling — the vault builds from `ResearchService.Get`, which is where `instruction` and `memory` are redacted, so it starts from the published research. This route was a `404` for a while on the belief that it did not; it is `internal/api/share_routes_test.go` that now settles the question, by unzipping the response and asserting against filenames.
+The research itself needs no special handling — the vault builds from `ResearchService.Get`, which redacts memory; private skills are separately excluded for share contexts, so it starts from the published research. This route was a `404` for a while on the belief that it did not; it is `internal/api/share_routes_test.go` that now settles the question, by unzipping the response and asserting against filenames.
 
 Without `include.export` the route answers the same `404 this link is no longer available` as a revoked token: a link that does not offer a download should look like a server that has none.
 

@@ -62,8 +62,8 @@ func TestExport_MinimalResearch(t *testing.T) {
 		t.Fatalf("export: %v", err)
 	}
 
-	if data.Version != 1 {
-		t.Errorf("version = %d, want 1", data.Version)
+	if data.Version != 2 {
+		t.Errorf("version = %d, want 2", data.Version)
 	}
 	if data.ExportedAt.IsZero() {
 		t.Error("exported_at should not be zero")
@@ -611,23 +611,22 @@ func TestExport_ResearchInstructionAndMemory(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	researchSvc.Update(ctx, research.ID, UpdateResearchRequest{
-		Instruction: ptr("Be concise and technical"),
-		Memory:      []string{"User prefers Go", "Focus on backend"},
-	})
+	if err := researchSvc.researches.ImportProcess(ctx, research.ID, "Be concise and technical", domain.Memory{{Text: "User prefers Go", Author: "unknown"}, {Text: "Focus on backend", Author: "unknown"}}, nil); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := exportSvc.Export(ctx, research.ID)
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
 
-	if data.Research.Instruction != "Be concise and technical" {
-		t.Errorf("instruction = %q", data.Research.Instruction)
+	if data.Research.Instruction != "" || len(data.Research.PrivateSkills) != 1 || data.Research.PrivateSkills[0].Body != "Be concise and technical" {
+		t.Errorf("private skills = %+v", data.Research.PrivateSkills)
 	}
 	if len(data.Research.Memory) != 2 {
 		t.Fatalf("memory = %d", len(data.Research.Memory))
 	}
-	if data.Research.Memory[0] != "User prefers Go" {
+	if data.Research.Memory[0].Text != "User prefers Go" {
 		t.Errorf("memory[0] = %q", data.Research.Memory[0])
 	}
 	if len(data.Research.Tags) != 2 || data.Research.Tags[0] != "ai" {
@@ -1083,7 +1082,7 @@ func TestImport_WithInstructionAndMemory(t *testing.T) {
 			Name:        "Instruction Test",
 			Status:      domain.ResearchActive,
 			Instruction: "Be helpful",
-			Memory:      []string{"Remember this", "And this"},
+			Memory:      domain.Memory{{Text: "Remember this", Author: "unknown"}, {Text: "And this", Author: "unknown"}},
 			Tags:        []string{"tag1"},
 		},
 	}
@@ -1094,10 +1093,11 @@ func TestImport_WithInstructionAndMemory(t *testing.T) {
 	}
 
 	r, _ := researchSvc.Get(ctx, research.ID)
-	if r.Instruction != "Be helpful" {
-		t.Errorf("instruction = %q", r.Instruction)
+	skills, err := researchSvc.researches.ExportPrivateSkills(ctx, r.ID)
+	if err != nil || len(skills) != 1 || skills[0].Body != "Be helpful" || !skills[0].NeedsTrigger {
+		t.Fatalf("legacy instruction migration: %+v %v", skills, err)
 	}
-	if len(r.Memory) != 2 || r.Memory[0] != "Remember this" {
+	if len(r.Memory) != 2 || r.Memory[0].Text != "Remember this" {
 		t.Errorf("memory = %v", r.Memory)
 	}
 	if len(r.Tags) != 1 || r.Tags[0] != "tag1" {
@@ -1149,10 +1149,9 @@ func TestExportImportRoundTrip(t *testing.T) {
 		t.Fatalf("create research: %v", err)
 	}
 
-	researchSvc.Update(ctx, research.ID, UpdateResearchRequest{
-		Instruction: ptr("You are a research assistant"),
-		Memory:      []string{"Note 1", "Note 2"},
-	})
+	if err := researchSvc.researches.ImportProcess(ctx, research.ID, "You are a research assistant", domain.Memory{{Text: "Note 1", Author: "unknown"}, {Text: "Note 2", Author: "unknown"}}, nil); err != nil {
+		t.Fatal(err)
+	}
 
 	session, _, err := sessionSvc.Create(ctx, CreateSessionRequest{
 		ResearchID: research.ID,
@@ -1296,8 +1295,8 @@ func TestExportImportRoundTrip(t *testing.T) {
 		t.Errorf("re-exported task result = %q", reExported.Research.Tasks[0].Result)
 	}
 
-	if reExported.Research.Instruction != "You are a research assistant" {
-		t.Errorf("re-exported instruction = %q", reExported.Research.Instruction)
+	if reExported.Research.Instruction != "" || len(reExported.Research.PrivateSkills) != 1 || reExported.Research.PrivateSkills[0].Body != "You are a research assistant" {
+		t.Errorf("re-exported private skills = %+v", reExported.Research.PrivateSkills)
 	}
 	if len(reExported.Research.Memory) != 2 {
 		t.Errorf("re-exported memory = %d", len(reExported.Research.Memory))
@@ -1629,7 +1628,7 @@ func TestExportData_JSONRoundTrip(t *testing.T) {
 			Goal:        "Goal",
 			Status:      domain.ResearchActive,
 			Instruction: "Instruction",
-			Memory:      []string{"mem1"},
+			Memory:      domain.Memory{{Text: "mem1", Author: "unknown"}},
 			Tags:        []string{"tag1", "tag2"},
 			Sections: []domain.ExportSection{
 				{
