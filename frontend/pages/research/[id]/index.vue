@@ -108,15 +108,38 @@
       </template>
     </PageHeader>
 
-    <p v-if="entryUpdatesFetchError" class="inline-error updates-load-error" role="alert">
+    <p v-if="entryUpdatesFetchError" class="inline-error inline-error--action updates-load-error" role="alert">
       <span>Could not load document updates. Counts and badges may be unavailable.</span>
       <button type="button" class="btn btn-sm" @click="reloadUpdates()">Try again</button>
     </p>
 
-    <!-- Active sessions -->
-    <ResearchActiveSessionsGrid :sessions="activeSessions" :research-slug="researchSlug"
-          :research-id="research?.id"
-          :research-name="research?.name" />
+    <!-- What to continue. It takes the place of the session grid rather than
+         standing above it: two rows of session cards give the page two focal
+         points and neither wins. The block's head names the selected session
+         and links to it, which is the grid's job moved. -->
+    <ResearchResumeBlock
+      v-if="!resume.unavailable.value"
+      :summary="resume.summary.value"
+      :research-slug="researchSlug"
+      :loading="resume.loading.value"
+      :refreshing="resume.refreshing.value"
+      :error="resume.error.value"
+      :archived="research.status === 'archived' || research.status === 'completed'"
+      :updates-by-entry="updatesByEntry"
+      :can-write="canWrite"
+      @refresh="resume.refresh()"
+      @select-session="resume.selectSession($event)"
+    />
+
+    <!-- The fallback for one state only: a server with no resume route, where
+         the block does not render at all. A failed request is the block's own
+         business — it says so and offers a retry — and showing both would give
+         the page two answers to one question. -->
+    <ResearchActiveSessionsGrid
+      v-if="resume.unavailable.value"
+      :sessions="activeSessions" :research-slug="researchSlug"
+      :research-id="research?.id"
+      :research-name="research?.name" />
 
     <!-- Sidebar layout: sections + entries -->
     <div class="layout-sidebar">
@@ -523,10 +546,28 @@ async function reloadEverything() {
   await Promise.all([
     reloadResearch(), reloadEntries(), reloadLinks(),
     reloadSessions(), reloadRoadmaps(), reloadTasks(), reloadUpdates(),
+    // Events sent while the socket was down are gone, so the summary is
+    // refetched rather than waiting for the next write to notice.
+    resume.refresh(),
   ])
 }
 
+// The summary is derived from tasks, questions, marks and entries, so almost
+// any write in this research changes it. `entry_view` is excluded because it is
+// the reader's own checkpoint and the summary deliberately knows nothing about
+// it; `share` because a link being issued changes no work.
+const resume = useResearchResume(id, researchSlug.value)
+onMounted(() => {
+  // The remembered session is read first, so the first request already asks
+  // about the thread this reader was on.
+  resume.restoreSession()
+  resume.load(true)
+})
+
 useResearchRealtime(() => id, async (event) => {
+  // Not on a server without the route: one 404 per write burst, for the life
+  // of the page, buys nothing.
+  if (!resume.unavailable.value && !['entry_view', 'share'].includes(event.entity)) resume.scheduleRefresh()
   if (['research', 'section', 'session'].includes(event.entity)) await reloadResearch()
   if (event.entity === 'entry') {
     // The sidebar's totals and per-section counts come off the research
@@ -555,7 +596,7 @@ useResearchRealtime(() => id, async (event) => {
 
 <style scoped>
 
-.updates-load-error { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+.updates-load-error { margin-bottom: var(--space-4); }
 
 /* Responsive */
 @media (max-width: 768px) {

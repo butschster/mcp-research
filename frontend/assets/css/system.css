@@ -144,6 +144,18 @@
   transform: translateY(0) scale(0.97);
   transition-duration: 0.05s;
 }
+/* A control that is working looks like a control that is live: same colour,
+   same border, and `.btn-icon:hover` still lightening under the pointer. The
+   refresh button spent two seconds looking pressable and doing nothing. */
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  color: var(--color-text-faint);
+  border-color: var(--color-border);
+  cursor: default;
+  pointer-events: none;
+  transform: none;
+  box-shadow: none;
+}
 .btn-sm {
   min-height: var(--control-h-sm);
   padding: 0.3rem 0.625rem;
@@ -595,6 +607,10 @@ a.short-code:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -1px;
 }
+/* A refusal with a way out of it: the sentence and its retry button on one
+   line. Three pages wrote the same four declarations in their own scoped
+   blocks, which is where a shared rule belongs instead. */
+.inline-error--action { display: flex; align-items: center; gap: var(--space-3); }
 .inline-error {
   font-size: var(--type-xs);
   color: var(--color-error);

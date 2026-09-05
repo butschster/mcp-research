@@ -98,6 +98,52 @@ when the skill is created** — `skill_update` renames it without ever changing 
 slug, so a `slug_taken` is cleared by editing or deleting whatever holds the
 name, never by picking a new one.
 
+### Picking Up a Research That Is Already Running
+
+Most sessions are not the first one. A new chat has no memory of the last, and
+walking every section with `entry_list` to find out where the work stopped costs
+more the larger the research is.
+
+`research_resume(research_id, session_id, limit)` returns the queue instead:
+tasks `in_progress`, `blocked` and `pending`; the selected session's open and
+deferred questions; the marks a person left, split into `to_work` and
+`awaiting_human`; the documents changed most recently; and at most three
+`next_actions`, each with a `reason_code`, a sentence saying what it was derived
+from, and an `actor`. Call it after `research_get` — that one carries the
+constraints (`instruction`, `memory`, `field_spec`, the skills index), this one
+carries the work — and before you start reading documents.
+
+Four things about the answer decide whether you use it correctly:
+
+- **`actor: "human"` is not your work.** An answered mark is waiting for the
+  person who raised the objection to accept it, and you cannot accept your own
+  answer. So is `choose_session`. Report those; do not queue them.
+- **An empty group is not a finished research.** Every group carries `returned`,
+  `total`, `has_more` and a `more` object naming the tool that opens the rest
+  (`task_list`, `session_get`, `annotation_list`, `entry_list`). A top-five is a
+  top-five.
+- **`author_kind: "human"` on a recent entry is a correction.** Somebody edited
+  that document in the web UI after the last session. Read it — `entry_history`,
+  `entry_diff` from the `revision` given — before you touch it. Extending it is
+  the point; undoing it is the failure this list exists to prevent.
+- **It never picks a session for you.** With one active session it selects it;
+  with several it returns them all with `selection_required: true` and no
+  `selected_id`, and the question groups come back empty rather than merging two
+  interviews. Ask which one, then pass `session_id` (a UUID or an `SS` code in
+  that research). With none active it shows the most recently created one with
+  its real status — starting a new one is still a separate, deliberate write.
+
+Two things it is not. It is **not a change log**: `recent_entries` is what was
+touched most recently and its `total` is how many documents the research has,
+not how many changed, while a deleted document leaves no trace at all. And it is
+**not the personal new/changed queue** — reading it marks nothing as seen, and
+that queue has no MCP tool by design.
+
+Above roughly 24 KiB the response is shortened: previews are cut first, then
+examples, and `truncated: true` with a one-line `note` says so. Totals,
+`has_more` and the `more` links survive every step, so a shortened answer still
+reports how much there really is.
+
 ### Create a Session
 
 Start a Q&A session focused on specific sections:

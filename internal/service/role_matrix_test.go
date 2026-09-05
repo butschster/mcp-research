@@ -30,6 +30,7 @@ type roleKit struct {
 	task       *TaskService
 	roadmap    *RoadmapService
 	annotation *AnnotationService
+	resume     *ResumeService
 	team       *TeamService
 	teamRepo   *storage.TeamRepository
 	// events is what the WebSocket hub would have been handed. Delivery is
@@ -54,9 +55,11 @@ func newRoleKit(t *testing.T) *roleKit {
 		storage.NewBlockRepository(db), storage.NewEntryRevisionRepository(db),
 		storage.NewCrossRefRepository(db), storage.NewExternalLinkRepository(db), notifier, log)
 
+	researchSvc := NewResearchService(researchRepo, sectionRepo, teamRepo, access, notifier, log)
+
 	return &roleKit{
 		db:       db,
-		research: NewResearchService(researchRepo, sectionRepo, teamRepo, access, notifier, log),
+		research: researchSvc,
 		section:  NewSectionService(sectionRepo, entryRepo, researchRepo, access, notifier, log),
 		entry:    entrySvc,
 		session: NewSessionService(db, sessionRepo, storage.NewQuestionRepository(db), researchRepo,
@@ -66,6 +69,9 @@ func newRoleKit(t *testing.T) *roleKit {
 			storage.NewEntryRevisionRepository(db), access, entrySvc, entrySvc, notifier, log),
 		roadmap: NewRoadmapService(storage.NewRoadmapRepository(db), storage.NewRoadmapNodeRepository(db),
 			storage.NewRoadmapEdgeRepository(db), researchRepo, access, notifier, log),
+		resume: NewResumeService(researchSvc, sessionRepo, storage.NewTaskRepository(db),
+			storage.NewQuestionRepository(db), storage.NewAnnotationRepository(db), entryRepo,
+			storage.NewEntryRevisionRepository(db), access, log),
 		team:     NewTeamService(teamRepo, storage.NewTeamInviteRepository(db), storage.NewUserRepository(db), researchRepo, notifier, log),
 		teamRepo: teamRepo,
 		events:   notifier,
@@ -379,4 +385,58 @@ func researchTeam(t *testing.T, k *roleKit, researchID string) string {
 		t.Fatalf("find research: %v", err)
 	}
 	return r.TeamID
+}
+
+// The continuation summary is a read, so a viewer gets all of it — and gets
+// `can_write: false`, which is what the web UI reads to decide whether to draw
+// a control. A viewer refused outright would be a regression in the other
+// direction: they may see what is outstanding, they simply may not act on it.
+func TestRoles_ResumeReadsForEveryMemberAndSaysWhoMayWrite(t *testing.T) {
+	for _, tc := range []struct {
+		role     domain.TeamRole
+		canWrite bool
+	}{
+		{domain.TeamViewer, false},
+		{domain.TeamEditor, true},
+		{domain.TeamOwner, true},
+	} {
+		t.Run(string(tc.role), func(t *testing.T) {
+			k := newRoleKit(t)
+			owner, member, research, _, _ := k.sharedResearch(t, tc.role)
+
+			if _, err := k.task.Create(owner, CreateTaskRequest{ResearchID: research.ID, Title: "Something open"}); err != nil {
+				t.Fatalf("seed task: %v", err)
+			}
+
+			out, err := k.resume.Get(member, research.ID, ResumeRequest{})
+			if err != nil {
+				t.Fatalf("a %s must be able to read the summary: %v", tc.role, err)
+			}
+			if out.Research.Role != tc.role {
+				t.Errorf("role = %q, want %q", out.Research.Role, tc.role)
+			}
+			if out.Research.CanWrite != tc.canWrite {
+				t.Errorf("can_write = %v, want %v for a %s", out.Research.CanWrite, tc.canWrite, tc.role)
+			}
+			// The work itself is the team's, so every role sees the same queue.
+			if out.Work.Pending.Total == nil || *out.Work.Pending.Total != 1 {
+				t.Errorf("pending total = %v, want 1", out.Work.Pending.Total)
+			}
+		})
+	}
+}
+
+// Somebody in no team at all is told the research does not exist, not that they
+// may not read it — the same answer an absent id gets.
+func TestRoles_ResumeHidesAResearchFromANonMember(t *testing.T) {
+	k := newRoleKit(t)
+	owner, _, research, _, _ := k.sharedResearch(t, domain.TeamViewer)
+	stranger := userCtx(createTestUser(t, k.db, "stranger-resume@test.com", "Stranger"))
+
+	if _, err := k.resume.Get(owner, research.ID, ResumeRequest{}); err != nil {
+		t.Fatalf("owner resume: %v", err)
+	}
+	if _, err := k.resume.Get(stranger, research.ID, ResumeRequest{}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stranger resume = %v, want ErrNotFound", err)
+	}
 }

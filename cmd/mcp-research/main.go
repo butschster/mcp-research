@@ -183,8 +183,14 @@ func main() {
 		}
 	}
 
+	// The continuation summary. It owns no entity of its own — it reads the
+	// repositories the other services write — so it is built here from the
+	// pieces rather than being handed a service to wrap.
+	resumeSvc := service.NewResumeService(researchSvc, sessionRepo, taskRepo, questionRepo,
+		annotationRepo, entryRepo, revisionRepo, access, log)
+
 	// MCP Server
-	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, skillSvc, templateSvc, annotationSvc, log, version)
+	srv := mcpserver.NewServer(researchSvc, sectionSvc, entrySvc, sessionSvc, taskSvc, roadmapSvc, exportSvc, teamSvc, skillSvc, templateSvc, annotationSvc, resumeSvc, log, version)
 	srv.SetBaseURL(cfg.BaseURL)
 
 	log.Info("mcp-research started",

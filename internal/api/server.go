@@ -78,6 +78,13 @@ func NewServer(
 	skh := handlers.NewSkillHandler(skillSvc, researchSvc, log)
 	tph := handlers.NewTemplateHandler(templateSvc, researchSvc, sectionSvc, skillSvc, log)
 	anh := handlers.NewAnnotationHandler(annotationSvc, researchSvc, storage.NewUserRepository(db), storage.NewTeamRepository(db), log)
+	// Built here from the repositories rather than passed in: the summary owns
+	// no entity, and threading a tenth service through this signature (and
+	// every test fixture that calls it) would buy nothing.
+	rsh := handlers.NewResumeHandler(service.NewResumeService(researchSvc,
+		storage.NewSessionRepository(db), storage.NewTaskRepository(db),
+		storage.NewQuestionRepository(db), storage.NewAnnotationRepository(db),
+		entryRepo, storage.NewEntryRevisionRepository(db), access, log))
 	rh.SetShareService(shareSvc)
 
 	// Build auth middleware functions
@@ -258,6 +265,8 @@ func NewServer(
 	mux.Handle("GET /api/researches/{id}/entries", wrapRead(rh.ListAllEntries))
 	mux.Handle("GET /api/researches/{id}/updates", wrapRead(evh.List))
 	mux.Handle("GET /api/researches/{id}/tags", wrapRead(rh.ListTags))
+	// Deliberately not on the share sub-mux: the summary is working process.
+	mux.Handle("GET /api/researches/{id}/resume", wrapRead(rsh.Get))
 	// Constant data, but behind wrapRead all the same: it describes what this
 	// installation lets a team record, which is not for anonymous readers.
 	mux.Handle("GET /api/metadata/schema", wrapRead(rh.MetadataSchema))
