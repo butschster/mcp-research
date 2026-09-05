@@ -68,37 +68,34 @@
           <NuxtLink
             v-if="selectedSession"
             :to="sessionPath(researchSlug, selectedSession.code || selectedSession.id)"
-            class="resume-session-open"
-          >Open</NuxtLink>
+            class="btn btn-icon"
+            :title="`Open ${selectedSession.code || selectedSession.title}`"
+            :aria-label="`Open session ${selectedSession.code || selectedSession.title}`"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m12 5 7 7-7 7"/></svg>
+          </NuxtLink>
         </template>
 
-        <!-- The sentence to hand the agent. The block is called Continue and
-             the whole feature exists for a chat that has no history of this
-             research — so the one thing it must give a person is the words that
-             start that chat. It used to appear only when there was nothing left
-             to do, which is the one case where nobody needs it. -->
+        <!-- The one thing this block owes a person: the words that start a new
+             chat about this research. An icon, not the sentence itself — the
+             sentence is for pasting, not for reading, and printing it in the
+             head spent 200px on text nobody needs on screen.
+
+             What is copied carries the guide's URL, because the reader is not
+             the audience for it either: the agent on the other end is, and a
+             link it can open beats a link a person is asked to read first. -->
         <button
           v-if="summary && canWrite && !archived"
           type="button"
-          class="btn btn-sm resume-handoff"
-          :title="`Copy “${handoffCommand}” to paste into a new chat`"
+          class="btn btn-icon resume-handoff"
+          :class="{ 'is-copied': copied }"
+          :title="handoffTitle"
+          :aria-label="handoffTitle"
           @click="copyHandoff"
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          {{ copied ? 'Copied' : handoffCommand }}
+          <svg v-if="copied" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         </button>
-        <!-- The phrase alone does not say what it commits the agent to. This is
-             the same guide the agent is pointed at, served by this binary, so
-             both sides of the handoff read one description of it. -->
-        <a
-          v-if="summary && canWrite && !archived"
-          class="resume-handoff-help"
-          :href="handoffGuide"
-          target="_blank"
-          rel="noopener"
-          title="What continuing a research means"
-          aria-label="What continuing a research means"
-        >?</a>
         <button
           type="button"
           class="btn btn-icon"
@@ -231,6 +228,12 @@
           <span>Could not refresh — this is the picture from {{ generatedLabel }}.</span>
           <button type="button" class="btn btn-sm" @click="$emit('refresh')">Try again</button>
         </p>
+        <!-- The clipboard was refused, so the words are put on the page where
+             they can be selected by hand. -->
+        <p v-if="copyFailed" class="inline-error inline-error--action resume-refresh-error" role="status">
+          <span>Could not copy. Select this and copy it: <code>{{ handoffCommand }}</code></span>
+          <button type="button" class="btn btn-sm" @click="dismissCopyFailure">Dismiss</button>
+        </p>
         <p v-if="summary.truncated" class="resume-truncated">
           Some details were left out to keep this summary small.
         </p>
@@ -359,13 +362,26 @@ const selectedSession = computed(
 const handoffCommand = computed(() => {
   const code = props.summary?.research.code || props.researchSlug
   const session = selectedSession.value?.code
-  return session ? `Continue ${code}, session ${session}` : `Continue ${code}`
+  const what = session ? `Continue ${code}, session ${session}.` : `Continue ${code}.`
+  // The instruction and the place it is written down, in one paste.
+  return `${what} How to pick it up: ${handoffGuide.value}`
 })
 
-/** Served by this binary at /llms/, so it is right for whatever version is running. */
-const handoffGuide = '/llms/conducting-research.md#picking-up-a-research-that-is-already-running'
+const handoffTitle = computed(() => `Copy the sentence that continues this research: ${handoffCommand.value}`)
+
+/**
+ * The guide, absolutely. A relative path is meaningless once the sentence has
+ * been pasted into a chat somewhere else, and that is the only place it goes.
+ * It is served by this binary, so the link always matches the running version.
+ */
+const handoffGuide = computed(() => {
+  const origin = import.meta.client ? window.location.origin : ''
+  return `${origin}/llms/conducting-research.md#picking-up-a-research-that-is-already-running`
+})
 
 const copied = ref(false)
+/** Set when the clipboard was refused, so the sentence is shown instead. */
+const copyFailed = ref(false)
 const copyAnnouncement = ref('')
 let copyTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -373,17 +389,23 @@ async function copyHandoff() {
   try {
     await navigator.clipboard.writeText(handoffCommand.value)
     copied.value = true
+    copyFailed.value = false
     copyAnnouncement.value = `Copied “${handoffCommand.value}” to the clipboard`
   } catch {
-    // A refused clipboard is not worth a toast: the words are on the button,
-    // which is the fallback anyway.
-    copyAnnouncement.value = 'Could not copy — the words are on the button'
+    // A refused clipboard leaves nothing on screen to fall back to now that the
+    // button is an icon, so the sentence itself becomes the message.
+    copyFailed.value = true
+    copyAnnouncement.value = `Could not copy. The sentence is: ${handoffCommand.value}`
   }
   clearTimeout(copyTimer)
   copyTimer = setTimeout(() => {
     copied.value = false
     copyAnnouncement.value = ''
   }, 2000)
+}
+
+function dismissCopyFailure() {
+  copyFailed.value = false
 }
 
 onBeforeUnmount(() => clearTimeout(copyTimer))
@@ -676,25 +698,11 @@ function actionHref(action: ResumeAction): string {
 .resume-collapsed-counts { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-1); }
 .resume-collapsed-count { white-space: nowrap; }
 .resume-session-open { font-size: var(--type-xs); white-space: nowrap; }
-/* Monospace, because it is a thing to type rather than a label to read. */
-.resume-handoff {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: var(--type-xs);
-  color: var(--color-primary);
-}
-.resume-handoff-help {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  border-radius: var(--radius-xs);
-  color: var(--color-text-faint);
-  font-size: var(--type-xs);
-  text-decoration: none;
-  flex: none;
-}
-.resume-handoff-help:hover { color: var(--color-primary); background: var(--color-surface-hover); text-decoration: none; }
+/* The one control in the head that is primary-coloured: it is the thing this
+   block is for. The tick after a copy is the only feedback, so it holds the
+   colour too. */
+.resume-handoff { color: var(--color-primary); }
+.resume-handoff.is-copied { color: var(--color-success); border-color: var(--color-success); }
 .resume-note { padding: var(--space-3) var(--row-inset); font-size: var(--type-sm); color: var(--color-text-muted); }
 
 .resume-session-chip {
