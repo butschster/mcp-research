@@ -135,7 +135,7 @@ onUnmounted(() => {
         <a href="#main" class="skip-link">Skip to content</a>
         <nav class="app-nav">
           <div class="container nav-inner">
-            <NuxtLink to="/" class="logo" aria-label="Dovod home"><BrandLogo /></NuxtLink>
+            <NuxtLink :to="{ name: 'index' }" class="logo" aria-label="Dovod home"><BrandLogo /></NuxtLink>
             <div class="nav-right">
               <ThemeToggle />
               <SearchModal />

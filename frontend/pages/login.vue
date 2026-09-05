@@ -1,10 +1,11 @@
 <script setup lang="ts">
 const { login, allowRegistration } = useAuth()
 const route = useRoute()
+const projectsPath = useRouter().resolve({ name: 'index' }).path
 useHead({ title: 'Sign in' })
 
 // Keep the destination when moving between the two auth pages.
-const next = computed(() => safeNext(route.query.next) ?? '/')
+const next = computed(() => safeNext(route.query.next) ?? projectsPath)
 const registerLink = computed(() =>
   route.query.next ? `/register?next=${encodeURIComponent(String(route.query.next))}` : '/register',
 )

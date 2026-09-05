@@ -15,7 +15,7 @@ withDefaults(defineProps<{
   <div class="auth-page">
     <a href="#auth-main" class="skip-link">Skip to form</a>
     <header class="auth-header">
-      <NuxtLink to="/" class="auth-brand" aria-label="Dovod home"><BrandLogo /></NuxtLink>
+      <NuxtLink :to="{ name: 'index' }" class="auth-brand" aria-label="Dovod home"><BrandLogo /></NuxtLink>
       <div class="auth-header-actions"><span class="auth-header-note">A workspace for clear thinking.</span><ThemeToggle /></div>
     </header>
     <div class="auth-layout">

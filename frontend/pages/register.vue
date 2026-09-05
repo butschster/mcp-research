@@ -1,9 +1,10 @@
 <script setup lang="ts">
 const { register, allowRegistration } = useAuth()
 const route = useRoute()
+const projectsPath = useRouter().resolve({ name: 'index' }).path
 useHead({ title: 'Create an account' })
 
-const next = computed(() => safeNext(route.query.next) ?? '/')
+const next = computed(() => safeNext(route.query.next) ?? projectsPath)
 const loginLink = computed(() =>
   route.query.next ? `/login?next=${encodeURIComponent(String(route.query.next))}` : '/login',
 )

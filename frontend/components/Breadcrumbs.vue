@@ -9,8 +9,10 @@
 </template>
 
 <script setup lang="ts">
+import type { RouteLocationRaw } from 'vue-router'
+
 defineProps<{
-  crumbs: { label: string; to?: string }[]
+  crumbs: { label: string; to?: RouteLocationRaw }[]
 }>()
 </script>
 

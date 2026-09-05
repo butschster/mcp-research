@@ -1,4 +1,25 @@
+import { readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { projectsPath } from './config/projects-path.mjs'
+
+const projectListPath = projectsPath(process.env.NUXT_PROJECTS_PATH)
+
 export default defineNuxtConfig({
+  hooks: {
+    async 'nitro:build:public-assets'(nitro) {
+      const file = join(nitro.options.output.publicDir, 'site.webmanifest')
+      const manifest = JSON.parse(await readFile(file, 'utf8'))
+      manifest.start_url = projectListPath
+      manifest.scope = '/'
+      await writeFile(file, JSON.stringify(manifest, null, 2) + '\n')
+    },
+    'pages:extend'(pages) {
+      const index = pages.find(page => page.name === 'index')
+      if (!index) throw new Error('Projects index route was not found')
+      index.path = projectListPath
+    },
+  },
+
   compatibilityDate: '2025-01-01',
   ssr: false, // SPA mode for static embedding
 

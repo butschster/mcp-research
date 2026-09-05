@@ -1,7 +1,7 @@
 <template>
   <div class="templates-page">
     <PageHeader
-      :crumbs="[{ label: 'Projects', to: '/' }, { label: 'Methodologies' }]"
+      :crumbs="[{ label: 'Projects', to: { name: 'index' } }, { label: 'Methodologies' }]"
       title="Methodologies"
     />
 

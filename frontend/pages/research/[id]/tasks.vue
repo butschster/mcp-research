@@ -10,7 +10,7 @@
     <!-- Header -->
     <PageHeader
       :crumbs="[
-        { label: 'Projects', to: '/' },
+        { label: 'Projects', to: { name: 'index' } },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Tasks' },
       ]"

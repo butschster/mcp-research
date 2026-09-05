@@ -30,7 +30,7 @@ const props = defineProps<{ revocation: Revocation }>()
 const copy = computed(() => revocationCopy(props.revocation))
 
 // A team page's way out is the team list, not the research list it was never on.
-const backTo = computed(() => (props.revocation.scope === 'team' ? '/teams' : '/'))
+const backTo = computed(() => (props.revocation.scope === 'team' ? '/teams' : { name: 'index' }))
 const backLabel = computed(() => (props.revocation.scope === 'team' ? 'Back to teams' : 'Back to projects'))
 
 const root = ref<HTMLElement | null>(null)

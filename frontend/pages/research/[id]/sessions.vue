@@ -7,7 +7,7 @@
   <div v-else-if="research" class="sessions-page">
     <PageHeader
       :crumbs="[
-        { label: 'Projects', to: '/' },
+        { label: 'Projects', to: { name: 'index' } },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Sessions' },
       ]"
@@ -90,7 +90,7 @@
     title="Project not found"
     description="Check the link and make sure you have access to this project."
   >
-    <NuxtLink to="/" class="btn btn-primary">Back to projects</NuxtLink>
+    <NuxtLink :to="{ name: 'index' }" class="btn btn-primary">Back to projects</NuxtLink>
   </EmptyState>
 </template>
 

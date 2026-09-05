@@ -10,7 +10,8 @@ COPY frontend/package.json ./
 # building — which is how a deploy discovers the problem.
 RUN npm install -g npm@11 && npm install
 COPY frontend/ ./
-RUN NUXT_PUBLIC_API_BASE= npm run generate
+ARG NUXT_PROJECTS_PATH=/
+RUN NUXT_PROJECTS_PATH=$NUXT_PROJECTS_PATH NUXT_PUBLIC_API_BASE= npm run generate
 
 # Same reasoning: build on the native platform and let Go cross-compile.
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
