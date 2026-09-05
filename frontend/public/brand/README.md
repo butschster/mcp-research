@@ -1,6 +1,6 @@
 # Dovod application identity
 
-The approved wordmark is the uncut, unmirrored Bricolage Grotesque 800 study from `docs/brand/dovod/type/01-ink.svg`. `components/BrandLogo.vue` uses its exact outlines and inherits the surrounding text color.
+The approved wordmark in `dovod.svg` uses uncut, unmirrored Bricolage Grotesque 800 outlines. `components/BrandLogo.vue` uses its exact outlines and inherits the surrounding text color.
 
 - `dovod.svg` / `dovod-inverse.svg`: forest and paper versions.
 - `icon.svg` / PNG sizes: the same lowercase d, used alone for browser and installation icons.
