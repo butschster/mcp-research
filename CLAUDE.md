@@ -297,23 +297,85 @@ All write endpoints require `Authorization: Bearer <token>` header.
 Read-only endpoints remain unauthenticated (unless `auth_enabled`).
 
 **Full route list** lives in `internal/api/server.go` (the source of truth) and in
-the spec served at `GET /api/openapi.yaml`. It is deliberately not duplicated here:
-the table went stale faster than it was updated. The spec also lags behind
-`server.go` — when changing routes, check the code, not the spec.
+the spec served at `GET /api/openapi.yaml` and `GET /api/openapi.json`, which is
+**generated from those registrations** rather than written beside them. It is
+deliberately not duplicated here: the table went stale faster than it was updated.
 
-Route registration — getting this wrong leaks data across users:
+### Registering a route
 
-- `mux.Handle("POST /api/...", wrap(h))` — write endpoints
-- `mux.Handle("GET /api/...", wrapRead(h))` — read endpoints. `wrapRead` still
-  applies `requireAuth` when `auth_enabled`, which is what puts the user into the
-  context; without it `ResearchService.List` leaves `filter.UserID` nil and
-  returns every user's researches.
-- bare `mux.HandleFunc(...)` — only for genuinely public routes: `/api/health`,
-  `/api/openapi.yaml`, `/api/auth/info`, login/register, the OAuth endpoints
-  and `/ws`.
+Every route goes through `router.route`. There is no `mux.Handle` left in this
+package outside `router.go`, and adding one back is caught by
+`TestRouter_NoBareMuxRegistration`, which reads the package's source — the drift
+test cannot see it, because it walks a list only the router appends to.
 
-Both `wrap` and `wrapRead` are local closures in `NewServer` built on
-`auth.RequireAuth`. There is no `auth()` helper.
+```go
+rt.route(accessWrite, op("POST", "/api/entries", "Create a document",
+    "Files a document under a section and allocates its short code.").
+    tag("Documents").
+    body("The document.", envelope(...)).
+    returns("201", "The document that was created.", envelope(...)).
+    build(), wh.CreateEntry)
+```
+
+The **access kind is the first argument and it is the security decision** —
+getting it wrong leaks data across users, exactly as the old wrapper choice did:
+
+| kind | wrapper | who gets through |
+|---|---|---|
+| `accessRead` | `wrapRead` | reads scoped to the caller. With `auth_enabled` this is what puts the user in the context; without it `ResearchService.List` leaves `filter.UserID` nil and returns every user's researches |
+| `accessWrite` | `wrap` | a user credential when auth is on, the legacy `api_token` when it is not |
+| `accessOperatorRead` / `accessOperatorWrite` | `wrapReadOperator` / `wrapOperator` | a person **or** whoever runs the server. Only the template routes |
+| `accessOptional` | `wrapOptional` | attaches a session if there is one. Only the invite preview |
+| `accessPublic` | none | genuinely public: health, the spec, `/api/auth/info`, login/register, the OAuth endpoints |
+| `accessShare` | none | under `/api/shared/{token}/`, where the path token is the credential |
+
+The wrappers are still local closures in `NewServer` built on `auth.RequireAuth`.
+There is no `auth()` helper. What the router adds is that the choice is now
+**stated in the document too** — a reader of `/api/openapi.yaml` can see which
+credential each route wants, and the `securityFor` mapping is what says so.
+
+`router.undocumented` exists for the four things that are not HTTP operations:
+`/ws`, `/mcp`, the SPA catch-all and the `/llms/` prefix. Using it is a visible
+choice; the drift test carries the list and its reasons.
+
+### What is generated and what is written
+
+- **Generated**: the path, the method, every `{param}` in it, the security
+  requirement, the shared 400/401/403/404/500 refusals, and the entity schemas —
+  those come from `huma.Registry` over the **domain structs**, so a field added
+  to `domain.Entry` appears in the document because it appears in the JSON.
+- **Written by a person**: the summary, the description, the query parameters,
+  and the shape of request and response envelopes. `openapi_spec_test.go` fails
+  on an operation with no summary or a description under 30 characters, because
+  a document that describes 126 paths as "Success" is no better than the one it
+  replaced.
+
+Handlers still write `map[string]any` — 109 of 120 responses do — so response
+envelopes are declared, not reflected. Request bodies are not: they were lifted
+out of the handlers into named types in `internal/api/handlers/requests.go` and
+generated, because writing them by hand produced a document that named `type`
+for `entry_type`, invented a `description` on a task update and gave templates a
+`slug` and a `sections` array they do not have.
+
+Converting responses to typed huma operations is the next tranche, one resource
+at a time:
+
+```go
+huma.Register(rt.API(), *rt.typed(accessWrite, op(...).build()), handler)
+```
+
+`rt.typed` is not optional decoration — `router.serve` **panics** on an
+operation with no access kind, and `huma.Register` does not set one. That is
+deliberate: the zero value used to be `accessPublic`, so a typed operation
+registered without it mounted with no wrapper at all and served every user's
+data to an anonymous caller.
+
+Three tests hold the boundary, and each exists because nothing else could see
+it: `TestRouter_NoBareMuxRegistration` (source-level),
+`TestRouter_EveryScopedRouteRefusesAnonymously` (fires all 109 scoped routes
+with no credential and requires 401 from every one) and
+`TestOpenAPI_DocumentedStatusesMatchReality` (walks 75 of the 126 operations
+against a live mux and refuses a status the document does not list).
 
 
 ## Key Patterns
@@ -346,11 +408,14 @@ mcp.AddTool(srv, &mcp.Tool{Name: "tool_name", Description: "..."},
 ## Adding a New REST Endpoint
 
 1. Add handler method in `internal/api/handlers/`
-2. Register in `internal/api/server.go` with the Go 1.22 pattern and the matching
-   wrapper: `mux.Handle("GET /api/path/{id}", wrapRead(handler))` for reads,
-   `wrap(handler)` for writes. See the route-registration rules under Write API —
-   a bare `mux.HandleFunc` on a scoped route leaks data across users.
-3. WebSocket endpoint uses `/ws` without method prefix (required for upgrade)
+2. Register in `internal/api/server.go` with `rt.route(<accessKind>, op(...)...build(), handler)`.
+   See "Registering a route" under Write API — the access kind is the security
+   decision, and a read registered as `accessPublic` leaks data across users.
+3. Give it a summary and a description that says what it is *for*. The spec test
+   fails on an empty one, and the description is the only thing an external
+   client has to go on.
+4. WebSocket endpoint uses `/ws` without a method prefix (required for upgrade),
+   through `rt.undocumented`
 
 ## Frontend
 

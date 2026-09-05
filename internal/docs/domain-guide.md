@@ -137,7 +137,7 @@ Who may do what. A team owns researches; membership in that team is the whole of
 - A personal team accepts no invitations: it refuses every removal, so a member could never be taken out again.
 - `POST /api/auth/register` accepts an `invite_token`. A valid one gets the account created **even where `allow_registration` is false** and joins the team in the same request: the invitation is the authorization. It follows that a leaked link is a way onto a closed server, for one person, until it is used or expires.
 
-**REST routes** (the OpenAPI spec does not cover teams — `internal/api/server.go` is the source of truth):
+**REST routes** (also in the [OpenAPI spec](/api/openapi.yaml), which is generated from the router; the table below adds which role each one needs):
 
 | Method | Path | Needs |
 |--------|------|-------|

@@ -9,9 +9,22 @@ The Research server exposes two interfaces. Use the one that matches your integr
 | Interface | When to use | Reference |
 |-----------|-------------|-----------|
 | **MCP tools** | Claude Desktop, Claude Code, Cursor, ChatGPT (via Streamable HTTP), any MCP client | This guide + tool descriptions returned by the server |
-| **REST API** | Custom integrations, scripts, webhooks, non-MCP clients | [OpenAPI Specification](/api/openapi.yaml) |
+| **REST API** | Custom integrations, scripts, webhooks, non-MCP clients | [OpenAPI Specification](/api/openapi.yaml), or the same document as [JSON](/api/openapi.json) |
 
 Both interfaces operate on the same data and produce the same results. MCP tools are thin wrappers around the same service layer that the REST API uses.
+
+The spec is **generated from the routes the server registers**, so it describes
+every one of them and is the complete reference — this guide does not repeat the
+route list. It is also where the authentication contract is written: a REST
+caller presents `Authorization: Bearer <token>` holding a JWT from
+`POST /api/auth/login`, an API key from `POST /api/auth/api-keys`, or an OAuth2
+access token from `POST /auth/token` — the three are interchangeable on every
+route. The instance `api_token` is a separate credential and is not one of them:
+it identifies whoever runs the server, belongs to no team, and only the
+server-wide template routes accept it in place of a person. Fetch the spec from
+the instance you are talking to, because it is built from that server's
+configuration: where accounts are disabled it documents the writes as open and
+omits the OAuth endpoints entirely.
 
 The personal document-update queue is deliberately outside that shared
 research data. It records the numbered revision a person actually rendered in

@@ -2,7 +2,7 @@
 
 Step-by-step guide for AI assistants on how to conduct a research project.
 
-> **MCP or REST API?** This guide shows MCP tool names and REST endpoints side by side. Use whichever matches your integration. For MCP-specific details (nullable fields, content formatting, common pitfalls), see the [MCP Client Guide](/llms/mcp-client-guide.md). For REST API details, see the [OpenAPI spec](/api/openapi.yaml).
+> **MCP or REST API?** This guide shows MCP tool names and REST endpoints side by side. Use whichever matches your integration. For MCP-specific details (nullable fields, content formatting, common pitfalls), see the [MCP Client Guide](/llms/mcp-client-guide.md). For REST API details, see the [OpenAPI spec](/api/openapi.yaml) (or the same document as [JSON](/api/openapi.json)) — it is generated from the routes the server registers, so it covers every one of them and states which credential each needs. The endpoints named below are the ones each step maps to, not the whole surface.
 
 ## Overview
 

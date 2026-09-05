@@ -351,7 +351,7 @@ That is the whole setup. You now have:
 | Web UI | [http://localhost:8088](http://localhost:8088) |
 | REST API | same port, `/api/...` |
 | AI documentation | [http://localhost:8088/llms.txt](http://localhost:8088/llms.txt) |
-| OpenAPI spec | [http://localhost:8088/api/openapi.yaml](http://localhost:8088/api/openapi.yaml) |
+| OpenAPI spec | [http://localhost:8088/api/openapi.yaml](http://localhost:8088/api/openapi.yaml) (or `.json`) |
 | MCP over stdio | ready for local clients |
 
 With SQLite and no database path/DSN configured, everything runs in memory and
@@ -505,24 +505,37 @@ access rules, and an index of deeper guides that are served as plain markdown at
 | `/llms/annotations.md` | Marks a person leaves on a sentence: the three kinds, the anchor states, what the agent may and may not do |
 | `/llms/revisions.md` | History, diffs, restore, and what does not create a revision |
 | `/llms/export.md` | Every export form and endpoint |
-| `/api/openapi.yaml` | OpenAPI 3.1 spec for the REST API |
+| `/api/openapi.yaml` | OpenAPI 3.1 spec for the REST API — every route the server registered, and which credential each one wants on this instance. `/api/openapi.json` is the same document |
 
 Point any assistant at `https://your-server/llms.txt` and it can drive the whole
 product over REST. MCP clients get the same guides — they are what the tool
 descriptions link to when a model needs more than a one-line schema.
 
-To let a non-MCP client write, give it a token:
+### Every route, and what it wants from you
+
+The spec is generated from the routes the server registered, not written beside
+them, so what it lists is what the server actually serves — and every route in it
+says which credential it expects. That is one document to read before writing an
+integration, and there are two credentials in it, which are not interchangeable.
+
+**A person's bearer token.** A JWT from `POST /api/auth/login`, an API key made
+in Settings, or an OAuth2 access token: any of the three works on any route, and
+what you may do is decided by your role in the team that owns the research. This
+is what a script, a non-MCP assistant or a remote MCP client presents to a server
+with `auth_enabled`.
+
+**The instance `api_token`.** Configured on the server, belonging to no user and
+no team — it identifies whoever runs the thing.
 
 ```bash
 ./mcp-research --db research.db --api-token my-secret-token
 ```
 
-Read endpoints stay open (unless `auth_enabled`); writes require
-`Authorization: Bearer my-secret-token`.
-
-The same token is what identifies **you, the operator** — as distinct from any
-user or team on the instance. It unlocks one thing no account can do: adding a
-**kickoff methodology that every team on this server sees**.
+With no accounts on the instance, that token is what turns the write API on:
+reads stay open, writes need `Authorization: Bearer my-secret-token`. With
+`auth_enabled`, ordinary writes want a person instead, and the operator token is
+accepted only on the template routes — which is the one thing no account can do:
+adding a **kickoff methodology that every team on this server sees**.
 
 ```bash
 curl -X POST https://your-server/api/templates \
@@ -543,10 +556,11 @@ app; this adds yours next to them. It survives every upgrade — what ships is
 refreshed from the binary, what you write here is not touched.
 
 A team can write its own too, at `POST /api/teams/{id}/templates`, and that one
-stays private to the team. Only the `api_token` reaches the server-wide list, and
-without an `api_token` configured, nothing does. Everybody can browse the result
-at `/templates` in the web UI. Full reference: `/llms/templates.md` on your own
-server.
+stays private to the team. No role reaches the server-wide list — however senior
+the account, the answer is `operator_required`; on a local run with neither
+accounts nor a token there is no boundary to cross and the write just happens.
+Everybody can browse the result at `/templates` in the web UI. Full reference:
+`/llms/templates.md` on your own server.
 
 ---
 
@@ -606,8 +620,8 @@ Priority: **CLI flags > env vars > `config.yaml` > defaults.**
 | Database DSN | `--db-dsn` | `MCP_RESEARCH_DB_DSN` | — |
 | SQLite path | `--db` | `MCP_RESEARCH_DB` | in-memory |
 | Log level | `--log-level` | `MCP_RESEARCH_LOG_LEVEL` | `info` |
-| Write API token | `--api-token` | `MCP_RESEARCH_API_TOKEN` | write API disabled |
-| ↳ also the **operator** credential — the only way to add a server-wide methodology | | | |
+| Write API token | `--api-token` | `MCP_RESEARCH_API_TOKEN` | unset — with no accounts, writes are off |
+| ↳ also the **operator** credential, which is what a server-wide methodology is written with | | | |
 | Auth | `--auth-enabled` | `MCP_RESEARCH_AUTH_ENABLED` | `false` |
 | JWT secret | `--jwt-secret` | `MCP_RESEARCH_JWT_SECRET` | auto-generated |
 | Registration | `--allow-registration` | `MCP_RESEARCH_ALLOW_REGISTRATION` | `true` |

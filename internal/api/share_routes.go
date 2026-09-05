@@ -1,6 +1,8 @@
 package api
 
 import (
+	"github.com/danielgtaylor/huma/v2"
+
 	"net/http"
 	"path"
 	"strings"
@@ -60,29 +62,83 @@ var shareUnlockIPLimiter = newRateLimiter(30, time.Minute)
 // registerShareRoutes mounts both halves of the feature: the owner's management
 // routes on the authenticated API, and the visitor's read surface under its own
 // prefix.
-func registerShareRoutes(
-	mux *http.ServeMux,
-	deps shareDeps,
-	wrap func(http.HandlerFunc) http.Handler,
-	wrapRead func(http.HandlerFunc) http.Handler,
-) {
+func registerShareRoutes(rt *router, deps shareDeps, sShare *huma.Schema) {
+	sOK := envelope(map[string]*huma.Schema{"status": {Type: "string"}})
+
 	// --- Owner side: ordinary authenticated routes, no share involved ---
-	mux.Handle("POST /api/researches/{id}/shares", wrap(deps.share.Create))
-	mux.Handle("GET /api/researches/{id}/shares", wrapRead(deps.share.List))
-	mux.Handle("DELETE /api/shares/{id}", wrap(deps.share.Revoke))
+	rt.route(accessWrite, op("POST", "/api/researches/{id}/shares", "Create a share link",
+		"Issues a read-only link to this research for people with no account here.\n\n"+
+			"**The token is returned once, from this call, and cannot be recovered** — only its SHA-256 is stored. Choose what the link exposes with the `include` flags; everything not named stays private, and the research's `instruction`, its memory, session notes and every document's revision history are never exposed by any link.").
+		tag("Share links").
+		body("What the link may show, and optionally a password and an expiry.", envelope(map[string]*huma.Schema{
+			"include": envelope(map[string]*huma.Schema{
+				"sessions": {Type: "boolean", Description: "Default `false`."},
+				"tasks":    {Type: "boolean", Description: "Default `false`."},
+				"roadmaps": {Type: "boolean", Description: "**Default `true`** — the one flag that is on unless you turn it off."},
+				"export":   {Type: "boolean", Description: "Default `false`."},
+			}),
+			"password":   {Type: "string", Description: "When set, a visitor exchanges it at `/api/shared/{token}/unlock` before anything is readable."},
+			"expires_at": {Type: "string", Format: "date-time"},
+		})).
+		returns("201", "The link, with its token shown for the only time.", envelope(map[string]*huma.Schema{
+			"data": envelope(map[string]*huma.Schema{
+				"share": sShare,
+				"token": {Type: "string", Description: "The token itself. Store it now — only its SHA-256 is kept, and no route returns it again."},
+				"url":   {Type: "string", Description: "The address to hand to a person, token included."},
+			}),
+		})).
+		build(), deps.share.Create)
+
+	rt.route(accessRead, op("GET", "/api/researches/{id}/shares", "List share links",
+		"The links issued for this research, what each exposes and whether it is still live. The tokens themselves are not stored and are not listed.").
+		tag("Share links").
+		returns("200", "The links.", envelope(map[string]*huma.Schema{
+			"data":  listOf(sShare),
+			"count": {Type: "integer"},
+		})).
+		build(), deps.share.List)
+
+	rt.route(accessWrite, op("DELETE", "/api/shares/{id}", "Revoke a share link",
+		"The link stops working immediately. A revoked link, an expired one, an unknown one and one belonging to somebody else are all the same 404 with the same body — telling them apart would turn the prefix into an oracle for which ids are real.").
+		tag("Share links").
+		returns("200", "Revoked.", sOK).
+		build(), deps.share.Revoke)
 
 	// --- Visitor side ---
 	scoped := shareScope(deps.shares)
+	unlock := shareUnlockLimiter.limitByShareToken(http.HandlerFunc(deps.share.Unlock))
+	payload := shareReadLimiter.limitByIP(scoped(http.HandlerFunc(deps.share.Payload)))
 
 	// The password exchange sits outside the scope: a locked link has not been
 	// resolved yet, and cannot be.
-	mux.Handle("POST /api/shared/{token}/unlock",
-		shareUnlockLimiter.limitByShareToken(http.HandlerFunc(deps.share.Unlock)))
+	rt.route(accessShare, op("POST", "/api/shared/{token}/unlock", "Unlock a password-protected link",
+		"Exchanges the link's password for access to it. Rate limited per token and per caller.\n\n"+
+			"This is the one route under the prefix that runs before the token is resolved, because a locked link cannot be resolved yet.").
+		tag("Share links").
+		body("The password.", envelope(map[string]*huma.Schema{
+			"password": {Type: "string"},
+		}, "password")).
+		returns("200", "Unlocked.", sOK).
+		responds("401", "Wrong password.").
+		responds("429", "Too many attempts.").
+		build(), unlock.ServeHTTP)
 
-	mux.Handle("GET /api/shared/{token}",
-		shareReadLimiter.limitByIP(scoped(http.HandlerFunc(deps.share.Payload))))
+	rt.route(accessShare, op("GET", "/api/shared/{token}", "Read a shared research",
+		"What the link shows: the research, its sections and its documents, with everything the owner did not share removed.\n\n"+
+			"**The rest of the visitor's surface lives under `/api/shared/{token}/`**, and mirrors the authenticated paths with the `/api` prefix dropped: `/api/shared/<token>/researches/R1/entries` is served by the same handler as `/api/researches/R1/entries`, with the share in the context in place of a user.\n\n"+
+			"That surface is a fixed list — the research, its sections, documents, tags, cross-references and external links, plus sessions, tasks, roadmaps and the export when the link's `include` flags allow them. Anything else under the prefix, and any method other than GET, is a 404. Provenance and revision history are never on it.").
+		tag("Share links").
+		queryBool("visit", "Record the visit. The page sets it once per load; a client polling the payload should not.").
+		returns("200", "The shared research.", envelope(map[string]*huma.Schema{
+			"data":     {Type: "object"},
+			"sections": {Type: "array", Items: &huma.Schema{Type: "object"}},
+		})).
+		responds("401", "The link is password-protected and has not been unlocked.").
+		responds("404", "Unknown, revoked or expired. The three are deliberately indistinguishable.").
+		responds("429", "Too many requests.").
+		build(), payload.ServeHTTP)
 
-	mux.Handle("GET /api/shared/{token}/",
+	rt.undocumented("GET /api/shared/{token}/",
 		shareReadLimiter.limitByIP(scoped(shareRead(deps))))
 
 	// Everything else under the prefix, by method. Without these the catch-all
@@ -96,8 +152,8 @@ func registerShareRoutes(
 	notThere := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handlers.WriteShareError(w, service.ErrShareUnavailable)
 	})
-	mux.Handle("/api/shared/{token}", notThere)
-	mux.Handle("/api/shared/{token}/", notThere)
+	rt.undocumented("/api/shared/{token}", notThere)
+	rt.undocumented("/api/shared/{token}/", notThere)
 }
 
 // shareRead is the sub-mux, plus the path rewrite that feeds it.
