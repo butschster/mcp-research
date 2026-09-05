@@ -289,9 +289,12 @@ instead:
 - `url` is absolute when the server has a base URL configured; otherwise it is the
   bare path `/api/researches/R1/export?format=obsidian` and `description` says so.
   Do not invent an origin for it.
-- The URL is a normal read endpoint: it needs the API token or JWT as an
-  `Authorization: Bearer` header. Pasting it into a browser tab only works on a
-  server running without auth. Say that when you hand the link to a user.
+- The URL is a normal read endpoint: with `auth_enabled` it needs a bearer
+  credential — a JWT, an API key or an OAuth access token — as an
+  `Authorization: Bearer` header. The instance `api_token` is not one of them; it
+  is the operator's credential and no read route accepts it in a user's place.
+  Pasting the URL into a browser tab only works on a server running without auth.
+  Say that when you hand the link to a user.
 - The query options above apply to that URL; the tool has no parameters for them.
 
 **Annotations travel in the portable dump and nowhere else.** They are working
@@ -684,7 +687,7 @@ Without `include.export` the route answers the same `404 this link is no longer 
 
 ## Auth
 
-Export endpoints are read endpoints: unauthenticated by default, but they require a bearer token (JWT or API key) when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, the Obsidian vault, or one document as a file, exactly as an `editor` can. The two import endpoints are writes: they always require the bearer token when `api_token` or `auth_enabled` is configured. `POST /api/researches/import` needs editor or owner rights in whichever team it imports into; `POST /api/sections/{id}/import` and its `/preview` need them in the team that owns the research holding that section — the preview included, even though it writes nothing.
+Export endpoints are read endpoints: unauthenticated by default, but they require a bearer credential — a JWT, an API key or an OAuth access token, which are interchangeable — when `auth_enabled` is set, and they only ever see researches owned by a team the caller belongs to — a research in someone else's team is `404`, indistinguishable from one that does not exist. **Exporting needs no more than read access**: a `viewer` may export a whole research, a session, the Obsidian vault, or one document as a file, exactly as an `editor` can. The two import endpoints are writes: they always require the bearer token when `api_token` or `auth_enabled` is configured. `POST /api/researches/import` needs editor or owner rights in whichever team it imports into; `POST /api/sections/{id}/import` and its `/preview` need them in the team that owns the research holding that section — the preview included, even though it writes nothing.
 
 A share token is not a bearer token. It authenticates nothing on the routes above — it only opens the mirrored, redacted export under `/api/shared/{token}/…`, and only when the link includes it.
 

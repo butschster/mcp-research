@@ -34,19 +34,7 @@ func NewWriteHandler(
 // --- Research ---
 
 func (h *WriteHandler) CreateResearch(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Name        string   `json:"name"`
-		Description string   `json:"description"`
-		Goal        string   `json:"goal"`
-		Tags        []string `json:"tags"`
-		TeamID      string   `json:"team_id"`
-		Sections    []struct {
-			Name        string `json:"name"`
-			DisplayName string `json:"display_name"`
-			Description string `json:"description"`
-			Position    int    `json:"position"`
-		} `json:"sections"`
-	}
+	var input CreateResearchRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -84,16 +72,7 @@ func (h *WriteHandler) CreateResearch(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) UpdateResearch(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	var input struct {
-		Name        *string  `json:"name"`
-		Description *string  `json:"description"`
-		Goal        *string  `json:"goal"`
-		Status      *string  `json:"status"`
-		Instruction *string  `json:"instruction"`
-		Tags        []string `json:"tags"`
-		Memory      []string `json:"memory"`
-		AddMemory   *string  `json:"add_memory"`
-	}
+	var input UpdateResearchRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -120,12 +99,7 @@ func (h *WriteHandler) UpdateResearch(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) AddSection(w http.ResponseWriter, r *http.Request) {
 	researchID := r.PathValue("id")
-	var input struct {
-		Name        string `json:"name"`
-		DisplayName string `json:"display_name"`
-		Description string `json:"description"`
-		Position    int    `json:"position"`
-	}
+	var input CreateSectionRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -147,13 +121,7 @@ func (h *WriteHandler) AddSection(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 	sectionID := r.PathValue("sectionId")
-	var input struct {
-		DisplayName *string             `json:"display_name"`
-		Description *string             `json:"description"`
-		Status      *string             `json:"status"`
-		Position    *int                `json:"position"`
-		FieldSpec   *[]domain.FieldSpec `json:"field_spec"`
-	}
+	var input UpdateSectionRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -178,18 +146,7 @@ func (h *WriteHandler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 // --- Entries ---
 
 func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		ResearchID  string         `json:"research_id"`
-		SectionID   string         `json:"section_id"`
-		SessionID   string         `json:"session_id"`
-		EntryType   string         `json:"entry_type"`
-		Content     string         `json:"content"`
-		Title       string         `json:"title"`
-		Description string         `json:"description"`
-		Status      string         `json:"status"`
-		Tags        []string       `json:"tags"`
-		Metadata    map[string]any `json:"metadata"`
-	}
+	var input CreateEntryRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -225,23 +182,7 @@ func (h *WriteHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 	entryID := r.PathValue("id")
-	var input struct {
-		EntryType   *string  `json:"entry_type"`
-		Title       *string  `json:"title"`
-		Content     *string  `json:"content"`
-		Description *string  `json:"description"`
-		Status      *string  `json:"status"`
-		Tags        []string `json:"tags"`
-		TextReplace *struct {
-			From string `json:"from"`
-			To   string `json:"to"`
-		} `json:"text_replace"`
-		SessionID *string `json:"session_id"`
-		// A pointer so an omitted map leaves the values alone and an empty one
-		// clears them, which is the same distinction the MCP tool draws.
-		Metadata        *map[string]any `json:"metadata"`
-		AllowIncomplete bool            `json:"allow_incomplete"`
-	}
+	var input UpdateEntryRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -285,12 +226,7 @@ func (h *WriteHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 // --- Tasks ---
 
 func (h *WriteHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		ResearchID  string `json:"research_id"`
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Priority    string `json:"priority"`
-	}
+	var input CreateTaskRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -312,12 +248,7 @@ func (h *WriteHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("id")
-	var input struct {
-		Title    *string `json:"title"`
-		Status   *string `json:"status"`
-		Priority *string `json:"priority"`
-		Result   *string `json:"result"`
-	}
+	var input UpdateTaskRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -357,20 +288,7 @@ func (h *WriteHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 // the browser and an agent indistinguishable to the server.
 func (h *WriteHandler) PatchEntry(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	var input struct {
-		Rev string `json:"rev"`
-		Ops []struct {
-			Op      string         `json:"op"`
-			ID      string         `json:"id"`
-			Type    string         `json:"type"`
-			Data    map[string]any `json:"data"`
-			After   string         `json:"after"`
-			Before  string         `json:"before"`
-			At      string         `json:"at"`
-			Item    string         `json:"item"`
-			Checked *bool          `json:"checked"`
-		} `json:"ops"`
-	}
+	var input PatchEntryRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -416,19 +334,7 @@ func (h *WriteHandler) DeleteEntry(w http.ResponseWriter, r *http.Request) {
 // --- Sessions ---
 
 func (h *WriteHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		ResearchID string `json:"research_id"`
-		Title      string `json:"title"`
-		Focus      string `json:"focus"`
-		Questions  []struct {
-			Text      string `json:"text"`
-			Area      string `json:"area"`
-			Rationale string `json:"rationale"`
-			Priority  string `json:"priority"`
-			ParentID  string `json:"parent_id"`
-			Position  int    `json:"position"`
-		} `json:"questions"`
-	}
+	var input CreateSessionRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -458,13 +364,7 @@ func (h *WriteHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
-	var input struct {
-		Title   *string `json:"title"`
-		Focus   *string `json:"focus"`
-		Status  *string `json:"status"`
-		Notes   *string `json:"notes"`
-		AddNote *string `json:"add_note"`
-	}
+	var input UpdateSessionRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -490,10 +390,7 @@ func (h *WriteHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 	questionID := r.PathValue("questionId")
-	var input struct {
-		Status *string `json:"status"`
-		Answer *string `json:"answer"`
-	}
+	var input UpdateQuestionRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}
@@ -514,13 +411,7 @@ func (h *WriteHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 
 func (h *WriteHandler) AddQuestions(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
-	var input struct {
-		Questions []struct {
-			Text     string `json:"text"`
-			Area     string `json:"area"`
-			Priority string `json:"priority"`
-		} `json:"questions"`
-	}
+	var input AddQuestionsRequest
 	if !decodeJSON(w, r, &input) {
 		return
 	}

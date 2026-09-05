@@ -171,6 +171,9 @@ onMounted(() => {
         </tbody>
       </table>
       <p v-else class="card-meta">No API keys yet.</p>
+      <!-- The moment somebody makes a key is the moment they want to know what
+           to call with it. The Teams card two sections up ends the same way. -->
+      <NuxtLink :to="API_DOCS_PATH" class="all-teams">API reference &rarr;</NuxtLink>
     </div>
 
   </div>

@@ -22,7 +22,10 @@ func NewTemplateHandler(templates *service.TemplateService, research *service.Re
 	return &TemplateHandler{templates: templates, research: research, section: section, skills: skills, log: log}
 }
 
-type templateRequest struct {
+// TemplateRequest is the body every template write takes. It is exported so the
+// OpenAPI document can be generated from it: the hand-written description of
+// this body named a `slug` and a `sections` array, neither of which is read.
+type TemplateRequest struct {
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
 	WhenToUse    string   `json:"when_to_use"`
@@ -36,7 +39,7 @@ type templateRequest struct {
 	TeamID string `json:"team_id"`
 }
 
-func (r templateRequest) input() service.TemplateInput {
+func (r TemplateRequest) input() service.TemplateInput {
 	return service.TemplateInput{
 		Name: r.Name, Description: r.Description, WhenToUse: r.WhenToUse,
 		WhenNotToUse: r.WhenNotToUse, Body: r.Body, Skills: r.Skills,
@@ -77,7 +80,7 @@ func (h *TemplateHandler) ListTeam(w http.ResponseWriter, r *http.Request) {
 // api_token — see service.TemplateService.CreateGlobal for why that is the only
 // credential that works.
 func (h *TemplateHandler) CreateGlobal(w http.ResponseWriter, r *http.Request) {
-	var req templateRequest
+	var req TemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
@@ -105,7 +108,7 @@ func (h *TemplateHandler) CreateGlobal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TemplateHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
-	var req templateRequest
+	var req TemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
@@ -130,7 +133,7 @@ func (h *TemplateHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 // edit. The response says `forked` so a client can tell this from an update and
 // follow the slug to the new row.
 func (h *TemplateHandler) Fork(w http.ResponseWriter, r *http.Request) {
-	var req templateRequest
+	var req TemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
@@ -151,7 +154,7 @@ func (h *TemplateHandler) Fork(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TemplateHandler) Update(w http.ResponseWriter, r *http.Request) {
-	var req templateRequest
+	var req TemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return

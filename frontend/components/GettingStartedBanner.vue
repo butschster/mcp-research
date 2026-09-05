@@ -13,10 +13,9 @@
         <div class="gs-step-content">
           <strong>Connect your agent</strong>
           <p>
-            Point Claude Code, Claude Desktop, Cursor or ChatGPT at this server.
-            The step said only &ldquo;configure it&rdquo; and gave neither the
-            address nor the fact that a key is needed, which is where everybody
-            stopped.
+            Point Claude Code, Claude Desktop, Cursor or ChatGPT at this
+            server. Give it the address below; with accounts switched on it
+            also needs an API key, which you make in Settings.
           </p>
           <div class="empty-command gs-command">
             <code class="command-text">{{ mcpUrl }}</code>

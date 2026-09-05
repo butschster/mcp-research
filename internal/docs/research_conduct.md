@@ -13,7 +13,7 @@ apply.
 
 ## Tool Reference
 
-This prompt uses MCP tools. If you are interacting via the REST API instead, use the equivalent HTTP endpoints described in the [OpenAPI spec](/api/openapi.yaml). See the [MCP Client Guide](/llms/mcp-client-guide.md) for details on nullable fields, content formatting, and common pitfalls.
+This prompt uses MCP tools. If you are interacting via the REST API instead, use the equivalent HTTP endpoints described in the [OpenAPI spec](/api/openapi.yaml) (or the same document as [JSON](/api/openapi.json)), which is generated from the routes this server registers and covers all of them, including which credential each one needs. See the [MCP Client Guide](/llms/mcp-client-guide.md) for details on nullable fields, content formatting, and common pitfalls.
 
 | Purpose                                                | Tool                                 |
 |--------------------------------------------------------|--------------------------------------|

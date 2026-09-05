@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
+    "@scalar/api-reference": "^1.67.0",
     "@vue-flow/controls": "^1.1.3",
     "@vue-flow/core": "^1.48.2",
     "@vue-flow/minimap": "^1.5.4",
@@ -36,6 +37,7 @@
     "@vitejs/plugin-vue": "^6.0.5",
     "storybook": "^8.6.18",
     "typescript": "^5.7.0",
-    "unplugin-auto-import": "^21.0.0"
+    "unplugin-auto-import": "^21.0.0",
+    "vue-router": "^4.5.0"
   }
 }
