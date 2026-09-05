@@ -3,8 +3,8 @@ package ws
 import (
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // A share connection is the one reader on the hub with no account. Every rule

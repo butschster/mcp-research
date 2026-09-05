@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 func TestSkill_MetadataRepairPreservesHistoricalBody(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/config"
+	"github.com/dovod-app/app/internal/config"
 	"github.com/go-sql-driver/mysql"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/mysqldialect"

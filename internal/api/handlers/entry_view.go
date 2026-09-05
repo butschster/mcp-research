@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // EntryViewHandler serves the personal, research-scoped queue of documents a

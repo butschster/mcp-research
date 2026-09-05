@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 // revisionFixture builds a service with sessions wired, which the revision code

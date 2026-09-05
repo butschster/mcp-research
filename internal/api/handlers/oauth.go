@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/service"
 )
 
 type OAuthHandler struct {

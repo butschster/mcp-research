@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/auth"
+	"github.com/dovod-app/app/internal/auth"
 )
 
 const (

@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/butschster/mcp-research/internal/auth"
+	"github.com/dovod-app/app/internal/auth"
 )
 
 // EventNotifier is called after data mutations to notify listeners.

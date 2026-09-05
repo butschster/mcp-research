@@ -1,7 +1,7 @@
 package mcp
 
 import (
-	"github.com/butschster/mcp-research/internal/mcp/tools"
+	"github.com/dovod-app/app/internal/mcp/tools"
 )
 
 func (s *Server) registerTools() {

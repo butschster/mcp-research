@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // writeRoadmapError maps the roadmap-specific validation errors to 400 with the

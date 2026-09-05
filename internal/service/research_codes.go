@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 // codeCacheLimit is a ceiling, not a working set. A research's code is looked

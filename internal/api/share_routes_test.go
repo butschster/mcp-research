@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/api/ws"
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/service"
-	"github.com/butschster/mcp-research/internal/storage"
-	"github.com/butschster/mcp-research/internal/testdb"
+	"github.com/dovod-app/app/internal/api/ws"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/service"
+	"github.com/dovod-app/app/internal/storage"
+	"github.com/dovod-app/app/internal/testdb"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // The hub decides who may see an event from the fields in it, so an event with

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/api/handlers"
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/api/handlers"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // shareRoutes builds the public read surface a share link opens onto.

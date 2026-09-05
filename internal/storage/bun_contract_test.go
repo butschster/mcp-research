@@ -13,8 +13,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/config"
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/config"
+	"github.com/dovod-app/app/internal/domain"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"

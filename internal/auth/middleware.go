@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // TokenValidator resolves a bearer token to a user.

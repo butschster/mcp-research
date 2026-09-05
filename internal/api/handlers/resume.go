@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // ResumeHandler serves the continuation summary to the web UI.
