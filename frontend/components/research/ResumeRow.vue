@@ -8,11 +8,12 @@
         <span v-if="actor" :class="['resume-actor', `resume-actor--${actor}`]">{{ actorLabel }}</span>
         <ShortCode v-if="code" :code="code" />
         <span class="resume-row-title">{{ title }}</span>
+        <!-- The evidence for the suggestion, on the same line as the thing it
+             is about. A summary that says what to do and not why is asking to
+             be trusted; on its own line it cost a second line of height per
+             row, and this block sits above the documents. -->
+        <span v-if="reason || note" class="resume-row-reason">{{ reason || note }}</span>
       </div>
-      <!-- The evidence for the suggestion. A summary that says what to do next
-           and not why is asking to be trusted; this one can be checked. -->
-      <p v-if="reason" class="resume-row-reason">{{ reason }}</p>
-      <p v-else-if="note" class="resume-row-reason">{{ note }}</p>
     </div>
 
     <div class="resume-row-badges">
@@ -67,34 +68,38 @@ const actorLabel = computed(() => (props.actor === 'human' ? 'You' : 'Agent'))
 }
 .resume-row:hover { text-decoration: none; background: var(--color-surface-hover); }
 
-.resume-row-main { min-width: 0; }
+.resume-row-main { min-width: 0; flex: 1; }
 .resume-row-line {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
 }
+.resume-row-line > .short-code,
+.resume-row-line > .resume-actor { flex: none; align-self: center; }
 .resume-row-title {
   font-size: var(--type-sm);
   font-weight: var(--weight-semibold);
   color: var(--color-text);
-  /* Two lines, then stop. A four-hundred-character title is a real document
-     title in this product, and it must not push the ledger off the screen. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* One line, then an ellipsis. A four-hundred-character title is a real
+     document title here, and the full text is on the page the row links to. */
+  min-width: 0;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-/* Faint rather than muted: this line sits on a row that lightens on hover, and
-   muted text at this size does not hold its contrast against that background. */
+/* Faint rather than muted: this sits on a row that lightens on hover, and muted
+   text at this size does not hold its contrast against that background. It is
+   the first thing to be cut when the row runs out of width — the title and the
+   code are what identify the thing. */
 .resume-row-reason {
-  margin-top: var(--space-1);
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: var(--type-xs);
   color: var(--color-text-faint);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .resume-row-badges {
   display: flex;
@@ -124,7 +129,10 @@ const actorLabel = computed(() => (props.actor === 'human' ? 'You' : 'Agent'))
 .resume-actor--human { background: var(--color-primary-muted); color: var(--color-primary); }
 
 @media (max-width: 768px) {
-  .resume-row { flex-direction: column; align-items: stretch; }
+  .resume-row { flex-direction: column; align-items: stretch; gap: var(--space-1); }
   .resume-row-badges { flex-wrap: wrap; }
+  /* On a phone the row is already stacked, so the reason gets its own line
+     rather than competing with the title for a narrow one. */
+  .resume-row-line { flex-wrap: wrap; }
 }
 </style>

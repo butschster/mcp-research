@@ -573,7 +573,19 @@ function actionHref(action: ResumeAction): string {
   border-start-end-radius: 0;
 }
 
-.resume-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+/* Tighter than `.list-head`'s own 24/16. That padding is right for a card whose
+   heading introduces a page of rows; this heading is one line above three, and
+   the block sits between the research title and the documents — the most
+   expensive space on the page. */
+.resume-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
 .resume-head-left { min-width: 0; }
 .resume-head-right { flex: none; }
 
@@ -613,10 +625,9 @@ function actionHref(action: ResumeAction): string {
 .resume-session-select { max-width: 22rem; }
 
 .resume-skeletons { padding: var(--space-3) var(--row-inset); }
-/* A title line over a reason line, plus the row's own padding — the height an
-   action row actually is. */
+/* Exactly a row: one line of content in the row's own padding. */
 .resume-skeleton-row {
-  height: calc(var(--control-h) + var(--space-6) + var(--type-xs));
+  height: calc(var(--control-h) + var(--space-6));
   margin-bottom: var(--space-2);
 }
 .resume-skeleton-ledger { height: var(--control-h); }
