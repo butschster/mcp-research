@@ -33,8 +33,9 @@
 
 .page-title {
   overflow-wrap: anywhere;
+  font-family: var(--font-display);
   font-size: var(--type-2xl);
-  font-weight: var(--weight-bold);
+  font-weight: 800;
   line-height: var(--line-tight);
   letter-spacing: -0.03em;
   text-wrap: balance;
@@ -70,24 +71,7 @@
   text-align: center;
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(108, 197, 224, 0.03) 0%, transparent 50%);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-.card:hover {
-  border-color: var(--color-border-strong);
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(108, 197, 224, 0.06);
-  transform: translateY(-2px);
-}
-.card:hover::before { opacity: 1; }
+.card:hover { border-color: var(--color-border-strong); }
 
 .card-title {
   font-size: var(--type-lg);
@@ -127,21 +111,20 @@
   letter-spacing: 0.01em;
   line-height: 1;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: color var(--transition-base), background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
   text-decoration: none;
   white-space: nowrap;
   user-select: none;
 }
 .btn:hover {
   background: var(--color-surface-hover);
-  border-color: rgba(108, 197, 224, 0.25);
+  border-color: rgba(var(--color-primary-rgb), 0.25);
   color: var(--color-text);
   text-decoration: none;
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-1);
+
 }
 .btn:active {
-  transform: translateY(0) scale(0.97);
+  transform: translateY(1px);
   transition-duration: 0.05s;
 }
 /* A control that is working looks like a control that is live: same colour,
@@ -164,23 +147,23 @@
 .btn-primary {
   background: var(--color-primary);
   border-color: transparent;
-  color: var(--color-bg);
+  color: var(--color-on-primary);
   font-weight: var(--weight-semibold);
 }
 .btn-primary:hover {
-  background: #7cd1ea;
+  background: var(--color-primary-hover);
   box-shadow: var(--shadow-glow);
-  color: var(--color-bg);
+  color: var(--color-on-primary);
   border-color: transparent;
 }
 
 .btn-danger {
   color: var(--color-error);
-  border-color: rgba(239, 107, 107, 0.25);
+  border-color: rgba(var(--color-error-rgb), 0.25);
 }
 .btn-danger:hover {
-  background: rgba(239, 107, 107, 0.1);
-  border-color: rgba(239, 107, 107, 0.4);
+  background: rgba(var(--color-error-rgb), 0.1);
+  border-color: rgba(var(--color-error-rgb), 0.4);
   color: var(--color-error);
 }
 
@@ -193,7 +176,7 @@
 .btn-danger--solid {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: var(--color-bg);
+  color: var(--color-on-primary);
 }
 .btn-danger--solid:hover { background: var(--color-error); border-color: var(--color-error); filter: brightness(1.08); }
 
@@ -212,23 +195,23 @@
   white-space: nowrap;
   text-transform: none;
 }
-.badge-active      { background: rgba(52, 211, 153, 0.10); color: var(--color-success); }
-.badge-completed   { background: rgba(107, 157, 240, 0.10); color: var(--color-info); }
-.badge-archived    { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
-.badge-draft       { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
-.badge-pending     { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
-.badge-answered    { background: rgba(52, 211, 153, 0.10); color: var(--color-success); }
-.badge-deferred    { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
-.badge-open        { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
-.badge-closed      { background: rgba(52, 211, 153, 0.10); color: var(--color-success); }
-.badge-dismissed   { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
-.badge-skipped     { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
-.badge-blocked     { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
-.badge-failed      { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
-.badge-in_progress { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
-.badge-high        { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
-.badge-medium      { background: rgba(240, 184, 73, 0.10);  color: var(--color-warning); }
-.badge-low         { background: rgba(127, 142, 163, 0.08); color: var(--color-text-muted); }
+.badge-active      { background: rgba(var(--color-success-rgb), 0.10); color: var(--color-success); }
+.badge-completed   { background: rgba(var(--color-info-rgb), 0.10); color: var(--color-info); }
+.badge-archived    { background: rgba(var(--color-muted-rgb), 0.08); color: var(--color-text-muted); }
+.badge-draft       { background: rgba(var(--color-warning-rgb), 0.10);  color: var(--color-warning); }
+.badge-pending     { background: rgba(var(--color-warning-rgb), 0.10);  color: var(--color-warning); }
+.badge-answered    { background: rgba(var(--color-success-rgb), 0.10); color: var(--color-success); }
+.badge-deferred    { background: rgba(var(--color-muted-rgb), 0.08); color: var(--color-text-muted); }
+.badge-open        { background: rgba(var(--color-warning-rgb), 0.10);  color: var(--color-warning); }
+.badge-closed      { background: rgba(var(--color-success-rgb), 0.10); color: var(--color-success); }
+.badge-dismissed   { background: rgba(var(--color-muted-rgb), 0.08); color: var(--color-text-muted); }
+.badge-skipped     { background: rgba(var(--color-error-rgb), 0.10); color: var(--color-error); }
+.badge-blocked     { background: rgba(var(--color-error-rgb), 0.10); color: var(--color-error); }
+.badge-failed      { background: rgba(var(--color-error-rgb), 0.10); color: var(--color-error); }
+.badge-in_progress { background: rgba(var(--color-warning-rgb), 0.10);  color: var(--color-warning); }
+.badge-high        { background: rgba(var(--color-error-rgb), 0.10); color: var(--color-error); }
+.badge-medium      { background: rgba(var(--color-warning-rgb), 0.10);  color: var(--color-warning); }
+.badge-low         { background: rgba(var(--color-muted-rgb), 0.08); color: var(--color-text-muted); }
 
 /* --- Tags --------------------------------------------------------------- */
 
@@ -245,7 +228,7 @@
   font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   line-height: 1;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
 /* A clickable tag is a <button>, which arrives with a UA border and its own
    font. `font: inherit` was the first attempt and it is a shorthand — it reset
@@ -265,12 +248,12 @@ button.tag {
   cursor: pointer;
   text-align: inherit;
 }
-.tag-hue-0 { background: rgba(108, 197, 224, 0.08); color: var(--color-primary); }
-.tag-hue-1 { background: rgba(52, 211, 153, 0.08);  color: var(--color-success); }
-.tag-hue-2 { background: rgba(240, 184, 73, 0.08);  color: var(--color-warning); }
-.tag-hue-3 { background: rgba(239, 107, 107, 0.08); color: var(--color-error); }
-.tag-hue-4 { background: rgba(167, 139, 250, 0.08); color: var(--hue-5); }
-.tag-hue-5 { background: rgba(251, 146, 60, 0.08);  color: #fb923c; }
+.tag-hue-0 { background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary); }
+.tag-hue-1 { background: rgba(var(--color-success-rgb), 0.08);  color: var(--color-success); }
+.tag-hue-2 { background: rgba(var(--color-warning-rgb), 0.08);  color: var(--color-warning); }
+.tag-hue-3 { background: rgba(var(--color-error-rgb), 0.08); color: var(--color-error); }
+.tag-hue-4 { background: rgba(var(--hue-5-rgb), 0.08); color: var(--hue-5); }
+.tag-hue-5 { background: rgba(var(--hue-6-rgb), 0.08);  color: var(--hue-6); }
 /* A chip's label, when the chip may truncate. Opt-in: only a tag that wraps
    its text in this span gets an ellipsis, and the caller sets the `max-width`
    on the chip — that is the one number that legitimately differs. `.tag` is
@@ -355,10 +338,10 @@ button.tag {
   font-weight: var(--weight-medium);
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
-.copy-btn:hover { color: var(--color-text); border-color: rgba(108, 197, 224, 0.25); background: var(--color-surface-hover); }
-.copy-btn.copied { color: var(--color-success); border-color: rgba(52, 211, 153, 0.2); }
+.copy-btn:hover { color: var(--color-text); border-color: rgba(var(--color-primary-rgb), 0.25); background: var(--color-surface-hover); }
+.copy-btn.copied { color: var(--color-success); border-color: rgba(var(--color-success-rgb), 0.2); }
 
 /* --- Page header layout -------------------------------------------------- */
 
@@ -569,11 +552,12 @@ a.short-code:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--type-sm);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: var(--type-xl);
+  font-weight: 800;
+  line-height: var(--line-tight);
+  letter-spacing: -0.025em;
+  color: var(--color-text);
 }
 .modal-help {
   font-size: var(--type-sm);
@@ -604,8 +588,9 @@ a.short-code:focus-visible {
 .text-input:focus,
 .form-input:focus,
 .form-textarea:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -1px;
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
 }
 /* A refusal with a way out of it: the sentence and its retry button on one
    line. Three pages wrote the same four declarations in their own scoped
@@ -666,8 +651,8 @@ a.short-code:focus-visible {
 /* --- Warning Banner ----------------------------------------------------- */
 
 .warning-banner {
-  background: rgba(240, 184, 73, 0.06);
-  border: 1px solid rgba(240, 184, 73, 0.2);
+  background: rgba(var(--color-warning-rgb), 0.06);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.2);
   border-radius: var(--radius);
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-6);
@@ -697,7 +682,7 @@ a.short-code:focus-visible {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(148, 163, 184, 0.03) 50%,
+    rgba(var(--color-muted-rgb), 0.03) 50%,
     transparent 100%
   );
   animation: skeleton-shimmer 2s ease-in-out infinite;

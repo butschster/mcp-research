@@ -33,7 +33,7 @@ export const WithDescription: Story = {
 export const WithCommand: Story = {
   args: {
     icon: '\uD83D\uDE80',
-    title: 'Get started with Research',
+    title: 'Get started with Dovod',
     description: 'Add this MCP server to Claude and run the initialization prompt.',
     command: 'Use the research/initialize prompt',
   },

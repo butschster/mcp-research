@@ -1,14 +1,12 @@
 <template>
   <div class="templates-page">
     <PageHeader
-      :crumbs="[{ label: 'Research', to: '/' }, { label: 'Methodologies' }]"
+      :crumbs="[{ label: 'Projects', to: '/' }, { label: 'Methodologies' }]"
       title="Methodologies"
     />
 
     <p class="lead">
-      A methodology is what an agent reads before it starts a research: what to ask you first,
-      what structure to propose, and when the work is finished. It creates nothing by itself —
-      the agent picks one at kickoff and follows it.
+      Choose a methodology, copy its prompt, and paste it into your connected AI assistant to start a project.
     </p>
 
     <div v-if="pending" class="skeleton-groups">
@@ -23,7 +21,7 @@
       v-else-if="error"
       icon="&#x26A0;"
       title="Couldn't load the methodologies"
-      description="The server didn't answer. Nothing is wrong with your research."
+      description="Your projects are still available. Try loading the methodologies again."
     >
       <button class="btn btn-primary" @click="reload">Try again</button>
     </EmptyState>
@@ -34,27 +32,27 @@
           v-model="filter"
           type="search"
           class="text-input"
-          placeholder="Filter by name or by when it is used…"
+          placeholder="Find a methodology…"
           aria-label="Filter methodologies"
         />
       </div>
 
-      <div v-if="teamTemplates.length" class="card">
+      <div v-if="teamTemplates.length" class="card card--list">
         <TemplateRowList
           :templates="teamTemplates"
           :team-name="teamName"
-          heading="Your teams"
+          heading="Team methodologies"
           :note="teamTemplates.length"
-          blurb="Written by a team you belong to, and theirs alone. A copy of a global methodology replaces the original everywhere that team looks."
+          blurb="Guides created or adapted by your teams."
         />
       </div>
 
-      <div v-if="houseTemplates.length" class="card">
+      <div v-if="houseTemplates.length" class="card card--list">
         <TemplateRowList
           :templates="houseTemplates"
-          heading="Added on this server"
+          heading="Shared methodologies"
           :note="houseTemplates.length"
-          blurb="Written here by whoever runs this server, and visible to every team on it. Not part of the app, so an upgrade will not change them."
+          blurb="Custom guides available to every team on this server."
         />
       </div>
 
@@ -62,13 +60,13 @@
            they are empty. Its empty text says the server is at fault, and a filter
            that simply matches nothing here is not a fault — it used to print the
            accusation directly above a healthy list of somebody's team templates. -->
-      <div v-if="!filter || shippedTemplates.length" class="card">
+      <div v-if="!filter || shippedTemplates.length" class="card card--list">
         <TemplateRowList
           :templates="shippedTemplates"
-          heading="Ships with the app"
+          heading="Included with Dovod"
           :note="shippedTemplates.length"
-          blurb="Written by us and updated with the binary. Editing one makes a copy for your team; the original stays as it is for everybody else."
-          empty-text="None loaded. That is a fault on the server rather than a setting — the app ships with several."
+          blurb="Starting points for common questions and decisions."
+          empty-text="Built-in methodologies are unavailable. Contact the server administrator."
         />
       </div>
 
@@ -77,21 +75,7 @@
         <template v-else>Nothing matches “{{ filter }}”.</template>
       </p>
 
-      <div class="card">
-        <h3 class="card-section-title">Using one</h3>
-        <p class="lead lead--tight">
-          There is no button here that starts a research: the web interface cannot create one yet.
-          Ask your AI assistant instead — it reads the same list you are reading.
-        </p>
-        <CopyLine
-          text="Start a new research. Check template_list first and follow the methodology that fits."
-          label="Paste this into your AI client"
-        />
-        <p class="footnote">
-          Your team can write its own, and whoever runs this server can add one that every team
-          here sees. Both are written through the API — see <code>/llms/templates.md</code>.
-        </p>
-      </div>
+
     </template>
   </div>
 </template>
@@ -137,16 +121,13 @@ function reload() {
 .lead {
   font-size: var(--type-sm);
   color: var(--color-text-muted);
-  max-width: var(--measure-prose);
   margin-bottom: var(--space-6);
 }
-.lead--tight { margin-bottom: var(--space-4); }
 
 .filter-row { margin-bottom: var(--space-5); }
 .filter-row .text-input { max-width: 26rem; }
 
 .card + .card { margin-top: var(--space-6); }
-.card-section-title { margin-bottom: var(--space-2); }
 
 .no-match {
   font-size: var(--type-sm);
@@ -154,12 +135,7 @@ function reload() {
   margin-top: var(--space-5);
 }
 
-.footnote {
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  max-width: var(--measure-prose);
-  margin-top: var(--space-4);
-}
+
 
 .skeleton-groups { display: flex; flex-direction: column; gap: var(--space-6); }
 .skeleton-group { height: 22rem; }

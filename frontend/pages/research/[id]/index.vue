@@ -12,7 +12,7 @@
   <div v-else-if="research">
     <!-- Header -->
     <PageHeader
-      :crumbs="[{ label: 'Research', to: '/' }, { label: research.name }]"
+      :crumbs="[{ label: 'Projects', to: '/' }, { label: research.name }]"
       :code="research.code"
       :title="research.name"
     >
@@ -22,12 +22,11 @@
           <TeamViewerNotice v-if="isViewer" :team-name="research.team_name" />
 
           <!-- Icon nav buttons -->
-          <NuxtLink :to="updatesPath(researchSlug)" class="btn" title="New and changed documents">
+          <NuxtLink v-if="entryUpdates.count > 0" :to="updatesPath(researchSlug)" class="btn btn-icon" title="New and changed documents" :aria-label="`${entryUpdates.count} new or changed documents`">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
-            Updates
-            <span v-if="entryUpdates.count" class="btn-count">{{ entryUpdates.count }}</span>
+            <span class="btn-count" aria-hidden="true">{{ entryUpdates.count }}</span>
           </NuxtLink>
-          <NuxtLink :to="`/research/${researchSlug}/tasks`" class="btn btn-icon" title="Tasks">
+          <NuxtLink :to="`/research/${researchSlug}/tasks`" class="btn btn-icon" title="Tasks" aria-label="Tasks">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             <span v-if="tasks.length" class="btn-count">{{ tasks.length }}</span>
           </NuxtLink>
@@ -36,24 +35,13 @@
             :to="annotationsPath(researchSlug)"
             class="btn btn-icon"
             title="Marks"
+            aria-label="Marks"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8"/><path d="M8 12.5h5"/></svg>
             <span v-if="openMarks" class="btn-count">{{ openMarks }}</span>
           </NuxtLink>
-          <NuxtLink :to="`/research/${researchSlug}/roadmaps`" class="btn btn-icon" title="Roadmaps">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <span v-if="roadmaps.length" class="btn-count">{{ roadmaps.length }}</span>
-          </NuxtLink>
-          <NuxtLink :to="`/research/${researchSlug}/mindmap`" class="btn btn-icon" title="Mind map">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
-          </NuxtLink>
-          <NuxtLink :to="`/research/${researchSlug}/graph`" class="btn btn-icon" title="Knowledge graph">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5"/><path d="M15.5 8.5 8.5 15.5"/><path d="M6 9v6"/><path d="M18 9v6"/></svg>
-          </NuxtLink>
 
-          <!-- Share: a labelled button rather than a fifth icon, and it carries
-               the live-link count — an owner should be able to see that a
-               research is exposed without clicking anything. -->
+          <!-- Keep sharing and its live-link count visible in the toolbar. -->
           <button v-if="canWrite" class="btn" @click="openShares()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             Share
@@ -61,11 +49,25 @@
           </button>
 
           <!-- More menu -->
-          <ActionMenu>
+          <ActionMenu title="Project menu">
+            <NuxtLink :to="`/research/${researchSlug}/roadmaps`" class="action-menu-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              Roadmaps
+              <span v-if="roadmaps.length" class="btn-count">{{ roadmaps.length }}</span>
+            </NuxtLink>
+            <NuxtLink :to="`/research/${researchSlug}/mindmap`" class="action-menu-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
+              Mind map
+            </NuxtLink>
+            <NuxtLink :to="`/research/${researchSlug}/graph`" class="action-menu-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5"/><path d="M15.5 8.5 8.5 15.5"/><path d="M6 9v6"/><path d="M18 9v6"/></svg>
+              Knowledge graph
+            </NuxtLink>
             <NuxtLink :to="`/research/${researchSlug}/sessions`" class="action-menu-item">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               Sessions
             </NuxtLink>
+            <div class="action-menu-divider"></div>
             <NuxtLink :to="`/research/${researchSlug}/settings`" class="action-menu-item">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               Settings
@@ -195,13 +197,13 @@
           v-else
           icon="&#x1F448;"
           title="Select a section"
-          description="Choose a section from the sidebar to view its entries."
+          description="Choose a section from the sidebar to view its documents."
         />
       </div>
     </div>
   </div>
 
-  <EmptyState v-else icon="&#x1F50D;" title="Research not found" />
+  <EmptyState v-else icon="&#x1F50D;" title="Project not found" />
     <ResearchShareDialog
       :visible="sharesOpen"
       :research-name="research?.name || ''"
@@ -220,7 +222,7 @@
     <ConfirmModal
       :visible="!!shareToRevoke"
       title="Revoke this link?"
-      message="Anyone holding it stops being able to open this research. A page someone already has open goes blank within a minute. This cannot be undone — you can always make a new link."
+      message="Anyone holding it stops being able to open this project. A page someone already has open goes blank within a minute. This cannot be undone — you can always make a new link."
       confirm-label="Revoke"
       variant="danger"
       :loading="!!revokingShareId"

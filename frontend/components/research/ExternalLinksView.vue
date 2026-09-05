@@ -33,7 +33,7 @@
       </div>
     </div>
 
-    <EmptyState v-else icon="&#x1F517;" title="No external links" description="Links from entry content will appear here." />
+    <EmptyState v-else icon="&#x1F517;" title="No external links" description="Links from document content will appear here." />
   </div>
 </template>
 

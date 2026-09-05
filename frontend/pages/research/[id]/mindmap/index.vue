@@ -98,7 +98,7 @@
         </div>
         <MiniMap
           :node-color="minimapNodeColor"
-          :mask-color="'rgba(12, 18, 32, 0.7)'"
+          :mask-color="'var(--color-nav)'"
           position="bottom-right"
         />
         <Controls position="bottom-left" />
@@ -155,7 +155,7 @@ const {
 } = useResearchMindmap(id)
 
 const filterGroups = [
-  { key: 'entries', label: 'Entries' },
+  { key: 'entries', label: 'Documents' },
   { key: 'questions', label: 'Sessions' },
   { key: 'tasks', label: 'Tasks' },
 ]
@@ -210,9 +210,9 @@ function onEdgeEnter({ edge, event }: { edge: any; event: MouseEvent }) {
   setEdges(getEdges.value.map((e: any) => ({
     ...e,
     style: e.id === edge.id
-      ? { ...e.style, stroke: '#a78bfa', strokeWidth: 2.5, strokeDasharray: '4 4' }
+      ? { ...e.style, stroke: 'var(--hue-5)', strokeWidth: 2.5, strokeDasharray: '4 4' }
       : e.id.startsWith('xref-')
-        ? { ...e.style, stroke: 'rgba(167,139,250,0.12)' }
+        ? { ...e.style, stroke: 'rgba(var(--hue-5-rgb), 0.12)' }
         : e.style,
   })))
 
@@ -230,7 +230,7 @@ function onEdgeLeave({ edge }: { edge: any }) {
   setEdges(getEdges.value.map((e: any) => ({
     ...e,
     style: e.id.startsWith('xref-')
-      ? { stroke: 'rgba(167,139,250,0.35)', strokeWidth: 1, strokeDasharray: '4 4' }
+      ? { stroke: 'rgba(var(--hue-5-rgb), 0.35)', strokeWidth: 1, strokeDasharray: '4 4' }
       : e.style,
   })))
 
@@ -242,14 +242,14 @@ function onEdgeLeave({ edge }: { edge: any }) {
 
 function minimapNodeColor(node: any): string {
   switch (node.type) {
-    case 'root': return '#6cc5e0'
-    case 'section': return '#6b9df0'
-    case 'entry': return '#7f8ea3'
-    case 'group-label': return '#f0b849'
-    case 'question': return '#f0b849'
-    case 'answer': return '#34d399'
-    case 'task': return '#ef6b6b'
-    default: return '#7f8ea3'
+    case 'root': return 'var(--color-primary)'
+    case 'section': return 'var(--color-info)'
+    case 'entry': return 'var(--color-text-muted)'
+    case 'group-label': return 'var(--color-warning)'
+    case 'question': return 'var(--color-warning)'
+    case 'answer': return 'var(--color-success)'
+    case 'task': return 'var(--color-error)'
+    default: return 'var(--color-text-muted)'
   }
 }
 
@@ -289,7 +289,7 @@ useResearchRealtime(() => id, reloadMindmap, {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-5);
-  background: rgba(21, 29, 46, 0.9);
+  background: var(--color-surface-raised);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-border);
   gap: var(--space-4);
@@ -326,13 +326,13 @@ useResearchRealtime(() => id, reloadMindmap, {
 }
 .filter-chip.active {
   color: var(--color-primary);
-  border-color: rgba(108, 197, 224, 0.3);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
   background: var(--color-primary-muted);
 }
 .crossref-chip.active {
   color: var(--hue-5);
-  border-color: rgba(167, 139, 250, 0.3);
-  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(var(--hue-5-rgb), 0.3);
+  background: rgba(var(--hue-5-rgb), 0.1);
 }
 
 .mindmap-canvas {
@@ -358,7 +358,7 @@ useResearchRealtime(() => id, reloadMindmap, {
   position: fixed;
   z-index: 1000;
   background: var(--color-surface);
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  border: 1px solid rgba(var(--hue-5-rgb), 0.3);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
   display: flex;
@@ -370,7 +370,7 @@ useResearchRealtime(() => id, reloadMindmap, {
   pointer-events: none;
   white-space: nowrap;
 }
-.xref-tooltip svg { color: rgba(167, 139, 250, 0.6); flex-shrink: 0; }
+.xref-tooltip svg { color: rgba(var(--hue-5-rgb), 0.6); flex-shrink: 0; }
 .xref-from, .xref-to {
   font-weight: var(--weight-semibold);
   max-width: 200px;
@@ -380,7 +380,7 @@ useResearchRealtime(() => id, reloadMindmap, {
 
 /* Highlighted nodes on crossref hover */
 .mindmap-flow :deep(.xref-highlight) {
-  outline: 2px solid rgba(167, 139, 250, 0.6);
+  outline: 2px solid rgba(var(--hue-5-rgb), 0.6);
   outline-offset: 2px;
   border-radius: var(--radius);
 }

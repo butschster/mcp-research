@@ -35,7 +35,7 @@ defineProps<{
 <style scoped>
 .task-node {
   background: var(--color-surface);
-  border: 1px solid rgba(239, 107, 107, 0.2);
+  border: 1px solid rgba(var(--color-error-rgb), 0.2);
   border-radius: var(--radius);
   padding: var(--space-4) var(--space-5);
   min-width: 340px;

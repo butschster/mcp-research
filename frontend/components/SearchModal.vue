@@ -14,7 +14,7 @@
             ref="inputRef"
             v-model="query"
             class="search-input"
-            placeholder="Search projects, entries, tags..."
+            placeholder="Search projects, documents, tags..."
             @keydown.escape="open = false"
             @keydown.up.prevent="moveUp"
             @keydown.down.prevent="moveDown"
@@ -45,7 +45,7 @@
 
           <!-- Entry results -->
           <div v-if="entryResults.length" class="result-group">
-            <div class="result-group-label">Entries</div>
+            <div class="result-group-label">Documents</div>
             <NuxtLink
               v-for="(e, i) in entryResults"
               :key="'e-' + e.id"
@@ -199,7 +199,7 @@ function selectCurrent() {
   font-family: inherit;
   font-size: var(--type-sm);
   min-width: 200px;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
 .search-trigger:hover {
   border-color: var(--color-border-strong);
@@ -222,7 +222,7 @@ function selectCurrent() {
 
 .search-overlay {
   position: fixed; inset: 0; z-index: var(--z-overlay);
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--color-backdrop);
   backdrop-filter: blur(8px) saturate(0.8);
   -webkit-backdrop-filter: blur(8px) saturate(0.8);
   display: flex; align-items: flex-start; justify-content: center;
@@ -238,10 +238,7 @@ function selectCurrent() {
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg); overflow: hidden;
-  box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(108, 197, 224, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow-3);
   animation: modal-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @keyframes modal-in {

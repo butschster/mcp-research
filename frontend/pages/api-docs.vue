@@ -1,13 +1,15 @@
 <script setup lang="ts">
+import { useTheme } from '~/composables/useTheme'
+const { theme } = useTheme()
+
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 
 // Aliases, not redirects: the address a person guessed stays in the bar. See
 // utils/apiDocs.ts for why these particular ones.
 definePageMeta({ alias: [...API_DOCS_ALIASES] })
 
-// Without this the tab is called "Research", like every other page — and this
-// is the page a reader keeps open in a second window while they work.
-useHead({ title: 'API reference — Research' })
+// Keep the reference recognizable when it is open beside the workspace.
+useHead({ title: 'API reference' })
 
 const { authEnabled, isAuthenticated } = useAuth()
 
@@ -56,10 +58,8 @@ const ApiReference = defineAsyncComponent({
 const configuration = computed(() => ({
   content: document_.value,
   layout: 'modern' as const,
-  darkMode: true,
-  // The product has one theme and it is dark. A light document inside a dark
-  // bar is the worst of both, and the toggle offers exactly that.
-  forceDarkModeState: 'dark' as const,
+  darkMode: theme.value === 'dark',
+  forceDarkModeState: theme.value,
   hideDarkModeToggle: true,
   // Outfit and JetBrains Mono are already loaded by the app shell.
   withDefaultFonts: false,
@@ -293,13 +293,36 @@ onBeforeUnmount(() => barObserver?.disconnect())
 .api-docs-mount {
   flex: 1;
   min-height: 0;
-  /* Five variables, not a wholesale re-theme. The two things a reader registers
-     as "wrong product" are the background and the typeface; the rest is
-     reference furniture our tokens have no opinion about, and Scalar's layout
-     is tuned to its own metrics. */
+}
+
+/* Scalar creates nested color-mode roots, including one in its sidebar.
+   Map each root to the app palette so it follows the same preference. */
+.api-docs-mount,
+.api-docs-mount :deep(.light-mode),
+.api-docs-mount :deep(.dark-mode) {
   --scalar-background-1: var(--color-bg);
   --scalar-background-2: var(--color-surface);
+  --scalar-background-3: var(--color-surface-hover);
+  --scalar-color-1: var(--color-text);
+  --scalar-color-2: var(--color-text-muted);
+  --scalar-color-3: var(--color-text-muted);
+  --scalar-border-color: var(--color-border);
   --scalar-color-accent: var(--color-primary);
+  --scalar-background-accent: var(--color-primary-muted);
+  --scalar-button-1: var(--color-primary);
+  --scalar-button-1-hover: var(--color-primary-hover);
+  --scalar-button-1-color: var(--color-on-primary);
+  --scalar-sidebar-background-1: var(--color-surface);
+  --scalar-sidebar-color-1: var(--color-text);
+  --scalar-sidebar-color-2: var(--color-text-muted);
+  --scalar-sidebar-color-active: var(--color-primary);
+  --scalar-sidebar-border-color: var(--color-border);
+  --scalar-sidebar-item-hover-background: var(--color-surface-hover);
+  --scalar-sidebar-item-hover-color: var(--color-text);
+  --scalar-sidebar-item-active-background: var(--color-primary-muted);
+  --scalar-sidebar-search-background: var(--color-bg);
+  --scalar-sidebar-search-color: var(--color-text-muted);
+  --scalar-sidebar-search-border-color: var(--color-border);
   --scalar-font: 'Outfit', sans-serif;
   --scalar-font-code: 'JetBrains Mono', monospace;
 }

@@ -43,14 +43,10 @@ defineProps<{
   overflow: hidden;
 }
 .session-active {
-  border-color: rgba(108, 197, 224, 0.15);
+  border-color: rgba(var(--color-primary-rgb), 0.15);
 }
 .session-widget:hover { text-decoration: none; }
-.session-widget::after {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(108, 197, 224, 0.3), transparent);
-}
+
 .session-widget-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: var(--space-1);

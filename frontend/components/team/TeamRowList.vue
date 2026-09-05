@@ -15,7 +15,7 @@
         </span>
         <span class="team-sub">
           <span>{{ team.member_count }} {{ team.member_count === 1 ? 'member' : 'members' }}</span>
-          <span>{{ team.research_count }} {{ team.research_count === 1 ? 'research' : 'researches' }}</span>
+          <span>{{ team.research_count }} {{ team.research_count === 1 ? 'project' : 'projects' }}</span>
         </span>
       </div>
 

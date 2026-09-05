@@ -45,7 +45,7 @@ const headingId = `danger-zone-${useId()}`
    property across that boundary. */
 .danger-zone {
   margin-top: var(--space-12);
-  border: 1px solid rgba(239, 107, 107, 0.25);
+  border: 1px solid rgba(var(--color-error-rgb), 0.25);
   border-radius: var(--radius);
   padding: 0;
   --row-inset: var(--space-5);
@@ -54,7 +54,7 @@ const headingId = `danger-zone-${useId()}`
   padding: var(--space-4) var(--row-inset);
   /* The box's own red, not the neutral border: this rule belongs to the frame,
      and a grey line across a red box reads as a seam rather than a division. */
-  border-bottom: 1px solid rgba(239, 107, 107, 0.25);
+  border-bottom: 1px solid rgba(var(--color-error-rgb), 0.25);
 }
 .danger-zone-title {
   color: var(--color-danger);

@@ -7,18 +7,18 @@
   <EmptyState
     v-else-if="excluded"
     title="Not part of this link"
-    description="The person who shared this research didn't include interview sessions. Ask them if you need them."
+    description="The person who shared this project didn't include interview sessions. Ask them if you need them."
   >
-    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to the research</NuxtLink>
+    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to project</NuxtLink>
   </EmptyState>
 
   <EmptyState
     v-else-if="!session"
     title="Couldn't load this session"
-    description="It may have been removed, or the server didn't answer. The rest of the research is still here."
+    description="It may have been removed, or the server didn't answer. The rest of the project is still here."
   >
     <button class="btn btn-primary" @click="load()">Try again</button>
-    <NuxtLink class="btn" :to="researchPath(slug)">Back to the research</NuxtLink>
+    <NuxtLink class="btn" :to="researchPath(slug)">Back to project</NuxtLink>
   </EmptyState>
 
   <div v-else>
@@ -50,7 +50,7 @@
     <QuestionList :questions="grouped" :research-slug="slug" :session-id="sessionCode" />
 
     <div v-if="sessionEntries.length" class="session-entries">
-      <h3 class="card-section-title">Entries from this session</h3>
+      <h3 class="card-section-title">Documents from this session</h3>
       <div class="grid">
         <EntryCard
           v-for="entry in sessionEntries"
@@ -70,7 +70,7 @@ const route = useRoute()
 const sessionCode = computed(() => route.params.sessionId as string)
 
 const { shareFetch, research, researchId, researchCode, include, slug } = useShare()
-const researchName = computed(() => research.value?.name || 'Research')
+const researchName = computed(() => research.value?.name || 'Project')
 
 const session = ref<any | null>(null)
 // The API hands questions back already grouped by status, which is the shape

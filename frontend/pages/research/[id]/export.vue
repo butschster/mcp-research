@@ -8,7 +8,7 @@
     <!-- Toolbar (hidden in print) -->
     <div class="export-toolbar no-print">
       <Breadcrumbs :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: exportData.research.name, to: `/research/${researchSlug}` },
         { label: 'Export' }
       ]" />
@@ -24,7 +24,7 @@
             label="Obsidian .zip"
             busy-label="Preparing…"
             options-label="Obsidian export options"
-            hint="Sections become folders, entries become notes, references become links. Opens in Obsidian or any markdown editor."
+            hint="Sections become folders, documents become notes, references become links. Opens in Obsidian or any markdown editor."
             :busy="downloading"
             :with-options="hasOptionalContent"
             :options-open="optionsOpen"
@@ -53,7 +53,7 @@
     <ResearchExportDocument :data="exportData" :research-slug="researchSlug" />
   </div>
 
-  <EmptyState v-else icon="&#x1F50D;" title="Research not found" />
+  <EmptyState v-else icon="&#x1F50D;" title="Project not found" />
 </template>
 
 <script setup lang="ts">
@@ -135,7 +135,7 @@ function retryAction(status: number) {
 // The button says "Preparing…" on its own; this says why it is taking so long,
 // and only when it is.
 watch(downloadSlow, (slow) => {
-  if (slow) toasts.push({ message: 'Still working — a large research takes a moment.' })
+  if (slow) toasts.push({ message: 'Still working — a large project takes a moment.' })
 })
 
 function onDialogDownload(opts: ObsidianExportOptions) {

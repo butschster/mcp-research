@@ -110,7 +110,7 @@
       >
         <MiniMap
           :node-color="minimapNodeColor"
-          :mask-color="'rgba(12, 18, 32, 0.7)'"
+          :mask-color="'var(--color-nav)'"
           position="bottom-right"
         />
         <Controls position="bottom-left" />
@@ -360,9 +360,9 @@ async function onAutoLayout() {
 }
 
 function minimapNodeColor(node: any): string {
-  if (node.type === 'roadmap-root') return '#6cc5e0'
-  if (node.type === 'roadmap-ref') return '#a882ff'
-  return '#7f8ea3'
+  if (node.type === 'roadmap-root') return 'var(--color-primary)'
+  if (node.type === 'roadmap-ref') return 'var(--hue-5)'
+  return 'var(--color-text-muted)'
 }
 
 // Close popover when clicking on the canvas (pane), not on nodes
@@ -423,7 +423,7 @@ useResearchRealtime(
   max-width: min(90vw, 32rem);
   padding: var(--space-2) var(--space-4);
   background: var(--color-surface);
-  border: 1px solid rgba(239, 107, 107, 0.5);
+  border: 1px solid rgba(var(--color-error-rgb), 0.5);
   border-radius: var(--radius);
   box-shadow: var(--shadow-2);
   font-size: var(--type-sm);
@@ -453,7 +453,7 @@ useResearchRealtime(
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-5);
-  background: rgba(21, 29, 46, 0.9);
+  background: var(--color-surface-raised);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-border);
   gap: var(--space-4);
@@ -512,7 +512,7 @@ useResearchRealtime(
 }
 .progress-fill {
   height: 100%;
-  background: rgba(107, 203, 119, 0.8);
+  background: rgba(var(--color-success-rgb), 0.8);
   border-radius: var(--radius-hair);
   transition: width 0.3s ease;
 }

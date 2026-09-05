@@ -1,4 +1,4 @@
-# Research
+# Dovod
 
 > Structured AI-driven research sessions. Design research structures, conduct interactive Q&A sessions, manage tasks, build visual roadmaps, create cross-referenced knowledge entries, and track progress.
 

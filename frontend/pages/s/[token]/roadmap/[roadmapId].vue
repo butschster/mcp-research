@@ -2,9 +2,9 @@
   <EmptyState
     v-if="excluded"
     title="Not part of this link"
-    description="The person who shared this research didn't include roadmaps. Ask them if you need them."
+    description="The person who shared this project didn't include roadmaps. Ask them if you need them."
   >
-    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to the research</NuxtLink>
+    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to project</NuxtLink>
   </EmptyState>
 
   <div v-else class="roadmap-page">
@@ -88,7 +88,7 @@
         @node-click="onNodeClick"
         @pane-click="selectedNode = null"
       >
-        <MiniMap :node-color="minimapNodeColor" mask-color="rgba(12, 18, 32, 0.7)" position="bottom-right" />
+        <MiniMap :node-color="minimapNodeColor" mask-color="var(--color-nav)" position="bottom-right" />
         <Controls position="bottom-left" />
       </VueFlow>
     </div>
@@ -200,9 +200,9 @@ function onNavigate(node: any) {
 }
 
 function minimapNodeColor(node: any): string {
-  if (node.type === 'roadmap-root') return '#6cc5e0'
-  if (node.type === 'roadmap-ref') return '#a882ff'
-  return '#7f8ea3'
+  if (node.type === 'roadmap-root') return 'var(--color-primary)'
+  if (node.type === 'roadmap-ref') return 'var(--hue-5)'
+  return 'var(--color-text-muted)'
 }
 
 onMounted(() => { if (!excluded.value) refresh() })

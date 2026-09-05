@@ -108,7 +108,7 @@ function onDrop(e: DragEvent) {
   over.value = false
   if (!isFileDrag(e)) return
   if (!props.enabled) {
-    emit('refuse', { message: 'You have read-only access to this research.', retryable: false })
+    emit('refuse', { message: 'You have read-only access to this project.', retryable: false })
     return
   }
   accept(Array.from(e.dataTransfer?.files ?? []))

@@ -20,11 +20,9 @@ import {
 const meta: Meta<typeof TemplateRowList> = {
   title: 'Templates/TemplateRowList',
   component: TemplateRowList,
-  /* /templates puts each group in a plain `.card` — not the `card--list` the
-     skills page uses — and the card is what supplies the padding the rows sit
-     in. Rendered bare, the catalog would show a spacing that exists nowhere. */
+  /* Match the page: the card is a frame; the header and rows own their inset. */
   decorators: [
-    () => ({ template: '<div class="card" style="max-width: 760px"><story /></div>' }),
+    () => ({ template: '<div class="card card--list" style="max-width: 760px"><story /></div>' }),
   ],
 }
 export default meta

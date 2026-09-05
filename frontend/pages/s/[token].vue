@@ -49,7 +49,7 @@
 
     <footer class="app-footer">
       <div class="container footer-inner">
-        <span class="card-meta">Shared research</span>
+        <span class="shared-brand"><BrandLogo /><span class="card-meta">Shared with you</span></span>
         <div class="footer-right">
           <ConnectionStatus
             :state="connection"
@@ -220,10 +220,12 @@ onUnmounted(() => {
 // Every share tab was called "Shared research", so a client sent three links
 // had three indistinguishable tabs and the sender's message was the only thing
 // carrying the name.
-useHead({ title: () => (research.value?.name ? `${research.value.name} — shared` : 'Shared research') })
+useHead({ title: () => (research.value?.name ? `${research.value.name} — shared` : 'Shared project') })
 </script>
 
 <style scoped>
+.shared-brand { display: flex; align-items: center; gap: var(--space-4); }
+.shared-brand :deep(svg) { width: 4.5rem; color: var(--color-text); }
 .share-shell { min-height: 100dvh; display: flex; flex-direction: column; }
 .share-main { flex: 1; padding-top: var(--space-4); padding-bottom: var(--space-4); }
 .share-standalone {

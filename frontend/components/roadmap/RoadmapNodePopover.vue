@@ -2,7 +2,7 @@
   <ModalOverlay :labelledby="titleId" :visible="!!node" size="sm" flush @close="$emit('close')">
     <template v-if="node">
       <!-- Header (same pattern as DetailsPanel) -->
-      <ModalHeader :title="node.refType || node.nodeType" :title-id="titleId" @close="$emit('close')" />
+      <ModalHeader :title="node.refType ? refLabel : node.nodeType" :title-id="titleId" @close="$emit('close')" />
 
       <div class="modal-body">
         <!-- Title + description -->
@@ -46,7 +46,7 @@
           <!-- Research: counts -->
           <div v-if="node.refType === 'research'" class="field">
             <label class="field-label">Content</label>
-            <div class="field-value">{{ node.refData.section_count }} sections, {{ node.refData.entry_count }} entries</div>
+            <div class="field-value">{{ node.refData.section_count }} sections, {{ node.refData.entry_count }} documents</div>
           </div>
 
           <!-- Entity status — clickable chips with real entity statuses -->
@@ -198,10 +198,10 @@ const endInputTitle = computed(() => {
 
 const refLabel = computed(() => {
   switch (props.node?.refType) {
-    case 'entry': return 'entry'
+    case 'entry': return 'document'
     case 'task': return 'task'
     case 'session': return 'session'
-    case 'research': return 'research'
+    case 'research': return 'project'
     case 'question': return 'question'
     default: return 'entity'
   }
@@ -278,12 +278,12 @@ const entityStatuses = computed(() => {
   text-transform: capitalize;
 }
 .priority-high, .priority-critical {
-  background: rgba(239, 107, 107, 0.12);
-  color: rgba(239, 107, 107, 1);
+  background: rgba(var(--color-error-rgb), 0.12);
+  color: rgba(var(--color-error-rgb), 1);
 }
 .priority-medium {
-  background: rgba(240, 184, 73, 0.12);
-  color: rgba(240, 184, 73, 1);
+  background: rgba(var(--color-warning-rgb), 0.12);
+  color: rgba(var(--color-warning-rgb), 1);
 }
 .priority-low {
   background: var(--color-surface-hover);
@@ -326,7 +326,7 @@ const entityStatuses = computed(() => {
 }
 .status-chip.active {
   background: var(--color-primary-muted);
-  border-color: rgba(108, 197, 224, 0.4);
+  border-color: rgba(var(--color-primary-rgb), 0.4);
   color: var(--color-primary);
   font-weight: var(--weight-semibold);
 }
@@ -337,8 +337,8 @@ const entityStatuses = computed(() => {
 }
 .status-chip-clear:hover {
   opacity: 1;
-  border-color: rgba(239, 107, 107, 0.4);
-  color: rgba(239, 107, 107, 1);
+  border-color: rgba(var(--color-error-rgb), 0.4);
+  color: rgba(var(--color-error-rgb), 1);
 }
 
 .rm-placement { display: flex; gap: var(--space-4); flex-wrap: wrap; }

@@ -11,25 +11,31 @@
  */
 import mermaid from 'mermaid'
 import { mermaidLiveUrl } from '~/composables/useMermaidLive'
+import { readThemeColors } from '~/utils/theme'
 
-let initialized = false
+let initializedTheme = ''
 
 function ensureInit() {
-  if (initialized) return
-  initialized = true
+  const theme = document.documentElement.dataset.theme || 'light'
+  if (initializedTheme === theme) return
+  initializedTheme = theme
+  const colors = readThemeColors()
   mermaid.initialize({
     startOnLoad: false,
-    theme: 'dark',
+    theme: 'base',
     themeVariables: {
-      darkMode: true,
-      background: '#1a1a2e',
-      primaryColor: '#f0b849',
-      primaryTextColor: '#e0e0e0',
-      primaryBorderColor: '#f0b849',
-      lineColor: '#555',
-      secondaryColor: '#2a2a3e',
-      tertiaryColor: '#1e1e30',
-      fontFamily: "'Inter', sans-serif",
+      darkMode: theme === 'dark',
+      background: colors.surface,
+      primaryColor: colors.raised,
+      primaryTextColor: colors.text,
+      primaryBorderColor: colors.primary,
+      lineColor: colors.muted,
+      secondaryColor: colors.recessed,
+      tertiaryColor: colors.background,
+      textColor: colors.text,
+      nodeTextColor: colors.text,
+      edgeLabelBackground: colors.surface,
+      fontFamily: "'Outfit', sans-serif",
     },
     flowchart: { curve: 'basis' },
     sequence: { mirrorActors: false },
@@ -37,6 +43,36 @@ function ensureInit() {
 }
 
 let counter = 0
+
+// One listener, weakly held source, no per-diagram document listeners left
+// behind after navigation. Replace only the SVG, preserving pan and zoom.
+const diagramSources = new WeakMap<HTMLElement, string>()
+let themeRevision = 0
+if (typeof window !== 'undefined') {
+  window.addEventListener('dovod:theme-change', async () => {
+    const revision = ++themeRevision
+    for (const stage of document.querySelectorAll<HTMLElement>('.mermaid-stage')) {
+      const source = diagramSources.get(stage)
+      if (!source || !stage.isConnected) continue
+      try {
+        ensureInit()
+        const { svg } = await mermaid.render(`mermaid-${++counter}`, source)
+        if (revision !== themeRevision || !stage.isConnected) return
+        const previous = stage.querySelector('svg')
+        const width = previous?.style.width
+        const height = previous?.style.height
+        stage.innerHTML = svg
+        const next = stage.querySelector('svg')
+        if (next) {
+          next.style.maxWidth = 'none'
+          next.style.width = width || '100%'
+          next.style.height = height || '100%'
+          next.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+        }
+      } catch { /* Keep the last valid diagram if a redraw fails. */ }
+    }
+  })
+}
 
 /** Bounds for zooming by hand. Fitting has its own, lower floor: a huge diagram
  *  must still be shown whole, however small that makes it — and a diagram fitted
@@ -120,6 +156,7 @@ export async function createMermaidViewer(source: string): Promise<HTMLElement |
 
   const stage = document.createElement('div')
   stage.className = 'mermaid-stage'
+  diagramSources.set(stage, source)
   stage.innerHTML = svg
   canvas.appendChild(stage)
   view.appendChild(canvas)

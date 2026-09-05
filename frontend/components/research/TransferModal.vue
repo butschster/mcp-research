@@ -1,12 +1,12 @@
 <template>
   <ModalOverlay :visible="visible" size="sm" :labelledby="titleId" @close="emit('close')">
-    <h3 :id="titleId" class="modal-title">Move research to another team</h3>
+    <h3 :id="titleId" class="modal-title">Move project to another team</h3>
 
     <!-- Nothing to move it to. Explaining beats a disabled menu item that
          never says why. -->
     <template v-if="!targets.length">
       <p class="modal-help">
-        You own only {{ currentTeamName || 'this team' }}. Create a team first, then move the research into it.
+        You own only {{ currentTeamName || 'this team' }}. Create a team first, then move the project into it.
       </p>
       <div class="modal-actions">
         <button class="btn btn-sm" @click="emit('close')">Cancel</button>

@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="page-header">
       <Breadcrumbs :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: researchName, to: `/research/${researchSlug}` },
         { label: sectionName, to: `/research/${researchSlug}?section=${entry.section_id}` },
         { label: entry.title }
@@ -128,13 +128,13 @@
              revision history keeps both, but finding out afterwards is not the
              same as being told. -->
         <div v-if="remoteChangedWhileEditing" class="edit-remote-change" role="status">
-          <span>Someone else changed this entry while you were editing. Saving will replace their version.</span>
+          <span>Someone else changed this document while you were editing. Saving will replace their version.</span>
           <button class="btn btn-sm" @click="discardDraftForRemote">Discard mine and reload</button>
         </div>
         <div class="edit-header-bar">
           <div class="edit-field">
             <label class="edit-label">Title</label>
-            <input v-model="editForm.title" class="edit-input" placeholder="Entry title..." />
+            <input v-model="editForm.title" class="edit-input" placeholder="Document title..." />
           </div>
           <div class="edit-field">
             <label class="edit-label">Description</label>
@@ -165,17 +165,18 @@
 
       <!-- View toggle -->
       <div class="view-toggle no-print">
-        <button :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
+        <button :aria-pressed="viewMode === 'rendered'" :class="['btn btn-sm', { active: viewMode === 'rendered' }]" @click="viewMode = 'rendered'">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          Rendered
+          Document
         </button>
-        <button :class="['btn btn-sm', { active: viewMode === 'source' }]" @click="viewMode = 'source'">
+        <button :aria-pressed="viewMode === 'source'" :class="['btn btn-sm', { active: viewMode === 'source' }]" @click="viewMode = 'source'">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
           Source
         </button>
 
+        <div v-if="!shareActive() && viewMode === 'rendered'" class="marks-toggle">
+          <span class="card-meta">Marks</span>
         <SegmentedToggle
-          v-if="!shareActive() && viewMode === 'rendered'"
           v-model="marksMode"
           label="Marks"
           :options="[
@@ -184,6 +185,7 @@
             { value: 'off', label: 'Off' },
           ]"
         />
+        </div>
       </div>
 
       <!-- Content -->
@@ -340,7 +342,7 @@
         <MdEditor
           v-model="editForm.content"
           language="en-US"
-          :theme="'dark'"
+          :theme="theme"
           :preview="true"
           preview-theme="github"
           :toolbars="editorToolbars"
@@ -367,7 +369,7 @@
     <ConfirmModal
       :visible="restoreTarget !== null"
       title="Restore revision"
-      :message="`Restore revision ${restoreTarget} onto this entry? The current text is kept in the history as its own revision — nothing is lost.`"
+      :message="`Restore revision ${restoreTarget} onto this document? The current text is kept in the history as its own revision — nothing is lost.`"
       confirm-label="Restore"
       :loading="restoring"
       @confirm="confirmRestore"
@@ -390,14 +392,17 @@
   <EmptyState
     v-else
     icon="&#x1F50D;"
-    title="Entry not found"
-    description="It may have been deleted, or the reference that brought you here may name an entry that never existed."
+    title="Document not found"
+    description="Check the link and make sure you have access to this document."
   >
-    <NuxtLink :to="`/research/${researchSlug}`" class="btn btn-sm">Back to the research</NuxtLink>
+    <NuxtLink :to="`/research/${researchSlug}`" class="btn btn-sm">Back to project</NuxtLink>
   </EmptyState>
 </template>
 
 <script setup lang="ts">
+import { useTheme } from '~/composables/useTheme'
+const { theme } = useTheme()
+
 import type { Annotation, AnnotationKind } from '~/composables/useAnnotations'
 import { MARK_CLASS, type CapturedSegment } from '~/composables/useAnnotationOverlay'
 import type { EntryViewState } from '~/composables/useEntryUpdates'
@@ -445,7 +450,7 @@ const research = computed(() => researchData.value?.data?.research)
 const { canWrite, canAdmin, isViewer, setFromResearch } = useResearchRole()
 watch(researchData, (d) => setFromResearch(d?.data?.research), { immediate: true })
 
-const researchName = computed(() => research.value?.name ?? 'Research')
+const researchName = computed(() => research.value?.name ?? 'Project')
 const researchSlug = computed(() => research.value?.code || id)
 const sections = computed(() => researchData.value?.data?.sections ?? [])
 
@@ -1755,7 +1760,7 @@ const nextEntry = computed(() =>
   text-decoration: none;
   transition: all var(--transition-fast);
 }
-.entry-session-link:hover { border-color: rgba(240, 184, 73, 0.3); color: var(--color-text); }
+.entry-session-link:hover { border-color: rgba(var(--color-warning-rgb), 0.3); color: var(--color-text); }
 .entry-session-link svg { opacity: 0.6; }
 
 /* Delete button */
@@ -1872,8 +1877,12 @@ const nextEntry = computed(() =>
 }
 
 /* View toggle */
+.marks-toggle { display: inline-flex; align-items: center; gap: var(--space-2); padding-inline: var(--space-2); }
 .view-toggle {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  row-gap: var(--space-1);
   gap: 0;
   margin-bottom: var(--space-4);
   background: var(--color-surface);
@@ -1913,20 +1922,20 @@ const nextEntry = computed(() =>
 .source-view code { background: none; padding: 0; font-size: inherit; }
 
 /* Markdown syntax highlighting */
-.source-view :deep(.md-heading-marker) { color: #e06c75; font-weight: var(--weight-bold); }
-.source-view :deep(.md-heading) { color: #e5c07b; font-weight: var(--weight-semibold); }
-.source-view :deep(.md-bold) { color: #d19a66; font-weight: var(--weight-semibold); }
-.source-view :deep(.md-italic) { color: #c678dd; font-style: italic; }
-.source-view :deep(.md-inline-code) { color: #98c379; background: rgba(152, 195, 121, 0.08); border-radius: var(--radius-xs); padding: 0 0.15em; }
-.source-view :deep(.md-link) { color: #61afef; }
-.source-view :deep(.md-url) { color: #56b6c2; opacity: 0.7; }
-.source-view :deep(.md-image) { color: #c678dd; }
-.source-view :deep(.md-crossref) { color: var(--color-primary); background: rgba(108, 197, 224, 0.1); border-radius: var(--radius-xs); padding: 0 0.15em; }
-.source-view :deep(.md-blockquote) { color: #5c6370; font-style: italic; border-left: 2px solid #5c6370; padding-left: 0.75em; display: inline-block; }
-.source-view :deep(.md-list-marker) { color: #e06c75; font-weight: var(--weight-semibold); }
-.source-view :deep(.md-hr) { color: #5c6370; }
-.source-view :deep(.md-fence) { color: #98c379; }
-.source-view :deep(.md-code-line) { color: #abb2bf; opacity: 0.85; }
+.source-view :deep(.md-heading-marker) { color: var(--syntax-marker); font-weight: var(--weight-bold); }
+.source-view :deep(.md-heading) { color: var(--syntax-heading); font-weight: var(--weight-semibold); }
+.source-view :deep(.md-bold) { color: var(--syntax-emphasis); font-weight: var(--weight-semibold); }
+.source-view :deep(.md-italic) { color: var(--syntax-keyword); font-style: italic; }
+.source-view :deep(.md-inline-code) { color: var(--syntax-string); background: rgba(var(--color-success-rgb), 0.08); border-radius: var(--radius-xs); padding: 0 0.15em; }
+.source-view :deep(.md-link) { color: var(--syntax-link); }
+.source-view :deep(.md-url) { color: var(--syntax-link); }
+.source-view :deep(.md-image) { color: var(--syntax-keyword); }
+.source-view :deep(.md-crossref) { color: var(--color-primary); background: rgba(var(--color-primary-rgb), 0.1); border-radius: var(--radius-xs); padding: 0 0.15em; }
+.source-view :deep(.md-blockquote) { color: var(--syntax-comment); font-style: italic; border-left: 2px solid var(--syntax-comment); padding-left: 0.75em; display: inline-block; }
+.source-view :deep(.md-list-marker) { color: var(--syntax-marker); font-weight: var(--weight-semibold); }
+.source-view :deep(.md-hr) { color: var(--syntax-comment); }
+.source-view :deep(.md-fence) { color: var(--syntax-string); }
+.source-view :deep(.md-code-line) { color: var(--color-text); opacity: 0.85; }
 
 /* Skeleton */
 .skeleton-header { height: 60px; margin-bottom: var(--space-4); }

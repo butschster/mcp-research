@@ -172,6 +172,7 @@ const rows = computed(() => {
   outline: 2px solid var(--color-border-strong);
   outline-offset: 1px;
 }
+.mark-gutter__pin:focus-visible { outline-color: var(--color-primary); }
 
 /* No column at this width — the card's padding is down to a few pixels. The
    marks stay underlined in the prose and are reached from the header counter. */

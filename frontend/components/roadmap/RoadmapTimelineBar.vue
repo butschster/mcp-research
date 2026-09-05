@@ -71,11 +71,11 @@ const fullTitle = computed(() => {
 }
 
 /* Left-accent tint per node type, mirroring the card's tints */
-.bar-type-step      { border-left-color: rgba(107, 203, 119, 0.7); background: rgba(107, 203, 119, 0.06); }
-.bar-type-milestone { border-left-color: rgba(168, 130, 255, 0.7); background: rgba(168, 130, 255, 0.08); }
-.bar-type-decision  { border-left-color: rgba(240, 184, 73, 0.7);  background: rgba(240, 184, 73, 0.07); }
-.bar-type-info      { border-left-color: rgba(108, 197, 224, 0.7); background: rgba(108, 197, 224, 0.06); }
-.bar-type-group     { border-left-color: rgba(160, 160, 160, 0.7); background: rgba(160, 160, 160, 0.06); }
+.bar-type-step      { border-left-color: rgba(var(--color-success-rgb), 0.7); background: rgba(var(--color-success-rgb), 0.06); }
+.bar-type-milestone { border-left-color: rgba(var(--hue-5-rgb), 0.7); background: rgba(var(--hue-5-rgb), 0.08); }
+.bar-type-decision  { border-left-color: rgba(var(--color-warning-rgb), 0.7);  background: rgba(var(--color-warning-rgb), 0.07); }
+.bar-type-info      { border-left-color: rgba(var(--color-primary-rgb), 0.7); background: rgba(var(--color-primary-rgb), 0.06); }
+.bar-type-group     { border-left-color: rgba(var(--color-muted-rgb), 0.7); background: rgba(var(--color-muted-rgb), 0.06); }
 
 .rm-bar-code {
   flex-shrink: 0;

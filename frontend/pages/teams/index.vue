@@ -1,8 +1,8 @@
 <template>
   <div>
-    <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: 'Teams' }]" />
+    <Breadcrumbs :crumbs="[{ label: 'Projects', to: '/' }, { label: 'Teams' }]" />
 
-    <PageHeader title="Teams" lead="Teams own researches. Everyone in a team sees its researches.">
+    <PageHeader title="Teams" lead="Team members can access all projects in their team.">
       <!-- Neutral, like every other page header in the product. A filled button
            lived here and on the team page and nowhere else, so these two pages
            read as imported from somewhere with a different design. -->
@@ -17,7 +17,7 @@
       v-else-if="failed"
       icon="&#x26A0;"
       title="Couldn't load your teams"
-      description="The server didn't answer. Your researches are unaffected."
+      description="The server didn't answer. Your projects are unaffected."
     >
       <button class="btn" @click="refresh()">Try again</button>
     </EmptyState>
@@ -28,7 +28,7 @@
       v-else-if="onlyPersonal"
       icon="&#x1F91D;"
       title="You're working on your own"
-      description="Teams let other people into your researches. Create one, invite a colleague with a link, and move a research into it."
+      description="Create a team, invite a colleague, and move a project into the team to work on it together."
     >
       <!-- The one filled button that survives on this surface: there is nothing
            else on the screen, and it is the action the page exists for. -->
@@ -106,7 +106,7 @@ async function submit() {
     // which is exactly how a colleague arrives to an empty list and concludes
     // the invitation failed — the researches the owner already had stayed
     // behind in their personal team, and nothing said so.
-    success(`${team.name} is ready. Move a research into it, then invite someone.`, 'Team created')
+    success(`${team.name} is ready. Move a project into it, then invite someone.`, 'Team created')
     navigateTo(`/teams/${team.id}`)
   } catch (e: any) {
     error.value = e?.data?.error || 'Could not create the team'

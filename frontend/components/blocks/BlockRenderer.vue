@@ -395,11 +395,11 @@ function bodyRows(b: Block): any[] {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--color-bg-deep);
   white-space: nowrap;
 }
 /* Zebra rows: cheaper to scan than gridlines on every cell. */
-.b-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+.b-table tbody tr:nth-child(even) { background: var(--color-surface-hover); }
 
 .b-quote {
   border-left: 2px solid var(--color-primary);
@@ -425,7 +425,7 @@ function bodyRows(b: Block): any[] {
   position: relative;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--color-bg-deep);
   overflow: hidden;
 }
 .b-code-lang {
@@ -437,7 +437,7 @@ function bodyRows(b: Block): any[] {
   font-size: var(--type-xs);
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--color-bg-deep);
   border-bottom-left-radius: var(--radius-sm);
   pointer-events: none;
 }
@@ -498,22 +498,22 @@ function bodyRows(b: Block): any[] {
 }
 .b-callout--info {
   border-left-color: var(--color-info);
-  background: rgba(107, 157, 240, 0.07);
+  background: rgba(var(--color-info-rgb), 0.07);
 }
 .b-callout--info .b-callout-title { color: var(--color-info); }
 .b-callout--warning {
   border-left-color: var(--color-warning);
-  background: rgba(240, 184, 73, 0.07);
+  background: rgba(var(--color-warning-rgb), 0.07);
 }
 .b-callout--warning .b-callout-title { color: var(--color-warning); }
 .b-callout--success {
   border-left-color: var(--color-success);
-  background: rgba(52, 211, 153, 0.07);
+  background: rgba(var(--color-success-rgb), 0.07);
 }
 .b-callout--success .b-callout-title { color: var(--color-success); }
 .b-callout--danger {
   border-left-color: var(--color-error);
-  background: rgba(239, 107, 107, 0.07);
+  background: rgba(var(--color-error-rgb), 0.07);
 }
 .b-callout--danger .b-callout-title { color: var(--color-error); }
 

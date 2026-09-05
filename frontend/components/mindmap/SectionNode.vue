@@ -8,7 +8,7 @@
       <StatusBadge :status="data.status" />
     </div>
     <p v-if="data.description" class="section-desc">{{ truncate(data.description, 60) }}</p>
-    <span class="section-count">{{ data.entryCount }} entries</span>
+    <span class="section-count">{{ data.entryCount }} documents</span>
     <Handle type="target" :position="targetPosition" />
     <Handle type="source" :position="sourcePosition" />
   </div>

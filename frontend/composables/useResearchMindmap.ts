@@ -187,7 +187,7 @@ export function useResearchMindmap(researchId: string) {
           sourceHandle: 'right',
           target: secNodeId,
           type: 'smoothstep',
-          style: { stroke: '#6cc5e0', strokeWidth: 2 },
+          style: { stroke: 'var(--color-primary)', strokeWidth: 2 },
           animated: sec.status === 'active',
         })
 
@@ -214,7 +214,7 @@ export function useResearchMindmap(researchId: string) {
               source: secNodeId,
               target: entryNodeId,
               type: 'smoothstep',
-              style: { stroke: 'rgba(108,197,224,0.25)', strokeWidth: 1.5 },
+              style: { stroke: 'rgba(var(--color-primary-rgb), 0.25)', strokeWidth: 1.5 },
             })
           }
         }
@@ -236,7 +236,7 @@ export function useResearchMindmap(researchId: string) {
         sourceHandle: 'left',
         target: sessionsGroupId,
         type: 'smoothstep',
-        style: { stroke: 'rgba(240,184,73,0.5)', strokeWidth: 2 },
+        style: { stroke: 'rgba(var(--color-warning-rgb), 0.5)', strokeWidth: 2 },
       })
 
       if (!collapsedIds.value.has(sessionsGroupId)) {
@@ -258,7 +258,7 @@ export function useResearchMindmap(researchId: string) {
             source: sessionsGroupId,
             target: sessNodeId,
             type: 'smoothstep',
-            style: { stroke: 'rgba(240,184,73,0.35)', strokeWidth: 1.5 },
+            style: { stroke: 'rgba(var(--color-warning-rgb), 0.35)', strokeWidth: 1.5 },
           })
 
           if (!collapsedIds.value.has(sessNodeId)) {
@@ -284,7 +284,7 @@ export function useResearchMindmap(researchId: string) {
                 source: sessNodeId,
                 target: qNodeId,
                 type: 'smoothstep',
-                style: { stroke: 'rgba(240,184,73,0.25)', strokeWidth: 1.5 },
+                style: { stroke: 'rgba(var(--color-warning-rgb), 0.25)', strokeWidth: 1.5 },
               })
 
               // Add answer node for answered questions
@@ -306,7 +306,7 @@ export function useResearchMindmap(researchId: string) {
                   source: qNodeId,
                   target: answerNodeId,
                   type: 'smoothstep',
-                  style: { stroke: 'rgba(52,211,153,0.35)', strokeWidth: 1.5 },
+                  style: { stroke: 'rgba(var(--color-success-rgb), 0.35)', strokeWidth: 1.5 },
                 })
               }
             }
@@ -330,7 +330,7 @@ export function useResearchMindmap(researchId: string) {
         sourceHandle: 'left',
         target: tasksGroupId,
         type: 'smoothstep',
-        style: { stroke: 'rgba(239,107,107,0.5)', strokeWidth: 2 },
+        style: { stroke: 'rgba(var(--color-error-rgb), 0.5)', strokeWidth: 2 },
       })
 
       if (!collapsedIds.value.has(tasksGroupId)) {
@@ -353,7 +353,7 @@ export function useResearchMindmap(researchId: string) {
             source: tasksGroupId,
             target: tNodeId,
             type: 'smoothstep',
-            style: { stroke: 'rgba(239,107,107,0.25)', strokeWidth: 1.5 },
+            style: { stroke: 'rgba(var(--color-error-rgb), 0.25)', strokeWidth: 1.5 },
           })
         }
       }
@@ -378,7 +378,7 @@ export function useResearchMindmap(researchId: string) {
           target: targetId,
           type: 'smoothstep',
           animated: false,
-          style: { stroke: 'rgba(167,139,250,0.35)', strokeWidth: 1, strokeDasharray: '4 4' },
+          style: { stroke: 'rgba(var(--hue-5-rgb), 0.35)', strokeWidth: 1, strokeDasharray: '4 4' },
         })
       }
     }

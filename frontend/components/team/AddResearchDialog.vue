@@ -5,16 +5,16 @@
        uppercase, and a Cyrillic team name shouted across two lines is not a
        heading anybody reads. The team is named in the sentence below it. -->
   <ModalOverlay :visible="visible" size="lg" flush :labelledby="titleId" @close="emit('close')">
-    <ModalHeader :title-id="titleId" title="Move researches here" @close="emit('close')" />
+    <ModalHeader :title-id="titleId" title="Move projects here" @close="emit('close')" />
 
     <div class="dialog-body">
       <!-- Nothing to move. Said plainly, rather than as an empty list with a
            disabled button that never explains itself. -->
       <template v-if="!candidates.length">
         <p class="dialog-help">
-          Every research you own is already in {{ teamName }}. Anything an agent
+          Every project you own is already in {{ teamName }}. Anything an agent
           creates from now on lands in your personal team, and you can move it
-          across from here or from the research itself.
+          across from here or from the project itself.
         </p>
       </template>
 
@@ -29,8 +29,8 @@
             v-model="filter"
             class="text-input"
             type="search"
-            :placeholder="`Filter ${candidates.length} researches`"
-            :aria-label="`Filter ${candidates.length} researches`"
+            :placeholder="`Filter ${candidates.length} projects`"
+            :aria-label="`Filter ${candidates.length} projects`"
           />
         </div>
 
@@ -112,7 +112,7 @@ const filtered = computed(() => {
 })
 
 const moveLabel = computed(() =>
-  picked.value.length <= 1 ? 'Move' : `Move ${picked.value.length} researches`,
+  picked.value.length <= 1 ? 'Move' : `Move ${picked.value.length} projects`,
 )
 
 // Every opening starts empty, including one that follows a cancelled dialog:

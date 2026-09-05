@@ -55,7 +55,7 @@
 
       <!-- Tooltip -->
       <div v-if="tooltip" class="graph-tooltip" :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }">
-        <span class="tooltip-type" :style="{ color: getNodeColor(tooltip.type) }">{{ tooltip.type }}</span>
+        <span class="tooltip-type" :style="{ color: getNodeColor(tooltip.type) }">{{ tooltip.type === 'entry' ? 'document' : tooltip.type }}</span>
         <span class="tooltip-code">{{ tooltip.code }}</span>
         <span class="tooltip-label">{{ tooltip.label }}</span>
         <span v-if="tooltip.status" class="tooltip-status">{{ tooltip.status }}</span>
@@ -67,6 +67,12 @@
 
 <script setup lang="ts">
 import * as d3Force from 'd3-force'
+import { useTheme } from '~/composables/useTheme'
+import { readThemeColors } from '~/utils/theme'
+
+const { theme } = useTheme()
+let palette = readThemeColors()
+watch(theme, () => { palette = readThemeColors(); render() }, { flush: 'post' })
 
 const route = useRoute()
 const researchSlug = route.params.id as string
@@ -87,11 +93,11 @@ const showArrows = ref(false)
 const focusDepth = ref(1)
 
 const nodeTypeFilters = [
-  { key: 'entry', label: 'Entries', color: '#6cc5e0' },
-  { key: 'section', label: 'Sections', color: '#a78bfa' },
-  { key: 'session', label: 'Sessions', color: '#f0b849' },
-  { key: 'question', label: 'Questions', color: '#fbbf24' },
-  { key: 'task', label: 'Tasks', color: '#ef6b6b' },
+  { key: 'entry', label: 'Documents', color: 'var(--color-primary)' },
+  { key: 'section', label: 'Sections', color: 'var(--hue-5)' },
+  { key: 'session', label: 'Sessions', color: 'var(--color-warning)' },
+  { key: 'question', label: 'Questions', color: 'var(--hue-6)' },
+  { key: 'task', label: 'Tasks', color: 'var(--color-error)' },
 ]
 
 const edgeTypeFilters = [
@@ -123,13 +129,13 @@ const filteredEdgeCount = ref(0)
 
 function getNodeColor(type: string): string {
   const colors: Record<string, string> = {
-    entry: '#6cc5e0',
-    section: '#a78bfa',
-    session: '#f0b849',
-    question: '#fbbf24',
-    task: '#ef6b6b',
+    entry: palette.primary,
+    section: palette.violet,
+    session: palette.warning,
+    question: palette.orange,
+    task: palette.error,
   }
-  return colors[type] || '#888'
+  return colors[type] || palette.muted
 }
 
 const BASE_RADIUS: Record<string, number> = {
@@ -164,12 +170,12 @@ function getNodeRadius(type: string, nodeId?: string): number {
 
 function getEdgeColor(type: string): string {
   const colors: Record<string, string> = {
-    crossref: 'rgba(167,139,250,0.4)',
-    tag: 'rgba(108,197,224,0.25)',
-    section: 'rgba(167,139,250,0.15)',
-    session: 'rgba(240,184,73,0.25)',
+    crossref: `rgba(${palette.violetRgb}, .4)`,
+    tag: `rgba(${palette.primaryRgb}, .25)`,
+    section: `rgba(${palette.violetRgb}, .2)`,
+    session: `rgba(${palette.warningRgb}, .3)`,
   }
-  return colors[type] || 'rgba(255,255,255,0.1)'
+  return colors[type] || `rgba(${palette.textRgb}, .15)`
 }
 
 // --- Simulation state ---
@@ -420,16 +426,19 @@ function render() {
     if (isFocused) {
       ctx.beginPath()
       ctx.arc(node.x, node.y, r + 8, 0, Math.PI * 2)
-      ctx.fillStyle = color.replace(')', ',0.25)').replace('rgb', 'rgba')
+      ctx.fillStyle = color
+      ctx.globalAlpha = dimAlpha * .25
       ctx.fill()
     }
 
     ctx.beginPath()
     ctx.arc(node.x, node.y, r + 2, 0, Math.PI * 2)
-    ctx.fillStyle = color.replace(')', ',0.15)').replace('rgb', 'rgba')
+    ctx.fillStyle = color
+    ctx.globalAlpha = dimAlpha * .15
     ctx.fill()
 
     // Circle
+    ctx.globalAlpha = dimAlpha
     ctx.beginPath()
     ctx.arc(node.x, node.y, isFocused ? r + 1 : r, 0, Math.PI * 2)
     ctx.fillStyle = color
@@ -448,8 +457,8 @@ function render() {
     const label = node.label || node.code || node.id
     const maxLen = 30
     const displayLabel = label.length > maxLen ? label.slice(0, maxLen) + '...' : label
-    ctx.font = `${Math.max(10, 11 / Math.max(transform.k, 0.5))}px system-ui, -apple-system, sans-serif`
-    ctx.fillStyle = isConnected ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.06)'
+    ctx.font = `${Math.max(10, 11 / Math.max(transform.k, 0.5))}px Outfit, system-ui, sans-serif`
+    ctx.fillStyle = palette.text
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillText(displayLabel, node.x + r + 5, node.y)
@@ -692,16 +701,16 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
   display: flex;
   align-items: center;
   gap: 4px;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-text-muted);
   text-decoration: none;
   font-size: 12px;
 }
-.sidebar-back:hover { color: rgba(255,255,255,0.8); }
+.sidebar-back:hover { color: var(--color-text); }
 
 .sidebar-title {
   font-size: 14px;
   font-weight: var(--weight-semibold);
-  color: rgba(255,255,255,0.85);
+  color: var(--color-text);
 }
 
 /* --- Main area --- */
@@ -723,15 +732,15 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: rgba(255,255,255,0.5);
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(255,255,255,0.15);
-  border-top-color: rgba(255,255,255,0.6);
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-border-strong);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -743,8 +752,8 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
 .graph-tooltip {
   position: fixed;
   z-index: 100;
-  background: rgba(20,20,20,0.95);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 8px 12px;
   display: flex;
@@ -764,23 +773,23 @@ useResearchRealtime(() => researchSlug, reloadGraph, { onResync: reloadGraph })
 
 .tooltip-code {
   font-size: 11px;
-  color: rgba(255,255,255,0.4);
+  color: var(--color-text-muted);
   font-family: monospace;
 }
 
 .tooltip-label {
   font-size: 13px;
-  color: rgba(255,255,255,0.9);
+  color: var(--color-text);
   line-height: 1.3;
 }
 
 .tooltip-status {
   font-size: 11px;
-  color: rgba(255,255,255,0.4);
+  color: var(--color-text-muted);
 }
 
 .tooltip-connections {
   font-size: 10px;
-  color: rgba(255,255,255,0.3);
+  color: var(--color-text-muted);
 }
 </style>

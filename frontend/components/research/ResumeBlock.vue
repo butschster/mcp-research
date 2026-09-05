@@ -21,7 +21,7 @@
             {{ archived ? 'Left unfinished' : 'Continue' }}
           </button>
         </h2>
-        <p v-if="archived" class="resume-lead">This research is archived — what is listed here is history, not a queue.</p>
+        <p v-if="archived" class="resume-lead">This project is archived. Unfinished items are saved here for reference.</p>
         <!-- Collapsing must not hide the news. The counts move into the head as
              plain text — the same numbers, without the controls. There is no
              "as of" line on a fresh load: it always read "just now", which told
@@ -138,7 +138,7 @@
         <!-- The last session is shown with its real status rather than an empty
              head. Starting a new one is a write, and stays the agent's move. -->
         <p v-else-if="noSessionRunning" class="resume-note">
-          No session is running. Your agent starts one.
+          No active session. Ask your AI assistant to start one.
         </p>
 
         <!-- Next up: the only thing the eye should land on. -->
@@ -369,7 +369,7 @@ const handoffCommand = computed(() => {
   return `${what} How to pick it up: ${handoffGuide.value}`
 })
 
-const handoffTitle = computed(() => `Copy the sentence that continues this research: ${handoffCommand.value}`)
+const handoffTitle = computed(() => `Copy a prompt to continue this project: ${handoffCommand.value}`)
 
 /**
  * The guide, absolutely. A relative path is meaningless once the sentence has

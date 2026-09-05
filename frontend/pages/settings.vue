@@ -1,15 +1,5 @@
 <script setup lang="ts">
 const { user, isAuthenticated, authEnabled } = useAuth()
-const {
-  teams,
-  loading: teamsLoading,
-  loaded: teamsLoaded,
-  failed: teamsFailed,
-  load: loadTeams,
-  refresh: refreshTeams,
-} = useTeams()
-
-onMounted(() => loadTeams())
 const config = useRuntimeConfig()
 const baseURL = config.public.apiBase || ''
 
@@ -107,25 +97,6 @@ onMounted(() => {
       <p v-if="user.name">{{ user.name }}</p>
     </div>
 
-    <div v-if="authEnabled" class="settings-section">
-      <h2>Teams</h2>
-      <p class="card-meta">Teams own researches. Everyone in a team sees its researches.</p>
-
-      <div v-if="!teamsLoaded && !teamsFailed" class="skeleton-list">
-        <div v-for="i in 2" :key="i" class="skeleton-card team-skeleton"></div>
-      </div>
-      <p v-else-if="teamsFailed" class="card-meta section-note">
-        Couldn't load your teams.
-        <button class="link-btn" @click="refreshTeams()">Try again</button>
-      </p>
-      <p v-else-if="teams.every((t) => t.personal)" class="card-meta section-note">
-        You're working on your own. Teams let other people into your researches.
-      </p>
-      <TeamRowList v-else :teams="[...teams]" :limit="3" />
-
-      <NuxtLink to="/teams" class="all-teams">All teams →</NuxtLink>
-    </div>
-
     <div class="settings-section">
       <h2>API Keys</h2>
       <p class="card-meta">Use API keys to authenticate MCP connections and REST API requests.</p>
@@ -171,9 +142,8 @@ onMounted(() => {
         </tbody>
       </table>
       <p v-else class="card-meta">No API keys yet.</p>
-      <!-- The moment somebody makes a key is the moment they want to know what
-           to call with it. The Teams card two sections up ends the same way. -->
-      <NuxtLink :to="API_DOCS_PATH" class="all-teams">API reference &rarr;</NuxtLink>
+      <!-- Keep the reference beside the credentials used to call the API. -->
+      <NuxtLink :to="API_DOCS_PATH" class="section-link">API reference &rarr;</NuxtLink>
     </div>
 
   </div>
@@ -183,7 +153,7 @@ onMounted(() => {
 .key-hint { margin: var(--space-4) 0 var(--space-2); font-size: var(--type-sm); color: var(--color-text-muted); }
 
 .settings-page { max-width: 700px; }
-.page-title { font-size: var(--type-2xl); font-weight: var(--weight-semibold); margin-bottom: var(--space-8); }
+.page-title { font-size: var(--type-2xl); font-weight: 800; margin-bottom: var(--space-8); }
 .settings-section {
   margin-bottom: var(--space-8);
   padding: var(--space-6);
@@ -196,7 +166,7 @@ onMounted(() => {
 .key-form .text-input { flex: 1; min-width: 200px; }
 .key-created {
   padding: var(--space-3);
-  background: rgba(52, 211, 153, 0.10);
+  background: rgba(var(--color-success-rgb), 0.10);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-4);
   font-size: var(--type-sm);
@@ -233,7 +203,7 @@ onMounted(() => {
 .delete-btn:hover { text-decoration: underline; }
 .auth-error {
   padding: var(--space-2) var(--space-3);
-  background: rgba(239, 107, 107, 0.10);
+  background: rgba(var(--color-error-rgb), 0.10);
   color: var(--color-error);
   border-radius: var(--radius-sm);
   font-size: var(--type-sm);
@@ -246,9 +216,7 @@ onMounted(() => {
    definition. The name also collided with the auth pages' animated gradient
    button, which is a different control entirely. */
 
-.section-note { margin-top: var(--space-4); }
-.team-skeleton { height: 48px; }
-.all-teams {
+.section-link {
   display: inline-block;
   margin-top: var(--space-4);
   font-size: var(--type-xs);

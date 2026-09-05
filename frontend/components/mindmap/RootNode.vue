@@ -7,7 +7,7 @@
     <p v-if="data.goal" class="root-goal">{{ truncate(data.goal, 80) }}</p>
     <div class="root-stats">
       <span>{{ data.sectionCount }} sections</span>
-      <span>{{ data.entryCount }} entries</span>
+      <span>{{ data.entryCount }} documents</span>
       <span>{{ data.questionCount }} questions</span>
       <span>{{ data.taskCount }} tasks</span>
     </div>

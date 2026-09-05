@@ -292,7 +292,7 @@ const isDimmed = (id: string) => !!highlightIds.value && !highlightIds.value.has
   border-radius: var(--radius-xs);
 }
 .rm-milestone-diamond {
-  color: rgba(168, 130, 255, 1);
+  color: rgba(var(--hue-5-rgb), 1);
   font-size: var(--type-base);
   line-height: 1;
   flex-shrink: 0;

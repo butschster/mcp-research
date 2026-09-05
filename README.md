@@ -1,8 +1,8 @@
-# MCP Research
+# Dovod
 
 **Your AI asks the questions, and the answers stop disappearing into a chat log.**
 
-MCP Research is a self-hosted research workspace that an AI assistant drives
+Dovod is a self-hosted research workspace that an AI assistant drives
 through the [Model Context Protocol](https://modelcontextprotocol.io). The
 assistant designs the structure of a topic, interviews you, writes up what it
 learns as cross-referenced entries, tracks its own todo list, draws roadmaps —
@@ -42,7 +42,7 @@ Next week you ask the same assistant the same question and it has no idea what
 you decided, or why. The reasoning was never written down anywhere a person — or
 the next session — could find it.
 
-**MCP Research gives the conversation somewhere to land.** The assistant is no
+**Dovod gives the conversation somewhere to land.** The assistant is no
 longer producing chat messages; it is producing a structured document with
 sections, entries, sources, open questions and decisions, kept in a database, in
 front of you, updating live while it works.

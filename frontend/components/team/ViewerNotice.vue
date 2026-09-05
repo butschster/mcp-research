@@ -19,7 +19,7 @@ const props = defineProps<{ teamName?: string }>()
 
 const explanation = computed(() =>
   props.teamName
-    ? `You have read-only access to this research through the team ${props.teamName}.`
-    : 'You have read-only access to this research.',
+    ? `You have read-only access to this project through the team ${props.teamName}.`
+    : 'You have read-only access to this project.',
 )
 </script>

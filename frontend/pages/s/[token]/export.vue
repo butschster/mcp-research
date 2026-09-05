@@ -7,9 +7,9 @@
   <EmptyState
     v-else-if="excluded"
     title="Not part of this link"
-    description="The person who shared this research didn't include downloading. Ask them if you need it."
+    description="The person who shared this project didn't include downloading. Ask them if you need it."
   >
-    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to the research</NuxtLink>
+    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to project</NuxtLink>
   </EmptyState>
 
   <EmptyState
@@ -152,7 +152,7 @@ async function downloadVault() {
 // The button says "Preparing…" on its own; this says why it is taking so long,
 // and only when it is.
 watch(downloadSlow, (slow) => {
-  if (slow) toasts.push({ message: 'Still working — a large research takes a moment.' })
+  if (slow) toasts.push({ message: 'Still working — a large project takes a moment.' })
 })
 
 function printPage() {

@@ -129,7 +129,7 @@ export const InFooter: Story = {
     template: `
       <footer style="border-top: 1px solid var(--color-border); padding: var(--space-4) var(--space-6);">
         <div style="display: flex; align-items: center; justify-content: space-between;">
-          <span class="card-meta">Research</span>
+          <span class="card-meta">Dovod</span>
           <div style="display: flex; align-items: center; gap: var(--space-4);">
             <ConnectionStatus v-bind="args" />
           </div>

@@ -39,7 +39,7 @@ export function revocationCopy(r: Revocation) {
     case 'removed_from_team':
       return {
         title: `You no longer have access to ${what}`,
-        short: `You were removed from the team ${r.name}. Its researches are no longer on your list.`,
+        short: `You were removed from the team ${r.name}. Its projects are no longer on your list.`,
         long: `Your access ended when you were removed from the team ${r.name}. Ask an owner of that team to invite you again.`,
       }
     case 'research_transferred':

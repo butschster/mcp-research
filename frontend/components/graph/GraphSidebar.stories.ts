@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import GraphSidebar from './GraphSidebar.vue'
 
 const nodeTypes = [
-  { key: 'entry', label: 'Entries', color: '#6cc5e0' },
-  { key: 'section', label: 'Sections', color: '#a78bfa' },
-  { key: 'session', label: 'Sessions', color: '#f0b849' },
-  { key: 'question', label: 'Questions', color: '#fbbf24' },
-  { key: 'task', label: 'Tasks', color: '#ef6b6b' },
+  { key: 'entry', label: 'Documents', color: 'var(--color-primary)' },
+  { key: 'section', label: 'Sections', color: 'var(--hue-5)' },
+  { key: 'session', label: 'Sessions', color: 'var(--color-warning)' },
+  { key: 'question', label: 'Questions', color: 'var(--hue-6)' },
+  { key: 'task', label: 'Tasks', color: 'var(--color-error)' },
 ]
 
 const edgeTypes = [
@@ -22,7 +22,7 @@ const meta: Meta<typeof GraphSidebar> = {
   tags: ['autodocs'],
   decorators: [
     () => ({
-      template: '<div style="height: 700px; background: #111; display: flex;"><story /></div>',
+      template: '<div style="height: 700px; background: var(--color-bg); display: flex;"><story /></div>',
     }),
   ],
   argTypes: {

@@ -1,21 +1,19 @@
 <template>
   <div v-if="show" class="getting-started">
-    <button class="btn-ghost gs-close" @click="dismiss">&times;</button>
+    <button class="btn-ghost gs-close" aria-label="Dismiss getting started" @click="dismiss">&times;</button>
     <div class="gs-header">
       <div>
-        <h2 class="gs-title">Welcome to Research</h2>
-        <p class="gs-subtitle">Your agent writes the research. You read it, correct it, and share it.</p>
+        <h2 class="gs-title">Welcome to Dovod</h2>
+        <p class="gs-subtitle">Work through questions with your AI. Review the evidence, refine the conclusions, and decide what comes next.</p>
       </div>
     </div>
     <div class="gs-steps">
       <div class="gs-step">
         <span class="gs-step-num">1</span>
         <div class="gs-step-content">
-          <strong>Connect your agent</strong>
+          <strong>Connect your AI assistant</strong>
           <p>
-            Point Claude Code, Claude Desktop, Cursor or ChatGPT at this
-            server. Give it the address below; with accounts switched on it
-            also needs an API key, which you make in Settings.
+            Add this MCP server to your AI assistant, such as Claude, Cursor or ChatGPT:
           </p>
           <div class="empty-command gs-command">
             <code class="command-text">{{ mcpUrl }}</code>
@@ -24,7 +22,7 @@
             </button>
           </div>
           <p class="gs-note" v-if="authEnabled">
-            It needs an API key —
+            If your client asks for an API key,
             <NuxtLink to="/settings">create one in Settings &rarr;</NuxtLink>
           </p>
         </div>
@@ -32,10 +30,10 @@
       <div class="gs-step">
         <span class="gs-step-num">2</span>
         <div class="gs-step-content">
-          <strong>Start a research session</strong>
-          <p>Type in Claude:</p>
+          <strong>Start your first project</strong>
+          <p>Send this to your connected AI assistant:</p>
           <div class="empty-command gs-command">
-            <code class="command-text">Use the research/initialize prompt</code>
+            <code class="command-text">{{ INIT }}</code>
             <button class="copy-btn" :class="{ copied: copied === 'init' }" @click="copy('init', INIT)">
               {{ copied === 'init' ? '&#x2713; Copied' : 'Copy' }}
             </button>
@@ -45,8 +43,8 @@
       <div class="gs-step">
         <span class="gs-step-num">3</span>
         <div class="gs-step-content">
-          <strong>Watch it unfold here</strong>
-          <p>This UI updates in real-time as Claude populates your research</p>
+          <strong>Review your progress</strong>
+          <p>Documents, questions and next steps appear here as your AI assistant works.</p>
         </div>
       </div>
     </div>
@@ -75,7 +73,7 @@ function dismiss() {
    by the very server the agent has to reach — so whatever the reader typed to
    get here is the answer, including a reverse proxy and a port. */
 const mcpUrl = computed(() => (import.meta.client ? `${window.location.origin}/mcp` : '/mcp'))
-const INIT = 'Use the research/initialize prompt'
+const INIT = 'Use the research/initialize prompt to start a new project in Dovod.'
 const { authEnabled } = useAuth()
 
 const copied = ref<'mcp' | 'init' | null>(null)
@@ -104,12 +102,6 @@ async function copy(which: 'mcp' | 'init', text: string) {
   margin-bottom: var(--space-8);
   overflow: hidden;
 }
-.getting-started::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(108, 197, 224, 0.3), transparent);
-}
 .gs-close {
   position: absolute; top: var(--space-4); right: var(--space-4);
   color: var(--color-text-muted);
@@ -121,7 +113,7 @@ async function copy(which: 'mcp' | 'init', text: string) {
 }
 .gs-close:hover { color: var(--color-text); background: var(--color-surface-hover); }
 .gs-header { margin-bottom: var(--space-6); }
-.gs-title { font-size: var(--type-xl); font-weight: var(--weight-bold); margin-bottom: var(--space-1); letter-spacing: -0.02em; }
+.gs-title { font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-1); letter-spacing: -0.02em; }
 .gs-subtitle { color: var(--color-text-muted); font-size: var(--type-sm); }
 .gs-steps { display: flex; flex-direction: column; gap: var(--space-5); }
 .gs-step { display: flex; gap: var(--space-4); align-items: flex-start; }

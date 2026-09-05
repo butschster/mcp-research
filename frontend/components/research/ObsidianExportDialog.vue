@@ -67,7 +67,7 @@ const options = computed(() => {
       label: 'Revision history',
       count: undefined,
       empty: false,
-      hint: 'A note per entry with who changed what, and when.',
+      hint: 'A note per document with who changed what, and when.',
     },
   ]
 })

@@ -7,7 +7,7 @@
   <div v-else-if="research" class="settings-page">
     <PageHeader
       :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Settings' },
       ]"
@@ -19,7 +19,7 @@
       </template>
     </PageHeader>
 
-    <TabBar v-model="activeTab" :tabs="tabs" label="Research settings" />
+    <TabBar v-model="activeTab" :tabs="tabs" label="Project settings" />
 
     <!-- Overview -->
     <div v-if="activeTab === 'overview'" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0" class="panel">
@@ -33,7 +33,7 @@
             Owned by <NuxtLink :to="`/teams/${research.team_id}`" class="team-link">{{ research.team_name }}</NuxtLink>,
             where your role is <strong>{{ research.role }}</strong>.
           </template>
-          Share links are managed from the research page.
+          Share links are managed from the project page.
         </p>
       </div>
 
@@ -43,7 +43,7 @@
             label="Goal"
             :value="research.goal"
             :editable="canWrite"
-            placeholder="What is this research trying to achieve?"
+            placeholder="What do you want to find out or decide?"
             :empty-text="canWrite ? 'Click the pencil to set a goal' : 'Not set'"
             @save="v => save('goal', v)"
           />
@@ -52,7 +52,7 @@
             :value="research.description"
             :editable="canWrite"
             multiline
-            placeholder="Describe what this research covers..."
+            placeholder="What is this project about?"
             :empty-text="canWrite ? 'Click the pencil to add a description' : 'Not set'"
             @save="v => save('description', v)"
           />
@@ -70,13 +70,13 @@
             </template>
           </EditableField>
           <EditableField
-            label="AI Instruction"
+            label="AI instructions"
             :value="research.instruction"
             :editable="canWrite"
             multiline
             :rows="6"
-            placeholder="How should the agent work on this research?"
-            empty-text="No instruction set"
+            placeholder="How should your AI assistant work on this project?"
+            empty-text="No instructions set"
             @save="v => save('instruction', v)"
           />
         </div>
@@ -86,9 +86,8 @@
     <!-- Skills -->
     <div v-else-if="activeTab === 'skills'" id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" tabindex="0" class="panel">
       <p class="lead">
-        What the agent follows on this research. It sees every name and trigger line below on
-        each call, and opens a skill's text only when the line matches what it is about to do.
-        A skill belonging to this research overrides a team one, which overrides a built-in.
+        Skills guide how your AI assistant works on this project. Project skills take priority
+        over team skills, which take priority over built-in skills.
       </p>
 
       <div v-if="skillsPending" class="skeleton-card" style="height: 200px"></div>
@@ -99,10 +98,10 @@
             :skills="chosen"
             :can-write="canWrite"
             :busy-slug="busySlug"
-            heading="Chosen for this research"
+            heading="Project skills"
             :note="`${chosenCount} of ${cap}`"
-            blurb="Methodology somebody picked. These are what the six-skill budget counts."
-            empty-text="Nothing chosen yet — the agent works from the built-in skills below alone."
+            blurb="Choose up to six skills to guide this project."
+            empty-text="No project skills selected. Your AI assistant uses the built-in skills below."
             @open="openSkill"
             @detach="detach"
           />
@@ -113,8 +112,8 @@
             :skills="ambient"
             :can-write="canWrite"
             heading="Always on"
-            blurb="Skills about the product itself — how to manage a research, how to write an entry. They ship with the app, are on everywhere, and are outside the budget."
-            empty-text="None. The server has no built-in skills loaded, which is a fault rather than a setting."
+            blurb="Built-in guidance for managing projects and writing documents in Dovod. These skills do not count toward the selection limit."
+            empty-text="Built-in skills are unavailable. Contact the server administrator."
             @open="openSkill"
           />
         </div>
@@ -138,8 +137,7 @@
     <!-- Memory -->
     <div v-else-if="activeTab === 'memory'" id="panel-memory" role="tabpanel" aria-labelledby="tab-memory" tabindex="0" class="panel">
       <p class="lead">
-        Notes the agent wrote for its future self. All of them are sent at the start of every
-        session, so the list is a cost as well as a record.
+        Context your AI assistant can use in later sessions. Each session starts with these notes.
       </p>
       <div class="card card--list">
         <div v-if="research.memory?.length" class="data-rows">
@@ -149,15 +147,11 @@
           </div>
         </div>
         <p v-else class="list-empty">
-          Nothing remembered yet. The agent adds a note when it learns something the next
-          session should start with.
+          No notes yet. Your AI assistant can save context here for future sessions.
         </p>
       </div>
-      <!-- Said plainly rather than implied by absent buttons: a screen with no
-           controls reads as broken unless it says why. -->
       <p class="lead footnote">
-        Memory cannot be edited here yet. A note has no id, date or author in the API today,
-        so there is nothing to address — curating it needs that groundwork first.
+        Ask your connected AI assistant to update these notes.
       </p>
     </div>
 
@@ -190,10 +184,10 @@
   <EmptyState
     v-else
     icon="&#x1F50D;"
-    title="Research not found"
-    description="It may have been deleted, or the address may name a research that never existed."
+    title="Project not found"
+    description="Check the link and make sure you have access to this project."
   >
-    <NuxtLink to="/" class="btn btn-primary">Back to all research</NuxtLink>
+    <NuxtLink to="/" class="btn btn-primary">Back to projects</NuxtLink>
   </EmptyState>
 </template>
 

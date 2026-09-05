@@ -134,7 +134,7 @@ export function useTeams() {
 /** The one-line description of what a role may do, shown wherever one is picked. */
 export const ROLE_DESCRIPTIONS: Record<TeamRole, string> = {
   viewer: 'Can read and export.',
-  editor: 'Can read, and write entries, sessions, tasks and roadmaps.',
+  editor: 'Can read, and write documents, sessions, tasks and roadmaps.',
   owner: 'Everything an editor can do, plus managing members and the team.',
 }
 

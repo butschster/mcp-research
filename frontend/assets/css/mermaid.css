@@ -12,7 +12,7 @@
   /* Recessed below the page rather than raised above it, the way the code block
      is: a canvas you look into, not a card sitting on the article. There is no
      token darker than the page, so it is a black wash over whatever is behind. */
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -39,7 +39,7 @@
   /* The dot grid mermaid.live draws behind a diagram, at its 30px pitch. It
      belongs to the frame, not to the stage: staying put while the diagram moves
      over it is what makes panning legible. */
-  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.15) 2px, transparent 2px);
+  background-image: radial-gradient(circle, rgba(var(--color-muted-rgb), 0.15) 2px, transparent 2px);
   background-size: 30px 30px;
 }
 .mermaid-canvas.is-panning { cursor: grabbing; }
@@ -61,12 +61,12 @@
   align-items: center;
   gap: 2px;
   padding: 2px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   backdrop-filter: blur(4px);
   /* Present but recessive until the reader engages with the diagram. */
-  opacity: 0.5;
+  opacity: 1;
   transition: opacity 0.15s ease;
 }
 .mermaid-diagram:hover .mermaid-toolbar,
@@ -85,7 +85,7 @@
   border-radius: var(--radius-xs);
   cursor: pointer;
 }
-.mermaid-btn:hover { color: var(--color-text); background: rgba(255, 255, 255, 0.08); }
+.mermaid-btn:hover { color: var(--color-text); background: var(--color-surface-hover); }
 .mermaid-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 .mermaid-zoom-label {
   min-width: 46px;
@@ -133,7 +133,7 @@
   border-radius: var(--radius-xs);
 }
 .mermaid-live-link::after { content: ' \2197'; }
-.mermaid-live-link:hover { color: var(--color-primary); background: rgba(255, 255, 255, 0.08); }
+.mermaid-live-link:hover { color: var(--color-primary); background: var(--color-surface-hover); }
 
 .mermaid-broken { margin: var(--space-5) 0; }
 .mermaid-broken .mermaid-live-link { padding-left: 0; opacity: 0.8; }

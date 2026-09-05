@@ -25,7 +25,7 @@
           v-else-if="error"
           icon="&#x26A0;"
           title="Could not load the history"
-          description="The revision list did not come back. The entry itself is untouched."
+          description="The revision list did not come back. The document itself is untouched."
         >
           <button class="btn btn-sm" @click="load">Try again</button>
         </EmptyState>
@@ -34,7 +34,7 @@
           v-else-if="!revisions.length"
           icon="&#x1F553;"
           title="No history yet"
-          description="This entry has not been written to since revisions were switched on. The next edit — yours or an agent's — appears here."
+          description="This document has not been written to since revisions were switched on. The next edit — yours or an agent's — appears here."
         />
 
         <ul v-else ref="railList" class="rev-list" role="listbox" aria-label="Revisions" @keydown="onRailKey">
@@ -77,7 +77,7 @@
         </div>
 
         <p v-if="restoreError" class="pane-error" role="alert">
-          Restore failed — the entry is unchanged.
+          Restore failed — the document is unchanged.
         </p>
         <p class="sr-only" role="status">{{ announcement }}</p>
 

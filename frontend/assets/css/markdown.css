@@ -14,7 +14,7 @@
 /* --- Search Highlight --------------------------------------------------- */
 
 .search-mark {
-  background: rgba(108, 197, 224, 0.2);
+  background: rgba(var(--color-primary-rgb), 0.2);
   color: var(--color-primary);
   border-radius: var(--radius-hair);
 }
@@ -60,7 +60,7 @@
 .markdown-content table { width: 100%; border-collapse: collapse; margin: var(--space-5) 0; font-size: var(--type-sm); }
 .markdown-content thead th { text-align: left; font-weight: var(--weight-semibold); padding: var(--space-2) var(--space-3); border-bottom: 2px solid var(--color-border-strong); color: var(--color-text); background: var(--color-surface-hover); }
 .markdown-content tbody td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); vertical-align: top; }
-.markdown-content tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+.markdown-content tbody tr:hover { background: var(--color-surface-hover); }
 .markdown-content tbody tr:last-child td { border-bottom: none; }
 .markdown-content img { max-width: 100%; border-radius: var(--radius); margin: var(--space-4) 0; }
 /* A UUID chain or a bare URL used to push the whole page sideways on a phone. */
@@ -84,7 +84,7 @@
   text-decoration: none;
 }
 .crossref-link:hover {
-  background: rgba(108, 197, 224, 0.2);
+  background: rgba(var(--color-primary-rgb), 0.2);
   text-decoration: none;
 }
 

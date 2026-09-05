@@ -113,11 +113,11 @@ export const AllCalloutVariants: Story = {
 const chartHtml = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Throughput</title>
 <style>
-  body { margin:0; padding:18px; font-family:system-ui,sans-serif; background:#0c1220; color:#e2e8f0; }
+  body { margin:0; padding:18px; font-family:system-ui,sans-serif; background:#14241d; color:#f6f3ec; }
   .row { display:grid; grid-template-columns:110px 1fr 46px; gap:10px; align-items:center; margin-bottom:8px; font-size:13px; }
   .track { height:18px; background:rgba(148,163,184,.1); border-radius:4px; overflow:hidden; }
-  .fill { height:100%; background:#6cc5e0; }
-  .num { text-align:right; color:#7f8ea3; }
+  .fill { height:100%; background:#c7d9a7; }
+  .num { text-align:right; color:#a7b6a6; }
 </style></head>
 <body><div id="out"></div>
 <script>

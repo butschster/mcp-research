@@ -8,7 +8,7 @@
 
     <!-- The header names the thing; the toolbar under it filters it. -->
     <div v-if="mode === 'all'" class="section-header">
-      <h2 class="section-title">All entries</h2>
+      <h2 class="section-title">All documents</h2>
     </div>
 
     <template v-else-if="sectionInfo">
@@ -72,8 +72,8 @@
       v-model="activeTag"
       v-model:query="query"
       :tags="toolbarTags"
-      :search-label="shareActive() ? 'Filter these entries' : `Search ${researchName || 'this research'}`"
-      :search-placeholder="shareActive() ? 'Filter these entries…' : 'Search this research…'"
+      :search-label="shareActive() ? 'Filter documents' : `Search ${researchName || 'this project'}`"
+      :search-placeholder="shareActive() ? 'Filter documents…' : 'Search this project…'"
     >
       <template #meta>
         <span v-if="query.length === 1" class="card-meta">Keep typing…</span>
@@ -107,7 +107,7 @@
       <!-- The search is research-wide and the section header now stays on
            screen above the results; saying nothing would be a lie of layout. -->
       <p v-if="mode === 'section' && !shareActive()" class="card-meta mb-4">
-        Results from the whole research, not just this section.
+        Results from all sections in this project.
       </p>
       <!-- A failed request is not "no results". It used to be rendered as one,
            which told the reader their query was wrong when the network was. -->
@@ -133,7 +133,7 @@
         v-else-if="!searching && activeTag && found.length"
         icon="&#x1F50D;"
         :title="`No matches with “${activeTag}”`"
-        :description="`${found.length} ${found.length === 1 ? 'entry matches' : 'entries match'} “${query}”, but none of them carry this tag.`"
+        :description="`${found.length} ${found.length === 1 ? 'document matches' : 'documents match'} “${query}”, but none of them carry this tag.`"
       >
         <button type="button" class="btn btn-sm" @click="activeTag = ''">Clear filter</button>
         <button type="button" class="btn btn-sm" @click="query = ''">Clear search</button>
@@ -176,8 +176,8 @@
       <EmptyState
         v-else-if="activeTag"
         icon="&#x1F4C4;"
-        :title="`No entries tagged “${activeTag}”`"
-        :description="`The filter is still on. Clear it to see the other ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}.`"
+        :title="`No documents tagged “${activeTag}”`"
+        :description="`The filter is still on. Clear it to see the other ${entries.length} ${entries.length === 1 ? 'document' : 'documents'}.`"
       >
         <button type="button" class="btn btn-sm" @click="activeTag = ''">Clear filter</button>
       </EmptyState>
@@ -185,7 +185,7 @@
       <EmptyState
         v-else
         icon="&#x1F4C4;"
-        title="No entries yet"
+        title="No documents yet"
         :description="emptyDescription('research')"
       />
     </template>
@@ -269,8 +269,8 @@
       <EmptyState
         v-else-if="activeTag"
         icon="&#x1F4C4;"
-        :title="`No entries tagged “${activeTag}”`"
-        :description="`The filter is still on. Clear it to see the other ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}.`"
+        :title="`No documents tagged “${activeTag}”`"
+        :description="`The filter is still on. Clear it to see the other ${entries.length} ${entries.length === 1 ? 'document' : 'documents'}.`"
       >
         <button type="button" class="btn btn-sm" @click="activeTag = ''">Clear filter</button>
       </EmptyState>
@@ -278,7 +278,7 @@
       <EmptyState
         v-else
         icon="&#x1F4C4;"
-        :title="shareActive() ? 'No entries in this section' : 'No entries yet'"
+        :title="shareActive() ? 'No documents in this section' : 'No documents yet'"
         :description="emptyDescription('section')"
       >
         <button v-if="canImport" type="button" class="btn btn-sm" @click="dropZone?.open()">
@@ -476,8 +476,8 @@ const matchesLabel = computed(() => {
 
 const searchScope = computed(() =>
   shareActive()
-    ? 'Titles, descriptions and tags of the entries on this page were searched.'
-    : 'Titles, descriptions and the body of every entry in this research were searched.',
+    ? 'Titles, descriptions and tags of the documents on this page were searched.'
+    : 'Search covers document titles, descriptions, and content across this project.',
 )
 const { authFetch } = useAuth()
 const base = useRuntimeConfig().public.apiBase || ''
@@ -531,10 +531,10 @@ onUnmounted(() => { if (timer) clearTimeout(timer) })
  */
 function emptyDescription(scope: 'research' | 'section') {
   if (shareActive()) return "There's nothing here yet."
-  if (scope === 'research') return 'Claude will populate this research with entries.'
+  if (scope === 'research') return 'Ask your AI assistant to add documents to this project.'
   return canImport.value
-    ? 'Claude will populate this section with research entries. You can also drop a markdown file here.'
-    : 'Claude will populate this section with research entries.'
+    ? 'Ask your AI assistant to add documents to this section, or drop a Markdown file here.'
+    : 'Documents added to this section will appear here.'
 }
 
 const activeTag = ref('')
@@ -579,7 +579,7 @@ watch(activeTag, (tag, prev) => {
   if (!tag && !prev) return
   const n = query.value.length > 1
     ? matchesLabel.value
-    : `${filteredEntries.value.length} ${filteredEntries.value.length === 1 ? 'entry' : 'entries'}`
+    : `${filteredEntries.value.length} ${filteredEntries.value.length === 1 ? 'document' : 'documents'}`
   filterAnnouncement.value = tag ? `Filtered to “${tag}”. ${n}.` : `Tag filter cleared. ${n}.`
 }, { flush: 'post' })
 watch([found, searching, searchError], () => {

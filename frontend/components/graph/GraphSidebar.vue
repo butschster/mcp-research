@@ -147,8 +147,8 @@ defineEmits<{
 .graph-sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: rgba(0,0,0,0.5);
-  border-right: 1px solid rgba(255,255,255,0.06);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -167,15 +167,15 @@ defineEmits<{
   right: 8px;
   background: none;
   border: none;
-  color: rgba(255,255,255,0.4);
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 4px;
   border-radius: var(--radius-xs);
   z-index: 2;
 }
 .sidebar-toggle:hover {
-  color: rgba(255,255,255,0.8);
-  background: rgba(255,255,255,0.06);
+  color: var(--color-text);
+  background: var(--color-surface-hover);
 }
 
 .sidebar-header {
@@ -188,12 +188,12 @@ defineEmits<{
 .sidebar-title {
   font-size: 14px;
   font-weight: var(--weight-semibold);
-  color: rgba(255,255,255,0.85);
+  color: var(--color-text);
 }
 
 .sidebar-section {
   padding: 10px 14px;
-  border-top: 1px solid rgba(255,255,255,0.04);
+  border-top: 1px solid var(--color-border);
 }
 
 .sidebar-section-title {
@@ -201,7 +201,7 @@ defineEmits<{
   font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: rgba(255,255,255,0.35);
+  color: var(--color-text-muted);
   margin-bottom: 8px;
   display: flex;
   justify-content: space-between;
@@ -212,7 +212,7 @@ defineEmits<{
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-text-muted);
 }
 
 .sidebar-check {
@@ -222,14 +222,14 @@ defineEmits<{
   padding: 4px 0;
   cursor: pointer;
   font-size: 12px;
-  color: rgba(255,255,255,0.7);
+  color: var(--color-text);
 }
 
 .sidebar-check input[type="checkbox"] {
   appearance: none;
   width: 14px;
   height: 14px;
-  border: 1.5px solid rgba(255,255,255,0.2);
+  border: 1.5px solid var(--color-border-strong);
   border-radius: var(--radius-xs);
   background: transparent;
   cursor: pointer;
@@ -238,8 +238,8 @@ defineEmits<{
 }
 
 .sidebar-check input[type="checkbox"]:checked {
-  background: rgba(255,255,255,0.15);
-  border-color: rgba(255,255,255,0.4);
+  background: var(--color-primary);
+  border-color: var(--color-border-strong);
 }
 
 .sidebar-check input[type="checkbox"]:checked::after {
@@ -249,7 +249,7 @@ defineEmits<{
   left: 4px;
   width: 4px;
   height: 7px;
-  border: solid rgba(255,255,255,0.9);
+  border: solid var(--color-on-primary);
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }
@@ -267,7 +267,7 @@ defineEmits<{
 
 .check-count {
   font-size: 11px;
-  color: rgba(255,255,255,0.25);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -275,7 +275,7 @@ defineEmits<{
   width: 100%;
   appearance: none;
   height: 4px;
-  background: rgba(255,255,255,0.1);
+  background: var(--color-surface-hover);
   border-radius: var(--radius-hair);
   outline: none;
   margin: 4px 0 2px;
@@ -297,14 +297,14 @@ defineEmits<{
   border-radius: 50%;
   background: var(--hue-5);
   cursor: pointer;
-  border: 2px solid #1a1a2e;
+  border: 2px solid var(--color-surface);
 }
 
 .depth-labels {
   display: flex;
   justify-content: space-between;
   font-size: 9px;
-  color: rgba(255,255,255,0.2);
+  color: var(--color-text-muted);
   padding: 0 2px;
 }
 
@@ -316,7 +316,7 @@ defineEmits<{
 
 .sidebar-hint {
   font-size: 10px;
-  color: rgba(255,255,255,0.2);
+  color: var(--color-text-muted);
   margin-top: 6px;
   font-style: italic;
 }
@@ -326,8 +326,8 @@ defineEmits<{
   width: 100%;
   margin-top: 8px;
   padding: 5px;
-  background: rgba(167,139,250,0.1);
-  border: 1px solid rgba(167,139,250,0.25);
+  background: rgba(var(--hue-5-rgb), 0.1);
+  border: 1px solid rgba(var(--hue-5-rgb), 0.25);
   border-radius: 5px;
   color: var(--hue-5);
   font-size: 11px;
@@ -335,6 +335,6 @@ defineEmits<{
   transition: all 0.15s;
 }
 .btn-clear-focus:hover {
-  background: rgba(167,139,250,0.2);
+  background: rgba(var(--hue-5-rgb), 0.2);
 }
 </style>

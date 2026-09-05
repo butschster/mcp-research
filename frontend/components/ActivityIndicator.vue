@@ -22,7 +22,7 @@ defineProps<{
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-xs);
   background: var(--color-primary-muted);
-  border: 1px solid rgba(108, 197, 224, 0.12);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.12);
   line-height: 1;
   animation: indicator-in 0.2s ease both;
 }

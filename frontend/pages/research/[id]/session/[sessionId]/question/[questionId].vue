@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="page-header">
       <Breadcrumbs :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: researchName, to: `/research/${researchSlug}` },
         { label: sessionTitle, to: `/research/${researchSlug}/session/${sessionId}` },
         { label: `Q${questionIndex + 1}` }
@@ -139,7 +139,7 @@ const questionId = route.params.questionId as string
 
 // Research info
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
-const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
+const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Project')
 const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 
 // Session + questions

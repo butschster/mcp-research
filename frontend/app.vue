@@ -1,5 +1,15 @@
 <script setup lang="ts">
 import { useKeyboardNav } from '~/composables/useKeyboardNav'
+import { useTheme } from '~/composables/useTheme'
+import { readThemeColors } from '~/utils/theme'
+
+useHead({ titleTemplate: title => title && title !== 'Dovod' ? `${title} — Dovod` : 'Dovod' })
+const { theme } = useTheme()
+useHead(() => {
+  // Depend on the preference as well as the resolved CSS on first load.
+  void theme.value
+  return { meta: [{ name: 'theme-color', content: readThemeColors().background }] }
+})
 
 const hasRecentUpdate = ref(false)
 let activityTimer: ReturnType<typeof setTimeout>
@@ -125,8 +135,9 @@ onUnmounted(() => {
         <a href="#main" class="skip-link">Skip to content</a>
         <nav class="app-nav">
           <div class="container nav-inner">
-            <NuxtLink to="/" class="logo">Research</NuxtLink>
+            <NuxtLink to="/" class="logo" aria-label="Dovod home"><BrandLogo /></NuxtLink>
             <div class="nav-right">
+              <ThemeToggle />
               <SearchModal />
               <ActivityIndicator :active="hasRecentUpdate" label="Updating" />
               <template v-if="authEnabled && isAuthenticated">
@@ -172,7 +183,7 @@ onUnmounted(() => {
 
         <footer class="app-footer">
           <div class="container footer-inner">
-            <!-- The word "Research" said nothing the logo two lines up does not
+            <!-- The product name said nothing the logo two lines up does not
                  already say. The build is the one fact worth a permanent slot:
                  it is what somebody reporting a problem is asked for first. -->
             <span class="card-meta app-version" :title="version ? `Running build ${version}` : ''">{{ version }}</span>
@@ -305,7 +316,7 @@ onUnmounted(() => {
    nothing else, and they were a directory away from the markup they
    describe. What stays global is what three unrelated components share. */
 .app-nav {
-  background: rgba(21, 29, 46, 0.8);
+  background: var(--color-nav);
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border-bottom: 1px solid var(--color-border);
@@ -320,6 +331,9 @@ onUnmounted(() => {
   gap: var(--space-8);
 }
 .app-nav .logo {
+  display: inline-flex;
+  width: 6.5rem;
+  flex-shrink: 0;
   font-size: var(--type-lg);
   font-weight: var(--weight-bold);
   color: var(--color-text);

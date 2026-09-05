@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Research Projects">
+    <PageHeader title="Projects">
       <template #actions>
         <NuxtLink to="/templates" class="btn btn-sm">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -60,15 +60,15 @@
     <EmptyState
       v-else-if="teamFilter"
       icon="&#x1F4C1;"
-      :title="`No researches in ${filteredTeamName} yet`"
+      :title="`No projects in ${filteredTeamName} yet`"
       :description="
         filteredTeamOwned
-          ? 'Researches you move into this team appear here, and everyone in it can read them. Your own researches are still in your personal team.'
-          : 'Researches added to this team will appear here for everyone in it. An owner of the team can move one across.'
+          ? 'Move a project here to give this team access. Your other projects stay in your personal team.'
+          : 'Ask a team owner to move a project here so everyone in the team can access it.'
       "
     >
-      <NuxtLink v-if="filteredTeamOwned" class="btn" :to="`/teams/${teamFilter}`">Move researches here</NuxtLink>
-      <NuxtLink v-else class="btn" :to="`/teams/${teamFilter}`">Who is in this team</NuxtLink>
+      <NuxtLink v-if="filteredTeamOwned" class="btn" :to="`/teams/${teamFilter}`">Move projects here</NuxtLink>
+      <NuxtLink v-else class="btn" :to="`/teams/${teamFilter}`">View team</NuxtLink>
       <button class="btn" @click="teamFilter = ''">Show all teams</button>
     </EmptyState>
 
@@ -79,7 +79,7 @@
       v-else-if="invitedElsewhere"
       icon="&#x1F91D;"
       title="Nothing has been shared with you yet"
-      description="You are in a team, but no research has been moved into it. Whoever invited you can move one across — it will appear here the moment they do."
+      description="Your team has no projects yet. Ask the person who invited you to share a project with the team."
     >
       <NuxtLink class="btn" to="/teams">Your teams</NuxtLink>
     </EmptyState>
@@ -88,9 +88,9 @@
     <EmptyState
       v-else
       icon="&#x1F52C;"
-      title="No research projects yet"
-      description="Type this into Claude to start your first research session:"
-      command="Use the research/initialize prompt to create a new research project"
+      title="Start your first project"
+      description="Ask your connected AI assistant to help you define a goal and get started:"
+      command="Use the research/initialize prompt to start a new project in Dovod."
     />
   </div>
 </template>
@@ -232,7 +232,7 @@ useRealtimeUpdates(
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
   background: var(--color-primary-muted);
-  border: 1px solid rgba(108, 197, 224, 0.15);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.15);
   border-radius: var(--radius-sm);
   font-size: var(--type-xs);
   color: var(--color-primary);

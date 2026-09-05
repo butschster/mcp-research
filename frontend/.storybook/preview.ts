@@ -1,3 +1,4 @@
+import { setTheme } from '../composables/useTheme'
 import type { Preview } from '@storybook/vue3'
 import { setup } from '@storybook/vue3'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -39,6 +40,7 @@ import AnnotationsAnnotationList from '../components/annotations/AnnotationList.
 import { resetMockApi, resetMockApiData } from '../__mocks__/api'
 import '../assets/css/tokens.css'
 import '../assets/css/base.css'
+import '../assets/css/brand.css'
 import '../assets/css/system.css'
 import '../assets/css/markdown.css'
 import '../assets/css/mermaid.css'
@@ -139,6 +141,13 @@ setup((app) => {
 })
 
 const preview: Preview = {
+  globalTypes: {
+    theme: {
+      description: 'Dovod color theme',
+      toolbar: { icon: 'paintbrush', items: [{ value: 'light', title: 'Light' }, { value: 'dark', title: 'Dark' }], dynamicTitle: true },
+    },
+  },
+  initialGlobals: { theme: 'light' },
   parameters: {
     backgrounds: { disable: true },
     layout: 'padded',
@@ -174,7 +183,9 @@ const preview: Preview = {
     },
   },
   decorators: [
-    (story) => ({
+    (story, context) => {
+      setTheme(context.globals.theme === 'dark' ? 'dark' : 'light', false)
+      return ({
       components: { story },
       // A decorator's setup runs before the story's, and the story's before the
       // component's — so this clears the `useApi` routing table in time for a
@@ -193,7 +204,8 @@ const preview: Preview = {
           <story />
         </div>
       `,
-    }),
+    })
+    },
   ],
 }
 export default preview
