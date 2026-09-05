@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/butschster/mcp-research/internal/auth"
 	"github.com/butschster/mcp-research/internal/domain"
@@ -208,6 +209,13 @@ func (s *AuthService) ValidateToken(ctx context.Context, token string) (*domain.
 		return nil, fmt.Errorf("find oauth token: %w", err)
 	}
 	if oauthToken != nil {
+		// An access token that is past its expires_at is not a credential. The
+		// token endpoint has always announced `expires_in`, and nothing until
+		// now enforced it: a token minted for an hour authenticated forever.
+		// The client's way back is the refresh_token grant.
+		if time.Now().After(oauthToken.ExpiresAt) {
+			return nil, nil
+		}
 		return s.users.FindByID(ctx, oauthToken.UserID)
 	}
 

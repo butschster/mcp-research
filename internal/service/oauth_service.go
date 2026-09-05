@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -21,6 +22,19 @@ var (
 	ErrInvalidCode        = errors.New("invalid or expired authorization code")
 	ErrInvalidRedirectURI = errors.New("redirect_uri mismatch")
 	ErrInvalidGrant       = errors.New("invalid grant_type")
+	ErrInvalidRefresh     = errors.New("invalid or expired refresh_token")
+)
+
+const (
+	// AccessTokenTTL is how long an access token is honoured. It is also the
+	// `expires_in` the token endpoint reports, and the two must not drift: a
+	// client that is told an hour and gets a week has no reason to refresh, and
+	// a client told an hour that gets a minute loops.
+	AccessTokenTTL = time.Hour
+	// RefreshTokenTTL is measured from the row's created_at, and rotation
+	// writes a new row — so a client that keeps refreshing keeps working, and
+	// one that goes quiet for a month has to sign in again.
+	RefreshTokenTTL = 30 * 24 * time.Hour
 )
 
 type OAuthService struct {
@@ -130,7 +144,7 @@ func (s *OAuthService) Exchange(ctx context.Context, code, clientID, clientSecre
 	if err != nil {
 		return "", "", 0, fmt.Errorf("find client: %w", err)
 	}
-	if client == nil || hashSHA256(clientSecret) != secretHash {
+	if client == nil || subtle.ConstantTimeCompare([]byte(hashSHA256(clientSecret)), []byte(secretHash)) != 1 {
 		return "", "", 0, ErrInvalidClient
 	}
 
@@ -156,22 +170,63 @@ func (s *OAuthService) Exchange(ctx context.Context, code, clientID, clientSecre
 		}
 	}
 
-	// Delete used code
-	s.repo.DeleteCode(ctx, code)
+	// Burn the code before minting anything. Losing the race here means some
+	// other request already exchanged this code, and the correct answer is the
+	// same one a stranger replaying it gets.
+	used, err := s.repo.ConsumeCode(ctx, code)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("consume code: %w", err)
+	}
+	if !used {
+		return "", "", 0, ErrInvalidCode
+	}
 
-	// Generate tokens
+	return s.issue(ctx, clientID, oauthCode.UserID, oauthCode.Scope)
+}
+
+// Refresh trades a refresh token for a new pair and retires the old one.
+//
+// Rotation is the point: the row carrying the presented refresh token is
+// deleted, so replaying a stolen refresh token that its owner has already used
+// fails. Without this grant an access token that actually expires would strand
+// every client an hour after it signed in.
+func (s *OAuthService) Refresh(ctx context.Context, refreshToken, clientID, clientSecret string) (accessToken, newRefreshToken string, expiresIn int, err error) {
+	client, secretHash, err := s.repo.FindClientByID(ctx, clientID)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("find client: %w", err)
+	}
+	if client == nil || subtle.ConstantTimeCompare([]byte(hashSHA256(clientSecret)), []byte(secretHash)) != 1 {
+		return "", "", 0, ErrInvalidClient
+	}
+
+	token, err := s.repo.FindByRefreshTokenHash(ctx, hashSHA256(refreshToken))
+	if err != nil {
+		return "", "", 0, fmt.Errorf("find refresh token: %w", err)
+	}
+	if token == nil || token.ClientID != clientID || time.Now().After(token.IssuedAt.Add(RefreshTokenTTL)) {
+		return "", "", 0, ErrInvalidRefresh
+	}
+
+	if err := s.repo.DeleteToken(ctx, token.ID); err != nil {
+		return "", "", 0, fmt.Errorf("retire token: %w", err)
+	}
+
+	return s.issue(ctx, clientID, token.UserID, token.Scope)
+}
+
+func (s *OAuthService) issue(ctx context.Context, clientID, userID, scope string) (accessToken, refreshToken string, expiresIn int, err error) {
 	accessToken = generateSecret(32)
 	refreshToken = generateSecret(32)
-	expiresIn = 3600 // 1 hour
+	expiresIn = int(AccessTokenTTL / time.Second)
 
 	token := &storage.OAuthToken{
 		ID:               uuid.New().String(),
 		ClientID:         clientID,
-		UserID:           oauthCode.UserID,
+		UserID:           userID,
 		AccessTokenHash:  hashSHA256(accessToken),
 		RefreshTokenHash: hashSHA256(refreshToken),
-		Scope:            oauthCode.Scope,
-		ExpiresAt:        time.Now().Add(time.Duration(expiresIn) * time.Second),
+		Scope:            scope,
+		ExpiresAt:        time.Now().Add(AccessTokenTTL),
 	}
 
 	if err := s.repo.CreateToken(ctx, token); err != nil {
@@ -194,13 +249,17 @@ func hashSHA256(s string) string {
 
 // verifyPKCE validates the code_verifier against the stored code_challenge.
 func verifyPKCE(challenge, method, verifier string) bool {
-	if method == "S256" {
+	switch method {
+	case "S256":
 		h := sha256.Sum256([]byte(verifier))
-		computed := base64URLEncode(h[:])
-		return computed == challenge
+		return subtle.ConstantTimeCompare([]byte(base64URLEncode(h[:])), []byte(challenge)) == 1
+	case "", "plain":
+		// RFC 7636 defaults an absent method to "plain".
+		return subtle.ConstantTimeCompare([]byte(verifier), []byte(challenge)) == 1
+	default:
+		// An unknown method is not a reason to fall back to the weaker check.
+		return false
 	}
-	// plain method
-	return verifier == challenge
 }
 
 func base64URLEncode(data []byte) string {

@@ -146,6 +146,26 @@ func (r *OAuthRepository) DeleteCode(ctx context.Context, code string) error {
 	return err
 }
 
+// ConsumeCode deletes an authorization code and reports whether this call is
+// the one that removed it.
+//
+// This is what makes a code single-use. Two exchanges racing on the same code
+// both pass FindCode — the lookup and the delete are separate statements — and
+// deciding on the lookup alone hands out two token pairs for one authorization.
+// The delete is the serialisation point the database already gives us: exactly
+// one caller sees a row affected.
+func (r *OAuthRepository) ConsumeCode(ctx context.Context, code string) (bool, error) {
+	res, err := r.db.NewDelete().Table("oauth_codes").Where("code=?", code).Exec(ctx)
+	if err != nil {
+		return false, fmt.Errorf("consume oauth code: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("consume oauth code: %w", err)
+	}
+	return n > 0, nil
+}
+
 func (r *OAuthRepository) CleanExpiredCodes(ctx context.Context) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	_, err := r.db.NewDelete().Table("oauth_codes").Where("expires_at < ?", now).Exec(ctx)
@@ -162,6 +182,10 @@ type OAuthToken struct {
 	RefreshTokenHash string
 	Scope            string
 	ExpiresAt        time.Time
+	// IssuedAt is the row's created_at. The refresh token's own lifetime is
+	// measured from it, so that a refresh token outlives the one-hour access
+	// token it was handed out with without needing a second column.
+	IssuedAt time.Time
 }
 
 func (r *OAuthRepository) CreateToken(ctx context.Context, token *OAuthToken) error {
@@ -177,17 +201,21 @@ func (r *OAuthRepository) CreateToken(ctx context.Context, token *OAuthToken) er
 		"expires_at":         expiresAt,
 		"created_at":         now,
 	}).Exec(ctx)
-	return err
+	if err != nil {
+		return err
+	}
+	token.IssuedAt, _ = time.Parse(time.DateTime, now)
+	return nil
 }
 
 func (r *OAuthRepository) FindByAccessTokenHash(ctx context.Context, hash string) (*OAuthToken, error) {
 	var t OAuthToken
-	var expiresAt string
+	var expiresAt, createdAt string
 	err := selectRow(ctx, r.db.NewSelect().
-		ColumnExpr("id, client_id, user_id, access_token_hash, refresh_token_hash, scope, expires_at").
+		ColumnExpr("id, client_id, user_id, access_token_hash, refresh_token_hash, scope, expires_at, created_at").
 		TableExpr("oauth_tokens").
 		Where("access_token_hash=?", hash)).
-		Scan(&t.ID, &t.ClientID, &t.UserID, &t.AccessTokenHash, &t.RefreshTokenHash, &t.Scope, &expiresAt)
+		Scan(&t.ID, &t.ClientID, &t.UserID, &t.AccessTokenHash, &t.RefreshTokenHash, &t.Scope, &expiresAt, &createdAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -195,17 +223,18 @@ func (r *OAuthRepository) FindByAccessTokenHash(ctx context.Context, hash string
 		return nil, fmt.Errorf("scan oauth token: %w", err)
 	}
 	t.ExpiresAt, _ = time.Parse(time.DateTime, expiresAt)
+	t.IssuedAt, _ = time.Parse(time.DateTime, createdAt)
 	return &t, nil
 }
 
 func (r *OAuthRepository) FindByRefreshTokenHash(ctx context.Context, hash string) (*OAuthToken, error) {
 	var t OAuthToken
-	var expiresAt string
+	var expiresAt, createdAt string
 	err := selectRow(ctx, r.db.NewSelect().
-		ColumnExpr("id, client_id, user_id, access_token_hash, refresh_token_hash, scope, expires_at").
+		ColumnExpr("id, client_id, user_id, access_token_hash, refresh_token_hash, scope, expires_at, created_at").
 		TableExpr("oauth_tokens").
 		Where("refresh_token_hash=?", hash)).
-		Scan(&t.ID, &t.ClientID, &t.UserID, &t.AccessTokenHash, &t.RefreshTokenHash, &t.Scope, &expiresAt)
+		Scan(&t.ID, &t.ClientID, &t.UserID, &t.AccessTokenHash, &t.RefreshTokenHash, &t.Scope, &expiresAt, &createdAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -213,6 +242,7 @@ func (r *OAuthRepository) FindByRefreshTokenHash(ctx context.Context, hash strin
 		return nil, fmt.Errorf("scan oauth token: %w", err)
 	}
 	t.ExpiresAt, _ = time.Parse(time.DateTime, expiresAt)
+	t.IssuedAt, _ = time.Parse(time.DateTime, createdAt)
 	return &t, nil
 }
 
