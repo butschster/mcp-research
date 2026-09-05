@@ -260,6 +260,11 @@ func applyMigrationVersion(ctx context.Context, conn Querier, driver, version st
 		if _, err := q.ExecContext(ctx, string(data)); err != nil {
 			return fmt.Errorf("apply migration %s: %w", version, err)
 		}
+		if version == "029_research_memory" || version == "003_research_memory" {
+			if err := migrateResearchMemory(ctx, q); err != nil {
+				return fmt.Errorf("migrate research memory: %w", err)
+			}
+		}
 		_, err := q.NewInsert().Model(&migrationRow{Version: version, AppliedAt: time.Now().UTC().Format(time.RFC3339)}).Exec(ctx)
 		return err
 	}

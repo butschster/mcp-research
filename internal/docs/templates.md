@@ -290,11 +290,10 @@ Anything else would be dishonest about what a template is.
 A share link exposes no template list and no body. `TemplateService` refuses a
 share context before it resolves anything, and there are no template routes under
 `/api/shared/{token}/`, so a route added later still fails closed. Which
-methodology a team follows is working process, the same class as `instruction`,
-`memory` and skills.
+methodology a team follows is working process, the same class as memory and skills.
 
 The stamp goes too. `redactForShare` blanks `template_slug` and
-`template_version` alongside `instruction`, `memory` and the team fields, on the
+`template_version` alongside `memory` and the team fields, on the
 one read path every reader of a research goes through — a slug is a name a team
 chose, and "acme-q4-layoff-diligence" is not something a read-only link should
 teach.

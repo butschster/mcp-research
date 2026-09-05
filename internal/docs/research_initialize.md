@@ -25,12 +25,13 @@ what you have understood first, and let the structure follow from it.
 | Read the one that fits | `template_get` | `GET /api/templates/{slug}` |
 | Find the team to create it in | `team_list` | `GET /api/teams` |
 | Create the research | `research_create` | `POST /api/researches` |
-| Set working instructions | `research_update` | `PUT /api/researches/{id}` |
+| Set research-specific working rules | `skill_create` (private) | `POST /api/researches/{id}/skills` |
 | Open the first session | `session_create` | `POST /api/sessions` |
 
-Every property of every tool input must be present — send `null` for a value you
-are skipping, `""` or `0` for the plain scalars that reject `null`; `team_id` and
-`template_slug` on `research_create` are the two you may omit outright. See the
+Send every required property of a tool input: use `null` for nullable values
+you are skipping, and `""` or `0` for required plain scalars. Optional properties
+may be omitted; notably a memory write's `session_id` accepts omission but not
+`null`. See the
 [MCP Client Guide](/llms/mcp-client-guide.md#nullable-and-optional-fields).
 Recording the methodology is MCP-only: `POST /api/researches` takes no
 `template_slug`, so a REST caller creates the research and the provenance is
@@ -104,9 +105,9 @@ In one message, with no summary card:
    UUID, not the `R1` code. If the user works in a team, pass its `team_id` from
    `team_list` — without one the research lands in their personal team and has to
    be moved by hand.
-2. `research_update` to set `instruction`: what is specific to *this* research —
-   its scope, its constraints, what counts as done here. Not methodology; that is
-   what the template and the skills carry.
+2. Use `research_update` for goal and description. If this research needs its own
+   working rules, create a private skill with `skill_create`, a concrete trigger
+   description and the full rules in its body. Do not duplicate attached methodology.
 3. `session_create` — `research_id` and a `title`, with the questions the
    template told you to open on.
 4. **Ask the first question.**
@@ -145,8 +146,8 @@ outcome looks like. That is the rare path, not the default.
 
 1. **Never ask what you can propose.**
 2. **Never show a structure before you have said what you understood.**
-3. **`instruction` is what this research is; a template and its skills are how
-   this kind of work is done.** Do not copy methodology into `instruction`.
+3. **Goal and description explain this research; private skills carry its specific
+   rules.** Shared methodology stays in team or built-in skills.
 4. **Three turns.** Four when designing from scratch. If you are on turn six,
    you are filling in a form.
 5. **End on a question, not a summary.**

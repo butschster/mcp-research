@@ -15,16 +15,15 @@ type ResearchUpdateInput struct {
 	Description *string  `json:"description" jsonschema:"New description"`
 	Goal        *string  `json:"goal" jsonschema:"New goal"`
 	Status      *string  `json:"status" jsonschema:"New status: active, completed, or archived"`
-	Instruction *string  `json:"instruction" jsonschema:"Working instructions for the LLM"`
 	Tags        []string `json:"tags" jsonschema:"Replace tags (null=no change)"`
-	Memory      []string `json:"memory" jsonschema:"Replace entire memory array (mutually exclusive with add_memory)"`
-	AddMemory   *string  `json:"add_memory" jsonschema:"Append single entry to memory (mutually exclusive with memory)"`
+	AddMemory   *string  `json:"add_memory,omitempty" jsonschema:"Append one memory item. Use research_memory to edit or delete by ID; use private skills for instructions"`
+	SessionID   string   `json:"session_id,omitempty" jsonschema:"Research session UUID or SS code for add_memory provenance; omit when not working in a research session"`
 }
 
 func RegisterResearchUpdate(srv *mcp.Server, svc *service.ResearchService, log *slog.Logger) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "research_update",
-		Description: "Updates a research project with partial updates. Supports memory (replace) and add_memory (append) which are mutually exclusive. Only provided fields are updated.",
+		Description: "Updates research metadata and optionally appends one memory item. Only provided fields are updated. Memory edits use research_memory; methodology belongs in private skills.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ResearchUpdateInput) (*mcp.CallToolResult, any, error) {
 		if input.ResearchID == "" {
 			return validationErrorResult([]string{"research_id is required"})
@@ -41,10 +40,9 @@ func RegisterResearchUpdate(srv *mcp.Server, svc *service.ResearchService, log *
 			Description: input.Description,
 			Goal:        input.Goal,
 			Status:      status,
-			Instruction: input.Instruction,
 			Tags:        input.Tags,
-			Memory:      input.Memory,
 			AddMemory:   input.AddMemory,
+			SessionID:   input.SessionID,
 		})
 		if err != nil {
 			return errorResult(err.Error())
@@ -55,6 +53,7 @@ func RegisterResearchUpdate(srv *mcp.Server, svc *service.ResearchService, log *
 			"name":        research.Name,
 			"status":      research.Status,
 			"updated":     true,
+			"memory":      research.Memory,
 		})
 	})
 }

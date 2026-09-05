@@ -30,8 +30,7 @@ type Research struct {
 	Description  string         `json:"description"`
 	Goal         string         `json:"goal"`
 	Status       ResearchStatus `json:"status"`
-	Instruction  string         `json:"instruction"`
-	Memory       []string       `json:"memory"`
+	Memory       Memory         `json:"memory"`
 	Tags         []string       `json:"tags"`
 	// TemplateSlug and TemplateVersion record the methodology this research was
 	// started from, and which version of it. The version is stored because

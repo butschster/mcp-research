@@ -2,9 +2,9 @@
 
 A skill is a methodology document the agent opens when it decides it needs it.
 
-> **`instruction` says what *this research* is. A skill says how a *kind of work*
-> is done. A [template](/llms/templates.md) says how a kind of research is
-> *started*.**
+> **Goal and description explain this research. Private skills carry its
+> specific rules; team and built-in skills describe reusable ways of working.
+> A [template](/llms/templates.md) says how a kind of research is *started*.**
 
 `research_get` lists the skills a research follows — name, tier and one line
 saying when to use it. The bodies are not there. When you are about to do the
@@ -12,12 +12,15 @@ work a line names, call `skill_load` and read it then.
 
 ## Why it works this way
 
-`instruction` is returned in full on every `research_get`. At 200–400 words that
-is right. A methodology — how to run an interview, how to grade a source, how to
-build a trade-off table — is 800–2500 tokens, a research needs one or two of
-them *at the moment of use*, and there are three to six over its life. Putting
-them all in an always-loaded field costs about 5k tokens on every call to save
-one tool call.
+`research_get` returns structured memory and the skills index, without skill
+bodies. A methodology — how to run an interview, how to grade a source, how to
+build a trade-off table — is needed at the moment of use. Loading every body
+on every call wastes context. Research-specific rules use the same private
+skill mechanism instead of an always-loaded instruction field.
+
+Legacy `instruction` text is preserved in an attached private skill marked
+`needs_trigger`. Review its body and give it a concrete trigger description
+with `skill_update` so future sessions know when to load it.
 
 So the index is small and arrives with the research, and the bodies are one call
 away.
@@ -133,8 +136,8 @@ which is why editing one is `skill_fork` and why `skill_delete` refuses.
 **The index is ordered by tier, and that order is the precedence.** Where two
 skills conflict, the higher one wins: private over team, team over built-in.
 `skill_load` restates this in every response, because it is the only rule
-governing which of two skills the agent follows. It says nothing about
-`instruction`, which answers a different question — what *this research* is.
+governing which of two skills the agent follows. Private skills therefore
+take precedence for research-specific working rules.
 
 **A slug resolves against the attachment first.** A team's fork keeps the slug of
 the built-in it copies, so a research that follows the built-in and never took
@@ -222,8 +225,7 @@ same team is `slug_taken`. A name with no Latin characters gets a generated
 ## Sharing
 
 **A share link never exposes a skill** — not the index, not a body. Which
-methodology a team follows is working process, the same class as `instruction`
-and `memory`, and none of it is on the public surface. There are no skills routes
+methodology a team follows is working process, the same class as memory, and none of it is on the public surface. There are no skills routes
 under `/api/shared/{token}/`, and `skill_load` refuses a share context on its own
 so a route added later still fails closed.
 

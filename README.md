@@ -81,7 +81,7 @@ that conversation ends; work continues when you ask an assistant to resume it.
   Each reader has their own queue of new and changed documents.
 - **Tasks and plans.** A task board, roadmaps, a project mind map, and a
   knowledge graph of cross-references.
-- **Context for later work.** Project instructions, memory, reusable skills,
+- **Context for later work.** Private skills, memory, reusable methodology,
   and a continuation summary that points to unfinished work.
 
 ### Start with a methodology
@@ -99,6 +99,18 @@ and attach reusable skills for work such as interviewing or grading evidence.
 See the [methodology catalogue](internal/docs/templates.md) and
 [skills guide](internal/docs/skills.md).
 
+Project-specific rules live in private skills; reusable methodology lives in
+team or built-in skills. Legacy `instruction` text is migrated losslessly to
+an attached private skill marked for trigger review.
+
+When upgrading an existing installation, take a database backup first. The
+migration replaces legacy memory and instruction columns; reverting to an older
+binary requires restoring that backup. API clients must use structured memory
+items: append with `add_memory`, edit/delete by item ID with `research_memory`
+or the REST memory routes. Whole-array `memory` writes and `instruction` writes
+are rejected. Portable exports use version 2; version 1 imports remain supported.
+See the [database upgrade guide](docs/databases.md) for deployment and rollback steps.
+
 ### Share the result
 
 Work with a team, send a read-only share link, or export a project as Markdown,
@@ -106,7 +118,7 @@ a printable document, an Obsidian vault, or portable JSON for another Dovod
 instance. Share links can expire, require a password, and be revoked. You
 choose whether they include sessions, tasks, roadmaps, and export.
 
-Project instructions, memory, revision history, and review marks stay out of
+Private skills, memory, revision history, and review marks stay out of
 public share links.
 
 ## Get started

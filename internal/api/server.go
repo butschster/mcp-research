@@ -257,6 +257,7 @@ func NewServer(
 	// structs the handlers serialise. Naming them once here is what keeps the
 	// registrations below to one line of schema each.
 	sResearch := rt.schemaOf(domain.Research{}, "Research")
+	sMemoryItem := rt.schemaOf(domain.MemoryItem{}, "MemoryItem")
 	sSection := rt.schemaOf(domain.Section{}, "Section")
 	sEntry := rt.schemaOf(domain.Entry{}, "Entry")
 	sSession := rt.schemaOf(domain.Session{}, "Session")
@@ -285,6 +286,9 @@ func NewServer(
 	// `entry_type` and invented a `description` on a task update.
 	sCreateResearch := rt.schemaOf(handlers.CreateResearchRequest{}, "CreateResearchRequest")
 	sUpdateResearch := rt.schemaOf(handlers.UpdateResearchRequest{}, "UpdateResearchRequest")
+	sAddMemory := rt.schemaOf(handlers.AddMemoryRequest{}, "AddMemoryRequest")
+	sUpdateMemory := rt.schemaOf(handlers.UpdateMemoryRequest{}, "UpdateMemoryRequest")
+	sBulkDeleteMemory := rt.schemaOf(handlers.BulkDeleteMemoryRequest{}, "BulkDeleteMemoryRequest")
 	sCreateSection := rt.schemaOf(handlers.CreateSectionRequest{}, "CreateSectionRequest")
 	sUpdateSection := rt.schemaOf(handlers.UpdateSectionRequest{}, "UpdateSectionRequest")
 	sCreateEntry := rt.schemaOf(handlers.CreateEntryRequest{}, "CreateEntryRequest")
@@ -528,7 +532,7 @@ func NewServer(
 
 	rt.route(accessRead, op("GET", "/api/researches/{id}", "Get a research",
 		"The research with its sections, and the active session if one is running.\n\n"+
-			"Through a share link the `instruction`, the memory and the team fields are stripped: they are working process, not the result.").
+			"Through a share link the memory and the team fields are stripped: they are working process, not the result.").
 		tag("Research").
 		returns("200", "The research, its sections with their document counts, and the newest session.", envelope(map[string]*huma.Schema{
 			"data": envelope(map[string]*huma.Schema{
@@ -947,11 +951,42 @@ func NewServer(
 		build(), wh.CreateResearch)
 
 	rt.route(accessWrite, op("PUT", "/api/researches/{id}", "Update a research",
-		"Changes the fields that are sent and leaves the rest alone. `instruction` and `memory` are the agent's own working notes — they are never served through a share link.").
+		"Changes the fields that are sent and leaves the rest alone. `add_memory` atomically appends one note. Whole-array `memory` writes and `instruction` are rejected; use per-item memory routes and private skills.").
 		tag("Research").
 		body("The fields to change. An omitted field is left alone.", sUpdateResearch).
 		returns("200", "The updated research.", envelope(map[string]*huma.Schema{"data": sResearch})).
 		build(), wh.UpdateResearch)
+
+	rt.route(accessRead, op("GET", "/api/researches/{id}/memory", "List memory",
+		"Members may read structured working notes. Share visitors are forbidden.").
+		tag("Research").
+		returns("200", "The notes, with provenance and versions.", envelope(map[string]*huma.Schema{
+			"data": {Type: "array", Items: sMemoryItem},
+		})).build(), wh.ListMemory)
+
+	rt.route(accessWrite, op("POST", "/api/researches/{id}/memory", "Add memory",
+		"Appends one note without replacing others. Author is determined from authentication.").
+		tag("Research").body("The note to append.", sAddMemory).
+		returns("201", "The created note.", envelope(map[string]*huma.Schema{"data": sMemoryItem})).
+		build(), wh.AddMemory)
+
+	rt.route(accessWrite, op("PATCH", "/api/researches/{id}/memory/{itemId}", "Edit memory",
+		"Edits one note in this research and preserves its creation provenance.").
+		tag("Research").body("New text and the current version.", sUpdateMemory).
+		returns("204", "Updated.", nil).
+		returns("409", "Stale version; reload before editing.", envelope(map[string]*huma.Schema{"error": {Type: "string"}})).
+		build(), wh.UpdateMemory)
+
+	rt.route(accessWrite, op("DELETE", "/api/researches/{id}/memory/{itemId}", "Delete memory",
+		"Deletes only this note in this research. Idempotent.").
+		tag("Research").returns("204", "Deleted.", nil).
+		build(), wh.DeleteMemory)
+
+	rt.route(accessWrite, op("POST", "/api/researches/{id}/memory/bulk-delete", "Delete selected memory",
+		"Deletes 1–500 explicitly selected IDs. Concurrently added notes are untouched.").
+		tag("Research").body("The selected note IDs.", sBulkDeleteMemory).
+		returns("204", "Deleted.", nil).
+		build(), wh.BulkDeleteMemory)
 
 	rt.route(accessWrite, op("POST", "/api/researches/{id}/sections", "Add a section",
 		"Adds a section to an existing research. A research created without sections has none until this is called.").
@@ -1324,7 +1359,7 @@ func NewServer(
 		returns("204", "Deleted.", nil).
 		build(), anh.Delete)
 
-	skillNote := "\n\nA skill is a team's methodology — the same class of working process as a research's `instruction` — so no skill route is reachable through a share link."
+	skillNote := "\n\nA skill is a team's methodology — the same class of working process as research memory — so no skill route is reachable through a share link."
 	rt.route(accessRead, op("GET", "/api/researches/{id}/skills", "Skills attached to a research",
 		"The skills this research works by, in resolution order: the research's own, then its team's, then the built-ins."+skillNote).
 		tag("Skills").

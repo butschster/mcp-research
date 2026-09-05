@@ -28,8 +28,7 @@ A research project is the top-level container. It defines what you're investigat
 | `name` | Project name (e.g., "Competitive Landscape Analysis") |
 | `goal` | One declarative sentence describing success criteria |
 | `description` | What this research covers |
-| `instruction` | Working methodology — tone, depth, rules for how entries should be written |
-| `memory` | Array of key insights that persist across sessions |
+| `memory` | Structured notes with ID, text, author, creation date, version and optional session provenance |
 | `tags` | Categorization tags |
 | `status` | `active` / `completed` / `archived` |
 | `code` | Auto-assigned short code: `R1`, `R2`, `R3`... |
@@ -40,7 +39,7 @@ A research project is the top-level container. It defines what you're investigat
 
 **Instruction field:** This is crucial. Set it during initialization to define how all future entries should be written — tone (formal/casual), depth (executive summary vs deep-dive), domain-specific rules, and examples of high-quality output.
 
-**Memory array:** Think of it as a shared notepad across sessions. When the AI discovers something important during a session, it appends to memory. Next session, it reads memory to avoid re-asking known things. Use `add_memory` to append without replacing existing entries.
+**Memory:** A shared notepad across sessions. Use `add_memory` with the real research `session_id` to append, or `research_memory` to edit/delete individual IDs. Edits require the current `version`; stale edits fail. Never replace the whole list. Legacy notes have `author: unknown` and `created_at: null` because those facts were not recorded.
 
 ---
 
@@ -225,8 +224,8 @@ Use the `research/initialize` prompt or create manually:
 
 1. Define name, goal, and description
 2. Design 3-7 sections with logical ordering
-3. Set the `instruction` field with methodology guidelines
-4. Optionally seed `memory` with known context
+3. Create a private skill for research-specific working rules; attach reusable methodology skills
+4. Optionally append known context with `add_memory`
 
 ### 2. Conduct First Session
 

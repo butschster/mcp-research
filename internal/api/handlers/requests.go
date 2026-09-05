@@ -1,6 +1,9 @@
 package handlers
 
-import "github.com/butschster/mcp-research/internal/domain"
+import (
+	"encoding/json"
+	"github.com/butschster/mcp-research/internal/domain"
+)
 
 // The bodies the write endpoints accept, as named types.
 //
@@ -37,14 +40,15 @@ type CreateSectionRequest struct {
 // UpdateResearchRequest is the body of PUT /api/researches/{id}. Every field is
 // optional; an omitted one is left alone.
 type UpdateResearchRequest struct {
-	Name        *string  `json:"name,omitempty"`
-	Description *string  `json:"description,omitempty"`
-	Goal        *string  `json:"goal,omitempty"`
-	Status      *string  `json:"status,omitempty" enum:"active,completed,archived" doc:"An archived research is hidden from the default listing, not deleted."`
-	Instruction *string  `json:"instruction,omitempty" doc:"Standing instruction for the agent. Working process; never served through a share link."`
-	Tags        []string `json:"tags,omitempty"`
-	Memory      []string `json:"memory,omitempty" doc:"Replaces the whole memory. Working process; never shared."`
-	AddMemory   *string  `json:"add_memory,omitempty" doc:"Appends one entry to the memory instead of replacing it."`
+	Name        *string         `json:"name,omitempty"`
+	Description *string         `json:"description,omitempty"`
+	Goal        *string         `json:"goal,omitempty"`
+	Status      *string         `json:"status,omitempty" enum:"active,completed,archived" doc:"An archived research is hidden from the default listing, not deleted."`
+	Instruction json.RawMessage `json:"instruction,omitempty" hidden:"true"`
+	Tags        []string        `json:"tags,omitempty"`
+	Memory      json.RawMessage `json:"memory,omitempty" hidden:"true"`
+	AddMemory   *string         `json:"add_memory,omitempty" doc:"Atomically appends one note. Edit and delete existing notes through the per-item memory routes."`
+	SessionID   string          `json:"session_id,omitempty" doc:"Research session UUID or SS code for the appended note."`
 }
 
 // UpdateSectionRequest is the body of PUT /api/sections/{sectionId}.
@@ -174,4 +178,19 @@ type AddQuestionRequest struct {
 // AddQuestionsRequest is the body of POST /api/sessions/{id}/questions.
 type AddQuestionsRequest struct {
 	Questions []AddQuestionRequest `json:"questions" doc:"At least one."`
+}
+
+// Memory bodies are shared by the handlers and the generated API reference.
+type AddMemoryRequest struct {
+	Text      string `json:"text" minLength:"1" doc:"Nonempty note, at most 64000 UTF-8 bytes. Author is determined from authentication."`
+	SessionID string `json:"session_id,omitempty" doc:"Optional research session UUID or SS code."`
+}
+
+type UpdateMemoryRequest struct {
+	Text    string `json:"text" minLength:"1" doc:"New nonempty text. Creation provenance is preserved."`
+	Version int    `json:"version" minimum:"1" doc:"Current item version. A stale version returns 409."`
+}
+
+type BulkDeleteMemoryRequest struct {
+	IDs []string `json:"ids" minItems:"1" maxItems:"500" doc:"Explicitly selected memory item UUIDs. Later appends are untouched."`
 }

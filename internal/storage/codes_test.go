@@ -14,7 +14,7 @@ func TestNextCodeGlobal(t *testing.T) {
 	repo := NewResearchRepository(db)
 
 	// First research gets R1
-	r1 := &domain.Research{ID: uuid.New().String(), Name: "R1", Status: domain.ResearchActive, Memory: []string{}, Tags: []string{}}
+	r1 := &domain.Research{ID: uuid.New().String(), Name: "R1", Status: domain.ResearchActive, Memory: domain.Memory{}, Tags: []string{}}
 	if err := repo.Create(ctx, r1); err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestNextCodeGlobal(t *testing.T) {
 	}
 
 	// Second research gets R2
-	r2 := &domain.Research{ID: uuid.New().String(), Name: "R2", Status: domain.ResearchActive, Memory: []string{}, Tags: []string{}}
+	r2 := &domain.Research{ID: uuid.New().String(), Name: "R2", Status: domain.ResearchActive, Memory: domain.Memory{}, Tags: []string{}}
 	if err := repo.Create(ctx, r2); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestNextCodeScoped(t *testing.T) {
 	sectionRepo := NewSectionRepository(db)
 	entryRepo := NewEntryRepository(db)
 
-	r := &domain.Research{ID: uuid.New().String(), Name: "Test", Status: domain.ResearchActive, Memory: []string{}, Tags: []string{}}
+	r := &domain.Research{ID: uuid.New().String(), Name: "Test", Status: domain.ResearchActive, Memory: domain.Memory{}, Tags: []string{}}
 	if err := researchRepo.Create(ctx, r); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestNextCodeScoped(t *testing.T) {
 	}
 
 	// Entries in different research start at E1 again
-	r2 := &domain.Research{ID: uuid.New().String(), Name: "Other", Status: domain.ResearchActive, Memory: []string{}, Tags: []string{}}
+	r2 := &domain.Research{ID: uuid.New().String(), Name: "Other", Status: domain.ResearchActive, Memory: domain.Memory{}, Tags: []string{}}
 	if err := researchRepo.Create(ctx, r2); err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestBackfillCodes(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert research with empty code directly
-	_, err := db.ExecContext(ctx, `INSERT INTO researches (id, code, name, status, memory, tags) VALUES (?, '', 'No Code', 'active', '[]', '[]')`, uuid.New().String())
+	_, err := db.ExecContext(ctx, `INSERT INTO researches (id, code, name, status, tags) VALUES (?, '', 'No Code', 'active', '[]')`, uuid.New().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestFindByCode(t *testing.T) {
 	ctx := context.Background()
 	repo := NewResearchRepository(db)
 
-	r := &domain.Research{ID: uuid.New().String(), Name: "Findable", Status: domain.ResearchActive, Memory: []string{}, Tags: []string{}}
+	r := &domain.Research{ID: uuid.New().String(), Name: "Findable", Status: domain.ResearchActive, Memory: domain.Memory{}, Tags: []string{}}
 	if err := repo.Create(ctx, r); err != nil {
 		t.Fatal(err)
 	}

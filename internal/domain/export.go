@@ -11,20 +11,32 @@ type ExportData struct {
 }
 
 type ExportResearch struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Goal        string         `json:"goal"`
-	Status      ResearchStatus `json:"status"`
-	Instruction string         `json:"instruction,omitempty"`
-	Memory      []string       `json:"memory,omitempty"`
-	Tags        []string       `json:"tags,omitempty"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	Name          string               `json:"name"`
+	Description   string               `json:"description"`
+	Goal          string               `json:"goal"`
+	Status        ResearchStatus       `json:"status"`
+	Instruction   string               `json:"instruction,omitempty"` // v1 import only; never populated on export
+	Memory        Memory               `json:"memory,omitempty"`
+	PrivateSkills []ExportPrivateSkill `json:"private_skills,omitempty"`
+	Tags          []string             `json:"tags,omitempty"`
+	CreatedAt     time.Time            `json:"created_at"`
+	UpdatedAt     time.Time            `json:"updated_at"`
 
 	Sections []ExportSection `json:"sections"`
 	Sessions []ExportSession `json:"sessions,omitempty"`
 	Tasks    []ExportTask    `json:"tasks,omitempty"`
 	Roadmaps []ExportRoadmap `json:"roadmaps,omitempty"`
+}
+
+// ExportPrivateSkill carries research-owned methodology without local owner
+// IDs. Detached skills also travel so importing a backup cannot lose their text.
+type ExportPrivateSkill struct {
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Body         string `json:"body"`
+	NeedsTrigger bool   `json:"needs_trigger,omitempty"`
+	Attached     bool   `json:"attached"`
 }
 
 type ExportSection struct {

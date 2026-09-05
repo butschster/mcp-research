@@ -202,10 +202,7 @@ func TestShare_InstructionAndMemoryNeverAppear(t *testing.T) {
 	k := newShareKit(t)
 	owner, _, research, _, _ := k.sharedResearch(t, domain.TeamViewer)
 
-	if _, err := k.research.Update(owner, research.ID, UpdateResearchRequest{
-		Instruction: ptr("Do not tell the client we are guessing"),
-		Memory:      []string{"the budget is a fiction"},
-	}); err != nil {
+	if err := k.research.researches.ImportProcess(owner, research.ID, "Do not tell the client we are guessing", domain.Memory{{Text: "the budget is a fiction", Author: "unknown"}}, nil); err != nil {
 		t.Fatalf("set instruction and memory: %v", err)
 	}
 
@@ -218,9 +215,6 @@ func TestShare_InstructionAndMemoryNeverAppear(t *testing.T) {
 	got, err := k.research.Get(ctx, research.ID)
 	if err != nil {
 		t.Fatalf("read shared research: %v", err)
-	}
-	if got.Instruction != "" {
-		t.Errorf("instruction leaked to a share visitor: %q", got.Instruction)
 	}
 	if len(got.Memory) != 0 {
 		t.Errorf("memory leaked to a share visitor: %v", got.Memory)
@@ -237,8 +231,12 @@ func TestShare_InstructionAndMemoryNeverAppear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("owner read: %v", err)
 	}
-	if own.Instruction == "" || len(own.Memory) == 0 {
+	if len(own.Memory) == 0 {
 		t.Fatal("redaction reached the owner's own read")
+	}
+	skills, err := k.research.researches.ExportPrivateSkills(owner, own.ID)
+	if err != nil || len(skills) != 1 || skills[0].Body != "Do not tell the client we are guessing" {
+		t.Fatalf("owner private instruction: %+v %v", skills, err)
 	}
 }
 

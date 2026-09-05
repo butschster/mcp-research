@@ -29,7 +29,7 @@ func RegisterResearchResume(srv *mcp.Server, svc *service.ResumeService, log *sl
 		},
 		Description: `Returns the outstanding work in a research: tasks in progress, blocked and waiting, the open questions of the session you are continuing, the marks a person left, the documents that changed most recently, and up to three candidate next actions with the reason for each.
 
-Call it after research_get when a new chat opens on an existing research. research_get carries the constraints — instruction, memory, methodology, the skills index — and this carries the queue. Neither replaces the other, and this one deliberately repeats none of the first.
+Call it after research_get when a new chat opens on an existing research. research_get carries the constraints — structured memory, methodology, the skills index — and this carries the queue. Neither replaces the other, and this one deliberately repeats none of the first.
 
 What it does NOT do, and what that means for you:
   - It writes nothing. No session is created, no status moves, nothing is marked as read. Starting or continuing work is still your explicit call.

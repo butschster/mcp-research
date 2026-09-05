@@ -33,7 +33,7 @@ func RegisterSkillCreate(srv *mcp.Server, skillSvc *service.SkillService, resear
 	mcp.AddTool(srv, &mcp.Tool{
 		Name: "skill_create",
 		Description: "Writes a new methodology skill. Give research_id for one that applies to this research alone (it is attached immediately and spends a slot), or team_id for one your colleagues' researches can attach too. " +
-			"A skill says how a kind of work is done; what this particular research is belongs in its instruction instead.",
+			"Use private skills for this research's working rules and team skills for reusable methodology; goal and description explain its scope.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input SkillCreateInput) (*mcp.CallToolResult, any, error) {
 		var errs []string
 		hasResearch := input.ResearchID != nil && *input.ResearchID != ""

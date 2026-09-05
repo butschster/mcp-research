@@ -27,7 +27,7 @@ type ResearchFilter struct {
 // researchColumns is the projection every research read shares. It is one
 // constant because the column order has to match the scanner, and three
 // hand-written copies is how a new column ends up read into the wrong field.
-const researchColumns = `id, code, user_id, team_id, name, description, goal, status, instruction, memory, tags, created_at, updated_at, template_slug, template_version`
+const researchColumns = `id, code, user_id, team_id, name, description, goal, status, tags, created_at, updated_at, template_slug, template_version`
 
 type ResearchRepository struct {
 	db *bun.DB
@@ -36,6 +36,8 @@ type ResearchRepository struct {
 func NewResearchRepository(db *bun.DB) *ResearchRepository {
 	return &ResearchRepository{db: db}
 }
+
+func (r *ResearchRepository) DB() *bun.DB { return r.db }
 
 func (r *ResearchRepository) Create(ctx context.Context, research *domain.Research) error {
 	now := time.Now().UTC().Format(time.DateTime)
@@ -58,21 +60,30 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 		teamID = research.TeamID
 	}
 
-	_, err := r.db.NewInsert().Table("researches").Model(&map[string]any{
-		"id":          research.ID,
-		"code":        research.Code,
-		"user_id":     userID,
-		"team_id":     teamID,
-		"name":        research.Name,
-		"description": research.Description,
-		"goal":        research.Goal,
-		"status":      research.Status,
-		"instruction": research.Instruction,
-		"memory":      marshalJSON(research.Memory),
-		"tags":        marshalJSON(research.Tags),
-		"created_at":  now,
-		"updated_at":  now,
-	}).Exec(ctx)
+	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		_, err := tx.NewInsert().Table("researches").Model(&map[string]any{
+			"id":          research.ID,
+			"code":        research.Code,
+			"user_id":     userID,
+			"team_id":     teamID,
+			"name":        research.Name,
+			"description": research.Description,
+			"goal":        research.Goal,
+			"status":      research.Status,
+			"tags":        marshalJSON(research.Tags),
+			"created_at":  now,
+			"updated_at":  now,
+		}).Exec(ctx)
+		if err != nil {
+			return err
+		}
+		for i := range research.Memory {
+			if err := insertMemory(ctx, tx, research.ID, &research.Memory[i], int64(i)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("insert research: %w", err)
 	}
@@ -82,20 +93,33 @@ func (r *ResearchRepository) Create(ctx context.Context, research *domain.Resear
 }
 
 func (r *ResearchRepository) Update(ctx context.Context, research *domain.Research) error {
+	return r.UpdateWithMemory(ctx, research, nil)
+}
+
+// UpdateWithMemory commits combined metadata/add_memory requests atomically.
+// Memory already loaded in research is never written back.
+func (r *ResearchRepository) UpdateWithMemory(ctx context.Context, research *domain.Research, item *domain.MemoryItem) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	_, err := r.db.NewUpdate().
-		Table("researches").
-		Set("name=?", research.Name).
-		Set("description=?", research.Description).
-		Set("goal=?", research.Goal).
-		Set("status=?", research.Status).
-		Set("instruction=?", research.Instruction).
-		Set("memory=?", marshalJSON(research.Memory)).
-		Set("tags=?", marshalJSON(research.Tags)).
-		Set("code=?", research.Code).
-		Set("updated_at=?", now).
-		Where("id=?", research.ID).
-		Exec(ctx)
+	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		_, err := tx.NewUpdate().
+			Table("researches").
+			Set("name=?", research.Name).
+			Set("description=?", research.Description).
+			Set("goal=?", research.Goal).
+			Set("status=?", research.Status).
+			Set("tags=?", marshalJSON(research.Tags)).
+			Set("code=?", research.Code).
+			Set("updated_at=?", now).
+			Where("id=?", research.ID).
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if item != nil {
+			return insertMemory(ctx, tx, research.ID, item, time.Now().UTC().UnixNano())
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("update research: %w", err)
 	}
@@ -105,12 +129,20 @@ func (r *ResearchRepository) Update(ctx context.Context, research *domain.Resear
 
 func (r *ResearchRepository) FindByID(ctx context.Context, id string) (*domain.Research, error) {
 	row := selectRow(ctx, r.db.NewSelect().ColumnExpr(researchColumns).TableExpr("researches").Where("id=?", id))
-	return r.scanResearch(row)
+	res, err := r.scanResearch(row)
+	if err == nil && res != nil {
+		err = NewMemoryRepository(r.db).Hydrate(ctx, []*domain.Research{res})
+	}
+	return res, err
 }
 
 func (r *ResearchRepository) FindByCode(ctx context.Context, code string) (*domain.Research, error) {
 	row := selectRow(ctx, r.db.NewSelect().ColumnExpr(researchColumns).TableExpr("researches").Where("code=?", code))
-	return r.scanResearch(row)
+	res, err := r.scanResearch(row)
+	if err == nil && res != nil {
+		err = NewMemoryRepository(r.db).Hydrate(ctx, []*domain.Research{res})
+	}
+	return res, err
 }
 
 func (r *ResearchRepository) FindAll(ctx context.Context, filter ResearchFilter) ([]*domain.Research, error) {
@@ -147,7 +179,13 @@ func (r *ResearchRepository) FindAll(ctx context.Context, filter ResearchFilter)
 		}
 		result = append(result, res)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	return result, NewMemoryRepository(r.db).Hydrate(ctx, result)
 }
 
 func (r *ResearchRepository) Exists(ctx context.Context, id string) (bool, error) {
@@ -214,12 +252,11 @@ type scanner interface {
 func scanResearchInto(s scanner) (*domain.Research, error) {
 	var res domain.Research
 	var userID, teamID sql.NullString
-	var memory, tags sql.NullString
+	var tags sql.NullString
 	var createdAt, updatedAt string
 	err := s.Scan(
 		&res.ID, &res.Code, &userID, &teamID, &res.Name, &res.Description, &res.Goal,
-		&res.Status, &res.Instruction,
-		&memory, &tags,
+		&res.Status, &tags,
 		&createdAt, &updatedAt,
 		&res.TemplateSlug, &res.TemplateVersion,
 	)
@@ -235,7 +272,7 @@ func scanResearchInto(s scanner) (*domain.Research, error) {
 	if teamID.Valid {
 		res.TeamID = teamID.String
 	}
-	res.Memory = unmarshalStringSlice(memory)
+	res.Memory = domain.Memory{}
 	res.Tags = unmarshalStringSlice(tags)
 	res.CreatedAt, _ = time.Parse(time.DateTime, createdAt)
 	res.UpdatedAt, _ = time.Parse(time.DateTime, updatedAt)
