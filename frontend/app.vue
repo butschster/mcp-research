@@ -42,7 +42,12 @@ const route = useRoute()
 // past the single research the link was for.
 const isChromeless = computed(
   () => route.path === '/login' || route.path === '/register'
-    || route.path.startsWith('/invite/') || route.path.startsWith('/s/'),
+    || route.path.startsWith('/invite/') || route.path.startsWith('/s/')
+    // The API reference renders signed out, so the nav's search box, activity
+    // indicator and user menu are all unusable to its reader — the same reason
+    // the invitation and share pages are chromeless. It also carries its own
+    // sticky sidebar, which does not stack under a sticky nav.
+    || isApiDocsPath(route.path),
 )
 
 const userMenuOpen = ref(false)
@@ -172,6 +177,7 @@ onUnmounted(() => {
                  it is what somebody reporting a problem is asked for first. -->
             <span class="card-meta app-version" :title="version ? `Running build ${version}` : ''">{{ version }}</span>
             <div class="footer-right">
+              <NuxtLink :to="API_DOCS_PATH" class="footer-link card-meta">API reference</NuxtLink>
               <ConnectionStatus
                 :state="connection"
                 :reason="connectionReason"

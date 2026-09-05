@@ -446,3 +446,108 @@ func TestOpenAPI_EveryRefResolves(t *testing.T) {
 		}
 	}
 }
+
+// TestOpenAPI_ServerURLIsUsableEverywhere — an instance deployed without
+// `base_url` published `http://localhost:8088` as its server, so every consumer
+// of the document aimed at the reader's own machine: a codegen run, a Postman
+// import, a browsable reference's "try it". A relative server is valid in
+// OpenAPI 3.1 and resolves against wherever the document was fetched from.
+func TestOpenAPI_ServerURLIsUsableEverywhere(t *testing.T) {
+	t.Run("configured base_url is published as-is", func(t *testing.T) {
+		s := newSpecServer(t) // BaseURL: https://research.example.com
+		doc := specOf(t, nil, s.mux)
+		servers, _ := doc["servers"].([]any)
+		if len(servers) != 1 {
+			t.Fatalf("servers: %v", servers)
+		}
+		first, _ := servers[0].(map[string]any)
+		if first["url"] != "https://research.example.com" {
+			t.Fatalf("server url %v", first["url"])
+		}
+	})
+
+	t.Run("without base_url the server is relative, never localhost", func(t *testing.T) {
+		s := newShareServer(t) // no BaseURL configured
+		doc := specOf(t, nil, s.mux)
+		servers, _ := doc["servers"].([]any)
+		if len(servers) != 1 {
+			t.Fatalf("servers: %v", servers)
+		}
+		first, _ := servers[0].(map[string]any)
+		url, _ := first["url"].(string)
+		if strings.Contains(url, "localhost") {
+			t.Fatalf("server url is %q — every consumer of this document would aim at its own machine", url)
+		}
+		if url != "/" {
+			t.Fatalf("server url %q, want \"/\"", url)
+		}
+	})
+}
+
+// TestOpenAPI_IsCachedAndValidated — the document is marshalled once and served
+// with an ETag. The reference page fetches it on every load; a browser that
+// already has it should be told so rather than handed 190 KB again.
+func TestOpenAPI_IsCachedAndValidated(t *testing.T) {
+	s := newSpecServer(t)
+
+	for _, path := range []string{"/api/openapi.json", "/api/openapi.yaml"} {
+		first := httptest.NewRecorder()
+		s.mux.ServeHTTP(first, httptest.NewRequest("GET", path, nil))
+		if first.Code != http.StatusOK {
+			t.Fatalf("%s: status %d", path, first.Code)
+		}
+		etag := first.Header().Get("ETag")
+		if etag == "" {
+			t.Fatalf("%s: no ETag", path)
+		}
+
+		again := httptest.NewRequest("GET", path, nil)
+		again.Header.Set("If-None-Match", etag)
+		w := httptest.NewRecorder()
+		s.mux.ServeHTTP(w, again)
+		if w.Code != http.StatusNotModified {
+			t.Errorf("%s: a matching If-None-Match answered %d, want 304", path, w.Code)
+		}
+		if w.Body.Len() != 0 {
+			t.Errorf("%s: a 304 carried %d bytes", path, w.Body.Len())
+		}
+	}
+
+	// Each format needs its OWN validator. This comment used to say so while
+	// the assertion below it compared bodies — so the test named the property
+	// and did not check it, and both URLs shipped the JSON's ETag: a script
+	// that stored one and asked for the other got a 304 with no body.
+	j := httptest.NewRecorder()
+	s.mux.ServeHTTP(j, httptest.NewRequest("GET", "/api/openapi.json", nil))
+	y := httptest.NewRecorder()
+	s.mux.ServeHTTP(y, httptest.NewRequest("GET", "/api/openapi.yaml", nil))
+	if j.Body.String() == y.Body.String() {
+		t.Fatal("the two formats returned identical bytes")
+	}
+	if j.Header().Get("ETag") == y.Header().Get("ETag") {
+		t.Fatalf("both formats answer with ETag %s despite being different bytes", j.Header().Get("ETag"))
+	}
+
+	// And the validator of one format must not satisfy the other.
+	cross := httptest.NewRequest("GET", "/api/openapi.yaml", nil)
+	cross.Header.Set("If-None-Match", j.Header().Get("ETag"))
+	w := httptest.NewRecorder()
+	s.mux.ServeHTTP(w, cross)
+	if w.Code == http.StatusNotModified {
+		t.Fatal("the JSON's ETag satisfied a request for the YAML")
+	}
+
+	// The 304 is part of the contract, so the document has to declare it —
+	// this is the one route where the document could fall behind its own
+	// handler, on a branch whose whole premise is that it cannot.
+	doc := specOf(t, nil, s.mux)
+	paths, _ := doc["paths"].(map[string]any)
+	for _, path := range []string{"/api/openapi.yaml", "/api/openapi.json"} {
+		item, _ := paths[path].(map[string]any)
+		get, _ := item["get"].(map[string]any)
+		responses, _ := get["responses"].(map[string]any)
+		if _, ok := responses["304"]; !ok {
+			t.Errorf("%s answers 304 and does not document it: %v", path, responses)
+		}
+	}
+}

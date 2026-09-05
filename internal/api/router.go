@@ -1,12 +1,15 @@
 package api
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -187,8 +190,14 @@ func newRouter(cfg routerConfig) *router {
 			SecuritySchemes: securitySchemes(),
 		},
 	}
+	// A relative server is valid in OpenAPI 3.1 and resolves against wherever
+	// the document was fetched from — which is right for a reverse proxy, a
+	// tunnel, a different port, and a laptop, all without configuration. An
+	// absolute one is published only when the operator has said what it is.
 	if cfg.BaseURL != "" {
-		doc.Servers = []*huma.Server{{URL: cfg.BaseURL}}
+		doc.Servers = []*huma.Server{{URL: cfg.BaseURL, Description: "This instance"}}
+	} else {
+		doc.Servers = []*huma.Server{{URL: "/", Description: "Wherever this document was fetched from."}}
 	}
 	// Without a top-level list a renderer shows the tags alphabetically and
 	// undescribed, which puts Admin first and Auth in the middle of a hundred
@@ -618,31 +627,74 @@ func apiDescription(authEnabled, hasAPIToken bool) string {
 		b.WriteString("This instance has **no authentication configured**: it is a local single-user run, reads and writes are both open, and the write API is disabled unless an `api_token` is set.\n")
 	}
 	b.WriteString("\nErrors are `{\"error\": \"...\"}` with the status code carrying the meaning. A `404` on a record that exists but belongs to a team the caller is not in is deliberate: confirming it exists is itself information.\n")
+	// The product's primary integration surface is not an HTTP operation and so
+	// is not in `paths` — which meant a reader who arrived at this document
+	// learned 126 REST routes and never learned that MCP exists at all, and
+	// integrated over REST because that is what they were shown.
+	b.WriteString("\n**This server also speaks MCP**, at `/mcp`, with the same bearer credential — that is what a Claude Code, Cursor or ChatGPT client connects to, and it is the shorter path if your client supports it. MCP is not described here: it is a protocol rather than a set of HTTP operations, and its tools are documented at `/llms.txt`. Use this REST API when you are writing a script, a webhook or an integration of your own.\n")
 	return b.String()
 }
 
 // specHandlers serves the generated document. Both extensions are the same
 // document; a client that cannot read YAML asks for the JSON.
 func (r *router) specHandlers() (yamlHandler, jsonHandler http.HandlerFunc) {
-	yamlHandler = func(w http.ResponseWriter, req *http.Request) {
-		out, err := r.api.OpenAPI().YAML()
-		if err != nil {
-			http.Error(w, fmt.Sprintf("openapi: %v", err), http.StatusInternalServerError)
+	// The document is a build artefact of a running server: every route is
+	// registered before the first request and nothing changes it afterwards. So
+	// it is marshalled once rather than on every hit, and served with an ETag —
+	// the reference page fetches it on each load, and a browser that already has
+	// it should be told so.
+	type document struct {
+		body []byte
+		etag string
+	}
+	var (
+		once           sync.Once
+		asYAML, asJSON document
+		marshalErr     error
+	)
+	build := func() {
+		asJSON.body, marshalErr = r.api.OpenAPI().MarshalJSON()
+		if marshalErr != nil {
 			return
 		}
-		w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
-		w.Write(out)
-	}
-	jsonHandler = func(w http.ResponseWriter, req *http.Request) {
-		out, err := r.api.OpenAPI().MarshalJSON()
-		if err != nil {
-			http.Error(w, fmt.Sprintf("openapi: %v", err), http.StatusInternalServerError)
+		asYAML.body, marshalErr = r.api.OpenAPI().YAML()
+		if marshalErr != nil {
 			return
 		}
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Write(out)
+		// One digest per representation. Deriving both from the JSON gave the
+		// two URLs the same validator, so a script that stored the ETag from one
+		// and then asked for the other got a 304 with no body — and either
+		// failed or quietly read JSON as YAML.
+		asJSON.etag = etagOf(asJSON.body)
+		asYAML.etag = etagOf(asYAML.body)
 	}
-	return yamlHandler, jsonHandler
+
+	serve := func(contentType string, pick func() *document) http.HandlerFunc {
+		return func(w http.ResponseWriter, req *http.Request) {
+			once.Do(build)
+			if marshalErr != nil {
+				http.Error(w, fmt.Sprintf("openapi: %v", marshalErr), http.StatusInternalServerError)
+				return
+			}
+			doc := pick()
+			w.Header().Set("ETag", doc.etag)
+			w.Header().Set("Cache-Control", "no-cache")
+			if match := req.Header.Get("If-None-Match"); match == doc.etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+			w.Header().Set("Content-Type", contentType)
+			w.Write(doc.body)
+		}
+	}
+
+	return serve("application/yaml; charset=utf-8", func() *document { return &asYAML }),
+		serve("application/json; charset=utf-8", func() *document { return &asJSON })
+}
+
+func etagOf(body []byte) string {
+	sum := sha256.Sum256(body)
+	return `"` + hex.EncodeToString(sum[:8]) + `"`
 }
 
 // --- operation builder ---
@@ -731,6 +783,16 @@ func (b *opBuilder) returnsFile(description, contentType string) *opBuilder {
 		b.op.Responses = map[string]*huma.Response{}
 	}
 	b.op.Responses["200"] = fileResponse(description, contentType)
+	return b
+}
+
+// respondsEmpty declares a status that carries no body — a 304, say, which is
+// not a refusal and has nothing to describe.
+func (b *opBuilder) respondsEmpty(status, description string) *opBuilder {
+	if b.op.Responses == nil {
+		b.op.Responses = map[string]*huma.Response{}
+	}
+	b.op.Responses[status] = &huma.Response{Description: description}
 	return b
 }
 

@@ -232,13 +232,15 @@ func NewServer(
 	// the OpenAPI document at the same moment — so the document cannot describe
 	// a route that is not served, and openapi_drift_test.go fails if a route is
 	// served without being described.
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		baseURL = fmt.Sprintf("http://localhost:%d", cfg.Port)
-	}
 	rt := newRouter(routerConfig{
-		Mux:         mux,
-		BaseURL:     baseURL,
+		Mux: mux,
+		// Deliberately cfg.BaseURL and not a localhost fallback. An instance
+		// deployed without `base_url` used to publish `http://localhost:8088`
+		// as its server, so every consumer of the document — a codegen run, a
+		// Postman import, a browsable reference's "try it" — aimed at the
+		// reader's own machine. Empty means the router writes a relative
+		// server instead, which is correct everywhere.
+		BaseURL:     cfg.BaseURL,
 		Version:     cfg.Version,
 		AuthEnabled: cfg.AuthEnabled,
 		APIToken:    cfg.APIToken != "",
@@ -405,6 +407,16 @@ func NewServer(
 	if cfg.AuthEnabled && cfg.OAuthSvc != nil && authSvc != nil {
 		oh := handlers.NewOAuthHandler(cfg.OAuthSvc, authSvc, log)
 
+		// The OAuth metadata documents must carry absolute URLs — a client
+		// reads them before it has anything to resolve a relative one against
+		// — so they still fall back to localhost when nothing is configured.
+		// The OpenAPI document does not; it publishes a relative server, which
+		// is why the two differ here.
+		baseURL := cfg.BaseURL
+		if baseURL == "" {
+			baseURL = fmt.Sprintf("http://localhost:%d", cfg.Port)
+		}
+
 		sTokens := envelope(map[string]*huma.Schema{
 			"access_token":  {Type: "string", Description: "Present as `Authorization: Bearer <token>`."},
 			"refresh_token": {Type: "string", Description: "Redeem at this same endpoint with `grant_type=refresh_token`. Rotated on every use."},
@@ -521,9 +533,18 @@ func NewServer(
 		returns("200", "The research, its sections with their document counts, and the newest session.", envelope(map[string]*huma.Schema{
 			"data": envelope(map[string]*huma.Schema{
 				"research": sResearch,
+				// $ref rather than a bare object: `section_id` is required by the
+				// next call a reader makes, and with an untyped array nothing on
+				// the page said a section even has an id. The journey dead-ended
+				// exactly here.
 				"sections": listOf(&huma.Schema{
-					Type:        "object",
-					Description: "A section with `entries_count` alongside its own fields.",
+					Description: "A section, plus how many documents are filed under it.",
+					AllOf: []*huma.Schema{
+						sSection,
+						{Type: "object", Properties: map[string]*huma.Schema{
+							"entries_count": {Type: "integer"},
+						}},
+					},
 				}),
 				"active_session":     {Type: "object", Description: "The newest session, or null. Absent through a share link whose `sessions` flag is off — this route is not gated by the flags, so this part gates itself."},
 				"active_share_count": {Type: "integer", Description: "How many links are handing this research out. Zero for anyone who could not manage them anyway, a share visitor included."},
@@ -1573,11 +1594,13 @@ func NewServer(
 		"The OpenAPI 3.1 description of this API, generated from the routes the server actually registered.").
 		tag("Meta").
 		returnsFile("The specification.", "application/yaml").
+		respondsEmpty("304", "The document has not changed since the `ETag` in `If-None-Match` was issued. It is marshalled once at startup and cannot change while the server is up.").
 		build(), specYAML)
 	rt.route(accessPublic, op("GET", "/api/openapi.json", "This document, as JSON",
 		"The same specification as `/api/openapi.yaml`.").
 		tag("Meta").
 		returnsFile("The specification.", "application/json").
+		respondsEmpty("304", "The document has not changed since the `ETag` in `If-None-Match` was issued. It is marshalled once at startup and cannot change while the server is up.").
 		build(), specJSON)
 
 	// LLMs documentation

@@ -5,37 +5,19 @@
       <code class="copy-text">{{ text }}</code>
       <button type="button" class="btn btn-sm copy-btn" @click="copy">{{ copied ? 'Copied' : 'Copy' }}</button>
     </div>
-    <!-- The three hand-rolled copy buttons already in this product change their
-         label and tell a screen reader nothing. One live region, said once. -->
+    <!-- The copy buttons this product grew by hand change their label and tell
+         a screen reader nothing. One live region, said once. -->
     <span class="sr-only" role="status">{{ announcement }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useCopyToClipboard } from '~/composables/useCopyToClipboard'
+
 const props = defineProps<{ text: string; label?: string }>()
 
-const copied = ref(false)
-const announcement = ref('')
-let timer: ReturnType<typeof setTimeout> | undefined
-
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(props.text)
-    copied.value = true
-    announcement.value = 'Copied to the clipboard'
-  } catch {
-    // A refused clipboard is not an error worth a toast: the text is on screen
-    // and selectable, which is the fallback anyway.
-    announcement.value = 'Could not copy — select the text and copy it yourself'
-  }
-  clearTimeout(timer)
-  timer = setTimeout(() => {
-    copied.value = false
-    announcement.value = ''
-  }, 2000)
-}
-
-onBeforeUnmount(() => clearTimeout(timer))
+const { copied, announcement, copy: writeToClipboard } = useCopyToClipboard()
+const copy = () => writeToClipboard(props.text)
 </script>
 
 <style scoped>

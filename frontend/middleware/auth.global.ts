@@ -30,6 +30,19 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
+  // The API reference renders a document this server already hands to anyone
+  // who asks for it — `/api/openapi.yaml` and `/api/openapi.json` are public
+  // routes, and llms.txt publishes the URL. Requiring a session to read what is
+  // already public only stops the people who would have read it politely, and
+  // the integrator who has not signed up yet is exactly who the page is for.
+  //
+  // If the route inventory should be private, the fix is the access kind on
+  // those two routes in internal/api/server.go — this page will then show its
+  // fetch-failure state, which is correct and not a regression.
+  if (isApiDocsPath(to.path)) {
+    return
+  }
+
   if (to.path === '/login' || to.path === '/register') {
     // Already signed in: go where they were headed, or home.
     if (isAuthenticated.value) {

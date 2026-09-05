@@ -26,6 +26,14 @@ the instance you are talking to, because it is built from that server's
 configuration: where accounts are disabled it documents the writes as open and
 omits the OAuth endpoints entirely.
 
+Its `servers` entry is the relative `/` unless the operator configured
+`base_url`, in which case it is that absolute URL. Relative is not a blank to
+fill in: resolve the paths against wherever you fetched the document from, which
+is what makes it right behind a reverse proxy, a tunnel or a non-default port.
+Do not substitute a host of your own. The document is served with an `ETag` and
+answers `304` to a matching `If-None-Match`, so a client that keeps a copy can
+revalidate it cheaply rather than parsing it again on every run.
+
 The personal document-update queue is deliberately outside that shared
 research data. It records the numbered revision a person actually rendered in
 the web UI, has REST routes only, and is absent from MCP, exports and public

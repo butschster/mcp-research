@@ -351,7 +351,8 @@ That is the whole setup. You now have:
 | Web UI | [http://localhost:8088](http://localhost:8088) |
 | REST API | same port, `/api/...` |
 | AI documentation | [http://localhost:8088/llms.txt](http://localhost:8088/llms.txt) |
-| OpenAPI spec | [http://localhost:8088/api/openapi.yaml](http://localhost:8088/api/openapi.yaml) (or `.json`) |
+| API reference | [http://localhost:8088/api-docs](http://localhost:8088/api-docs) — every route, in the browser |
+| OpenAPI spec | [http://localhost:8088/api/openapi.yaml](http://localhost:8088/api/openapi.yaml) (or `.json`) — the same thing as a file |
 | MCP over stdio | ready for local clients |
 
 With SQLite and no database path/DSN configured, everything runs in memory and
@@ -515,8 +516,19 @@ descriptions link to when a model needs more than a one-line schema.
 
 The spec is generated from the routes the server registered, not written beside
 them, so what it lists is what the server actually serves — and every route in it
-says which credential it expects. That is one document to read before writing an
-integration, and there are two credentials in it, which are not interchangeable.
+says which credential it expects.
+
+**Read it in the browser at [`/api-docs`](http://localhost:8088/api-docs)** —
+grouped by area, searchable, and every route has a panel that sends a real
+request to the instance you are looking at. `/api/openapi.yaml` and
+`/api/openapi.json` are the same document as a file, which is what a code
+generator wants. Both ship inside the binary: no account, no internet
+connection, no CDN. `/docs`, `/swagger`, `/redoc` and `/openapi` land on the
+same page, because those are the addresses people guess; the app itself links to
+it from the footer of every page and from the API keys card in Settings.
+
+That is one document to read before writing an integration, and there are two
+credentials in it, which are not interchangeable.
 
 **A person's bearer token.** A JWT from `POST /api/auth/login`, an API key made
 in Settings, or an OAuth2 access token: any of the three works on any route, and
@@ -704,7 +716,9 @@ certbot --nginx -d mcp.example.com
 
 It proxies `/` to `:8088` (including the WebSocket upgrade) and `/sse`,
 `/message` to `:8081`. Set `base_url` to the public HTTPS URL — the OAuth
-metadata documents are generated from it.
+metadata documents are generated from it. The API document does not need it:
+with `base_url` unset it publishes a relative `/`, which resolves against
+whatever address it was fetched from, proxy and all.
 
 ---
 

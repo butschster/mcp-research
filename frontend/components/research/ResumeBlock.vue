@@ -243,6 +243,8 @@
 </template>
 
 <script setup lang="ts">
+import { useCopyToClipboard } from '~/composables/useCopyToClipboard'
+
 /**
  * "Continue" — what is unfinished in this research and what to do next.
  *
@@ -379,36 +381,18 @@ const handoffGuide = computed(() => {
   return `${origin}/llms/conducting-research.md#picking-up-a-research-that-is-already-running`
 })
 
-const copied = ref(false)
-/** Set when the clipboard was refused, so the sentence is shown instead. */
-const copyFailed = ref(false)
-const copyAnnouncement = ref('')
-let copyTimer: ReturnType<typeof setTimeout> | undefined
+const { copied, failed: copyFailed, announcement: copyAnnouncement, copy, dismiss: dismissCopyFailure } = useCopyToClipboard()
 
-async function copyHandoff() {
-  try {
-    await navigator.clipboard.writeText(handoffCommand.value)
-    copied.value = true
-    copyFailed.value = false
-    copyAnnouncement.value = `Copied “${handoffCommand.value}” to the clipboard`
-  } catch {
+function copyHandoff() {
+  return copy(handoffCommand.value, {
+    success: `Copied “${handoffCommand.value}” to the clipboard`,
     // A refused clipboard leaves nothing on screen to fall back to now that the
-    // button is an icon, so the sentence itself becomes the message.
-    copyFailed.value = true
-    copyAnnouncement.value = `Could not copy. The sentence is: ${handoffCommand.value}`
-  }
-  clearTimeout(copyTimer)
-  copyTimer = setTimeout(() => {
-    copied.value = false
-    copyAnnouncement.value = ''
-  }, 2000)
+    // button is an icon, so the sentence itself becomes the message — and it
+    // stays until dismissed, because the reader has to select it by hand.
+    failure: `Could not copy. The sentence is: ${handoffCommand.value}`,
+  })
 }
 
-function dismissCopyFailure() {
-  copyFailed.value = false
-}
-
-onBeforeUnmount(() => clearTimeout(copyTimer))
 
 function sessionOptionLabel(s: { code?: string; title: string; status: string }) {
   const name = s.code ? `${s.code} — ${s.title}` : s.title

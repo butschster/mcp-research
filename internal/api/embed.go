@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"embed"
 	"io"
 	"io/fs"
@@ -8,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 //go:embed all:static
@@ -82,8 +85,84 @@ func staticHandler() http.Handler {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
 
+		if body, ok := gzipped(sub, path, r); ok {
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Set("Vary", "Accept-Encoding")
+			w.Write(body)
+			return
+		}
+		w.Header().Set("Vary", "Accept-Encoding")
 		io.Copy(w, f.(io.Reader))
 	})
+}
+
+// The embedded assets were served raw, so the API reference page cost 3.9 MB on
+// a cold visit where its largest chunk alone is 2.3 MB uncompressed and 670 KB
+// gzipped. Nothing in front compresses either: the nginx template ships no
+// `gzip` directive, and an instance run without a proxy has nothing at all.
+//
+// The files never change for the life of the process — they are compiled into
+// it — so each is compressed once, on the first request that can use it, and
+// kept.
+var (
+	gzipOnce  sync.Mutex
+	gzipCache = map[string][]byte{}
+)
+
+// compressible lists what is worth the CPU. Images, fonts and archives are
+// already compressed, and gzipping them costs time to make them slightly
+// larger.
+func compressible(ext string) bool {
+	switch ext {
+	case ".js", ".css", ".html", ".json", ".svg", ".txt", ".map", ".xml", ".webmanifest":
+		return true
+	}
+	return false
+}
+
+func gzipped(sub fs.FS, path string, r *http.Request) ([]byte, bool) {
+	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		return nil, false
+	}
+	if !compressible(filepath.Ext(path)) {
+		return nil, false
+	}
+
+	gzipOnce.Lock()
+	defer gzipOnce.Unlock()
+	if body, ok := gzipCache[path]; ok {
+		return body, body != nil
+	}
+
+	raw, err := fs.ReadFile(sub, path)
+	if err != nil {
+		gzipCache[path] = nil
+		return nil, false
+	}
+	var buf bytes.Buffer
+	zw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		gzipCache[path] = nil
+		return nil, false
+	}
+	if _, err := zw.Write(raw); err != nil {
+		zw.Close()
+		gzipCache[path] = nil
+		return nil, false
+	}
+	if err := zw.Close(); err != nil {
+		gzipCache[path] = nil
+		return nil, false
+	}
+	// A file that does not shrink is served as it is; the header would only
+	// cost the client a decompression pass for nothing.
+	if buf.Len() >= len(raw) {
+		gzipCache[path] = nil
+		return nil, false
+	}
+	body := buf.Bytes()
+	gzipCache[path] = body
+	return body, true
 }
 
 func hasFileExtension(path string) bool {
