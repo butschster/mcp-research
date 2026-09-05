@@ -290,6 +290,22 @@ When `auth_enabled` is true, multi-user auth is active:
 7. Client exchanges code at `POST /auth/token` with `code_verifier` → access token
 8. Client connects to MCP endpoint with `Authorization: Bearer <token>`
 
+Three properties of this flow are enforced, and each was once not:
+
+- **An access token expires.** `AuthService.ValidateToken` checks `expires_at`,
+  so the `expires_in` the token endpoint reports is the truth. A client renews
+  with `grant_type=refresh_token` at the same `/auth/token`.
+- **Refresh rotates.** The presented refresh token's row is deleted and a new
+  pair issued, so replaying one that has already been spent fails. Its own life
+  runs from the row's `created_at` (`RefreshTokenTTL`, 30 days) — a client that
+  keeps refreshing keeps working; one that goes quiet signs in again.
+- **An authorization code is single-use, under concurrency.** The lookup and the
+  delete are separate statements, so `OAuthRepository.ConsumeCode` decides on
+  rows-affected: exactly one of several simultaneous exchanges gets tokens.
+
+Covered by `internal/api/oauth_routes_test.go` (the flow, through the real mux)
+and `internal/service/oauth_service_test.go` (expiry, PKCE methods, the race).
+
 ## Write API
 
 When `api_token` is configured, write endpoints are enabled with bearer token authentication.

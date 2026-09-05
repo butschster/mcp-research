@@ -469,6 +469,10 @@ What happens on first connect:
 6. It exchanges the code with PKCE for an access token
 7. It connects to MCP with that token — full toolset
 
+Access tokens last an hour. The client renews itself with the `refresh_token`
+grant against the same `/auth/token`; each renewal rotates the refresh token,
+and one left unused for 30 days stops working, so the person signs in again.
+
 Two remote transports run at once: **Streamable HTTP** at `/mcp` and `/` (ChatGPT,
 Claude.ai) and **SSE** at `:8081/sse` for legacy clients. Browser traffic to `/`
 still gets the web UI — MCP requests are detected and routed.

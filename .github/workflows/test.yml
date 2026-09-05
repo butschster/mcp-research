@@ -50,13 +50,16 @@ jobs:
       - name: Create static stub for embed
         run: mkdir -p internal/api/static && echo '<html></html>' > internal/api/static/index.html
 
+      # -coverpkg spans the whole module. It used to name three packages, which
+      # quietly kept internal/mcp/tools — 53 tool files, the product's main
+      # interface — out of the number the report prints.
       - name: Run tests on ${{ matrix.database }}
         env:
           TEST_DATABASE_DRIVER: ${{ matrix.database }}
           TEST_DATABASE_DSN: ${{ matrix.database == 'postgres' && 'postgres://research:research-test@127.0.0.1:5432/research_test?sslmode=disable' || 'root:research-test@tcp(127.0.0.1:3306)/research_test' }}
         run: >-
           go test -race ./cmd/... ./internal/... -count=1 -timeout 20m
-          -coverpkg=./internal/storage,./internal/service,./internal/api/...
+          -coverpkg=./cmd/...,./internal/...
           -coverprofile=coverage.out
 
       - name: Coverage report
