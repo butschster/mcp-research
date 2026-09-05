@@ -196,7 +196,7 @@ function onDelete() {
   margin: 0;
   padding: var(--space-2);
   border-radius: var(--radius-sm);
-  background: rgba(240, 184, 73, 0.10);
+  background: rgba(var(--color-warning-rgb), 0.10);
   color: var(--color-warning);
   font-size: var(--type-2xs);
 }

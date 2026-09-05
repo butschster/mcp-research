@@ -44,13 +44,12 @@ withDefaults(defineProps<{
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: var(--measure-prose);
 }
 .criteria--dense { gap: var(--space-2); margin-top: var(--space-2); }
 
 .criterion {
   display: grid;
-  grid-template-columns: 5.5rem 1fr;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
   gap: var(--space-3);
   align-items: baseline;
 }

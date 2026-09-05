@@ -40,11 +40,11 @@
 
       <fieldset class="share-fieldset">
         <legend class="field-label">What the link shows</legend>
-        <p class="modal-help">Sections, entries and cross-references &middot; always</p>
+        <p class="modal-help">Sections, documents and cross-references &middot; always</p>
         <label class="check-row"><input v-model="form.roadmaps" type="checkbox" /> Roadmaps</label>
         <label class="check-row"><input v-model="form.sessions" type="checkbox" /> Interview sessions, with questions and answers</label>
         <label class="check-row"><input v-model="form.tasks" type="checkbox" /> Tasks</label>
-        <label class="check-row"><input v-model="form.export" type="checkbox" /> Downloading the research as a file</label>
+        <label class="check-row"><input v-model="form.export" type="checkbox" /> Downloading the project as a file</label>
       </fieldset>
 
       <label class="field-label" :for="expiryId">Stops working</label>
@@ -79,7 +79,7 @@
     <template v-else>
       <h3 :id="titleId" class="modal-title">Share &ldquo;{{ researchName }}&rdquo;</h3>
       <p class="modal-help">
-        Anyone with the link can read this research. They don't need an account.
+        Anyone with the link can read this project. They don't need an account.
       </p>
 
       <div class="share-list-head">
@@ -98,7 +98,7 @@
           @show-link="showLink"
         />
         <p v-if="shares.length && !shares.some(isLive)" class="modal-help">
-          All links revoked. Nobody outside the team can open this research now.
+          All links revoked. Nobody outside the team can open this project now.
         </p>
       </template>
     </template>

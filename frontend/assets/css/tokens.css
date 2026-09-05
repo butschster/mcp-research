@@ -7,76 +7,74 @@
    ========================================================================== */
 
 /* ==========================================================================
-   MCP Research - Premium Design System
+   Dovod — Design System
    Typographic precision, calibrated color, intentional motion
    ========================================================================== */
 
 :root {
-  /* --- Colors ----------------------------------------------------------- */
-  --color-bg: #0c1220;
-  /* Below the page: code wells, the graph canvas, the auth hero. Two components
-     had independently invented "darker than the background" and disagreed. */
-  --color-bg-deep: #080e1e;
-  --color-surface: #151d2e;
-  --color-surface-hover: #1e2940;
-  /* A floating layer — dropdown, popover, dialog — so it separates from a card
-     behind it instead of matching it. */
-  --color-surface-raised: #1b2438;
-  --color-border: rgba(148, 163, 184, 0.12);
-  --color-border-strong: rgba(148, 163, 184, 0.22);
-  /* `.btn-icon:hover` referenced this before it existed, so the hover border
-     resolved to an invalid value and the colour simply inherited — every icon
-     button in every page header had a hover state that did nothing. */
+  /* --- Brand ------------------------------------------------------------ */
+  --brand-ink: #243d32;
+  --brand-paper: #f6f3ec;
+  --brand-sage: #c7d9a7;
+  --font-display: 'Bricolage Grotesque', 'Outfit', sans-serif;
+
+  /* Theme roles shared by every SPA component and the component catalog. */
+  color-scheme: light;
+  --color-bg: #f6f3ec;
+  --color-bg-deep: #e9ede1;
+  --color-surface: #fffdf8;
+  --color-surface-hover: #eceee4;
+  --color-surface-raised: #fffdf8;
+  --color-nav: rgba(246, 243, 236, .94);
+  --color-backdrop: rgba(20, 36, 29, .32);
+  --color-border: #d9ded0;
+  --color-border-strong: #a7b29e;
   --color-border-hover: var(--color-border-strong);
-  --color-text: #e2e8f0;
-  --color-text-muted: #7f8ea3;
-  /* Dimmer than muted, at full opacity. It exists to end the habit of reaching
-     for `opacity` on text that is already muted: muted has 0.55 of headroom
-     over 4.5:1 on a card, so any opacity under ~0.9 puts it under. The three
-     worst contrast measurements in the product were all opacity, not colour.
-
-     The first value chosen for it, #5b6b80, measured 3.17:1 on the nav — 0.06
-     *worse* than the `opacity: 0.7` it replaced, which is the number the audit
-     had filed as the defect. On this palette there is no room below muted for a
-     compliant prose colour, so faint is lighter than muted, not darker: 4.55:1
-     on the worst surface it lands on. */
-  --color-text-faint: #7c92ae;
-  --color-primary: #6cc5e0;
-  --color-primary-hover: #7cd1ea;
-  --color-primary-muted: rgba(108, 197, 224, 0.10);
-  /* Ink on a primary-filled surface. White on this cyan is 1.9:1; the page
-     background on it is 9.5:1. Stated as a token so no button has to remember. */
-  --color-on-primary: var(--color-bg);
-  --color-success: #34d399;
-  --color-warning: #f0b849;
-  --color-error: #ef6b6b;
-  --color-info: #6b9df0;
-  /* One red for destruction. There were four — #ef6b6b, #ef4444, #dc2626 and
-     currentColor — and which one you got depended on the component you were
-     inside. `app.vue` already referenced this name with a #dc2626 fallback. */
+  --color-text: #243d32;
+  --color-text-rgb: 36, 61, 50;
+  --color-text-muted: #606c5a;
+  --color-muted-rgb: 96, 108, 90;
+  --color-text-faint: var(--color-text-muted);
+  --color-primary: #243d32;
+  --color-primary-hover: #35523c;
+  --color-primary-rgb: 36, 61, 50;
+  --color-primary-muted: rgba(var(--color-primary-rgb), .10);
+  --color-on-primary: #f6f3ec;
+  --color-hero-accent: #657c50;
+  --color-success: #2f704b;
+  --color-success-rgb: 47, 112, 75;
+  --color-warning: #90621b;
+  --color-warning-rgb: 144, 98, 27;
+  --color-error: #a63d32;
+  --color-error-rgb: 166, 61, 50;
+  --color-info: #386b91;
+  --color-info-rgb: 56, 107, 145;
   --color-danger: var(--color-error);
+  --color-on-danger: var(--color-on-primary);
 
-  /* --- Categorical --------------------------------------------------------
-     Tags, and the three node families — graph, mindmap, roadmap — which each
-     had a private palette. They disagreed: two ambers 4% apart distinguished
-     "question" from "session" on an unlabelled canvas, and "done" was
-     `--color-success` in one family and a different green in another. */
-  --hue-1: var(--color-primary);   /* cyan   — entries        */
-  --hue-2: var(--color-success);   /* green  — done           */
-  --hue-3: var(--color-warning);   /* amber  — sessions       */
-  --hue-4: var(--color-error);   /* red    — blocked/failed */
-  --hue-5: #a78bfa;   /* violet — sections, refs */
-  --hue-6: #fb923c;   /* orange — questions      */
+  /* Categories keep their meaning across diagrams, tags and themes. */
+  --hue-1: var(--color-primary);
+  --hue-2: var(--color-success);
+  --hue-3: var(--color-warning);
+  --hue-4: var(--color-error);
+  --hue-5: #76549a;
+  --hue-5-rgb: 118, 84, 154;
+  --hue-6: #9a5429;
+  --hue-6-rgb: 154, 84, 41;
+
+  /* Markdown source and code share readable syntax roles in both themes. */
+  --syntax-marker: var(--color-error);
+  --syntax-heading: var(--color-warning);
+  --syntax-emphasis: var(--hue-6);
+  --syntax-keyword: var(--hue-5);
+  --syntax-string: var(--color-success);
+  --syntax-link: var(--color-info);
+  --syntax-comment: var(--color-text-muted);
 
   /* --- Type Scale (9-step) ---------------------------------------------- */
-  /* Canvas chrome only — a graph node's code, a status pip. Nothing at these
-     sizes carries a sentence, and nothing at them may use muted ink: at 11-12px
-     `--color-text-muted` is already under AA on a hovered surface. */
+  /* Compact codes and canvas chrome; prose uses the larger steps below. */
   --type-3xs:  0.6875rem;
   --type-2xs:  0.75rem;
-  /* Badges, short codes, meta lines. Never prose — `--color-text-muted` here
-     measures 4.36:1 on `--color-surface-hover`, which is a sentence a reader
-     has to work at. */
   --type-xs:   0.875rem;
   --type-sm:   0.9375rem;   /* the UI default */
   --type-base: 1.0625rem;   /* body copy, reading */
@@ -108,12 +106,12 @@
      .btn-icon. Three controls in one header row came out 29.8, 29.2 and 26.6px
      tall, which is exactly the kind of difference that is visible and hard to
      name. Height is now stated, not derived. */
-  --control-h: 30px;
-  --control-h-sm: 26px;
+  --control-h: 36px;
+  --control-h-sm: 32px;
   /* The touch-target height `.btn` and `.btn-icon` grow to at ≤768px (`.btn-sm`
      keeps its own 32). It was a raw 36px written three times in system.css, and
      a fourth control matching it did so by luck. */
-  --control-h-touch: 36px;
+  --control-h-touch: 44px;
   /* How wide a tag chip may grow before its text is cut. About twenty
      characters at chip size; a caller that truncates reads this, so the list
      and the toolbar agree without knowing about each other. */
@@ -145,11 +143,11 @@
      Eighteen distinct shadows were doing three jobs. Four things at the same
      conceptual altitude — a dropdown, a popover, a menu, a toast — each had
      their own, and after the CSS split they would never have converged. */
-  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.18);      /* a card, a flow node   */
-  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.30);     /* menu, popover         */
-  --shadow-3: 0 16px 48px rgba(0, 0, 0, 0.40);    /* modal, toast          */
-  --shadow-glow: 0 4px 20px rgba(108, 197, 224, 0.20);
-  --shadow-focus: 0 0 0 3px rgba(108, 197, 224, 0.15);
+  --shadow-1: 0 2px 8px rgba(20, 36, 29, 0.06);      /* a card, a flow node   */
+  --shadow-2: 0 8px 24px rgba(20, 36, 29, 0.12);     /* menu, popover         */
+  --shadow-3: 0 16px 48px rgba(20, 36, 29, 0.18);    /* modal, toast          */
+  --shadow-glow: var(--shadow-1);
+  --shadow-focus: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
 
   /* The nav's real height. `.sidebar` guessed 56px for this and cleared the
      actual 66px by six pixels — a number that works today by luck. */
@@ -200,13 +198,51 @@
   --ann-verify:        var(--color-info);
   --ann-dig:           var(--hue-5);
   --ann-disagree:      var(--color-warning);
-  --ann-verify-wash:   rgba(107, 157, 240, 0.10);
-  --ann-dig-wash:      rgba(167, 139, 250, 0.10);
-  --ann-disagree-wash: rgba(240, 184, 73, 0.10);
+  --ann-verify-wash:   rgba(var(--color-info-rgb), 0.10);
+  --ann-dig-wash:      rgba(var(--hue-5-rgb), 0.10);
+  --ann-disagree-wash: rgba(var(--color-warning-rgb), 0.10);
   /* One marker. Small enough that three fit side by side in the column, which
      is what a line carrying three marks needs. */
   --ann-pin:           15px;
   /* The marker column lives inside the document card's extra left padding, so
      this is a width rather than a gap. Three pins and the gaps between them. */
   --ann-gutter:        calc(var(--ann-pin) * 3 + 4px);
+}
+
+/* The same component structure, a second palette. Light is the default. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0d1117;
+  --color-bg-deep: #010409;
+  --color-surface: #151b23;
+  --color-surface-hover: #212830;
+  --color-surface-raised: #212830;
+  --color-nav: rgba(13, 17, 23, .96);
+  --color-backdrop: rgba(1, 4, 9, .72);
+  --color-border: #30363d;
+  --color-border-strong: #3d444d;
+  --color-text: #f0f6fc;
+  --color-text-rgb: 240, 246, 252;
+  --color-text-muted: #9198a1;
+  --color-muted-rgb: 145, 152, 161;
+  --color-primary: #c7d9a7;
+  --color-primary-hover: #d8e7bf;
+  --color-primary-rgb: 199, 217, 167;
+  --color-on-primary: #0d1117;
+  --color-hero-accent: #c7d9a7;
+  --color-success: #6bcb77;
+  --color-success-rgb: 107, 203, 119;
+  --color-warning: #f0b849;
+  --color-warning-rgb: 240, 184, 73;
+  --color-error: #ef8880;
+  --color-error-rgb: 239, 136, 128;
+  --color-info: #8ab4ee;
+  --color-info-rgb: 138, 180, 238;
+  --hue-5: #bba2f5;
+  --hue-5-rgb: 187, 162, 245;
+  --hue-6: #efa769;
+  --hue-6-rgb: 239, 167, 105;
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, .18);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, .30);
+  --shadow-3: 0 16px 48px rgba(0, 0, 0, .40);
 }

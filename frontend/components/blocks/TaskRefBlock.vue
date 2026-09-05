@@ -62,13 +62,13 @@
       </ul>
 
       <p v-else class="b-task-notice">
-        No tasks left here — {{ refList }} {{ refs.length === 1 ? 'is not' : 'are not' }} in this research any more.
+        No tasks left here — {{ refList }} {{ refs.length === 1 ? 'is not' : 'are not' }} in this project any more.
         <NuxtLink v-if="canWrite && !readonly" class="b-task-notice-action" :to="boardHref">Open the task board</NuxtLink>
       </p>
 
       <p v-if="rows.length && unresolved.length && canWrite && !readonly" class="b-task-footnote">
         {{ unresolved.length }} {{ unresolved.length === 1 ? 'reference does' : 'references do' }} not resolve —
-        {{ unresolved.join(', ') }} {{ unresolved.length === 1 ? 'is not' : 'are not' }} in this research.
+        {{ unresolved.join(', ') }} {{ unresolved.length === 1 ? 'is not' : 'are not' }} in this project.
       </p>
     </template>
 
@@ -238,7 +238,7 @@ const tickable = computed(() => canWrite.value && !props.readonly)
 // Statuses whose refusal means something particular here. The rest — 401, an
 // unreachable server, an unexplained failure — read the same as everywhere else.
 const TASK_ERRORS = {
-  403: "Not saved — you can't change tasks in this research.",
+  403: "Not saved — you can't change tasks in this project.",
   404: 'Not saved — that task no longer exists.',
 }
 

@@ -65,10 +65,10 @@ const NODE_SIZES: Record<string, { width: number; height: number }> = {
 }
 
 const EDGE_STYLES: Record<string, Record<string, any>> = {
-  default: { stroke: 'rgba(140,150,170,0.5)', strokeWidth: 2 },
-  success: { stroke: 'rgba(107,203,119,0.6)', strokeWidth: 2 },
-  warning: { stroke: 'rgba(240,184,73,0.6)', strokeWidth: 2 },
-  optional: { stroke: 'rgba(140,150,170,0.35)', strokeWidth: 1.5, strokeDasharray: '4 4' },
+  default: { stroke: 'rgba(var(--color-muted-rgb), 0.5)', strokeWidth: 2 },
+  success: { stroke: 'rgba(var(--color-success-rgb), 0.6)', strokeWidth: 2 },
+  warning: { stroke: 'rgba(var(--color-warning-rgb), 0.6)', strokeWidth: 2 },
+  optional: { stroke: 'rgba(var(--color-muted-rgb), 0.35)', strokeWidth: 1.5, strokeDasharray: '4 4' },
 }
 
 export function useRoadmap(researchId: string, roadmapId: string) {

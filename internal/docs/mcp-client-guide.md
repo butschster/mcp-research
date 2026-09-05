@@ -1,10 +1,10 @@
 # MCP Client Guide
 
-Practical guide for AI assistants and MCP clients interacting with the Research server via MCP tools. Covers tool conventions, team roles and what they let you write, the kickoff templates and the skills index and when to read each, the queue of marks a reader left on the text and how far you may take one, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
+Practical guide for AI assistants and MCP clients interacting with the Dovod server via MCP tools. Covers tool conventions, team roles and what they let you write, the kickoff templates and the skills index and when to read each, the queue of marks a reader left on the text and how far you may take one, content formatting, nullable fields, common pitfalls, and the difference between MCP and REST API access.
 
 ## Two Ways to Interact
 
-The Research server exposes two interfaces. Use the one that matches your integration:
+The Dovod server exposes two interfaces. Use the one that matches your integration:
 
 | Interface | When to use | Reference |
 |-----------|-------------|-----------|

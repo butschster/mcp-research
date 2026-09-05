@@ -178,7 +178,7 @@ func newRouter(cfg routerConfig) *router {
 	doc := &huma.OpenAPI{
 		OpenAPI: "3.1.0",
 		Info: &huma.Info{
-			Title:       "MCP Research API",
+			Title:       "Dovod API",
 			Version:     version,
 			Description: apiDescription(cfg.AuthEnabled, cfg.APIToken),
 		},
@@ -616,7 +616,7 @@ It identifies whoever runs this server, not a person: it belongs to no team and 
 
 func apiDescription(authEnabled, hasAPIToken bool) string {
 	var b strings.Builder
-	b.WriteString("REST API of the MCP Research server.\n\n")
+	b.WriteString("REST API of the Dovod server.\n\n")
 	b.WriteString("**Short codes work in a path, not in a body.** `/api/researches/R1` and `/api/researches/<uuid>` resolve the same record, and so do the nested `{sessionId}` and `{entryId}`. Everywhere else — `/api/entries/{id}`, and every `research_id` or `section_id` in a request body — a UUID is required, and a code is answered with `404`. Each parameter says which it takes.\n\n")
 	switch {
 	case authEnabled:

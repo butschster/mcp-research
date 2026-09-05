@@ -26,8 +26,7 @@
 
     <div v-if="open" id="share-banner-detail" class="container share-banner-detail">
       <p class="card-meta">
-        You are reading a link someone shared with you. Nothing here can be edited, and the link
-        reaches this one research and nothing else.
+        You have read-only access to this shared project.
       </p>
       <p class="card-meta">
         <strong>Included:</strong> {{ contents }}.

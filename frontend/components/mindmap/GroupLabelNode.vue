@@ -36,8 +36,8 @@ defineEmits<{ toggle: [e: MouseEvent] }>()
   cursor: pointer;
   transition: border-color var(--transition-fast);
 }
-.group-question { border-color: rgba(240, 184, 73, 0.3); }
-.group-task { border-color: rgba(239, 107, 107, 0.3); }
+.group-question { border-color: rgba(var(--color-warning-rgb), 0.3); }
+.group-task { border-color: rgba(var(--color-error-rgb), 0.3); }
 .group-label-node:hover { border-color: var(--color-primary); }
 .group-header {
   display: flex;

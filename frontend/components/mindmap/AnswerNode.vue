@@ -43,7 +43,7 @@ function navigate() {
 <style scoped>
 .answer-node {
   background: var(--color-surface);
-  border: 1px solid rgba(52, 211, 153, 0.2);
+  border: 1px solid rgba(var(--color-success-rgb), 0.2);
   border-radius: var(--radius);
   padding: var(--space-3) var(--space-4);
   min-width: 280px;
@@ -52,7 +52,7 @@ function navigate() {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .answer-node:hover {
-  border-color: rgba(52, 211, 153, 0.4);
+  border-color: rgba(var(--color-success-rgb), 0.4);
   box-shadow: var(--shadow-1);
 }
 .a-header {

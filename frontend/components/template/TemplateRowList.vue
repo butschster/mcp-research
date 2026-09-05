@@ -1,42 +1,44 @@
 <template>
   <div>
-    <h3 v-if="heading" class="card-section-title">
-      {{ heading }}
-      <span v-if="note !== undefined" class="heading-note">{{ note }}</span>
-    </h3>
-    <p v-if="blurb" class="group-blurb">{{ blurb }}</p>
+    <div v-if="heading || blurb" class="list-head">
+      <h3 v-if="heading" class="card-section-title">
+        {{ heading }}
+        <span v-if="note !== undefined" class="heading-note">{{ note }}</span>
+      </h3>
+      <p v-if="blurb" class="group-blurb">{{ blurb }}</p>
+    </div>
 
     <div v-if="templates.length" class="data-rows">
       <div v-for="tp in templates" :key="tp.id" class="data-row template-row">
-        <div class="row-head">
-          <NuxtLink :to="`/templates/${tp.id}`" class="template-name">{{ tp.name }}</NuxtLink>
-          <TemplateOriginBadge :tier="tp.tier" :source="tp.source" :forked-from="tp.forked_from" :team-name="teamName?.(tp.team_id)" />
+        <div class="template-overview">
+          <div class="row-head">
+            <NuxtLink :to="`/templates/${tp.id}`" class="template-name">{{ tp.name }}</NuxtLink>
+            <span v-if="tp.tier === 'team'" class="template-team">
+              {{ teamName?.(tp.team_id) || 'Your team' }}{{ tp.forked_from ? ' · edited copy' : '' }}
+            </span>
+          </div>
+          <p class="template-description">{{ tp.description || tp.when_to_use || 'Open this methodology to read its instructions.' }}</p>
         </div>
 
-        <TemplateCriteria :when-to-use="tp.when_to_use" :when-not-to-use="tp.when_not_to_use" dense />
+        <TemplateStartButton :methodology="tp" class="row-start" />
 
-        <p class="row-meta">
-          <span>{{ tp.body_words }} words</span>
-          <span v-if="tp.skills?.length"> · attaches {{ tp.skills.length }} skill{{ tp.skills.length === 1 ? '' : 's' }}</span>
-        </p>
+        <details class="methodology-details">
+          <summary>When to choose this</summary>
+          <TemplateCriteria :when-to-use="tp.when_to_use" :when-not-to-use="tp.when_not_to_use" dense />
+        </details>
       </div>
     </div>
 
-    <p v-else class="group-empty">{{ emptyText }}</p>
+    <p v-else class="list-empty">{{ emptyText }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-/*
- * A list of methodologies, deliberately not SkillRowList.
- *
- * The two lists are built on the same `.data-row` skeleton and share their type
- * and colour rhythm, so they look like one product — but nothing about the
- * payload matches. A skill row shows one trigger line and carries Read, Attach
- * and Detach; a template row shows a *pair* of criteria and carries no buttons
- * at all, because there is nothing to do to a template from a list. Serving both
- * from one component would mean a `kind` prop and a branch in every block.
- */
+import TemplateCriteria from './TemplateCriteria.vue'
+import TemplateStartButton from './TemplateStartButton.vue'
+
+// Compare the short descriptions first; open the criteria or full guide when
+// needed. Each row owns its copy feedback and disclosure state.
 withDefaults(defineProps<{
   templates: any[]
   heading?: string
@@ -49,12 +51,6 @@ withDefaults(defineProps<{
 </script>
 
 <style scoped>
-.card-section-title {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
 .heading-note {
   font-size: var(--type-xs);
   font-weight: var(--weight-normal);
@@ -64,16 +60,23 @@ withDefaults(defineProps<{
 .group-blurb {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
-  max-width: var(--measure-prose);
-  margin-bottom: var(--space-3);
-}
-.group-empty {
-  font-size: var(--type-sm);
-  color: var(--color-text-muted);
-  padding: var(--space-4) 0;
 }
 
-.template-row { display: block; }
+.template-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--space-6);
+  row-gap: var(--space-2);
+  padding-block: var(--space-5);
+}
+.template-overview { min-width: 0; }
+.template-description { margin-top: var(--space-1); font-size: var(--type-sm); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.template-team { font-size: var(--type-2xs); color: var(--color-text-muted); }
+.row-start { justify-self: end; }
+.methodology-details { grid-column: 1 / -1; min-width: 0; }
+.methodology-details summary { width: fit-content; font-size: var(--type-2xs); color: var(--color-text-muted); cursor: pointer; }
+.methodology-details summary:hover { color: var(--color-text); }
+.methodology-details[open] summary { margin-bottom: var(--space-3); }
 
 .row-head {
   display: flex;
@@ -82,17 +85,15 @@ withDefaults(defineProps<{
   flex-wrap: wrap;
 }
 .template-name {
-  font-size: var(--type-sm);
-  font-weight: var(--weight-medium);
+  font-size: var(--type-base);
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   overflow-wrap: anywhere;
 }
 .template-name:hover { color: var(--color-primary); }
 
-.row-meta {
-  font-size: var(--type-3xs);
-  color: var(--color-text-faint);
-  margin-top: var(--space-2);
-  font-variant-numeric: tabular-nums;
+@media (max-width: 600px) {
+  .template-row { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-3); }
+  .row-start { justify-self: start; grid-row: 3; }
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Breadcrumbs :crumbs="[{ label: 'Research', to: '/' }, { label: 'Teams', to: '/teams' }, { label: team?.name || 'Team' }]" />
+    <Breadcrumbs :crumbs="[{ label: 'Projects', to: '/' }, { label: 'Teams', to: '/teams' }, { label: team?.name || 'Team' }]" />
 
     <div v-if="loading" class="skeleton-list">
       <div class="skeleton-card title-skeleton"></div>
@@ -24,7 +24,7 @@
           <button v-if="canInvite" class="btn" @click="openInvite()">+ Invite</button>
           <ActionMenu v-if="canManage">
             <button v-if="!team.personal" class="action-menu-item" @click="renaming = true">Rename team</button>
-            <button class="action-menu-item" @click="addingResearch = true">Move researches here</button>
+            <button class="action-menu-item" @click="addingResearch = true">Move projects here</button>
           </ActionMenu>
         </template>
         <template #lead>{{ members.length }} {{ members.length === 1 ? 'member' : 'members' }} · You are {{ article(team.role) }} {{ team.role }}</template>
@@ -35,7 +35,7 @@
            the bottom that rendered nothing at all when the count was zero —
            which is the exact moment the product has to explain itself. -->
       <div class="section-bar">
-        <h2 class="section-title">Researches <span class="section-count">{{ researches.length }}</span></h2>
+        <h2 class="section-title">Projects <span class="section-count">{{ researches.length }}</span></h2>
         <NuxtLink v-if="researches.length" class="btn" :to="`/?team=${team.id}`">Open as a list</NuxtLink>
       </div>
 
@@ -50,9 +50,9 @@
         class="section-empty"
         icon="&#x1F4C1;"
         title="Nothing to see in here yet"
-        :description="`Members of ${team.name} can only read researches that live in this team. Your other researches are still in your personal team — move one across and everyone here gets it.`"
+        :description="`Members of ${team.name} can only read projects that live in this team. Your other projects are still in your personal team — move one across and everyone here gets it.`"
       >
-        <button class="btn btn-primary" @click="addingResearch = true">Move researches here</button>
+        <button class="btn btn-primary" @click="addingResearch = true">Move projects here</button>
       </EmptyState>
 
       <!-- A viewer cannot move anything, so the way out is a person, not a
@@ -61,13 +61,13 @@
         v-else
         class="section-empty"
         icon="&#x1F4C1;"
-        :title="`${team.name} has no researches yet`"
-        :description="`Researches added to this team will appear here for everyone in it.${ownerName ? ` ${ownerName} can move one across.` : ''}`"
+        :title="`${team.name} has no projects yet`"
+        :description="`Projects added to this team will appear here for everyone in it.${ownerName ? ` ${ownerName} can move one across.` : ''}`"
       >
         <button v-if="ownerEmail" class="btn" @click="copyOwnerEmail">
           {{ copiedOwner ? '✓ Copied' : `Copy ${ownerEmail}` }}
         </button>
-        <NuxtLink class="btn" to="/">Your researches</NuxtLink>
+        <NuxtLink class="btn" to="/">Your projects</NuxtLink>
       </EmptyState>
 
       <div class="section-bar">
@@ -142,7 +142,7 @@
         <DangerRow
           label="Leave team"
           :note="team.research_count > 0
-            ? `Removes your access to ${team.research_count} ${team.research_count === 1 ? 'research' : 'researches'}.`
+            ? `Removes your access to ${team.research_count} ${team.research_count === 1 ? 'project' : 'projects'}.`
             : undefined"
           action-label="Leave"
           :disabled="leaveBlocked"
@@ -195,7 +195,7 @@
     <ConfirmModal
       :visible="!!removing"
       title="Remove member"
-      :message="`${removing?.name || removing?.email} loses access to every research in ${team?.name}.`"
+      :message="`${removing?.name || removing?.email} loses access to every project in ${team?.name}.`"
       confirm-label="Remove"
       variant="danger"
       :loading="!!busyUserId"
@@ -217,7 +217,7 @@
     <ConfirmModal
       :visible="leaving"
       title="Leave team"
-      :message="`You lose access to every research in ${team?.name}. An owner can invite you back.`"
+      :message="`You lose access to every project in ${team?.name}. An owner can invite you back.`"
       confirm-label="Leave"
       variant="danger"
       :loading="busy"
@@ -347,7 +347,7 @@ const canManage = computed(() => team.value?.role === 'owner')
 // into it would be a door that locks behind whoever walks through.
 const canInvite = computed(() => canManage.value && !team.value?.personal)
 const emptyFirstReason = computed(
-  () => `Move its ${team.value?.research_count} ${team.value?.research_count === 1 ? 'research' : 'researches'} out first.`,
+  () => `Move its ${team.value?.research_count} ${team.value?.research_count === 1 ? 'project' : 'projects'} out first.`,
 )
 const lastOwnerLeaveReason = 'You are the only owner. Make someone else an owner before leaving.'
 const leaveBlocked = computed(
@@ -472,7 +472,7 @@ async function moveResearches(ids: string[]) {
     addingResearch.value = false
     const moved = res.data?.moved ?? ids.length
     success(
-      `${moved} ${moved === 1 ? 'research is' : 'researches are'} now visible to everyone in ${team.value?.name}.`,
+      `${moved} ${moved === 1 ? 'project is' : 'projects are'} now visible to everyone in ${team.value?.name}.`,
       'Moved',
     )
     await Promise.all([loadResearches(), refreshTeams()])

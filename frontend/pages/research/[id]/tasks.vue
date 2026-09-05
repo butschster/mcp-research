@@ -10,7 +10,7 @@
     <!-- Header -->
     <PageHeader
       :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Tasks' },
       ]"
@@ -64,7 +64,7 @@
     />
   </div>
 
-  <EmptyState v-else icon="&#x1F50D;" title="Research not found" />
+  <EmptyState v-else icon="&#x1F50D;" title="Project not found" />
 </template>
 
 <script setup lang="ts">

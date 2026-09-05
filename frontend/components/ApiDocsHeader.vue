@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useCopyToClipboard } from '~/composables/useCopyToClipboard'
+import BrandLogo from '~/components/BrandLogo.vue'
+import ThemeToggle from '~/components/ThemeToggle.vue'
 
 const props = defineProps<{
   /** Where this instance answers. Shown so a reader knows what they are calling. */
@@ -31,7 +33,7 @@ function copyUrl() {
   <header class="api-docs-bar">
     <div class="api-docs-bar-row">
     <div class="api-docs-bar-left">
-      <NuxtLink to="/" class="api-docs-wordmark">Research</NuxtLink>
+      <NuxtLink to="/" class="api-docs-wordmark" aria-label="Dovod home"><BrandLogo /></NuxtLink>
       <!-- Deliberately small. Scalar renders the document's own title as a large
            heading directly below; a page title above it would give the screen
            two competing headlines and push the document's first line under the
@@ -41,6 +43,7 @@ function copyUrl() {
     </div>
 
     <div class="api-docs-bar-right">
+      <ThemeToggle />
       <NuxtLink
         v-if="showApiKeysLink"
         :to="signedIn ? '/settings' : '/login?next=%2Fsettings'"
@@ -126,6 +129,9 @@ function copyUrl() {
 .api-docs-bar-right { gap: var(--space-2); }
 
 .api-docs-wordmark {
+  display: block;
+  width: 6.5rem;
+  flex-shrink: 0;
   font-size: var(--type-sm);
   font-weight: var(--weight-bold);
   color: var(--color-text);

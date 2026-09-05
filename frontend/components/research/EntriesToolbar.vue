@@ -160,7 +160,7 @@ const props = withDefaults(
     /** How many tags sit in the row as one-click chips. */
     quickCount?: number
   }>(),
-  { searchPlaceholder: 'Search this research…', quickCount: 6 },
+  { searchPlaceholder: 'Search this project…', quickCount: 6 },
 )
 
 const emit = defineEmits<{

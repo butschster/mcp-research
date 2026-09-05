@@ -17,7 +17,7 @@
       v-else-if="!updates.length"
       icon="&#x2713;"
       title="You’re up to date"
-      description="There are no new or changed documents in this research."
+      description="There are no new or changed documents in this project."
     >
       <NuxtLink :to="researchPath(researchSlug)" class="btn btn-sm">Browse all documents</NuxtLink>
     </EmptyState>

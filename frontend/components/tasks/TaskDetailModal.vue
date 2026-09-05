@@ -408,9 +408,9 @@ function saveField(field: string) {
 }
 .priority-chip:hover { border-color: var(--color-border-strong); color: var(--color-text); }
 .priority-chip.active { color: var(--color-text); font-weight: var(--weight-semibold); }
-.priority-low.active { background: rgba(108, 197, 224, 0.1); border-color: var(--color-primary); color: var(--color-primary); }
-.priority-medium.active { background: rgba(240, 184, 73, 0.1); border-color: var(--color-warning); color: var(--color-warning); }
-.priority-high.active { background: rgba(239, 107, 107, 0.1); border-color: var(--color-error); color: var(--color-error); }
+.priority-low.active { background: rgba(var(--color-primary-rgb), 0.1); border-color: var(--color-primary); color: var(--color-primary); }
+.priority-medium.active { background: rgba(var(--color-warning-rgb), 0.1); border-color: var(--color-warning); color: var(--color-warning); }
+.priority-high.active { background: rgba(var(--color-error-rgb), 0.1); border-color: var(--color-error); color: var(--color-error); }
 
 /* Responsive */
 @media (max-width: 768px) {

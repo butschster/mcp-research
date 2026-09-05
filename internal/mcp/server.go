@@ -59,10 +59,11 @@ func NewServer(
 	s := &Server{
 		server: sdkmcp.NewServer(&sdkmcp.Implementation{
 			Name:    "mcp-research",
+			Title:   "Dovod",
 			Version: version,
 		}, &sdkmcp.ServerOptions{
 			Logger:       log,
-			Instructions: "MCP Research Server — AI-driven structured research sessions. Use research/initialize prompt to start. Use task_create/task_list to manage your todo list.",
+			Instructions: "Dovod — a workspace for structured research and clear decisions with AI. Use research/initialize prompt to start. Use task_create/task_list to manage your todo list.",
 		}),
 		research:   research,
 		section:    section,

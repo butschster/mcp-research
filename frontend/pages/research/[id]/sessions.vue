@@ -7,7 +7,7 @@
   <div v-else-if="research" class="sessions-page">
     <PageHeader
       :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Sessions' },
       ]"
@@ -17,9 +17,7 @@
     />
 
     <p class="lead">
-      Every interview this research has held. A session carries the questions that were
-      asked and the answers they got, so a finished one is the record of how something
-      came to be known — not a thing to be tidied away.
+      Sessions keep the questions and answers from each conversation with your AI assistant.
     </p>
 
     <template v-if="sessions.length">
@@ -80,19 +78,19 @@
       v-else
       icon="&#x1F5E3;"
       title="No sessions yet"
-      description="A session is an interview: the agent asks, you answer, and the answers become entries. Ask your AI client to start one on this research."
+      description="Ask your AI assistant to start a Q&amp;A session in this project. Questions and answers will appear here."
     >
-      <NuxtLink :to="`/research/${researchSlug}`" class="btn">Back to the research</NuxtLink>
+      <NuxtLink :to="`/research/${researchSlug}`" class="btn">Back to project</NuxtLink>
     </EmptyState>
   </div>
 
   <EmptyState
     v-else
     icon="&#x1F50D;"
-    title="Research not found"
-    description="It may have been deleted, or the address may name a research that never existed."
+    title="Project not found"
+    description="Check the link and make sure you have access to this project."
   >
-    <NuxtLink to="/" class="btn btn-primary">Back to all research</NuxtLink>
+    <NuxtLink to="/" class="btn btn-primary">Back to projects</NuxtLink>
   </EmptyState>
 </template>
 

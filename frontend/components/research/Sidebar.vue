@@ -22,7 +22,7 @@
     >
       <div class="sidebar-item-content">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        <span class="sidebar-item-name">All entries</span>
+        <span class="sidebar-item-name">All documents</span>
         <span class="sidebar-count">{{ totalEntryCount }}</span>
       </div>
     </div>
@@ -126,7 +126,7 @@ function sectionProgressWidth(section: any): string {
 }
 .sidebar-progress {
   height: 2px;
-  background: rgba(148, 163, 184, 0.08);
+  background: rgba(var(--color-muted-rgb), 0.08);
   border-radius: 1px;
   margin-top: var(--space-1);
   overflow: hidden;

@@ -69,6 +69,6 @@ const confidenceText = computed(() => ` ${Math.round((props.confidence ?? 0) * 1
 .anchor-badge__mark { line-height: 1; }
 .anchor-badge__conf { color: var(--color-text-faint); }
 
-.anchor-badge--drifted  { background: rgba(240, 184, 73, 0.10); color: var(--color-warning); }
-.anchor-badge--orphaned { background: rgba(239, 107, 107, 0.10); color: var(--color-error); }
+.anchor-badge--drifted  { background: rgba(var(--color-warning-rgb), 0.10); color: var(--color-warning); }
+.anchor-badge--orphaned { background: rgba(var(--color-error-rgb), 0.10); color: var(--color-error); }
 </style>

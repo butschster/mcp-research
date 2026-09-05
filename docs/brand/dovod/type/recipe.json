@@ -1,0 +1,139 @@
+[
+  {
+    "slug": "01-ink",
+    "label": "Bricolage Grotesque",
+    "font": "bricolagegrotesque-BricolageGrotesque[opsz,wdth,wght].ttf",
+    "axes": {
+      "wght": 800,
+      "wdth": 100,
+      "opsz": 96
+    },
+    "tracking": -18,
+    "source": "https://github.com/ateliertriay/bricolage",
+    "source_sha256": "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682",
+    "word": "dovod",
+    "tracking_units": "font units, added to advance width; no OpenType kerning applied",
+    "letterform_changes": false,
+    "export": "fontTools 4.64.0; SVG paths; visible height normalized to 100; 1 unit padding"
+  },
+  {
+    "slug": "02-wide",
+    "label": "Syne ExtraBold",
+    "font": "syne-Syne[wght].ttf",
+    "axes": {
+      "wght": 800
+    },
+    "tracking": -15,
+    "source": "https://gitlab.com/bonjour-monde/fonderie/syne-typeface",
+    "source_sha256": "ce5ac77142a65cab2248a1a2ebb740b1d4d9c20b52488877d3ff664d1356104a",
+    "word": "dovod",
+    "tracking_units": "font units, added to advance width; no OpenType kerning applied",
+    "letterform_changes": false,
+    "export": "fontTools 4.64.0; SVG paths; visible height normalized to 100; 1 unit padding"
+  },
+  {
+    "slug": "03-organic",
+    "label": "Basteleur Bold",
+    "font": "basteleur-Basteleur-Bold.otf",
+    "axes": {},
+    "tracking": -13,
+    "source": "https://velvetyne.fr/fonts/basteleur/",
+    "source_sha256": "986013b9dd8b427fbca2ee494c7d6d6c1942d22ad68b8b9505c26220c982fdd5",
+    "word": "dovod",
+    "tracking_units": "font units, added to advance width; no OpenType kerning applied",
+    "letterform_changes": false,
+    "export": "fontTools 4.64.0; SVG paths; visible height normalized to 100; 1 unit padding"
+  },
+  {
+    "slug": "01-ink-cut",
+    "label": "Bricolage Grotesque",
+    "font": "bricolagegrotesque-BricolageGrotesque[opsz,wdth,wght].ttf",
+    "axes": {
+      "wght": 800,
+      "wdth": 100,
+      "opsz": 96
+    },
+    "tracking": -18,
+    "source": "https://github.com/ateliertriay/bricolage",
+    "source_sha256": "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682",
+    "word": "dovod",
+    "tracking_units": "font units, added to advance width; no OpenType kerning applied",
+    "letterform_changes": "Original paths clipped above and below a transparent horizontal strip; no reflection or spacing changes",
+    "export": "fontTools 4.64.0; SVG paths; visible height normalized to 100; 1 unit padding",
+    "cut": {
+      "center_y": 60,
+      "height": 2.5,
+      "coordinate_system": "visible word height normalized to 100",
+      "method": "SVG clipPath with userSpaceOnUse"
+    }
+  },
+  {
+    "slug": "01-ink-cut-wide",
+    "label": "Bricolage Grotesque",
+    "font": "bricolagegrotesque-BricolageGrotesque[opsz,wdth,wght].ttf",
+    "axes": {
+      "wght": 800,
+      "wdth": 100,
+      "opsz": 96
+    },
+    "tracking": -18,
+    "source": "https://github.com/ateliertriay/bricolage",
+    "source_sha256": "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682",
+    "word": "dovod",
+    "tracking_units": "font units, added to advance width; no OpenType kerning applied",
+    "letterform_changes": "Original paths clipped above and below a transparent horizontal strip; no reflection or spacing changes",
+    "export": "fontTools 4.64.0; SVG paths; visible height normalized to 100; 1 unit padding",
+    "cut": {
+      "center_y": 60,
+      "height": 5,
+      "coordinate_system": "visible word height normalized to 100",
+      "method": "SVG clipPath with userSpaceOnUse"
+    }
+  },
+  {
+    "slug": "01-ink-cut-08",
+    "label": "Bricolage Grotesque",
+    "font": "bricolagegrotesque-BricolageGrotesque[opsz,wdth,wght].ttf",
+    "axes": {
+      "wght": 800,
+      "wdth": 100,
+      "opsz": 96
+    },
+    "tracking": -18,
+    "source": "https://github.com/ateliertriay/bricolage",
+    "source_sha256": "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682",
+    "word": "dovod",
+    "tracking_units": "font units, added to advance width; no OpenType kerning applied",
+    "letterform_changes": "Original paths clipped above and below a transparent horizontal strip; no reflection or spacing changes",
+    "export": "fontTools 4.64.0; SVG paths; visible height normalized to 100; 1 unit padding",
+    "cut": {
+      "center_y": 60,
+      "height": 8,
+      "coordinate_system": "visible word height normalized to 100",
+      "method": "SVG clipPath with userSpaceOnUse"
+    }
+  },
+  {
+    "slug": "01-ink-cut-12",
+    "label": "Bricolage Grotesque",
+    "font": "bricolagegrotesque-BricolageGrotesque[opsz,wdth,wght].ttf",
+    "axes": {
+      "wght": 800,
+      "wdth": 100,
+      "opsz": 96
+    },
+    "tracking": -18,
+    "source": "https://github.com/ateliertriay/bricolage",
+    "source_sha256": "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682",
+    "word": "dovod",
+    "tracking_units": "font units, added to advance width; no OpenType kerning applied",
+    "letterform_changes": "Original paths clipped above and below a transparent horizontal strip; no reflection or spacing changes",
+    "export": "fontTools 4.64.0; SVG paths; visible height normalized to 100; 1 unit padding",
+    "cut": {
+      "center_y": 60,
+      "height": 12,
+      "coordinate_system": "visible word height normalized to 100",
+      "method": "SVG clipPath with userSpaceOnUse"
+    }
+  }
+]

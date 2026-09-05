@@ -8,7 +8,7 @@
     <!-- Toolbar (hidden in print) -->
     <div class="export-toolbar no-print">
       <Breadcrumbs :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: exportData.research.name, to: `/research/${researchSlug}` },
         { label: exportData.session.title, to: `/research/${researchSlug}/session/${sessionSlug}` },
         { label: 'Export' }
@@ -35,7 +35,7 @@
           <span v-if="exportData.session.code">Code: {{ exportData.session.code }}</span>
           <span>Status: {{ exportData.session.status }}</span>
           <span>Questions: {{ answeredCount }} / {{ questions.length }} answered</span>
-          <span>Entries: {{ entries.length }}</span>
+          <span>Documents: {{ entries.length }}</span>
           <span>Exported: {{ new Date().toLocaleDateString() }}</span>
         </div>
       </header>
@@ -67,16 +67,16 @@
       </section>
 
       <section id="entries" class="doc-section">
-        <h2 class="section-heading">Entries produced in this session</h2>
+        <h2 class="section-heading">Documents produced in this session</h2>
 
         <div v-if="!entries.length" class="doc-empty">
-          No entries yet — they appear here once an entry is linked to this session.
+          No documents yet — they appear here once a document is linked to this session.
         </div>
 
         <article v-for="entry in entries" :key="entry.id" class="doc-entry">
           <h3 class="entry-heading">
             <span v-if="entry.code" class="entry-code">{{ entry.code }}</span>
-            {{ entry.title || 'Untitled entry' }}
+            {{ entry.title || 'Untitled document' }}
           </h3>
           <div class="entry-meta">
             <span v-if="sectionNames[entry.section_id]" class="entry-section">
@@ -107,7 +107,7 @@
     v-else
     icon="&#x1F50D;"
     title="Could not load this session"
-    :description="`It may not exist, or the request failed. Open the research at /research/${id} and pick the session from there.`"
+    :description="`It may not exist, or the request failed. Open the project at /research/${id} and pick the session from there.`"
   />
 </template>
 

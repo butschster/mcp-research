@@ -12,7 +12,7 @@
       <div class="doc-meta">
         <span>Status: {{ data.research.status }}</span>
         <span>Sections: {{ data.sections?.length || 0 }}</span>
-        <span>Entries: {{ totalEntries }}</span>
+        <span>Documents: {{ totalEntries }}</span>
         <span>Exported: {{ new Date().toLocaleDateString() }}</span>
       </div>
     </header>
@@ -23,7 +23,7 @@
       <ol>
         <li v-for="(section, i) in data.sections" :key="section.id">
           <a :href="`#section-${i}`">{{ section.display_name || section.name }}</a>
-          <span class="toc-count">{{ section.entries?.length || 0 }} entries</span>
+          <span class="toc-count">{{ section.entries?.length || 0 }} documents</span>
         </li>
         <li v-if="data.sessions?.length">
           <a href="#sessions">Sessions</a>
@@ -46,7 +46,7 @@
       <h2 class="section-heading">{{ section.display_name || section.name }}</h2>
       <p v-if="section.description" class="section-desc">{{ section.description }}</p>
 
-      <div v-if="!section.entries?.length" class="doc-empty">No entries</div>
+      <div v-if="!section.entries?.length" class="doc-empty">No documents</div>
 
       <article
         v-for="entry in section.entries"
@@ -357,8 +357,8 @@ watch(() => props.data, drawDiagrams)
   border-radius: var(--radius-xs); flex-shrink: 0;
   background: var(--color-surface-hover); color: var(--color-text-muted);
 }
-.q-status-answered { background: rgba(52, 211, 153, 0.1); color: var(--color-success); }
-.q-status-pending { background: rgba(251, 191, 36, 0.1); color: var(--color-warning); }
+.q-status-answered { background: rgba(var(--color-success-rgb), 0.1); color: var(--color-success); }
+.q-status-pending { background: rgba(var(--color-warning-rgb), 0.1); color: var(--color-warning); }
 .q-meta { font-size: var(--type-xs); color: var(--color-text-muted); margin-bottom: var(--space-2); }
 .q-answer { margin-top: var(--space-2); }
 
@@ -380,7 +380,7 @@ watch(() => props.data, drawDiagrams)
 .task-title { flex: 1; font-weight: var(--weight-medium); font-size: var(--type-sm); }
 .task-priority {
   font-size: var(--type-xs); padding: 0.1rem 0.35rem;
-  background: rgba(239, 68, 68, 0.1); color: var(--color-error);
+  background: rgba(var(--color-error-rgb), 0.1); color: var(--color-error);
   border-radius: var(--radius-xs);
 }
 .task-status {

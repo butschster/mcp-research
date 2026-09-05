@@ -31,7 +31,7 @@ const copy = computed(() => revocationCopy(props.revocation))
 
 // A team page's way out is the team list, not the research list it was never on.
 const backTo = computed(() => (props.revocation.scope === 'team' ? '/teams' : '/'))
-const backLabel = computed(() => (props.revocation.scope === 'team' ? 'Back to teams' : 'Back to research list'))
+const backLabel = computed(() => (props.revocation.scope === 'team' ? 'Back to teams' : 'Back to projects'))
 
 const root = ref<HTMLElement | null>(null)
 onMounted(() => root.value?.focus())

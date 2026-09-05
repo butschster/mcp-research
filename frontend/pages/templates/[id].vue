@@ -7,7 +7,7 @@
   <div v-else-if="template" class="template-page">
     <PageHeader
       :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: 'Methodologies', to: '/templates' },
         { label: template.name },
       ]"
@@ -26,7 +26,7 @@
         />
         <span class="meta">
           {{ template.body_words }} words
-          <template v-if="template.research_count"> · started {{ template.research_count }} research{{ template.research_count === 1 ? '' : 'es' }}</template>
+          <template v-if="template.research_count"> · used in {{ template.research_count }} project{{ template.research_count === 1 ? '' : 's' }}</template>
         </span>
       </div>
 
@@ -41,14 +41,13 @@
     <div v-if="template.skills_resolved?.length" class="card">
       <h3 class="card-section-title">Skills it attaches</h3>
       <p class="blurb">
-        A research started this way follows these as well — methodology the agent opens mid-session,
-        when it is about to do the work each one names.
+        These skills guide your AI assistant as it works on the project.
       </p>
       <div class="data-rows">
         <div v-for="sk in template.skills_resolved" :key="sk.slug" class="data-row skill-row">
           <div>
             <span class="skill-name">{{ sk.name || sk.slug }}</span>
-            <span v-if="sk.missing" class="badge badge-pending" title="Nothing on this server answers to that name, so a research started from this methodology will not get it.">Missing</span>
+            <span v-if="sk.missing" class="badge badge-pending" title="This skill is unavailable. Projects started with this methodology will not include it.">Missing</span>
           </div>
           <p class="skill-trigger">{{ sk.description || '— this server has no skill by that name —' }}</p>
         </div>
@@ -63,11 +62,10 @@
     <div class="card">
       <h3 class="card-section-title">Using it</h3>
       <p class="blurb">
-        The web interface cannot start a research yet, so this is a read. Ask your AI assistant and
-        name the methodology — it reads the same text you just read.
+        Ask your connected AI assistant to start a project with this methodology:
       </p>
       <CopyLine
-        :text="`Start a new research using the ${template.name} methodology (template_get slug: ${template.slug}).`"
+        :text="startPrompt"
         label="Paste this into your AI client"
       />
     </div>
@@ -84,6 +82,7 @@
 </template>
 
 <script setup lang="ts">
+import { useMethodologyPrompt } from '~/composables/useMethodologyPrompt'
 import { parseMarkdown } from '~/composables/useSafeMarkdown'
 
 const route = useRoute()
@@ -91,6 +90,7 @@ const id = route.params.id as string
 
 const { data, pending } = await useApi<{ data: any }>(`/api/templates/${id}`)
 const template = computed(() => data.value?.data)
+const startPrompt = useMethodologyPrompt(template)
 
 /* parseMarkdown and deliberately no cross-reference pass: a methodology is read
    before any research exists, so `[[E3]]` inside one refers to nothing and
@@ -123,20 +123,17 @@ function teamName(teamId: string) {
 .origin-note {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
-  max-width: var(--measure-prose);
   margin-top: var(--space-2);
 }
 
 .lead {
   font-size: var(--type-sm);
   color: var(--color-text-muted);
-  max-width: var(--measure-prose);
   margin-bottom: var(--space-6);
 }
 .blurb {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
-  max-width: var(--measure-prose);
   margin-bottom: var(--space-4);
 }
 .card + .card { margin-top: var(--space-6); }
@@ -165,7 +162,6 @@ function teamName(teamId: string) {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   margin-top: var(--space-1);
-  max-width: var(--measure-prose);
   overflow-wrap: anywhere;
 }
 

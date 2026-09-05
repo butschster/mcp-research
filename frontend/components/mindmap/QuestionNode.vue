@@ -53,7 +53,7 @@ function navigate() {
 <style scoped>
 .question-node {
   background: var(--color-surface);
-  border: 1px solid rgba(240, 184, 73, 0.2);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.2);
   border-radius: var(--radius);
   padding: var(--space-4) var(--space-5);
   min-width: 340px;
@@ -62,7 +62,7 @@ function navigate() {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .question-node:hover {
-  border-color: rgba(240, 184, 73, 0.4);
+  border-color: rgba(var(--color-warning-rgb), 0.4);
   box-shadow: var(--shadow-1);
 }
 .q-header {

@@ -7,7 +7,7 @@
   <div v-else-if="research" class="marks-page">
     <PageHeader
       :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Marks' },
       ]"
@@ -68,7 +68,7 @@
     />
   </div>
 
-  <EmptyState v-else icon="&#x1F50D;" title="Research not found" />
+  <EmptyState v-else icon="&#x1F50D;" title="Project not found" />
 </template>
 
 <script setup lang="ts">
@@ -267,7 +267,7 @@ onMounted(load)
   flex-wrap: wrap;
   padding: var(--space-3);
   border-radius: var(--radius);
-  background: rgba(240, 184, 73, 0.10);
+  background: rgba(var(--color-warning-rgb), 0.10);
   color: var(--color-warning);
   font-size: var(--type-sm);
 }

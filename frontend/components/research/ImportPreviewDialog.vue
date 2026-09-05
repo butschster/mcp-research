@@ -195,8 +195,8 @@ const groups = computed(() => {
       items: refs.map((r) => ({
         key: `[[${r.ref}]]`,
         reason: r.count > 1
-          ? `Nothing in this research answers to it. It appears ${r.count} times, and is kept exactly as written.`
-          : 'Nothing in this research answers to it. It is kept exactly as written.',
+          ? `No document in this project matches this reference. It appears ${r.count} times, and is kept exactly as written.`
+          : 'No document in this project matches this reference. It is kept exactly as written.',
       })),
     })
   }

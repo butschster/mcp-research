@@ -27,12 +27,12 @@ defineProps<{
   color: var(--color-text-muted);
 }
 .edge-type-success {
-  border-color: rgba(107, 203, 119, 0.3);
-  color: rgba(107, 203, 119, 1);
+  border-color: rgba(var(--color-success-rgb), 0.3);
+  color: rgba(var(--color-success-rgb), 1);
 }
 .edge-type-warning {
-  border-color: rgba(240, 184, 73, 0.3);
-  color: rgba(240, 184, 73, 1);
+  border-color: rgba(var(--color-warning-rgb), 0.3);
+  color: rgba(var(--color-warning-rgb), 1);
 }
 .edge-type-optional {
   border-color: var(--color-border);

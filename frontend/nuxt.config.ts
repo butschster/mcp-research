@@ -15,6 +15,7 @@ export default defineNuxtConfig({
   css: [
     '~/assets/css/tokens.css',
     '~/assets/css/base.css',
+    '~/assets/css/brand.css',
     '~/assets/css/system.css',
     '~/assets/css/markdown.css',
     '~/assets/css/mermaid.css',
@@ -22,14 +23,25 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Research',
+      title: 'Dovod',
+      // Apply the saved preference before CSS paints, including auth pages.
+      script: [{ innerHTML: "try{document.documentElement.dataset.theme=localStorage.getItem('dovod-theme')==='dark'?'dark':'light'}catch{}" }],
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'description', content: 'AI-driven structured research sessions' },
-        { property: 'og:title', content: 'Research' },
-        { property: 'og:description', content: 'AI-driven structured research sessions' },
+        { name: 'description', content: 'Work through questions with AI. Keep sources, reasoning, and next steps in one place.' },
+        { property: 'og:title', content: 'Dovod' },
+        { property: 'og:site_name', content: 'Dovod' },
+        { property: 'og:image', content: '/brand/social-card.png' },
+        { property: 'og:type', content: 'website' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'theme-color', content: '#f6f3ec' },
+        { name: 'application-name', content: 'Dovod' },
+        { property: 'og:description', content: 'Work through questions with AI. Keep sources, reasoning, and next steps in one place.' },
       ],
       link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap' },

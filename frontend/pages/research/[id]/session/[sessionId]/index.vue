@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="page-header">
       <Breadcrumbs :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: researchName, to: `/research/${researchSlug}` },
         { label: session.title }
       ]" />
@@ -96,7 +96,7 @@
         @keydown="onTabKey($event, 'entries')"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Entries
+        Documents
         <span v-if="sessionEntries.length" class="tab-count">{{ sessionEntries.length }}</span>
       </button>
       <button
@@ -183,7 +183,7 @@
           </div>
         </NuxtLink>
       </div>
-      <EmptyState v-else icon="&#x1F4C4;" title="No entries" description="Entries linked to this session will appear here." />
+      <EmptyState v-else icon="&#x1F4C4;" title="No documents" description="Documents linked to this session will appear here." />
     </div>
 
     <!-- Changes panel.
@@ -212,7 +212,7 @@ const id = route.params.id as string
 const sessionId = route.params.sessionId as string
 
 const { data: researchData } = await useApi<{ data: any }>(`/api/researches/${id}`)
-const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Research')
+const researchName = computed(() => researchData.value?.data?.research?.name ?? 'Project')
 const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 
 // Every research-scoped page publishes the caller's role from the payload it

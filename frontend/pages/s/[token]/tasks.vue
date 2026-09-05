@@ -2,9 +2,9 @@
   <EmptyState
     v-if="excluded"
     title="Not part of this link"
-    description="The person who shared this research didn't include tasks. Ask them if you need them."
+    description="The person who shared this project didn't include tasks. Ask them if you need them."
   >
-    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to the research</NuxtLink>
+    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to project</NuxtLink>
   </EmptyState>
 
   <div v-else class="tasks-page">
@@ -40,7 +40,7 @@
 
 <script setup lang="ts">
 const { shareFetch, research, researchId, researchCode, include, slug } = useShare()
-const researchName = computed(() => research.value?.name || 'Research')
+const researchName = computed(() => research.value?.name || 'Project')
 
 const tasks = ref<any[]>([])
 const detailTask = ref<any | null>(null)

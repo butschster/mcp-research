@@ -2,9 +2,9 @@
   <EmptyState
     v-if="excluded"
     title="Not part of this link"
-    description="The person who shared this research didn't include roadmaps. Ask them if you need them."
+    description="The person who shared this project didn't include roadmaps. Ask them if you need them."
   >
-    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to the research</NuxtLink>
+    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to project</NuxtLink>
   </EmptyState>
 
   <div v-else class="roadmaps-page">
@@ -35,14 +35,14 @@
       v-else
       icon="&#x1F5FA;"
       title="No roadmaps yet"
-      description="Nothing has been mapped out in this research yet. This page updates by itself when it is."
+      description="Nothing has been mapped out in this project yet. This page updates by itself when it is."
     />
   </div>
 </template>
 
 <script setup lang="ts">
 const { shareFetch, research, researchId, researchCode, include, slug } = useShare()
-const researchName = computed(() => research.value?.name || 'Research')
+const researchName = computed(() => research.value?.name || 'Project')
 
 const roadmaps = ref<any[]>([])
 

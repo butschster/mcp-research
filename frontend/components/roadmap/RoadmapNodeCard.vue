@@ -23,7 +23,7 @@
         <svg v-else-if="data.refType === 'session'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>
         <svg v-else-if="data.refType === 'research'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <svg v-else-if="data.refType === 'question'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-        {{ data.refType }}
+        {{ data.refType === 'research' ? 'project' : data.refType === 'entry' ? 'document' : data.refType }}
       </span>
       <!-- Plain node type badge -->
       <span v-else :class="['rmc-badge', `badge-${data.nodeType}`]">
@@ -40,7 +40,7 @@
         {{ data.refData.answered_questions }}/{{ data.refData.total_questions }} questions
       </span>
       <span v-if="isResearchRef && data.refData" class="rmc-meta">
-        {{ data.refData.section_count }}s &middot; {{ data.refData.entry_count }}e
+        {{ data.refData.section_count }} sections &middot; {{ data.refData.entry_count }} documents
       </span>
       <span v-if="data.refData?.code" class="rmc-entity-code">{{ data.refData.code }}</span>
     </div>
@@ -167,16 +167,16 @@ function statusSlug(s: string): string {
 }
 
 /* Tint per type — mirrors the graph node tints exactly */
-.ref-type-entry    { background: rgba(108, 197, 224, 0.04); }
-.ref-type-task     { background: rgba(107, 203, 119, 0.04); }
-.ref-type-session  { background: rgba(168, 130, 255, 0.05); }
-.ref-type-research { background: rgba(240, 184, 73, 0.04); }
-.ref-type-question { background: rgba(239, 107, 107, 0.04); }
-.step-type-step      { background: rgba(107, 203, 119, 0.04); }
-.step-type-milestone { background: rgba(168, 130, 255, 0.06); }
-.step-type-decision  { background: rgba(240, 184, 73, 0.05); }
-.step-type-info      { background: rgba(108, 197, 224, 0.04); }
-.step-type-group     { background: rgba(160, 160, 160, 0.04); }
+.ref-type-entry    { background: rgba(var(--color-primary-rgb), 0.04); }
+.ref-type-task     { background: rgba(var(--color-success-rgb), 0.04); }
+.ref-type-session  { background: rgba(var(--hue-5-rgb), 0.05); }
+.ref-type-research { background: rgba(var(--color-warning-rgb), 0.04); }
+.ref-type-question { background: rgba(var(--color-error-rgb), 0.04); }
+.step-type-step      { background: rgba(var(--color-success-rgb), 0.04); }
+.step-type-milestone { background: rgba(var(--hue-5-rgb), 0.06); }
+.step-type-decision  { background: rgba(var(--color-warning-rgb), 0.05); }
+.step-type-info      { background: rgba(var(--color-primary-rgb), 0.04); }
+.step-type-group     { background: rgba(var(--color-muted-rgb), 0.04); }
 
 .rmc-header {
   display: flex;
@@ -207,7 +207,7 @@ function statusSlug(s: string): string {
 }
 .rmc-result {
   font-size: 0.6875rem;
-  color: rgba(107, 203, 119, 0.85);
+  color: rgba(var(--color-success-rgb), 0.85);
   line-height: 1.4;
   margin-bottom: var(--space-2);
   font-style: italic;
@@ -232,16 +232,16 @@ function statusSlug(s: string): string {
   line-height: 1;
   font-weight: var(--weight-semibold);
 }
-.badge-entry     { background: rgba(108, 197, 224, 0.12); color: rgba(108, 197, 224, 1); }
-.badge-task      { background: rgba(107, 203, 119, 0.12); color: rgba(107, 203, 119, 1); }
-.badge-session   { background: rgba(168, 130, 255, 0.12); color: rgba(168, 130, 255, 1); }
-.badge-research  { background: rgba(240, 184, 73, 0.12); color: rgba(240, 184, 73, 1); }
-.badge-question  { background: rgba(239, 107, 107, 0.12); color: rgba(239, 107, 107, 1); }
-.badge-step      { background: rgba(107, 203, 119, 0.12); color: rgba(107, 203, 119, 1); }
-.badge-milestone { background: rgba(168, 130, 255, 0.12); color: rgba(168, 130, 255, 1); }
-.badge-decision  { background: rgba(240, 184, 73, 0.12); color: rgba(240, 184, 73, 1); }
-.badge-info      { background: rgba(108, 197, 224, 0.12); color: rgba(108, 197, 224, 1); }
-.badge-group     { background: rgba(160, 160, 160, 0.12); color: rgba(160, 160, 160, 1); }
+.badge-entry     { background: rgba(var(--color-primary-rgb), 0.12); color: rgba(var(--color-primary-rgb), 1); }
+.badge-task      { background: rgba(var(--color-success-rgb), 0.12); color: rgba(var(--color-success-rgb), 1); }
+.badge-session   { background: rgba(var(--hue-5-rgb), 0.12); color: rgba(var(--hue-5-rgb), 1); }
+.badge-research  { background: rgba(var(--color-warning-rgb), 0.12); color: rgba(var(--color-warning-rgb), 1); }
+.badge-question  { background: rgba(var(--color-error-rgb), 0.12); color: rgba(var(--color-error-rgb), 1); }
+.badge-step      { background: rgba(var(--color-success-rgb), 0.12); color: rgba(var(--color-success-rgb), 1); }
+.badge-milestone { background: rgba(var(--hue-5-rgb), 0.12); color: rgba(var(--hue-5-rgb), 1); }
+.badge-decision  { background: rgba(var(--color-warning-rgb), 0.12); color: rgba(var(--color-warning-rgb), 1); }
+.badge-info      { background: rgba(var(--color-primary-rgb), 0.12); color: rgba(var(--color-primary-rgb), 1); }
+.badge-group     { background: rgba(var(--color-muted-rgb), 0.12); color: rgba(var(--color-muted-rgb), 1); }
 
 .rmc-meta {
   font-size: 0.5625rem;
@@ -267,8 +267,8 @@ function statusSlug(s: string): string {
   border-radius: var(--radius-xs);
   line-height: 1;
 }
-.priority-high, .priority-critical { background: rgba(239, 107, 107, 0.12); color: rgba(239, 107, 107, 1); }
-.priority-medium { background: rgba(240, 184, 73, 0.12); color: rgba(240, 184, 73, 1); }
+.priority-high, .priority-critical { background: rgba(var(--color-error-rgb), 0.12); color: rgba(var(--color-error-rgb), 1); }
+.priority-medium { background: rgba(var(--color-warning-rgb), 0.12); color: rgba(var(--color-warning-rgb), 1); }
 .priority-low { background: var(--color-surface-hover); color: var(--color-text-muted); }
 .rmc-progress-text {
   font-size: 0.5625rem;
@@ -286,7 +286,7 @@ function statusSlug(s: string): string {
 }
 .rmc-progress-fill {
   height: 100%;
-  background: rgba(168, 130, 255, 0.6);
+  background: rgba(var(--hue-5-rgb), 0.6);
   border-radius: var(--radius-hair);
   transition: width 0.3s ease;
 }
@@ -340,15 +340,15 @@ function statusSlug(s: string): string {
 .rm-status-mastered,
 .rm-status-done,
 .rm-status-final {
-  background: rgba(107, 203, 119, 0.15);
-  color: rgba(107, 203, 119, 1);
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: rgba(var(--color-success-rgb), 1);
 }
 .rm-status-in-progress,
 .rm-status-in_progress,
 .rm-status-learning,
 .rm-status-active {
-  background: rgba(108, 197, 224, 0.15);
-  color: rgba(108, 197, 224, 1);
+  background: rgba(var(--color-primary-rgb), 0.15);
+  color: rgba(var(--color-primary-rgb), 1);
 }
 .rm-status-not-started,
 .rm-status-not_started,
@@ -361,11 +361,11 @@ function statusSlug(s: string): string {
 }
 .rm-status-skipped,
 .rm-status-blocked {
-  background: rgba(239, 107, 107, 0.12);
-  color: rgba(239, 107, 107, 1);
+  background: rgba(var(--color-error-rgb), 0.12);
+  color: rgba(var(--color-error-rgb), 1);
 }
 .rm-status-answered {
-  background: rgba(168, 130, 255, 0.15);
-  color: rgba(168, 130, 255, 1);
+  background: rgba(var(--hue-5-rgb), 0.15);
+  color: rgba(var(--hue-5-rgb), 1);
 }
 </style>

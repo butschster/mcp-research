@@ -15,7 +15,7 @@ const config: StorybookConfig = {
   docs: {
     autodocs: 'tag',
   },
-  // staticDirs: ['../public'],
+  staticDirs: ['../public'],
   viteFinal: async (config) => {
     const AutoImport = (await import('unplugin-auto-import/vite')).default
     const vue = (await import('@vitejs/plugin-vue')).default

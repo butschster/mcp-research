@@ -53,7 +53,7 @@ const titleId = `confirm-title-${useId()}`
   margin-bottom: var(--space-4);
 }
 .confirm-icon.danger {
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(var(--color-error-rgb), 0.12);
   color: var(--color-danger);
 }
 .confirm-icon.info {

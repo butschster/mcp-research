@@ -135,7 +135,7 @@ function onClick() {
 }
 .ws-connected {
   background: var(--color-success);
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 6px rgba(var(--color-success-rgb), 0.5);
 }
 /* Shape carries the state as well as colour does. Below 768px the label is
    hidden and the dot is all there is; under prefers-reduced-motion the pulse

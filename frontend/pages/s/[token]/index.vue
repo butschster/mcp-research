@@ -73,7 +73,7 @@
           v-else
           icon="&#x1F448;"
           title="Select a section"
-          description="Choose a section from the sidebar to view its entries."
+          description="Choose a section from the sidebar to view its documents."
         />
       </div>
     </div>
@@ -113,8 +113,8 @@ watch(sections, (secs) => {
 
 const emptyDescription = computed(() =>
   ownerName.value
-    ? `${ownerName.value} hasn't added anything to this research yet. This page updates by itself when they do — you can leave it open.`
-    : 'Nothing has been added to this research yet.',
+    ? `${ownerName.value} hasn't added anything to this project yet. This page updates by itself when they do — you can leave it open.`
+    : 'Nothing has been added to this project yet.',
 )
 
 // --- Content ---

@@ -16,8 +16,8 @@
     <EmptyState
       v-else-if="!changes.length"
       icon="&#x1F4DD;"
-      title="No entry changes"
-      description="This session has not written to any entry yet. Entries it creates or edits will show up here with what changed."
+      title="No document changes"
+      description="This session has not written to any document yet. Documents it creates or edits will show up here with what changed."
     />
 
     <template v-else>

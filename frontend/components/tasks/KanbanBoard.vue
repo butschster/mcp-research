@@ -132,7 +132,7 @@ function onDrop(e: DragEvent, targetStatus: string) {
 
 .kanban-column.drag-over {
   border-color: var(--color-primary);
-  box-shadow: inset 0 0 0 1px var(--color-primary), 0 0 20px rgba(108, 197, 224, 0.08);
+  box-shadow: inset 0 0 0 1px var(--color-primary), 0 0 20px rgba(var(--color-primary-rgb), 0.08);
 }
 
 .kanban-column-header {

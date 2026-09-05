@@ -1,6 +1,7 @@
 <template>
   <div class="centered-gate invite-page">
     <div class="invite-card">
+      <NuxtLink to="/" class="invite-brand" aria-label="Dovod home"><BrandLogo /></NuxtLink>
       <!-- No partially-rendered team name: a skeleton, then the real thing. -->
       <div v-if="loading" class="skeleton-card invite-skeleton"></div>
 
@@ -43,9 +44,9 @@
         <!-- Deliberately silent about which role: the preview carries the
              invitation's, which is not what an existing member holds. -->
         <NuxtLink class="btn btn-primary invite-action" :to="`/?team=${preview.team_id}`">
-          Open the team's researches
+          Open the team's projects
         </NuxtLink>
-        <p class="signed-in-as"><NuxtLink to="/" class="text-link">All researches</NuxtLink></p>
+        <p class="signed-in-as"><NuxtLink to="/" class="text-link">All projects</NuxtLink></p>
       </template>
 
       <template v-else-if="status === 'expired' || status === 'revoked' || status === 'accepted'">
@@ -57,7 +58,7 @@
         <p v-if="preview?.inviter_email && clipboardBroken" class="invite-role-desc selectable">
           {{ preview.inviter_email }}
         </p>
-        <p v-if="signedIn" class="signed-in-as"><NuxtLink to="/" class="text-link">Go to Research</NuxtLink></p>
+        <p v-if="signedIn" class="signed-in-as"><NuxtLink to="/" class="text-link">Go to Dovod</NuxtLink></p>
       </template>
 
       <template v-else-if="loadFailed">
@@ -70,7 +71,7 @@
         <h1 class="invite-team">This link isn't valid</h1>
         <p class="invite-role-desc">Check that you copied the whole link — they're long and easy to cut short.</p>
         <NuxtLink class="btn btn-primary invite-action" :to="signedIn ? '/' : loginLink">
-          {{ signedIn ? 'Go to Research' : 'Sign in' }}
+          {{ signedIn ? 'Go to Dovod' : 'Sign in' }}
         </NuxtLink>
       </template>
     </div>
@@ -78,6 +79,8 @@
 </template>
 
 <script setup lang="ts">
+useHead({ title: 'Team invitation' })
+
 import { ROLE_DESCRIPTIONS, type TeamRole } from '~/composables/useTeams'
 
 /**
@@ -212,6 +215,7 @@ async function copyInviter() {
 </script>
 
 <style scoped>
+.invite-brand { display: block; width: 7rem; margin: 0 auto var(--space-8); color: var(--color-text); }
 .invite-card { width: 100%; max-width: 440px; text-align: center; }
 .invite-skeleton { height: 260px; }
 .invite-from { font-size: var(--type-sm); color: var(--color-text-muted); margin-bottom: var(--space-4); }

@@ -7,7 +7,7 @@
   <div v-else-if="research" class="updates-page">
     <PageHeader
       :crumbs="[
-        { label: 'Research', to: '/' },
+        { label: 'Projects', to: '/' },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Updates' },
       ]"
@@ -56,13 +56,13 @@
   <EmptyState
     v-else-if="researchError && researchError.statusCode !== 404"
     icon="&#x26A0;"
-    title="Could not load this research"
-    description="The server did not return the research or its sections."
+    title="Could not load this project"
+    description="The server did not return the project or its sections."
   >
     <button type="button" class="btn btn-sm" @click="refreshResearch()">Try again</button>
   </EmptyState>
-  <EmptyState v-else icon="&#x1F50D;" title="Research not found">
-    <NuxtLink to="/" class="btn btn-sm">Back to researches</NuxtLink>
+  <EmptyState v-else icon="&#x1F50D;" title="Project not found">
+    <NuxtLink to="/" class="btn btn-sm">Back to projects</NuxtLink>
   </EmptyState>
 </template>
 

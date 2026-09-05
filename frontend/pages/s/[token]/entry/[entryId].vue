@@ -6,16 +6,16 @@
 
   <EmptyState
     v-else-if="!entry && gone"
-    title="This entry was removed"
-    description="It was deleted while you were reading. The rest of the research is still here."
+    title="This document was removed"
+    description="It was deleted while you were reading. The rest of the project is still here."
   >
-    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to the research</NuxtLink>
+    <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to project</NuxtLink>
   </EmptyState>
 
   <EmptyState
     v-else-if="!entry"
-    title="Couldn't load this entry"
-    description="The server didn't answer. The rest of the research is still here — try again in a moment."
+    title="Couldn't load this document"
+    description="The server didn't answer. The rest of the project is still here — try again in a moment."
   >
     <button class="btn btn-primary" @click="loadEntry()">Try again</button>
   </EmptyState>
@@ -96,7 +96,7 @@ const route = useRoute()
 const entryCode = computed(() => route.params.entryId as string)
 
 const { shareFetch, research, sections, researchId, researchCode, slug, include } = useShare()
-const researchName = computed(() => research.value?.name || 'Research')
+const researchName = computed(() => research.value?.name || 'Project')
 
 const entry = ref<any | null>(null)
 const pending = ref(true)

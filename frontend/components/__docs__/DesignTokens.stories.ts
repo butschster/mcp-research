@@ -20,7 +20,7 @@ export const Colors: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Color Palette</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Color Palette</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-4);">
           <div v-for="color in colors" :key="color.name" style="display: flex; flex-direction: column; gap: var(--space-2);">
             <div :style="{ background: color.value, width: '100%', height: '64px', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }"></div>
@@ -34,19 +34,19 @@ export const Colors: Story = {
     `,
     setup() {
       const colors = [
-        { name: '--color-bg', label: 'Background', value: '#0c1220' },
-        { name: '--color-surface', label: 'Surface', value: '#151d2e' },
-        { name: '--color-surface-hover', label: 'Surface Hover', value: '#1e2940' },
-        { name: '--color-primary', label: 'Primary', value: '#6cc5e0' },
-        { name: '--color-text', label: 'Text', value: '#e2e8f0' },
-        { name: '--color-text-muted', label: 'Text Muted', value: '#7f8ea3' },
-        { name: '--color-success', label: 'Success', value: '#34d399' },
-        { name: '--color-warning', label: 'Warning', value: '#f0b849' },
-        { name: '--color-error', label: 'Error', value: '#ef6b6b' },
-        { name: '--color-info', label: 'Info', value: '#6b9df0' },
-        { name: '--color-primary-muted', label: 'Primary Muted', value: 'rgba(108, 197, 224, 0.10)' },
-        { name: '--color-border', label: 'Border', value: 'rgba(148, 163, 184, 0.12)' },
-        { name: '--color-border-strong', label: 'Border Strong', value: 'rgba(148, 163, 184, 0.22)' },
+        { name: '--color-bg', label: 'Background', value: 'var(--color-bg)' },
+        { name: '--color-surface', label: 'Surface', value: 'var(--color-surface)' },
+        { name: '--color-surface-hover', label: 'Surface Hover', value: 'var(--color-surface-hover)' },
+        { name: '--color-primary', label: 'Primary', value: 'var(--color-primary)' },
+        { name: '--color-text', label: 'Text', value: 'var(--color-text)' },
+        { name: '--color-text-muted', label: 'Text Muted', value: 'var(--color-text-muted)' },
+        { name: '--color-success', label: 'Success', value: 'var(--color-success)' },
+        { name: '--color-warning', label: 'Warning', value: 'var(--color-warning)' },
+        { name: '--color-error', label: 'Error', value: 'var(--color-error)' },
+        { name: '--color-info', label: 'Info', value: 'var(--color-info)' },
+        { name: '--color-primary-muted', label: 'Primary Muted', value: 'var(--color-primary-muted)' },
+        { name: '--color-border', label: 'Border', value: 'var(--color-border)' },
+        { name: '--color-border-strong', label: 'Border Strong', value: 'var(--color-border-strong)' },
       ]
       return { colors }
     },
@@ -57,7 +57,7 @@ export const Typography: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Type Scale</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Type Scale</h2>
         <div style="display: flex; flex-direction: column; gap: var(--space-5);">
           <div v-for="t in typeScale" :key="t.name" style="display: flex; align-items: baseline; gap: var(--space-6);">
             <code style="font-size: var(--type-xs); color: var(--color-text-muted); min-width: 120px;">{{ t.name }}</code>
@@ -76,8 +76,7 @@ export const Typography: Story = {
     `,
     setup() {
       const typeScale = [
-        { name: '--type-4xl', value: '3.5rem' },
-        { name: '--type-3xl', value: '2.75rem' },
+        { name: '--type-3xl', value: '2.5rem' },
         { name: '--type-2xl', value: '2rem' },
         { name: '--type-xl', value: '1.5rem' },
         { name: '--type-lg', value: '1.25rem' },
@@ -100,7 +99,7 @@ export const Spacing: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Spacing Scale (4px base)</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Spacing Scale (4px base)</h2>
         <div style="display: flex; flex-direction: column; gap: var(--space-3);">
           <div v-for="s in spacings" :key="s.name" style="display: flex; align-items: center; gap: var(--space-4);">
             <code style="font-size: var(--type-xs); color: var(--color-text-muted); min-width: 100px;">{{ s.name }}</code>
@@ -132,7 +131,7 @@ export const Badges: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Status Badges</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Status Badges</h2>
         <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
           <span v-for="s in statuses" :key="s" :class="['badge', 'badge-' + s]">{{ s }}</span>
         </div>
@@ -153,7 +152,7 @@ export const Buttons: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Buttons</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Buttons</h2>
         <div style="display: flex; flex-direction: column; gap: var(--space-6);">
           <div>
             <h3 style="font-size: var(--type-sm); color: var(--color-text-muted); margin-bottom: var(--space-3); font-weight: 500;">Standard</h3>
@@ -180,7 +179,7 @@ export const Cards: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Card Styles</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Card Styles</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4);">
           <div class="card">
             <h3 class="card-title">Default Card</h3>
@@ -204,7 +203,7 @@ export const Tags: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Tag Hues</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Tag Hues</h2>
         <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
           <span v-for="tag in tags" :key="tag" :class="['tag', 'tag-hue-' + tagHue(tag)]">{{ tag }}</span>
         </div>
@@ -228,7 +227,7 @@ export const Radii: Story = {
   render: () => ({
     template: `
       <div>
-        <h2 style="font-size: var(--type-xl); font-weight: 700; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Border Radii</h2>
+        <h2 style="font-family: var(--font-display); font-size: var(--type-xl); font-weight: 800; margin-bottom: var(--space-6); letter-spacing: -0.02em;">Border Radii</h2>
         <div style="display: flex; gap: var(--space-6); align-items: center; flex-wrap: wrap;">
           <div v-for="r in radii" :key="r.name" style="text-align: center;">
             <div :style="{ width: '80px', height: '80px', background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)', borderRadius: r.value }"></div>

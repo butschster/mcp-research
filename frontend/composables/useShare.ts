@@ -80,13 +80,13 @@ export function isShareLive(share: { revoked_at?: string | null; expires_at?: st
  * same four flags with different nouns.
  */
 export function shareContents(include: ShareInclude, style: 'prose' | 'list' = 'list') {
-  const parts = ['Entries']
+  const parts = ['Documents']
   if (include?.roadmaps) parts.push('roadmaps')
   if (include?.sessions) parts.push(style === 'prose' ? 'interview sessions' : 'sessions')
   if (include?.tasks) parts.push('tasks')
   if (include?.export) parts.push('downloads')
   if (style !== 'prose') return parts.join(', ')
-  if (parts.length === 1) return 'Entries only'
+  if (parts.length === 1) return 'Documents only'
   return parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1]
 }
 

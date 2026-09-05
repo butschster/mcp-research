@@ -40,13 +40,13 @@ type Story = StoryObj<typeof ArtifactFrame>
 const chart = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Throughput by model</title>
 <style>
-  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:#0c1220; color:#e2e8f0; }
+  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:#14241d; color:#f6f3ec; }
   h1 { font-size:16px; margin:0 0 16px; }
   .row { display:grid; grid-template-columns:110px 1fr 50px; gap:10px; align-items:center;
          margin-bottom:10px; font-size:13px; }
   .track { height:20px; background:rgba(148,163,184,.1); border-radius:4px; overflow:hidden; }
-  .fill { height:100%; background:#6cc5e0; }
-  .num { text-align:right; color:#7f8ea3; }
+  .fill { height:100%; background:#c7d9a7; }
+  .num { text-align:right; color:#a7b6a6; }
 </style></head>
 <body>
 <h1>Throughput, tokens/s</h1>
@@ -68,8 +68,8 @@ const plain = `<!doctype html>
 
 const usesBridge = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Bridge consumer</title>
-<style>body{margin:0;padding:20px;font-family:system-ui,sans-serif;background:#0c1220;color:#e2e8f0}
-code{color:#6cc5e0}</style></head>
+<style>body{margin:0;padding:20px;font-family:system-ui,sans-serif;background:#14241d;color:#f6f3ec}
+code{color:#c7d9a7}</style></head>
 <body>
 <h1 style="font-size:16px;margin:0 0 12px">Data from the host</h1>
 <pre id="out"><code>waiting for research-data…</code></pre>
@@ -83,7 +83,7 @@ code{color:#6cc5e0}</style></head>
 
 const tall = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Very tall artifact</title>
-<style>body{margin:0;padding:20px;font-family:system-ui,sans-serif;background:#0c1220;color:#e2e8f0}
+<style>body{margin:0;padding:20px;font-family:system-ui,sans-serif;background:#14241d;color:#f6f3ec}
 div{padding:8px;border-bottom:1px solid rgba(148,163,184,.14)}</style></head>
 <body><script>
   document.write(Array.from({length: 120}, (_, i) => '<div>Row ' + (i+1) + '</div>').join(''));
@@ -127,10 +127,10 @@ const viewportSized = `<!doctype html>
 <style>
   html,body { margin:0; }
   body { min-height:100vh; padding:20px; font-family:system-ui,sans-serif;
-         background:#0c1220; color:#e2e8f0; }
+         background:#14241d; color:#f6f3ec; }
 </style></head>
 <body><h1 style="font-size:16px;margin:0">min-height: 100vh</h1>
-<p style="color:#7f8ea3;font-size:13px">Grows the frame on every report until the host freezes it.</p>
+<p style="color:#a7b6a6;font-size:13px">Grows the frame on every report until the host freezes it.</p>
 </body></html>`
 
 export const ViewportSizedDoesNotRunAway: Story = {
@@ -232,10 +232,10 @@ export const EnlargedWithALongTitle: Story = {
 const veryTall = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Migration checklist</title>
 <style>
-  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:#0c1220; color:#e2e8f0; }
-  h1 { font-size:16px; margin:0 0 12px; position:sticky; top:0; background:#0c1220; padding:8px 0; }
+  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:#14241d; color:#f6f3ec; }
+  h1 { font-size:16px; margin:0 0 12px; position:sticky; top:0; background:#14241d; padding:8px 0; }
   div { padding:7px 0; border-bottom:1px solid rgba(148,163,184,.14); font-size:13px; }
-  span { color:#7f8ea3; font-variant-numeric:tabular-nums; margin-right:10px; }
+  span { color:#a7b6a6; font-variant-numeric:tabular-nums; margin-right:10px; }
 </style></head>
 <body><h1>Migration checklist — 200 steps</h1><script>
   document.write(Array.from({length: 200}, function (_, i) {
@@ -286,12 +286,12 @@ export const ViewportSizedEnlarged: Story = {
 const stateful = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Sampling playground</title>
 <style>
-  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:#0c1220; color:#e2e8f0; }
+  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:#14241d; color:#f6f3ec; }
   h1 { font-size:16px; margin:0 0 14px; }
-  p { font-size:13px; margin:0 0 8px; color:#7f8ea3; }
-  b { color:#6cc5e0; font-variant-numeric:tabular-nums; }
+  p { font-size:13px; margin:0 0 8px; color:#a7b6a6; }
+  b { color:#c7d9a7; font-variant-numeric:tabular-nums; }
   button { font:inherit; font-size:13px; padding:6px 12px; border-radius:6px; cursor:pointer;
-           color:#e2e8f0; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.28); }
+           color:#f6f3ec; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.28); }
 </style></head>
 <body>
 <h1>Temperature sweep</h1>

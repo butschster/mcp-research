@@ -308,9 +308,9 @@ const printStyle = `
   }
 }</style>`
 
-// The host's page background, duplicated here on purpose: it has to travel INTO
-// the sandboxed document, which cannot read our custom properties.
-const HOST_BACKGROUND = '#0c1220'
+// Resolve the host palette when creating the sandboxed document. The artifact
+// keeps its authored styles and interactive state when the host changes theme.
+const HOST_BACKGROUND = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim()
 
 
 const shim = computed(() => printStyle + `
@@ -320,8 +320,8 @@ const shim = computed(() => printStyle + `
 
   var fix = document.getElementById('__print_fix');
 
-  // An artifact that sets no background of its own was written for a dark host
-  // and gets one, but only for print: on screen the frame behind it supplies it.
+  // An artifact with no authored background gets the host surface for print;
+  // on screen the frame behind it supplies that surface.
   try {
     var bg = getComputedStyle(document.body).backgroundColor;
     if (!bg || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)') {
@@ -579,19 +579,19 @@ onUnmounted(() => {
   height: 26px;
   padding: 0;
   color: var(--color-text);
-  background: rgba(0, 0, 0, 0.72);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   backdrop-filter: blur(4px);
   cursor: pointer;
 }
-.artifact-btn:hover { background: rgba(0, 0, 0, 0.88); }
+.artifact-btn:hover { background: var(--color-surface-raised); }
 /* Two rings, because the backdrop is a document we do not control and either
    ring alone disappears against some artifact: the accent is 1.96:1 on white. */
 .artifact-btn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 4px var(--color-surface-raised);
 }
 
 .artifact-expand {
