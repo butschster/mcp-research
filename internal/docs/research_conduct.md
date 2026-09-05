@@ -47,6 +47,14 @@ This prompt uses MCP tools. If you are interacting via the REST API instead, use
 
 ### Step 2: Select the Research
 
+- A person continuing a research usually opens with the sentence the web UI hands
+  them from the **Continue** block: `Continue R1` — or `Continue R1, session SS4`
+  when several sessions are open and they picked one. Read it as the research id
+  (and the session id) for the steps below; the session named there is the one to
+  pass to `research_resume`. What that sentence is supposed to make you do is
+  written down in
+  [Picking Up a Research That Is Already Running](/llms/conducting-research.md#picking-up-a-research-that-is-already-running)
+  — read it rather than improvising, the first time
 - The client named one: **{research_id}**. Pass it straight to `research_get` — it accepts a UUID or a short code
   (`R1`) — and skip the matching below. An unsubstituted `{research_id}` means the client sent none, so select one
   yourself:

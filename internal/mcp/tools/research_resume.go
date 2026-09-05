@@ -38,7 +38,9 @@ What it does NOT do, and what that means for you:
   - It is not a change log. recent_entries is what was touched most recently, not everything that happened, and a deleted document leaves no trace here.
   - It is a top-N per group. Each group carries returned, total and has_more with the tool to open the rest — never read an empty top-N as "the work is finished".
 
-next_actions carries an actor. ` + "`agent`" + ` is yours to do. ` + "`human`" + ` is waiting on a person — an answered mark needs the person who raised it to accept it, and you cannot accept your own answer.`,
+next_actions carries an actor. ` + "`agent`" + ` is yours to do. ` + "`human`" + ` is waiting on a person — an answered mark needs the person who raised it to accept it, and you cannot accept your own answer.
+
+A person opens this with "Continue R1", or "Continue R1, session SS4" when several sessions are open — that is the sentence the web UI hands them. What it obliges you to do is written down rather than left to improvisation: /llms/conducting-research.md, "Picking Up a Research That Is Already Running".`,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ResearchResumeInput) (*mcp.CallToolResult, any, error) {
 		if input.ResearchID == "" {
 			return validationErrorResult([]string{"research_id is required"})

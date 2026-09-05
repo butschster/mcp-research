@@ -35,6 +35,7 @@
       </div>
 
       <div class="resume-head-right cluster">
+        <span class="sr-only" role="status">{{ copyAnnouncement }}</span>
         <!-- One session: a link, not a control. Several: a picker. -->
         <NuxtLink
           v-if="onlySession"
@@ -71,6 +72,33 @@
           >Open</NuxtLink>
         </template>
 
+        <!-- The sentence to hand the agent. The block is called Continue and
+             the whole feature exists for a chat that has no history of this
+             research — so the one thing it must give a person is the words that
+             start that chat. It used to appear only when there was nothing left
+             to do, which is the one case where nobody needs it. -->
+        <button
+          v-if="summary && canWrite && !archived"
+          type="button"
+          class="btn btn-sm resume-handoff"
+          :title="`Copy “${handoffCommand}” to paste into a new chat`"
+          @click="copyHandoff"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          {{ copied ? 'Copied' : handoffCommand }}
+        </button>
+        <!-- The phrase alone does not say what it commits the agent to. This is
+             the same guide the agent is pointed at, served by this binary, so
+             both sides of the handoff read one description of it. -->
+        <a
+          v-if="summary && canWrite && !archived"
+          class="resume-handoff-help"
+          :href="handoffGuide"
+          target="_blank"
+          rel="noopener"
+          title="What continuing a research means"
+          aria-label="What continuing a research means"
+        >?</a>
         <button
           type="button"
           class="btn btn-icon"
@@ -320,6 +348,45 @@ const onlySession = computed(() => (sessions.value.length === 1 ? sessions.value
 const selectedSession = computed(
   () => sessions.value.find((s) => s.id === props.summary?.sessions?.selected_id) ?? null,
 )
+
+/**
+ * What to type into a new chat to pick this up.
+ *
+ * It names the session when one is selected, because that is the choice the
+ * server refuses to make on its own — handing over "Continue R1" alone on a
+ * research with three open threads just moves the ambiguity into the chat.
+ */
+const handoffCommand = computed(() => {
+  const code = props.summary?.research.code || props.researchSlug
+  const session = selectedSession.value?.code
+  return session ? `Continue ${code}, session ${session}` : `Continue ${code}`
+})
+
+/** Served by this binary at /llms/, so it is right for whatever version is running. */
+const handoffGuide = '/llms/conducting-research.md#picking-up-a-research-that-is-already-running'
+
+const copied = ref(false)
+const copyAnnouncement = ref('')
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+
+async function copyHandoff() {
+  try {
+    await navigator.clipboard.writeText(handoffCommand.value)
+    copied.value = true
+    copyAnnouncement.value = `Copied “${handoffCommand.value}” to the clipboard`
+  } catch {
+    // A refused clipboard is not worth a toast: the words are on the button,
+    // which is the fallback anyway.
+    copyAnnouncement.value = 'Could not copy — the words are on the button'
+  }
+  clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => {
+    copied.value = false
+    copyAnnouncement.value = ''
+  }, 2000)
+}
+
+onBeforeUnmount(() => clearTimeout(copyTimer))
 
 function sessionOptionLabel(s: { code?: string; title: string; status: string }) {
   const name = s.code ? `${s.code} — ${s.title}` : s.title
@@ -609,6 +676,25 @@ function actionHref(action: ResumeAction): string {
 .resume-collapsed-counts { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-1); }
 .resume-collapsed-count { white-space: nowrap; }
 .resume-session-open { font-size: var(--type-xs); white-space: nowrap; }
+/* Monospace, because it is a thing to type rather than a label to read. */
+.resume-handoff {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--type-xs);
+  color: var(--color-primary);
+}
+.resume-handoff-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-faint);
+  font-size: var(--type-xs);
+  text-decoration: none;
+  flex: none;
+}
+.resume-handoff-help:hover { color: var(--color-primary); background: var(--color-surface-hover); text-decoration: none; }
 .resume-note { padding: var(--space-3) var(--row-inset); font-size: var(--type-sm); color: var(--color-text-muted); }
 
 .resume-session-chip {
