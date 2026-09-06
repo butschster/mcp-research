@@ -1,7 +1,7 @@
 <template>
   <div class="centered-gate invite-page">
     <div class="invite-card">
-      <NuxtLink to="/" class="invite-brand" aria-label="Dovod home"><BrandLogo /></NuxtLink>
+      <NuxtLink :to="{ name: 'index' }" class="invite-brand" aria-label="Dovod home"><BrandLogo /></NuxtLink>
       <!-- No partially-rendered team name: a skeleton, then the real thing. -->
       <div v-if="loading" class="skeleton-card invite-skeleton"></div>
 
@@ -46,7 +46,7 @@
         <NuxtLink class="btn btn-primary invite-action" :to="`/?team=${preview.team_id}`">
           Open the team's projects
         </NuxtLink>
-        <p class="signed-in-as"><NuxtLink to="/" class="text-link">All projects</NuxtLink></p>
+        <p class="signed-in-as"><NuxtLink :to="{ name: 'index' }" class="text-link">All projects</NuxtLink></p>
       </template>
 
       <template v-else-if="status === 'expired' || status === 'revoked' || status === 'accepted'">
@@ -58,7 +58,7 @@
         <p v-if="preview?.inviter_email && clipboardBroken" class="invite-role-desc selectable">
           {{ preview.inviter_email }}
         </p>
-        <p v-if="signedIn" class="signed-in-as"><NuxtLink to="/" class="text-link">Go to Dovod</NuxtLink></p>
+        <p v-if="signedIn" class="signed-in-as"><NuxtLink :to="{ name: 'index' }" class="text-link">Go to Dovod</NuxtLink></p>
       </template>
 
       <template v-else-if="loadFailed">
@@ -70,7 +70,7 @@
       <template v-else>
         <h1 class="invite-team">This link isn't valid</h1>
         <p class="invite-role-desc">Check that you copied the whole link — they're long and easy to cut short.</p>
-        <NuxtLink class="btn btn-primary invite-action" :to="signedIn ? '/' : loginLink">
+        <NuxtLink class="btn btn-primary invite-action" :to="signedIn ? { name: 'index' } : loginLink">
           {{ signedIn ? 'Go to Dovod' : 'Sign in' }}
         </NuxtLink>
       </template>

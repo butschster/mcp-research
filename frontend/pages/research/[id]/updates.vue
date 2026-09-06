@@ -7,7 +7,7 @@
   <div v-else-if="research" class="updates-page">
     <PageHeader
       :crumbs="[
-        { label: 'Projects', to: '/' },
+        { label: 'Projects', to: { name: 'index' } },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Updates' },
       ]"
@@ -62,7 +62,7 @@
     <button type="button" class="btn btn-sm" @click="refreshResearch()">Try again</button>
   </EmptyState>
   <EmptyState v-else icon="&#x1F50D;" title="Project not found">
-    <NuxtLink to="/" class="btn btn-sm">Back to projects</NuxtLink>
+    <NuxtLink :to="{ name: 'index' }" class="btn btn-sm">Back to projects</NuxtLink>
   </EmptyState>
 </template>
 

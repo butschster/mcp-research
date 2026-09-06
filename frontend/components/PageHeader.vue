@@ -23,6 +23,7 @@
 </template>
 
 <script setup lang="ts">
+import type { RouteLocationRaw } from 'vue-router'
 /**
  * The title of a page, beside whatever that page lets you do to it.
  *
@@ -46,7 +47,7 @@
  */
 defineProps<{
   /** Passed straight to `Breadcrumbs`; omit on a page that is its own root. */
-  crumbs?: { label: string; to?: string }[]
+  crumbs?: { label: string; to?: RouteLocationRaw }[]
   /** The research or entry short code, when the page names one. */
   code?: string
   title: string

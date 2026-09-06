@@ -12,7 +12,7 @@
   <div v-else-if="research">
     <!-- Header -->
     <PageHeader
-      :crumbs="[{ label: 'Projects', to: '/' }, { label: research.name }]"
+      :crumbs="[{ label: 'Projects', to: { name: 'index' } }, { label: research.name }]"
       :code="research.code"
       :title="research.name"
     >

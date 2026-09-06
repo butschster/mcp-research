@@ -356,6 +356,32 @@ node frontend/scripts/css-consistency.mjs
 The backend is Go with Bun for database access; the frontend is an embedded
 Nuxt SPA. See [CLAUDE.md](CLAUDE.md) for architecture and contributor guidance.
 
+### Host the project list alongside a website
+
+The project list defaults to `/`. To serve a separate landing page at `/` and
+Dovod projects at `/projects`, set the **build-time** frontend route:
+
+```bash
+docker build --build-arg NUXT_PROJECTS_PATH=/projects -t dovod:hosted .
+# Or, when building the frontend directly:
+cd frontend
+NUXT_PROJECTS_PATH=/projects npm run generate
+```
+
+The setting changes only the project-list route. Project details, authentication,
+API, OAuth, MCP, and asset paths stay at their existing addresses. Navigation,
+breadcrumbs, the home shortcut, and login/register fallbacks resolve the named
+project-list route. The generated web app manifest starts at that route too.
+Changing a running container's environment is insufficient;
+rebuild the frontend or image. The default build remains suitable for local use.
+
+Use nginx to serve website routes explicitly and proxy the remaining paths to
+Dovod without rewriting the URI. Give the website a different Nuxt asset prefix
+(e.g. `/website-assets/`), leaving `/_nuxt/` to the application. Set
+`MCP_RESEARCH_BASE_URL=https://dovod.app` and preserve the host, forwarded protocol,
+WebSocket upgrade headers, and unbuffered streaming responses at the proxy.
+The companion `dovod-app/website` repository includes this nginx configuration.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

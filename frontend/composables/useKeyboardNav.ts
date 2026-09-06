@@ -1,11 +1,11 @@
 export function useKeyboardNav() {
   if (import.meta.server) return
 
+  const router = useRouter()
+
   function handleKey(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement).tagName
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
-
-    const router = useRouter()
 
     switch (e.key) {
       case 'G':
@@ -14,7 +14,7 @@ export function useKeyboardNav() {
           // account to see. One keystroke to the login wall is not a shortcut.
           if (shareActive()) return
           e.preventDefault()
-          router.push('/')
+          router.push({ name: 'index' })
         }
         break
     }

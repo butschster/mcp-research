@@ -7,7 +7,7 @@
   <div v-else-if="template" class="template-page">
     <PageHeader
       :crumbs="[
-        { label: 'Projects', to: '/' },
+        { label: 'Projects', to: { name: 'index' } },
         { label: 'Methodologies', to: '/templates' },
         { label: template.name },
       ]"

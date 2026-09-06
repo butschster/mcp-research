@@ -8,7 +8,7 @@
     <!-- Toolbar (hidden in print) -->
     <div class="export-toolbar no-print">
       <Breadcrumbs :crumbs="[
-        { label: 'Projects', to: '/' },
+        { label: 'Projects', to: { name: 'index' } },
         { label: exportData.research.name, to: `/research/${researchSlug}` },
         { label: exportData.session.title, to: `/research/${researchSlug}/session/${sessionSlug}` },
         { label: 'Export' }

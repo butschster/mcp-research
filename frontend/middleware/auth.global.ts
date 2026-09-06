@@ -46,7 +46,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/login' || to.path === '/register') {
     // Already signed in: go where they were headed, or home.
     if (isAuthenticated.value) {
-      return navigateTo(safeNext(to.query.next) ?? '/')
+      return navigateTo(safeNext(to.query.next) ?? useRouter().resolve({ name: 'index' }).path)
     }
     return
   }

@@ -7,7 +7,7 @@
   <div v-else-if="research" class="marks-page">
     <PageHeader
       :crumbs="[
-        { label: 'Projects', to: '/' },
+        { label: 'Projects', to: { name: 'index' } },
         { label: research.name, to: `/research/${researchSlug}` },
         { label: 'Marks' },
       ]"

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Breadcrumbs :crumbs="[{ label: 'Projects', to: '/' }, { label: 'Teams', to: '/teams' }, { label: team?.name || 'Team' }]" />
+    <Breadcrumbs :crumbs="[{ label: 'Projects', to: { name: 'index' } }, { label: 'Teams', to: '/teams' }, { label: team?.name || 'Team' }]" />
 
     <div v-if="loading" class="skeleton-list">
       <div class="skeleton-card title-skeleton"></div>
@@ -67,7 +67,7 @@
         <button v-if="ownerEmail" class="btn" @click="copyOwnerEmail">
           {{ copiedOwner ? '✓ Copied' : `Copy ${ownerEmail}` }}
         </button>
-        <NuxtLink class="btn" to="/">Your projects</NuxtLink>
+        <NuxtLink class="btn" :to="{ name: 'index' }">Your projects</NuxtLink>
       </EmptyState>
 
       <div class="section-bar">

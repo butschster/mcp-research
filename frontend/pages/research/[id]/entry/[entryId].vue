@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="page-header">
       <Breadcrumbs :crumbs="[
-        { label: 'Projects', to: '/' },
+        { label: 'Projects', to: { name: 'index' } },
         { label: researchName, to: `/research/${researchSlug}` },
         { label: sectionName, to: `/research/${researchSlug}?section=${entry.section_id}` },
         { label: entry.title }

@@ -33,7 +33,7 @@ function copyUrl() {
   <header class="api-docs-bar">
     <div class="api-docs-bar-row">
     <div class="api-docs-bar-left">
-      <NuxtLink to="/" class="api-docs-wordmark" aria-label="Dovod home"><BrandLogo /></NuxtLink>
+      <NuxtLink :to="{ name: 'index' }" class="api-docs-wordmark" aria-label="Dovod home"><BrandLogo /></NuxtLink>
       <!-- Deliberately small. Scalar renders the document's own title as a large
            heading directly below; a page title above it would give the screen
            two competing headlines and push the document's first line under the

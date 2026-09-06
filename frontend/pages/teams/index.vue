@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Breadcrumbs :crumbs="[{ label: 'Projects', to: '/' }, { label: 'Teams' }]" />
+    <Breadcrumbs :crumbs="[{ label: 'Projects', to: { name: 'index' } }, { label: 'Teams' }]" />
 
     <PageHeader title="Teams" lead="Team members can access all projects in their team.">
       <!-- Neutral, like every other page header in the product. A filled button
