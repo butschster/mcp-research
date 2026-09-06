@@ -927,6 +927,8 @@ func NewServer(
 		returns("200", "Nodes and edges.", envelope(map[string]*huma.Schema{
 			"nodes": listOf(&huma.Schema{Type: "object"}),
 			"edges": listOf(&huma.Schema{Type: "object"}),
+			"available_node_types": listOf(&huma.Schema{Type: "string",
+				Description: "The node types this caller could receive: always `section` and `entry`; `session` and `question` when sessions are readable; `task` when tasks are. Through a share link the include flags decide; the list never names what was withheld."}),
 		})).
 		build(), gh.Get)
 
@@ -1563,6 +1565,7 @@ func NewServer(
 		links:    elHandler,
 		export:   exportHandler,
 		share:    shh,
+		graph:    gh,
 	}, sShare)
 
 	// Backfill short codes for all records missing them

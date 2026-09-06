@@ -1,14 +1,18 @@
 <template>
   <div ref="rootRef" class="action-menu">
     <button
-      class="btn btn-icon"
-      :title="title"
-      :aria-label="title"
+      :class="label ? 'btn' : 'btn btn-icon'"
+      :title="label ? undefined : title"
+      :aria-label="label ? undefined : title"
       aria-haspopup="true"
       :aria-expanded="open ? 'true' : 'false'"
       @click.stop="open = !open"
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      <template v-if="label">
+        {{ label }}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </template>
+      <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
     </button>
 
     <Transition name="action-menu">
@@ -37,8 +41,15 @@
  */
 const props = withDefaults(
   defineProps<{
-    /** Tooltip on the trigger button. */
+    /** Tooltip on the `⋯` trigger. Unused when `label` is set: a labelled button needs no tooltip. */
     title?: string
+    /**
+     * A visible name on the trigger, which turns it from the `⋯` icon into an
+     * ordinary labelled `.btn` with a chevron. For a menu that is the one
+     * labelled control in a row of icons — the visitor's "Views" — and must be
+     * the thing the eye lands on.
+     */
+    label?: string
     /** Which edge the panel is anchored to. */
     align?: 'left' | 'right'
     /**

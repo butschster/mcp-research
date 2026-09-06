@@ -488,3 +488,77 @@ func TestShare_DiesWithItsResearch(t *testing.T) {
 		t.Errorf("a share outlived its research: %v", err)
 	}
 }
+
+func TestShare_UpdateTakesWriteAccessAndALiveLink(t *testing.T) {
+	k := newShareKit(t)
+	owner, viewer, research, _, _ := k.sharedResearch(t, domain.TeamViewer)
+	seed, err := k.shares.Create(owner, research.ID, CreateShareRequest{Label: "  Client review  "})
+	if err != nil {
+		t.Fatalf("seed share: %v", err)
+	}
+	widen := UpdateShareRequest{Include: &domain.ShareInclude{Sessions: true, Tasks: true, Roadmaps: true, Export: true}}
+
+	// A viewer may read the research through the team, but changing what a
+	// public link exposes is the same class of act as issuing one.
+	if _, err := k.shares.Update(viewer, seed.Share.ID, widen); !errors.Is(err, ErrForbidden) {
+		t.Errorf("a viewer widened a share: %v", err)
+	}
+	// A stranger learns nothing, not even that the id is real.
+	stranger := userCtx(createTestUser(t, k.db, "stranger-update@test.com", "Stranger"))
+	if _, err := k.shares.Update(stranger, seed.Share.ID, widen); !errors.Is(err, ErrNotFound) {
+		t.Errorf("a stranger updating a share got %v, want ErrNotFound", err)
+	}
+	// And the share visitor holding the link least of all.
+	if _, err := k.shares.Update(visit(t, k, seed.Token), seed.Share.ID, widen); err == nil {
+		t.Error("a visitor widened the link they were handed")
+	}
+
+	// The owner may, and the same token now carries the new flags.
+	label := "  Website demo  "
+	updated, err := k.shares.Update(owner, seed.Share.ID, UpdateShareRequest{Label: &label, Include: widen.Include})
+	if err != nil {
+		t.Fatalf("owner update: %v", err)
+	}
+	if updated.Label != "Website demo" || !updated.Include.Sessions || !updated.Include.Tasks {
+		t.Errorf("update stored %+v", updated)
+	}
+	resolved, err := k.shares.Resolve(context.Background(), seed.Token, "")
+	if err != nil || !resolved.Include.Sessions {
+		t.Errorf("the token does not carry the widened flags: %+v %v", resolved, err)
+	}
+
+	// Label alone leaves the flags where they are; include alone leaves the
+	// label. Neither is a patch of the other.
+	only := "Renamed"
+	if got, err := k.shares.Update(owner, seed.Share.ID, UpdateShareRequest{Label: &only}); err != nil || !got.Include.Sessions || got.Label != "Renamed" {
+		t.Errorf("label-only update: %+v %v", got, err)
+	}
+	if got, err := k.shares.Update(owner, seed.Share.ID, UpdateShareRequest{Include: &domain.ShareInclude{}}); err != nil || got.Include.Sessions || got.Label != "Renamed" {
+		t.Errorf("include-only update: %+v %v", got, err)
+	}
+
+	// An expired link is dead, and the owner is told so rather than handed a
+	// silent success on a row nobody can open.
+	if _, err := k.db.NewUpdate().Table("shares").Set("expires_at=?", "2000-01-01 00:00:00").
+		Where("id=?", seed.Share.ID).Exec(context.Background()); err != nil {
+		t.Fatalf("expire share: %v", err)
+	}
+	if _, err := k.shares.Update(owner, seed.Share.ID, widen); !errors.Is(err, ErrShareInactive) || !errors.Is(err, ErrConflict) {
+		t.Errorf("updating an expired link got %v, want ErrShareInactive (a conflict)", err)
+	}
+
+	// So is a revoked one.
+	second, err := k.shares.Create(owner, research.ID, CreateShareRequest{})
+	if err != nil {
+		t.Fatalf("second share: %v", err)
+	}
+	if err := k.shares.Revoke(owner, second.Share.ID); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	if _, err := k.shares.Update(owner, second.Share.ID, widen); !errors.Is(err, ErrShareInactive) {
+		t.Errorf("updating a revoked link got %v, want ErrShareInactive", err)
+	}
+	if _, err := k.shares.Resolve(context.Background(), second.Token, ""); !errors.Is(err, ErrShareUnavailable) {
+		t.Errorf("a revoked link came back after an update attempt: %v", err)
+	}
+}

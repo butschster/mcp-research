@@ -39,6 +39,11 @@ const unlock = ref<string>('')
  */
 const research = ref<any | null>(null)
 const sections = ref<any[]>([])
+/**
+ * Set by a page under the shell that met a 404 on the prefix. The shell
+ * watches it and swaps in the dead screen; see the comment there.
+ */
+const gone = ref(false)
 
 const NO_INCLUDE: ShareInclude = { sessions: false, tasks: false, roadmaps: false, export: false }
 
@@ -120,6 +125,7 @@ export function useShare() {
    */
   function claim(t: string) {
     token.value = t
+    gone.value = false
     if (!import.meta.server) unlock.value = sessionStorage.getItem(unlockKey(t)) || ''
   }
 
@@ -150,6 +156,12 @@ export function useShare() {
     unlock.value = ''
     research.value = null
     sections.value = []
+    gone.value = false
+  }
+
+  /** A page under the shell reports that the link no longer resolves. */
+  function markGone() {
+    gone.value = true
   }
 
   /**
@@ -184,6 +196,8 @@ export function useShare() {
     // type error for no safety the shell does not already provide.
     research: computed(() => research.value),
     sections: computed<any[]>(() => sections.value),
+    gone: readonly(gone),
+    markGone,
     claim,
     setPayload,
     setUnlock,

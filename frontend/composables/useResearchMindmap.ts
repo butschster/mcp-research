@@ -69,7 +69,26 @@ const NODE_SIZES: Record<string, { width: number; height: number }> = {
   task: { width: 400, height: 100 },
 }
 
-export function useResearchMindmap(researchId: string) {
+/**
+ * Fetches a JSON body for a path relative to the API root. Injected for the
+ * same reason `useResearchGraph` takes one: the owner's page wants the
+ * authenticated fetch, the shared page wants `shareFetch`, and neither should
+ * be guessed from module state.
+ */
+export type MindmapFetcher = <T>(path: string) => Promise<T>
+
+export interface MindmapOptions {
+  fetcher?: MindmapFetcher
+  /**
+   * Which optional parts to ask for. A share link that excludes sessions
+   * answers 404 to the sessions list; not asking is quieter than asking and
+   * catching, and it keeps a withheld part from ever appearing as a request in
+   * the visitor's network tab.
+   */
+  parts?: { sessions?: boolean; tasks?: boolean }
+}
+
+export function useResearchMindmap(researchId: string, options: MindmapOptions = {}) {
   const nodes = ref<Node[]>([])
   const edges = ref<Edge[]>([])
   const loading = ref(true)
@@ -79,29 +98,46 @@ export function useResearchMindmap(researchId: string) {
   const visibleGroups = ref<Set<string>>(new Set(['entries', 'questions', 'tasks']))
   const showCrossrefs = ref(false)
 
-  async function fetchAllData() {
+  function resolveFetcher(): MindmapFetcher {
+    if (options.fetcher) return options.fetcher
     const config = useRuntimeConfig()
     const base = config.public.apiBase || ''
     const { authFetch } = useAuth()
+    return <T>(path: string) => authFetch<T>(`${base}/api${path}`)
+  }
 
-    const researchRes = await authFetch<{ data: ResearchData }>(`${base}/api/researches/${researchId}`)
+  async function fetchAllData() {
+    const fetch = resolveFetcher()
+    const wantSessions = options.parts?.sessions ?? true
+    const wantTasks = options.parts?.tasks ?? true
+
+    // The research and its sections are the map; without them there is nothing
+    // to draw and the failure is the page's. Everything after this is a part
+    // that may legitimately be absent — a link that excludes tasks answers 404
+    // to the tasks list, and that is the link working, not an error.
+    const researchRes = await fetch<{ data: ResearchData }>(`/researches/${researchId}`)
     const research = researchRes.data.research
     const sections = researchRes.data.sections ?? []
 
-    const tasksRes = await authFetch<{ data: TaskData[] }>(`${base}/api/researches/${researchId}/tasks`)
-    const tasks = tasksRes.data ?? []
+    const tasks = wantTasks
+      ? await fetch<{ data: TaskData[] }>(`/researches/${researchId}/tasks`).then(r => r.data ?? []).catch(() => [] as TaskData[])
+      : []
 
-    const sessionsRes = await authFetch<{ data: any[] }>(`${base}/api/researches/${researchId}/sessions`)
-    const sessions = sessionsRes.data ?? []
+    const sessions = wantSessions
+      ? await fetch<{ data: any[] }>(`/researches/${researchId}/sessions`).then(r => r.data ?? []).catch(() => [] as any[])
+      : []
 
-    // Fetch entries for all sections in parallel
+    // Fetch entries for all sections in parallel. A section whose list fails
+    // draws empty rather than taking the map down.
     const entriesBySection: Record<string, EntryData[]> = {}
     await Promise.all(
       sections.map(async (sec) => {
-        const res = await authFetch<{ data: EntryData[] }>(
-          `${base}/api/researches/${researchId}/sections/${sec.id}/entries`
-        )
-        entriesBySection[sec.id] = res.data ?? []
+        try {
+          const res = await fetch<{ data: EntryData[] }>(`/researches/${researchId}/sections/${sec.id}/entries`)
+          entriesBySection[sec.id] = res.data ?? []
+        } catch {
+          entriesBySection[sec.id] = []
+        }
       })
     )
 
@@ -113,7 +149,7 @@ export function useResearchMindmap(researchId: string) {
     await Promise.all(
       sessions.map(async (sess: any) => {
         try {
-          const res = await authFetch<{ data: SessionData }>(`${base}/api/researches/${researchId}/sessions/${sess.id}`)
+          const res = await fetch<{ data: SessionData }>(`/researches/${researchId}/sessions/${sess.id}`)
           const questions: Array<{ id: string; code: string; text: string; status: string; answer: string }> = []
           for (const statusGroup of Object.values(res.data?.questions ?? {})) {
             for (const q of statusGroup) {
@@ -135,8 +171,7 @@ export function useResearchMindmap(researchId: string) {
     )
 
     // Fetch cross-references
-    const crossrefsRes = await authFetch<{ data: any[] }>(`${base}/api/researches/${researchId}/crossrefs`)
-    const crossrefs = crossrefsRes.data ?? []
+    const crossrefs = await fetch<{ data: any[] }>(`/researches/${researchId}/crossrefs`).then(r => r.data ?? []).catch(() => [] as any[])
 
     return { research, sections, entriesBySection, tasks, sessionGroups, crossrefs }
   }
@@ -505,14 +540,24 @@ export function useResearchMindmap(researchId: string) {
 
   let cachedData: Awaited<ReturnType<typeof fetchAllData>> | null = null
 
+  /** The HTTP status of the last failure, when there was one. */
+  const errorStatus = ref<number | null>(null)
+  /** How many things the map holds besides the root — for the empty state. */
+  const itemCount = ref(0)
+
   async function refresh() {
     loading.value = true
     error.value = null
+    errorStatus.value = null
     try {
       cachedData = await fetchAllData()
+      const d = cachedData
+      itemCount.value = Object.values(d.entriesBySection).reduce((n, e) => n + e.length, 0)
+        + d.sessionGroups.length + d.tasks.length
       rebuildGraph()
     } catch (e: any) {
       error.value = e?.message ?? 'Failed to load data'
+      errorStatus.value = e?.response?.status ?? e?.statusCode ?? null
     } finally {
       loading.value = false
     }
@@ -571,6 +616,8 @@ export function useResearchMindmap(researchId: string) {
     edges,
     loading,
     error,
+    errorStatus,
+    itemCount,
     refresh,
     collapsedIds,
     toggleCollapse,

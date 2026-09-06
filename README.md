@@ -115,11 +115,15 @@ See the [database upgrade guide](docs/databases.md) for deployment and rollback 
 
 Work with a team, send a read-only share link, or export a project as Markdown,
 a printable document, an Obsidian vault, or portable JSON for another Dovod
-instance. Share links can expire, require a password, and be revoked. You
-choose whether they include sessions, tasks, roadmaps, and export.
+instance. A share link opens the documents together with the knowledge graph
+and the mind map. Links can expire, require a password, and be revoked. You
+choose whether they also include sessions, tasks, roadmaps, and export, and you
+can change that choice later on a link people already hold, without issuing a
+new address.
 
-Private skills, memory, revision history, and review marks stay out of
-public share links.
+Private skills, memory, revision history, and review marks stay out of public
+share links, and the shared graph and mind map leave out whatever the link does
+not include.
 
 ## Get started
 

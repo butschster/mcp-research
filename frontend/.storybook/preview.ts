@@ -13,6 +13,8 @@ import ProgressBar from '../components/ProgressBar.vue'
 import EntryArtifactFrame from '../components/entry/ArtifactFrame.vue'
 import CopyableSecret from '../components/CopyableSecret.vue'
 import ResearchShareRowList from '../components/research/ShareRowList.vue'
+import ResearchShareIncludeFields from '../components/research/ShareIncludeFields.vue'
+import ThemeToggle from '../components/ThemeToggle.vue'
 import EntryDiffView from '../components/entry/DiffView.vue'
 import EntryAuthorBadge from '../components/entry/AuthorBadge.vue'
 import EntryFieldChanges from '../components/entry/FieldChanges.vue'
@@ -120,6 +122,15 @@ setup((app) => {
   app.component('EntryArtifactFrame', EntryArtifactFrame)
   app.component('CopyableSecret', CopyableSecret)
   app.component('ResearchShareRowList', ResearchShareRowList)
+  // ShareDialog draws the same four checkboxes in its create form and its edit
+  // form through this one component, by the folder-prefixed name Nuxt derives.
+  // Unregistered, both forms lose the only control that says what the link
+  // shows — and the dialog still renders, which is the ea31ebb failure exactly.
+  app.component('ResearchShareIncludeFields', ResearchShareIncludeFields)
+  // The share banner, the password gate and the standalone share screens each
+  // reach for this by name — it is the only theme control a visitor has, and a
+  // visitor has no other chrome to find one in.
+  app.component('ThemeToggle', ThemeToggle)
   // EntriesView reaches for both of these by name.
   app.component('ResearchImportDropZone', ResearchImportDropZone)
   app.component('ResearchImportPreviewDialog', ResearchImportPreviewDialog)

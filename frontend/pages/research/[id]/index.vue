@@ -55,11 +55,11 @@
               Roadmaps
               <span v-if="roadmaps.length" class="btn-count">{{ roadmaps.length }}</span>
             </NuxtLink>
-            <NuxtLink :to="`/research/${researchSlug}/mindmap`" class="action-menu-item">
+            <NuxtLink :to="mindmapPath(researchSlug)" class="action-menu-item">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="M9.5 10.5 5.5 7.5"/><path d="M14.5 10.5l4-3"/><path d="M9.5 13.5 5.5 16.5"/><path d="M14.5 13.5l4 3"/></svg>
               Mind map
             </NuxtLink>
-            <NuxtLink :to="`/research/${researchSlug}/graph`" class="action-menu-item">
+            <NuxtLink :to="graphPath(researchSlug)" class="action-menu-item">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5"/><path d="M15.5 8.5 8.5 15.5"/><path d="M6 9v6"/><path d="M18 9v6"/></svg>
               Knowledge graph
             </NuxtLink>
@@ -212,12 +212,31 @@
       :creating="creatingShare"
       :error="shareError"
       :issued-url="issuedShareUrl"
-      :busy-id="revokingShareId"
+      :busy-id="revokingShareId || savingShareId"
       :recoverable-links="recoverableShareLinks"
+      :saving="!!savingShareId"
+      :save-error="shareSaveError"
+      :saved-tick="shareSavedTick"
       @create="createShare"
       @revoke="askRevokeShare"
+      @update="updateShare"
+      @refresh="refreshSharesAfterFailure"
+      @clear-error="shareSaveError = ''"
       @dismiss-reveal="issuedShareUrl = ''"
-      @close="sharesOpen = false"
+      @close="closeShares"
+    />
+    <!-- Widening confirms; narrowing does not. Neither is optimistic: a row
+         that showed "sessions" before the server agreed could lie about what a
+         stranger can read. -->
+    <ConfirmModal
+      :visible="!!pendingShareUpdate"
+      title="Show more to everyone who has this link?"
+      :message="wideningMessage"
+      confirm-label="Show more"
+      variant="danger"
+      :loading="!!savingShareId"
+      @confirm="confirmShareUpdate"
+      @cancel="pendingShareUpdate = null"
     />
     <ConfirmModal
       :visible="!!shareToRevoke"
@@ -243,6 +262,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ShareInclude } from '~/composables/useShare'
 const route = useRoute()
 const id = route.params.id as string
 
@@ -477,6 +497,88 @@ async function confirmRevokeShare() {
   } finally {
     revokingShareId.value = ''
   }
+}
+
+// --- Editing a link in place ---
+//
+// The address survives, which is the point: a link pasted into a report or a
+// website keeps working while what it shows changes underneath it.
+const savingShareId = ref('')
+const shareSaveError = ref('')
+const shareSavedTick = ref(0)
+const pendingShareUpdate = ref<{ share: any; payload: any; added: string[] } | null>(null)
+
+const SHARE_INCLUDE_WORDS: Record<string, string> = {
+  roadmaps: 'roadmaps',
+  sessions: 'sessions',
+  tasks: 'tasks',
+  export: 'downloading the project as a file',
+}
+
+const wideningMessage = computed(() => {
+  const p = pendingShareUpdate.value
+  if (!p) return ''
+  const what = p.added.join(' and ')
+  const n = p.share.view_count ?? 0
+  const opened = n
+    ? `It has been opened ${n === 1 ? 'once' : n + ' times'}.`
+    : "It hasn't been opened yet, but the link is already out."
+  return `Adding ${what} means anyone already holding this link can see them, including people you shared it with weeks ago. ${opened} You can narrow it again at any time, but you cannot un-show what somebody has already read.`
+})
+
+function updateShare(payload: { id: string; label: string; include: ShareInclude }) {
+  const current = shares.value.find((s: any) => s.id === payload.id)
+  if (!current) return
+  shareSaveError.value = ''
+  const wanted = payload.include as unknown as Record<string, boolean>
+  const added = Object.keys(SHARE_INCLUDE_WORDS).filter(k => wanted[k] && !current.include?.[k])
+  // Removing exposure needs no ceremony. Adding it, on a link that is live and
+  // out in the world, does.
+  if (added.length && isShareLive(current)) {
+    pendingShareUpdate.value = { share: current, payload, added: added.map(k => SHARE_INCLUDE_WORDS[k] ?? k) }
+    return
+  }
+  void performShareUpdate(payload)
+}
+
+function confirmShareUpdate() {
+  const p = pendingShareUpdate.value
+  if (p) void performShareUpdate(p.payload)
+}
+
+async function performShareUpdate(payload: { id: string; label: string; include: ShareInclude }) {
+  savingShareId.value = payload.id
+  shareSaveError.value = ''
+  try {
+    const res = await authFetch<{ data: { share: any } }>(`${rtBase}/api/shares/${payload.id}`, {
+      method: 'PUT',
+      body: { label: payload.label, include: payload.include },
+    })
+    // The row repaints from the server's answer and from nothing else.
+    shares.value = shares.value.map((s: any) => (s.id === res.data.share.id ? res.data.share : s))
+    shareSavedTick.value++
+    useToasts().success('Link updated.')
+  } catch (e: any) {
+    const status = e?.response?.status ?? e?.statusCode
+    // 409 is the owner-surface answer for "revoked or expired"; 404 is a row
+    // that is gone altogether. Both mean the edit has nothing to land on.
+    shareSaveError.value = status === 409 || status === 404
+      ? 'dead'
+      : "Couldn't save the change. The link is unchanged — try again."
+  } finally {
+    savingShareId.value = ''
+    pendingShareUpdate.value = null
+  }
+}
+
+async function refreshSharesAfterFailure() {
+  shareSaveError.value = ''
+  await loadShares()
+}
+
+function closeShares() {
+  sharesOpen.value = false
+  shareSaveError.value = ''
 }
 
 // Download portable JSON

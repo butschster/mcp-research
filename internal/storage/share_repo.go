@@ -174,6 +174,32 @@ func (r *ShareRepository) Revoke(ctx context.Context, id string) error {
 	return nil
 }
 
+// Update changes what a live link is called and what it exposes. The WHERE
+// clause refuses a revoked row for the same reason Revoke's does: a link that
+// has been taken back must not be quietly re-armed by an edit that raced the
+// revocation, and the caller is told "already gone" rather than "saved".
+// Expiry is checked by the service, which is the one place that knows the
+// clock; a revoked row is refused here because the column is right there.
+func (r *ShareRepository) Update(ctx context.Context, id, label string, include domain.ShareInclude) error {
+	inc, err := json.Marshal(include)
+	if err != nil {
+		return fmt.Errorf("marshal include: %w", err)
+	}
+	res, err := r.db.NewUpdate().
+		Table("shares").
+		Set("label=?", label).
+		Set("include=?", string(inc)).
+		Where("id=? AND revoked_at IS NULL", id).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("update share: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // TouchSeen records that the link was opened. Errors are dropped on purpose:
 // this is analytics, and a visitor must not be refused a page because a counter
 // could not be written.

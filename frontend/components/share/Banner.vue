@@ -9,8 +9,8 @@
       >
         <span class="share-dot" aria-hidden="true"></span>
         <span class="share-banner-text">
-          <strong>Read-only shared view</strong>
-          <span v-if="ownerName" class="share-by">&mdash; shared by {{ ownerName }}</span>
+          <strong>Read-only shared view</strong>{{ ' ' }}
+          <span v-if="ownerName" class="share-by">&mdash; shared by {{ ownerName }}</span>{{ ' ' }}
           <span class="share-contents">&middot; {{ contents }}</span>
         </span>
         <svg
@@ -21,12 +21,19 @@
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      <ActivityIndicator :active="live" label="Updating" />
+      <!-- Outside the disclosure button: a button inside a button is invalid
+           markup and unreachable by keyboard. The toggle is the fix for "the
+           theme does not switch on the shared page" — there was no control
+           here at all, because the share shell is chromeless. -->
+      <div class="share-banner-tools">
+        <ActivityIndicator :active="live" label="Updating" />
+        <ThemeToggle size="sm" />
+      </div>
     </div>
 
     <div v-if="open" id="share-banner-detail" class="container share-banner-detail">
       <p class="card-meta">
-        You have read-only access to this shared project.
+        You have read-only access to this shared project<template v-if="ownerName">, shared by {{ ownerName }}</template>.
       </p>
       <p class="card-meta">
         <strong>Included:</strong> {{ contents }}.
@@ -95,6 +102,12 @@ const expiryPhrase = computed(() => shareExpiryPhrase(props.expiresAt))
 .share-banner-main:hover { color: var(--color-text); }
 .share-banner-text { min-width: 0; overflow-wrap: anywhere; }
 .share-banner-text strong { color: var(--color-text); font-weight: var(--weight-semibold); }
+.share-banner-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
 .share-dot {
   width: 7px;
   height: 7px;
@@ -114,6 +127,11 @@ const expiryPhrase = computed(() => shareExpiryPhrase(props.expiresAt))
 
 @media (max-width: 768px) {
   .share-contents { display: none; }
+}
+/* On a phone the name wrapped the strip to two lines; it is repeated in the
+   disclosure, one tap away, so the strip stays one line. */
+@media (max-width: 480px) {
+  .share-by { display: none; }
 }
 @media print {
   .share-banner { display: none; }
