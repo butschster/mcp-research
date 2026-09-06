@@ -60,6 +60,14 @@ const config: StorybookConfig = {
                 'researchPath',
                 'entryPath',
                 'sessionPath',
+                // A mind-map question or answer node navigates through this
+                // and imports nothing. It is called from a click handler
+                // rather than from render, so an unresolved name is not a
+                // blank card — it is a ReferenceError the first time somebody
+                // clicks one, which is the state the mind map is opened in.
+                'questionPath',
+                'graphPath',
+                'mindmapPath',
                 'roadmapPath',
                 'roadmapsPath',
                 'tasksPath',
@@ -77,6 +85,13 @@ const config: StorybookConfig = {
                 'shareToken',
                 'shareInclude',
                 'shareResearchCode',
+                // Whether a link is still live. The share row list and the
+                // share dialog both take it as a value — `const isLive =
+                // isShareLive` — rather than calling it, which is why
+                // lint-frontend.py never reported it: that check looks for
+                // `name(`. Without it here every story of both components died
+                // on a ReferenceError in setup and rendered nothing at all.
+                'isShareLive',
               ],
               // Real composable, not a stub: it is module-scoped state plus
               // vue refs, so a component that raises a toast raises a real one.

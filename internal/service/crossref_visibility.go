@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // VisibleCrossRefs returns the references with everything the reader may not

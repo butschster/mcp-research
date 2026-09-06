@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 // Access decides what the caller may do to a research. It is the only place in

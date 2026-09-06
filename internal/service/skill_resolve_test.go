@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // ResolveSlug is the read the MCP write tools are built on: they hold a slug

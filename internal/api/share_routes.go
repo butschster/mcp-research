@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/api/handlers"
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/api/handlers"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // shareRoutes builds the public read surface a share link opens onto.
@@ -38,6 +38,10 @@ type shareDeps struct {
 	links    *handlers.ExternalLinkHandler
 	export   *handlers.ExportHandler
 	share    *handlers.ShareHandler
+	// graph draws the research as nodes and edges. It is mounted ungated because
+	// documents and sections are always in a link; the handler itself withholds
+	// the session, question and task nodes the include flags do not cover.
+	graph *handlers.GraphHandler
 }
 
 // shareReadLimit is generous because one page load is many fetches — the
@@ -97,6 +101,26 @@ func registerShareRoutes(rt *router, deps shareDeps, sShare *huma.Schema) {
 			"count": {Type: "integer"},
 		})).
 		build(), deps.share.List)
+
+	rt.route(accessWrite, op("PUT", "/api/shares/{id}", "Change what a share link shows",
+		"Renames a live link or changes its `include` flags without reissuing it, so an address people have already saved keeps working.\n\n"+
+			"**`include` is a complete replacement, not a patch**: send all four flags. A flag left out of the object is `false`. Widening a link shows more to everyone who already holds it, at once; the UI confirms that before calling this.\n\n"+
+			"A revoked or expired link answers `409` — this is the owner's surface, where knowing the link died is the useful answer.").
+		tag("Share links").
+		body("The new label and/or the full set of include flags.", envelope(map[string]*huma.Schema{
+			"label": {Type: "string"},
+			"include": envelope(map[string]*huma.Schema{
+				"sessions": {Type: "boolean"},
+				"tasks":    {Type: "boolean"},
+				"roadmaps": {Type: "boolean"},
+				"export":   {Type: "boolean"},
+			}),
+		})).
+		returns("200", "The updated link, in the same shape the list returns.", envelope(map[string]*huma.Schema{
+			"data": envelope(map[string]*huma.Schema{"share": sShare}),
+		})).
+		responds("409", "The link is revoked or expired and cannot be changed.").
+		build(), deps.share.Update)
 
 	rt.route(accessWrite, op("DELETE", "/api/shares/{id}", "Revoke a share link",
 		"The link stops working immediately. A revoked link, an expired one, an unknown one and one belonging to somebody else are all the same 404 with the same body — telling them apart would turn the prefix into an oracle for which ids are real.").
@@ -202,6 +226,14 @@ func shareRead(deps shareDeps) http.Handler {
 	sub.HandleFunc("GET /api/entries/{id}/crossrefs", deps.crossref.GetForEntry)
 	sub.HandleFunc("GET /api/researches/{id}/links", deps.links.ListByResearch)
 	sub.HandleFunc("GET /api/entries/{id}/links", deps.links.ListByEntry)
+
+	// The graph, ungated at the route: sections and documents are always in a
+	// link, so the route always answers. It is the handler that leaves out the
+	// session, question and task nodes a link's flags do not cover — the same
+	// "a route that serves an optional part must gate itself" rule the export
+	// and the roadmap `ref_data` follow. `needs` cannot express "serve the
+	// route but not these nodes".
+	sub.HandleFunc("GET /api/researches/{id}/graph", deps.graph.Get)
 
 	// Opt-in parts.
 	sub.Handle("GET /api/researches/{id}/roadmaps",

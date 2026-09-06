@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/butschster/mcp-research/internal/service"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/service"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 type SessionHandler struct {

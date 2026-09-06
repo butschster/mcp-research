@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/butschster/mcp-research/internal/docs"
+	"github.com/dovod-app/app/internal/docs"
 )
 
 func handleLLMSDocs() http.Handler {

@@ -1,10 +1,11 @@
 package ws
 
 import (
+	"context"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // A share connection is the one reader on the hub with no account. Every rule
@@ -133,5 +134,46 @@ func drain(c *Client) {
 		default:
 			return
 		}
+	}
+}
+
+// narrowingShares answers every re-check with the flags it is told to, which
+// is what the validator does after an owner edits the link.
+type narrowingShares struct{ share *auth.Share }
+
+func (n narrowingShares) Scope(context.Context, string, string) *auth.Share { return n.share }
+
+// An owner narrowing a live link must narrow its open sockets too. The socket
+// filters by the flags it was opened with; the periodic re-check is where the
+// new flags have to land.
+func TestShareDelivery_ReCheckPicksUpNarrowedFlags(t *testing.T) {
+	hub := quietHub()
+	hub.SetAuthorizer(fakeAuth{}, true)
+	visitor := hub.attachShare("r1", domain.ShareInclude{Tasks: true}, 8)
+	visitor.shareToken = "mrs_x"
+
+	hub.deliver(Event{Type: "task.updated", Entity: "task", EntityID: "t1", ResearchID: "r1"})
+	if _, ok := received(t, visitor); !ok {
+		t.Fatal("a link including tasks did not get a task event")
+	}
+
+	// The owner removes tasks from the link.
+	hub.SetShareValidator(narrowingShares{share: &auth.Share{ID: "share-1", ResearchID: "r1", Include: domain.ShareInclude{}}})
+	if !hub.credentialStillValid(visitor) {
+		t.Fatal("a narrowed link is still a live link")
+	}
+	hub.deliver(Event{Type: "task.updated", Entity: "task", EntityID: "t2", ResearchID: "r1"})
+	if got, ok := received(t, visitor); ok {
+		t.Errorf("after narrowing, the open socket still delivered a task event: %+v", got)
+	}
+	hub.deliver(Event{Type: "entry.updated", Entity: "entry", EntityID: "e1", ResearchID: "r1"})
+	if _, ok := received(t, visitor); !ok {
+		t.Error("narrowing the link stopped the documents it still includes")
+	}
+
+	// And a link that now opens onto another research is not renewed.
+	hub.SetShareValidator(narrowingShares{share: &auth.Share{ID: "share-1", ResearchID: "r2", Include: domain.ShareInclude{}}})
+	if hub.credentialStillValid(visitor) {
+		t.Error("a share that resolves to a different research was renewed")
 	}
 }

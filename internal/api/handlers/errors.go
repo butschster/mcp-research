@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // writeServiceError turns a service error into the status it deserves.

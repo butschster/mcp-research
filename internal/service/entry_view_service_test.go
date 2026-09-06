@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 func entryViewFixture(t *testing.T, role domain.TeamRole) (*roleKit, *EntryViewService, context.Context, context.Context, *domain.Research, *domain.Section) {

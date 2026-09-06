@@ -44,6 +44,30 @@ export function tasksPath(slug: string) {
 }
 
 /**
+ * One question, on the session that asked it.
+ *
+ * The owner has a page per question. A share does not — the session page is
+ * the nearest thing that exists and it lists the question — so under a link
+ * this lands on the session. A question node exists on a shared canvas only
+ * when the link includes sessions, so the destination is always there.
+ */
+export function questionPath(slug: string, sessionCode: string, questionCode: string) {
+  return shareActive()
+    ? `${shareBase()}/session/${sessionCode}`
+    : `/research/${slug}/session/${sessionCode}/question/${questionCode}`
+}
+
+/** The knowledge graph: documents, sections and the references between them. */
+export function graphPath(slug: string) {
+  return shareActive() ? `${shareBase()}/graph` : `/research/${slug}/graph`
+}
+
+/** The mind map. Both views draw content a link always carries, so both exist under a share. */
+export function mindmapPath(slug: string) {
+  return shareActive() ? `${shareBase()}/mindmap` : `/research/${slug}/mindmap`
+}
+
+/**
  * One task, on the board that holds it.
  *
  * The board has no page of its own per task — a task is a card and a modal — so

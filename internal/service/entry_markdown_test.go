@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // A document leaving as a file. The rules worth pinning are the two the issue

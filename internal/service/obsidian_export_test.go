@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 	"gopkg.in/yaml.v3"
 )
 

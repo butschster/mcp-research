@@ -115,11 +115,15 @@ See the [database upgrade guide](docs/databases.md) for deployment and rollback 
 
 Work with a team, send a read-only share link, or export a project as Markdown,
 a printable document, an Obsidian vault, or portable JSON for another Dovod
-instance. Share links can expire, require a password, and be revoked. You
-choose whether they include sessions, tasks, roadmaps, and export.
+instance. A share link opens the documents together with the knowledge graph
+and the mind map. Links can expire, require a password, and be revoked. You
+choose whether they also include sessions, tasks, roadmaps, and export, and you
+can change that choice later on a link people already hold, without issuing a
+new address.
 
-Private skills, memory, revision history, and review marks stay out of
-public share links.
+Private skills, memory, revision history, and review marks stay out of public
+share links, and the shared graph and mind map leave out whatever the link does
+not include.
 
 ## Get started
 
@@ -129,8 +133,8 @@ This builds the current source, including the Dovod interface described above.
 It requires Git and Docker.
 
 ```bash
-git clone https://github.com/butschster/mcp-research.git
-cd mcp-research
+git clone https://github.com/dovod-app/app.git
+cd app
 docker build -t dovod:local .
 
 docker run -d --name dovod \
@@ -148,22 +152,22 @@ Open **[localhost:8088](http://localhost:8088)**, create your account, and
 your projects across container restarts. This example exposes the web port on
 your own machine; see [deployment](#deployment) for a shared server.
 
-The repository, binary, image, environment variables, and API identifiers
-retain `mcp-research` / `research` names for compatibility. The product and UI
-use **Dovod**, **Projects**, and **Documents**.
+The binary, environment variables, and API identifiers retain `mcp-research` /
+`research` names for compatibility. The product and UI use **Dovod**,
+**Projects**, and **Documents**.
 
 ### Use a published release
 
 Download a binary for macOS, Linux, or Windows from
-[Releases](https://github.com/butschster/mcp-research/releases/latest). The
-binary includes the web interface. Published releases can lag behind `master`;
+[Releases](https://github.com/dovod-app/app/releases/latest). The binary
+includes the web interface. Published releases can lag behind `master`;
 use the source build above for the current UI and features.
 
 For example, on Linux x86_64:
 
 ```bash
 curl -fL -o mcp-research \
-  https://github.com/butschster/mcp-research/releases/latest/download/mcp-research-linux-amd64
+  https://github.com/dovod-app/app/releases/latest/download/mcp-research-linux-amd64
 chmod +x mcp-research
 ./mcp-research --transport sse --db dovod.db \
   --auth-enabled --base-url http://localhost:8088
@@ -171,7 +175,7 @@ chmod +x mcp-research
 
 Release assets also include `darwin-arm64`, `darwin-amd64`, `linux-arm64`,
 `windows-amd64.exe`, and `windows-arm64.exe` builds. Container releases are
-published as `ghcr.io/butschster/mcp-research:latest` and versioned tags.
+published as `ghcr.io/dovod-app/app:latest` and versioned tags.
 
 Give SQLite a database path such as `--db dovod.db`. Without a path or DSN,
 the default SQLite database is in memory and its contents disappear on exit.
@@ -352,10 +356,6 @@ node frontend/scripts/css-consistency.mjs
 The backend is Go with Bun for database access; the frontend is an embedded
 Nuxt SPA. See [CLAUDE.md](CLAUDE.md) for architecture and contributor guidance.
 
-## License
-
-MIT
-
 ### Host the project list alongside a website
 
 The project list defaults to `/`. To serve a separate landing page at `/` and
@@ -381,3 +381,7 @@ Dovod without rewriting the URI. Give the website a different Nuxt asset prefix
 `MCP_RESEARCH_BASE_URL=https://dovod.app` and preserve the host, forwarded protocol,
 WebSocket upgrade headers, and unbuffered streaming responses at the proxy.
 The companion `dovod-app/website` repository includes this nginx configuration.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

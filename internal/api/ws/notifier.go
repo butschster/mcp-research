@@ -3,7 +3,7 @@ package ws
 import (
 	"time"
 
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/service"
 )
 
 // HubNotifier bridges service.EventNotifier to the WebSocket Hub.

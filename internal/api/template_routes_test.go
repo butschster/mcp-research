@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/api/ws"
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/service"
-	"github.com/butschster/mcp-research/internal/storage"
-	"github.com/butschster/mcp-research/internal/testdb"
+	"github.com/dovod-app/app/internal/api/ws"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/service"
+	"github.com/dovod-app/app/internal/storage"
+	"github.com/dovod-app/app/internal/testdb"
 )
 
 // This file drives the real mux, because for the server-wide template library

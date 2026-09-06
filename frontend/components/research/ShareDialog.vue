@@ -38,14 +38,7 @@
       />
       <p class="modal-help">Only you see this. It's how you'll recognise the link.</p>
 
-      <fieldset class="share-fieldset">
-        <legend class="field-label">What the link shows</legend>
-        <p class="modal-help">Sections, documents and cross-references &middot; always</p>
-        <label class="check-row"><input v-model="form.roadmaps" type="checkbox" /> Roadmaps</label>
-        <label class="check-row"><input v-model="form.sessions" type="checkbox" /> Interview sessions, with questions and answers</label>
-        <label class="check-row"><input v-model="form.tasks" type="checkbox" /> Tasks</label>
-        <label class="check-row"><input v-model="form.export" type="checkbox" /> Downloading the project as a file</label>
-      </fieldset>
+      <ResearchShareIncludeFields v-model="form.include" />
 
       <label class="field-label" :for="expiryId">Stops working</label>
       <select :id="expiryId" v-model="form.expiry" class="text-input">
@@ -75,6 +68,48 @@
       </div>
     </template>
 
+    <!-- Edit: what a live link is called and what it shows. The address does
+         not change, which is the point — and the reason widening confirms. -->
+    <template v-else-if="view === 'edit' && editing">
+      <template v-if="saveError === 'dead'">
+        <h3 :id="titleId" class="modal-title">This link is no longer live</h3>
+        <p class="modal-help">It was revoked or expired while you had this open. Nothing was changed.</p>
+        <div class="modal-actions">
+          <button ref="backToListEl" class="btn btn-sm btn-primary" @click="backToList">Back to links</button>
+        </div>
+      </template>
+      <template v-else>
+        <h3 :id="titleId" class="modal-title">Edit &ldquo;{{ editing.label || 'Untitled link' }}&rdquo;</h3>
+
+        <label class="field-label" :for="editLabelId">Label</label>
+        <input
+          :id="editLabelId"
+          ref="editLabelEl"
+          v-model="editForm.label"
+          class="text-input"
+          placeholder="Client review, March"
+          autocomplete="off"
+        />
+        <p class="modal-help">Only you see this. It's how you'll recognise the link.</p>
+
+        <ResearchShareIncludeFields v-model="editForm.include" />
+
+        <div v-if="widening.length" class="warning-banner share-warning" role="note">
+          Adding {{ widening.join(', ') }} shows more to everyone who already has this link.
+          {{ viewsSentence }}
+        </div>
+
+        <p v-if="saveError" class="inline-error" role="alert">{{ saveError }}</p>
+
+        <div class="modal-actions">
+          <button class="btn btn-sm" :disabled="saving" @click="cancelEdit">Cancel</button>
+          <button class="btn btn-sm btn-primary" :disabled="saving || !editDirty" @click="submitEdit">
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </template>
+    </template>
+
     <!-- List -->
     <template v-else>
       <h3 :id="titleId" class="modal-title">Share &ldquo;{{ researchName }}&rdquo;</h3>
@@ -95,6 +130,7 @@
           :busy-id="busyId"
           :recoverable-links="recoverableLinks"
           @revoke="emit('revoke', $event)"
+          @edit="startEdit"
           @show-link="showLink"
         />
         <p v-if="shares.length && !shares.some(isLive)" class="modal-help">
@@ -111,6 +147,7 @@
 
 <script setup lang="ts">
 import { useToasts } from '~/composables/useToasts'
+import type { ShareInclude } from '~/composables/useShare'
 import type { ShareRow } from './ShareRowList.vue'
 
 /**
@@ -136,6 +173,16 @@ const props = defineProps<{
   busyId?: string
   /** Links still in memory from this tab, by share id. */
   recoverableLinks: Record<string, string>
+  /** An edit is on its way to the server. */
+  saving?: boolean
+  /**
+   * Why the last edit did not land. The sentinel `'dead'` means the server
+   * answered that the link is revoked or expired; anything else is shown as
+   * the message it is.
+   */
+  saveError?: string
+  /** Increments when an edit lands, so the dialog can return to the list. */
+  savedTick?: number
 }>()
 
 const emit = defineEmits<{
@@ -146,6 +193,12 @@ const emit = defineEmits<{
     password: string
   }]
   revoke: [share: ShareRow]
+  /** A live link's new label and full set of flags. */
+  update: [payload: { id: string; label: string; include: ShareInclude }]
+  /** The list is stale — after a link died under an open edit. */
+  refresh: []
+  /** An edit was opened or abandoned; a save error from before it is stale. */
+  clearError: []
   close: []
   dismissReveal: []
 }>()
@@ -154,8 +207,9 @@ const uid = useId()
 const titleId = `share-title-${uid}`
 const labelId = `share-label-${uid}`
 const expiryId = `share-expiry-${uid}`
+const editLabelId = `share-edit-label-${uid}`
 
-type View = 'list' | 'create' | 'reveal'
+type View = 'list' | 'create' | 'reveal' | 'edit'
 const view = ref<View>('list')
 const copiedOnce = ref(false)
 const announcement = ref('')
@@ -167,10 +221,7 @@ const secretEl = ref<{ focus: () => void; copy: () => Promise<void> } | null>(nu
 
 const form = reactive({
   label: '',
-  roadmaps: true,
-  sessions: false,
-  tasks: false,
-  export: true,
+  include: { roadmaps: true, sessions: false, tasks: false, export: true } as ShareInclude,
   expiry: '30',
   withPassword: false,
   password: '',
@@ -186,10 +237,7 @@ const form = reactive({
  */
 function resetForm() {
   form.label = ''
-  form.roadmaps = true
-  form.sessions = false
-  form.tasks = false
-  form.export = true
+  form.include = { roadmaps: true, sessions: false, tasks: false, export: true }
   form.expiry = '30'
   form.withPassword = false
   form.password = ''
@@ -272,12 +320,7 @@ function submit() {
   if (props.creating || !passwordOk.value) return
   emit('create', {
     label: form.label.trim(),
-    include: {
-      sessions: form.sessions,
-      tasks: form.tasks,
-      roadmaps: form.roadmaps,
-      export: form.export,
-    },
+    include: { ...form.include },
     expires_in_days: form.expiry ? Number(form.expiry) : null,
     password: form.withPassword ? form.password.trim() : '',
   })
@@ -319,8 +362,102 @@ function requestClose() {
   if (view.value === 'reveal') return finishReveal()
   // Escape out of a filled-in form means "back", not "throw it away".
   if (view.value === 'create') return cancelCreate()
+  if (view.value === 'edit') return saveError.value === 'dead' ? backToList() : cancelEdit()
   emit('close')
 }
+
+// --- Edit ---
+
+const editing = ref<ShareRow | null>(null)
+const editForm = reactive({
+  label: '',
+  include: { roadmaps: true, sessions: false, tasks: false, export: true } as ShareInclude,
+})
+const editLabelEl = ref<HTMLInputElement | null>(null)
+const backToListEl = ref<HTMLButtonElement | null>(null)
+
+const saveError = computed(() => props.saveError || '')
+
+async function startEdit(share: ShareRow) {
+  emit('clearError')
+  editing.value = share
+  editForm.label = share.label || ''
+  editForm.include = { ...share.include }
+  view.value = 'edit'
+  await nextTick()
+  editLabelEl.value?.focus()
+}
+
+/** Save is off while nothing differs: a no-op write is still a write. */
+const editDirty = computed(() => {
+  const s = editing.value
+  if (!s) return false
+  if (editForm.label.trim() !== (s.label || '')) return true
+  return (['sessions', 'tasks', 'roadmaps', 'export'] as const).some(k => editForm.include[k] !== s.include[k])
+})
+
+const INCLUDE_WORDS: Record<keyof ShareInclude, string> = {
+  roadmaps: 'roadmaps',
+  sessions: 'sessions',
+  tasks: 'tasks',
+  export: 'downloading the project as a file',
+}
+
+/** The flags going from off to on, in the words the checkboxes use. */
+const widening = computed(() => {
+  const s = editing.value
+  if (!s) return [] as string[]
+  return (Object.keys(INCLUDE_WORDS) as (keyof ShareInclude)[])
+    .filter(k => editForm.include[k] && !s.include[k])
+    .map(k => INCLUDE_WORDS[k])
+})
+
+const viewsSentence = computed(() => {
+  const n = editing.value?.view_count ?? 0
+  if (!n) return "It hasn't been opened yet, but the link is already out."
+  return `It has been opened ${n === 1 ? 'once' : n + ' times'}.`
+})
+
+function submitEdit() {
+  if (!editing.value || props.saving || !editDirty.value) return
+  emit('update', {
+    id: editing.value.id,
+    label: editForm.label.trim(),
+    include: { ...editForm.include },
+  })
+}
+
+async function cancelEdit() {
+  emit('clearError')
+  editing.value = null
+  view.value = 'list'
+  await nextTick()
+  newLinkEl.value?.focus()
+}
+
+async function backToList() {
+  emit('refresh')
+  await cancelEdit()
+}
+
+// The edit landed: back to the list, which the parent has already repainted
+// from the server's answer, and say so where a screen reader will hear it.
+watch(
+  () => props.savedTick,
+  async () => {
+    if (view.value !== 'edit') return
+    announcement.value = 'Link updated.'
+    await cancelEdit()
+  },
+)
+
+// A link that died under the open edit needs the way out to be reachable.
+watch(saveError, async (err) => {
+  if (err === 'dead') {
+    await nextTick()
+    backToListEl.value?.focus()
+  }
+})
 
 async function showLink(share: ShareRow) {
   shownLink.value = props.recoverableLinks[share.id] || ''
@@ -334,8 +471,6 @@ async function showLink(share: ShareRow) {
 
 <style scoped>
 .share-list-head { display: flex; justify-content: flex-end; margin: var(--space-3) 0; }
-.share-fieldset { border: none; padding: 0; margin: var(--space-4) 0; }
-.check-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--type-sm); padding: var(--space-1) 0; }
 .share-skeletons { display: flex; flex-direction: column; gap: var(--space-2); }
 /* .warning-banner is the product's amber strip (system.css). Amber belongs here
    and nowhere else in this feature: this is the one moment where something is

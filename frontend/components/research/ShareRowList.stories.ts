@@ -31,6 +31,13 @@ const daysAgo = (days: number) => new Date(Date.now() - days * DAY).toISOString(
  *
  * The label wraps and never truncates. A truncated label is not a label, and
  * this list exists to be recognised by one.
+ *
+ * Which actions a row offers is decided by its state. **Edit** is on every live
+ * link: it changes what an already-issued link shows without changing its
+ * address, so the recipient keeps the URL they were sent and the owner does not
+ * have to admit to reissuing it. **Show link** additionally needs this tab's
+ * memory. A dead row keeps its record and offers neither — editing what an
+ * expired link shows would be editing nothing.
  */
 const meta: Meta<typeof ShareRowList> = {
   title: 'Research/ShareRowList',
@@ -43,6 +50,7 @@ const meta: Meta<typeof ShareRowList> = {
     recoverableLinks: { control: 'object' },
     onRevoke: { action: 'revoke' },
     onShowLink: { action: 'showLink' },
+    onEdit: { action: 'edit' },
   },
 }
 export default meta
@@ -95,6 +103,31 @@ export const PasswordProtected: Story = {
   },
 }
 
+/**
+ * Which actions each state offers, in one frame.
+ *
+ * Live and still held by this tab: Edit, Show link, Revoke. Live but reloaded
+ * since: Edit and Revoke — the URL is gone for good and offering to show it
+ * would be a lie. Expired and revoked: nothing at all, because there is nothing
+ * left to change or to turn off.
+ *
+ * Edit not needing the URL is the whole point of the feature. What a link shows
+ * is server-side state; the address is not required to change it, and requiring
+ * it would mean reissuing the link, which is the thing owners avoid by not
+ * widening at all.
+ */
+export const ActionsByState: Story = {
+  args: {
+    shares: [
+      { ...live, id: 'shr_held', label: 'Live — link still in this tab' },
+      { ...neverOpened, id: 'shr_lost', label: 'Live — tab reloaded since', has_password: false },
+      { ...expired, id: 'shr_dead_expired', label: 'Expired' },
+      { ...revoked, id: 'shr_dead_revoked', label: 'Revoked' },
+    ] as ShareRow[],
+    recoverableLinks: { shr_held: mockShareUrl },
+  },
+}
+
 /** A revoke in flight. The row dims and stops accepting clicks, and it does not
  *  say "Revoked" until the server does — telling an owner access is closed when
  *  it may not be is the one failure this list must not have. */
@@ -140,8 +173,9 @@ export const Empty: Story = {
   args: { shares: [], recoverableLinks: {} },
 }
 
-/** Wired up: Revoke flips the row after a beat rather than before, and Show
- *  link prints the URL this tab is holding. */
+/** Wired up: Revoke flips the row after a beat rather than before, Show link
+ *  prints the URL this tab is holding, and Edit reports the row it would open
+ *  the edit form on — the list only asks; the dialog above it owns that form. */
 export const Interactive: Story = {
   render: () => ({
     components: { ShareRowList },
@@ -150,6 +184,7 @@ export const Interactive: Story = {
       const links = ref<Record<string, string>>({ ...mockRecoverableShareLinks })
       const busyId = ref<string | undefined>(undefined)
       const shown = ref('')
+      const editing = ref('')
 
       function revoke(share: ShareRow) {
         busyId.value = share.id
@@ -168,8 +203,10 @@ export const Interactive: Story = {
         links,
         busyId,
         shown,
+        editing,
         revoke,
         showLink: (s: ShareRow) => (shown.value = links.value[s.id] ?? ''),
+        edit: (s: ShareRow) => (editing.value = s.label || 'Untitled link'),
       }
     },
     template: `
@@ -180,9 +217,13 @@ export const Interactive: Story = {
           :recoverable-links="links"
           @revoke="revoke"
           @show-link="showLink"
+          @edit="edit"
         />
         <p style="margin: 0; font-size: var(--type-xs); color: var(--color-text-muted); overflow-wrap: anywhere;">
           Last link shown: <code>{{ shown || '—' }}</code>
+        </p>
+        <p style="margin: 0; font-size: var(--type-xs); color: var(--color-text-muted); overflow-wrap: anywhere;">
+          Edit asked for: <code>{{ editing || '—' }}</code>
         </p>
       </div>
     `,

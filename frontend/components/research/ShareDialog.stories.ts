@@ -11,11 +11,25 @@ import {
 } from '../../__mocks__/share'
 
 /**
- * Creating, listing and revoking the links for one research.
+ * Creating, listing, editing and revoking the links for one research.
  *
- * Three views in one dialog, for the same reason the invite dialog has two: the
+ * Four views in one dialog, for the same reason the invite dialog has two: the
  * link is the result of the form, and navigating away from a value shown exactly
  * once is how it gets lost.
+ *
+ * **Edit changes a live link in place.** Its address does not change, so the
+ * recipient keeps the URL they were sent — which is the point, and also the
+ * reason widening is confirmed: everybody already holding the link gets the
+ * extra content the moment Save lands, with no further act by anyone and no way
+ * to tell who that is. The warning names the flags going from off to on, in the
+ * words the checkboxes use, and says how often the link has been opened.
+ *
+ * Save stays disabled until something differs. A no-op write is still a write,
+ * and it would push `share.updated` to every open tab for nothing.
+ *
+ * **The edit view is entered by clicking Edit on a live row**, not by a prop, so
+ * every edit story below drives it with a `play` function — the same way the
+ * reveal stories drive `issuedUrl`.
  *
  * With no links yet it opens straight onto the create form. That is the empty
  * state — the lead sentence already explains what a share link is, and a screen
@@ -42,8 +56,13 @@ const meta: Meta<typeof ShareDialog> = {
     issuedUrl: { control: 'text' },
     busyId: { control: 'text' },
     recoverableLinks: { control: 'object' },
+    saving: { control: 'boolean' },
+    saveError: { control: 'text' },
+    savedTick: { control: 'number' },
     onCreate: { action: 'create' },
     onRevoke: { action: 'revoke' },
+    onUpdate: { action: 'update' },
+    onRefresh: { action: 'refresh' },
     onClose: { action: 'close' },
     onDismissReveal: { action: 'dismissReveal' },
   },
@@ -80,10 +99,13 @@ export const WithShares: Story = {
  *  accident. Entries are not a checkbox at all. */
 export const CreateForm: Story = {
   args: { shares: mockShareRows },
+  parameters: { docs: { story: { autoplay: true } } },
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
-    const buttons = Array.from(canvasElement.querySelectorAll('button'))
-    const newLink = buttons.find((b) => b.textContent?.includes('New link'))
-    newLink?.click()
+    // Through the helper, which searches the document: this dialog teleports to
+    // `body`, so the previous `canvasElement.querySelectorAll` matched nothing
+    // and the optional-chained click made the story quietly show the list it
+    // was meant to click past.
+    await clickButton(canvasElement, '+ New link')
   },
 }
 
@@ -187,12 +209,126 @@ export const Hidden: Story = {
 }
 
 /**
+ * The edit form, reached by clicking Edit on the first live row.
+ *
+ * The same four checkboxes as the create form, from the same component — two
+ * hand-maintained copies of them is how one ends up describing a flag the other
+ * has renamed. There is no expiry field and no password field here: those change
+ * whether the link works, not what it shows, and turning a link off is what
+ * Revoke is for.
+ */
+export const EditLink: Story = {
+  args: { shares: mockShareRows, recoverableLinks: mockRecoverableShareLinks },
+  parameters: { docs: { story: { autoplay: true } } },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit')
+  },
+}
+
+/**
+ * Sessions ticked on a link that did not have them.
+ *
+ * The amber note is the second and last amber in this feature — the first is the
+ * reveal — and for the same kind of reason: something is about to happen that
+ * cannot be walked back quietly. Everyone holding this link gets the interview
+ * transcripts the moment Save lands, and the sentence about 47 opens is there to
+ * say that "everyone" is not hypothetical.
+ *
+ * Narrowing does not warn. Taking something away from a link is the safe
+ * direction, and a confirmation on it would train the owner to click through
+ * the one that matters.
+ */
+export const EditWidening: Story = {
+  args: { shares: mockShareRows, recoverableLinks: mockRecoverableShareLinks },
+  parameters: { docs: { story: { autoplay: true } } },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit')
+    // Order in the fieldset: roadmaps, sessions, tasks, export.
+    await clickCheckbox(canvasElement, 1)
+  },
+}
+
+/** Saving. Both buttons lock, so a second Enter cannot send the same change
+ *  twice — and the second send would be the one whose answer the dialog acts
+ *  on. */
+export const EditSaving: Story = {
+  args: { shares: mockShareRows, recoverableLinks: mockRecoverableShareLinks, saving: true },
+  parameters: { docs: { story: { autoplay: true } } },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit')
+    await clickCheckbox(canvasElement, 1)
+  },
+}
+
+/** The server refused for an ordinary reason. Said inline, above the actions,
+ *  with the form still filled in — a toast would take the message away from the
+ *  fields that have to change. */
+export const EditFailed: Story = {
+  args: {
+    shares: mockShareRows,
+    recoverableLinks: mockRecoverableShareLinks,
+    saveError: 'Another link on this project already uses that label.',
+  },
+  parameters: { docs: { story: { autoplay: true } } },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit')
+  },
+}
+
+/**
+ * `saveError: 'dead'` — the link was revoked or expired by somebody else while
+ * this form was open, and the server answered 409.
+ *
+ * The whole form is replaced rather than annotated. Leaving the fields on screen
+ * under an error would invite another Save against a link that no longer exists,
+ * and the only useful thing left to do is go back to a list that now says
+ * something different. "Nothing was changed" is stated, because the owner just
+ * pressed Save and has no other way to know.
+ *
+ * Going back emits `refresh`, so the list is refetched rather than re-showing
+ * the stale row that caused this.
+ */
+export const EditLinkDied: Story = {
+  args: {
+    shares: mockShareRows,
+    recoverableLinks: mockRecoverableShareLinks,
+    saveError: 'dead',
+  },
+  parameters: { docs: { story: { autoplay: true } } },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit')
+  },
+}
+
+/**
+ * A link with no label. The title falls back to "Untitled link" rather than
+ * rendering an empty pair of quotation marks, and the field is genuinely empty
+ * so the owner can give it a name now.
+ */
+export const EditUnlabelledLink: Story = {
+  args: {
+    shares: [{ ...mockShareRows[0]!, id: 'shr_unlabelled', label: '' }] as ShareRow[],
+    recoverableLinks: {},
+  },
+  parameters: { docs: { story: { autoplay: true } } },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await clickButton(canvasElement, 'Edit')
+  },
+}
+
+/**
  * The whole flow against a fake server: create, a beat of "Creating…", the
  * reveal, then the new row in the list with its link still recoverable.
  *
  * Labelling a link `taken` returns a refusal, so the error branch is reachable
  * without touching the args. Revoke flips the row after the server answers, not
  * before.
+ *
+ * Edit is wired the same way. Save a link relabelled `taken` and the server
+ * refuses inline; relabel one `dead` and it answers that the link is gone, which
+ * is the 409 branch. Anything else lands: the row repaints from the server's
+ * answer — not from what was typed — and `savedTick` is what sends the dialog
+ * back to the list.
  */
 export const Interactive: Story = {
   render: () => ({
@@ -206,6 +342,9 @@ export const Interactive: Story = {
       const shares = ref<ShareRow[]>([])
       const links = ref<Record<string, string>>({})
       const lastPayload = ref<unknown>(null)
+      const saving = ref(false)
+      const saveError = ref('')
+      const savedTick = ref(0)
 
       function open() {
         error.value = ''
@@ -262,6 +401,35 @@ export const Interactive: Story = {
         }, 600)
       }
 
+      function update(payload: {
+        id: string
+        label: string
+        include: { sessions: boolean; tasks: boolean; roadmaps: boolean; export: boolean }
+      }) {
+        lastPayload.value = payload
+        saveError.value = ''
+        saving.value = true
+        setTimeout(() => {
+          saving.value = false
+          if (payload.label === 'taken') {
+            saveError.value = 'Another link on this project already uses that label.'
+            return
+          }
+          // What the server says when the row is revoked or expired: 409, and
+          // the dialog turns that into the one screen with a way out.
+          if (payload.label === 'dead') {
+            saveError.value = 'dead'
+            return
+          }
+          // Repaint from the answer, not from the form. The server is what
+          // decides what the link now shows.
+          shares.value = shares.value.map((s: ShareRow) =>
+            s.id === payload.id ? { ...s, label: payload.label, include: { ...payload.include } } : s,
+          )
+          savedTick.value++
+        }, 600)
+      }
+
       return {
         visible,
         creating,
@@ -271,9 +439,13 @@ export const Interactive: Story = {
         shares,
         links,
         lastPayload,
+        saving,
+        saveError,
+        savedTick,
         open,
         create,
         revoke,
+        update,
       }
     },
     template: `
@@ -293,8 +465,13 @@ export const Interactive: Story = {
           :issued-url="issuedUrl"
           :busy-id="busyId"
           :recoverable-links="links"
+          :saving="saving"
+          :save-error="saveError"
+          :saved-tick="savedTick"
           @create="create"
           @revoke="revoke"
+          @update="update"
+          @refresh="saveError = ''"
           @dismiss-reveal="issuedUrl = ''"
           @close="visible = false"
         />
@@ -302,4 +479,58 @@ export const Interactive: Story = {
       </div>
     `,
   }),
+}
+
+/**
+ * Clicks the first button whose text matches, once it is on screen.
+ *
+ * There is no `@storybook/test` in this project, so the catalogue polls — the
+ * same helper shape `ActionMenu.stories.ts` uses. Buttons are matched by their
+ * visible text, because that is what the person driving this dialog matches on
+ * too.
+ *
+ * **It searches the document, not `canvasElement`.** `ModalOverlay` teleports
+ * to `body`, so nothing in this dialog is inside the story's root element —
+ * a `play` that queried `canvasElement` found no buttons and, if it used
+ * optional chaining, reported success while doing nothing at all.
+ */
+async function clickButton(root: HTMLElement, text: string, index = 0): Promise<void> {
+  const doc = root.ownerDocument.body
+  for (let i = 0; i < 50; i++) {
+    const matches = Array.from(doc.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === text,
+    )
+    const button = matches[index]
+    if (button) {
+      button.click()
+      // Let the view swap and its focus land before the next step.
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error(`Button "${text}" #${index} never appeared`)
+}
+
+/**
+ * Ticks the nth include checkbox in whichever form is on screen.
+ *
+ * By position rather than by label: the four labels are the words the product
+ * shows an owner, and a story that hard-codes them would fail on a wording
+ * change that is not a behaviour change. The order — roadmaps, sessions, tasks,
+ * export — is `ShareIncludeFields`'s and is checked there.
+ */
+async function clickCheckbox(root: HTMLElement, index: number): Promise<void> {
+  const doc = root.ownerDocument.body
+  for (let i = 0; i < 50; i++) {
+    const boxes = Array.from(doc.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))
+    const box = boxes[index]
+    if (box) {
+      box.click()
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error(`Checkbox #${index} never appeared`)
 }

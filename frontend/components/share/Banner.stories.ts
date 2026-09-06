@@ -23,6 +23,16 @@ const inDays = (days: number) => new Date(Date.now() + days * DAY).toISOString()
  *
  * The byline is dropped entirely when the share has no owner name. A banner that
  * says "shared by" followed by a blank is worse than one that says nothing.
+ *
+ * **The right-hand cluster sits outside the disclosure button**, not inside it:
+ * the activity blip and the theme toggle. A button inside a button is invalid
+ * markup and unreachable from the keyboard, and the toggle has to be reachable —
+ * the share shell is chromeless, so this strip is the only place on the whole
+ * page a visitor can change the theme.
+ *
+ * The owner's name appears twice, and that is deliberate. Below 480px the
+ * byline is dropped from the strip so it stays one line on a phone, and the
+ * disclosure carries the name instead — one tap away rather than gone.
  */
 const meta: Meta<typeof ShareBanner> = {
   title: 'Share/Banner',
@@ -103,13 +113,63 @@ export const VeryLongOwnerName: Story = {
   },
 }
 
+/**
+ * The disclosure open, which is where the visitor is told the two things the
+ * strip has no room for: why the page cannot be edited, and when the link
+ * lapses. The owner's name is repeated here — see the note on the component
+ * above — so a phone that has dropped the byline still has it.
+ */
+export const Expanded: Story = {
+  parameters: { docs: { story: { autoplay: true } } },
+  args: { include: includeEverything, expiresAt: inDays(3) },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await openDisclosure(canvasElement)
+  },
+}
+
 /** ≤768px: the contents clause is dropped from the strip and the disclosure
  *  becomes the only place it is said. It pushes content down rather than
  *  overlaying it — an overlay over content the visitor has not seen yet is the
- *  wrong trade. Open the disclosure to see it. */
+ *  wrong trade. Open the disclosure to see it.
+ *
+ *  The theme toggle stays. It is `size="sm"`, which is the reason that variant
+ *  exists: at 36px — what `.btn-icon` grows to on a phone — it would set the
+ *  height of the strip instead of sitting inside it. */
 export const Mobile: Story = {
   parameters: { viewport: { defaultViewport: 'mobile' } },
   args: { include: includeEverything },
+}
+
+/**
+ * 375px with the disclosure open: the byline is gone from the strip, which is
+ * now one line, and the same name is in the panel below. Below 480px is the only
+ * place these two facts are visible at once.
+ */
+export const MobileExpanded: Story = {
+  parameters: { viewport: { defaultViewport: 'mobile' }, docs: { story: { autoplay: true } } },
+  args: { include: includeEverything, ownerName: 'Марат Ибрагимов' },
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await openDisclosure(canvasElement)
+  },
+}
+
+/**
+ * Clicks the strip open once it is mounted.
+ *
+ * There is no `@storybook/test` in this project, so the catalogue polls — the
+ * same helper shape `ActionMenu.stories.ts` uses. The disclosure is found by
+ * `aria-controls`, because the theme toggle beside it is also a button.
+ */
+async function openDisclosure(root: HTMLElement): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    const trigger = root.querySelector<HTMLElement>('button[aria-controls="share-banner-detail"]')
+    if (trigger) {
+      trigger.click()
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error('Share banner disclosure never appeared')
 }
 
 /** All of it side by side, which is how the wording differences show. */

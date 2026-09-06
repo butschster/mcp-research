@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 type contextKey struct{}

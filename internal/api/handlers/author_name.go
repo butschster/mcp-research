@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 // resolveAuthorName turns a user id into something a reader recognises — but

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 func TestMemoryRoutes_CRUDConflictAndLegacyRejection(t *testing.T) {

@@ -9,14 +9,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/api"
-	"github.com/butschster/mcp-research/internal/api/ws"
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/config"
-	"github.com/butschster/mcp-research/internal/domain"
-	mcpserver "github.com/butschster/mcp-research/internal/mcp"
-	"github.com/butschster/mcp-research/internal/service"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/api"
+	"github.com/dovod-app/app/internal/api/ws"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/config"
+	"github.com/dovod-app/app/internal/domain"
+	mcpserver "github.com/dovod-app/app/internal/mcp"
+	"github.com/dovod-app/app/internal/service"
+	"github.com/dovod-app/app/internal/storage"
 )
 
 var (

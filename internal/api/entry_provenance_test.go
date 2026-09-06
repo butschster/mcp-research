@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // Provenance rides at the top level of the entry response, beside `data` rather

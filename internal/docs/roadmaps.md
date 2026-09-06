@@ -102,7 +102,7 @@ Nodes can link to existing research entities. When a node has `ref_type` and `re
 | `research` | Another research | Name, status, section count, entry count |
 | `question` | A question in a session | Text, status, answer |
 
-Referenced data is resolved at read time (lazy sync) — always shows the current state of the entity.
+Referenced data is resolved at read time (lazy sync) — always shows the current state of the entity. The entry preview is the first 200 characters of the content; for a [block document](/llms/blocks.md) it is that document rendered to markdown rather than the stored JSON, and an `html` block is named there rather than inlined.
 
 ### Creating Reference Nodes
 

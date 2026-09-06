@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/service"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/service"
 )
 
 type ShareHandler struct {
@@ -115,6 +115,38 @@ func (h *ShareHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "revoked"})
+}
+
+type updateShareRequest struct {
+	Label *string `json:"label"`
+	// Include is decoded whole: a flag left out of the object is false, which
+	// is what "complete replacement" means and what the route documents. The
+	// pointer only distinguishes "no include object at all" — leave the flags
+	// alone — from an object that happens to clear everything.
+	Include *domain.ShareInclude `json:"include"`
+}
+
+// Update changes a live link's label or include flags. The response carries the
+// whole share, in the shape List returns, so the row can repaint from it.
+func (h *ShareHandler) Update(w http.ResponseWriter, r *http.Request) {
+	var req updateShareRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.Label == nil && req.Include == nil {
+		writeError(w, http.StatusBadRequest, "nothing to change: send label, include, or both")
+		return
+	}
+	share, err := h.shares.Update(r.Context(), r.PathValue("id"), service.UpdateShareRequest{
+		Label:   req.Label,
+		Include: req.Include,
+	})
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"share": share}})
 }
 
 // --- Visitor side ---

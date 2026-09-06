@@ -1,6 +1,10 @@
 <template>
   <div class="centered-gate password-gate">
     <div class="password-card">
+      <!-- A visitor who cannot read the prompt in this theme has no other
+           control on the screen; the banner that normally carries the toggle
+           is not rendered until the link is unlocked. -->
+      <div class="gate-tools"><ThemeToggle size="sm" /></div>
       <div class="password-icon" aria-hidden="true">&#x1F512;</div>
       <h1 class="password-title">This link is password-protected</h1>
       <p class="card-meta">Ask the person who sent you the link for the password.</p>
@@ -59,9 +63,15 @@ onMounted(() => field.value?.focus())
 
 <style scoped>
 .password-card {
+  position: relative;
   width: 100%;
   max-width: 380px;
   text-align: center;
+}
+.gate-tools {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
 }
 .password-icon { font-size: 2rem; margin-bottom: var(--space-4); opacity: 0.7; }
 .password-title {

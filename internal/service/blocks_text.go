@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // Text projections of a block document.

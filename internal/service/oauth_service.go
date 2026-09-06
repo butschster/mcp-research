@@ -12,8 +12,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 	"github.com/google/uuid"
 )
 

@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 	"github.com/google/uuid"
 )
 
@@ -398,10 +399,23 @@ func (s *RoadmapService) resolveEntryRef(ctx context.Context, id string) *domain
 	}
 	// Include content preview (first 200 characters — by rune, so a preview that
 	// stops mid-character does not ship half of one).
-	if runes := []rune(entry.Content); len(runes) > 200 {
+	//
+	// A blocks document is stored as JSON, and 200 characters of that is
+	// `{"version":1,"blocks":[{"id":"…` — the roadmap card for an HTML artifact
+	// showed exactly that. The markdown rendering is what a person would call
+	// its content; an html block is named there rather than inlined.
+	preview := entry.Content
+	if entry.Type == domain.EntryBlocks {
+		if doc, err := ParseStoredBlockDocument(entry.Content); err == nil {
+			preview = strings.TrimSpace(BlockDocumentToMarkdown(doc))
+		} else {
+			preview = entry.Description
+		}
+	}
+	if runes := []rune(preview); len(runes) > 200 {
 		data.Content = string(runes[:200]) + "..."
 	} else {
-		data.Content = entry.Content
+		data.Content = preview
 	}
 	// Resolve section name
 	if s.sections != nil && entry.SectionID != "" {

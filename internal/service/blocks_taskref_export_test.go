@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 )
 
 // A task_ref block is the one block whose export depends on data the exporter is

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/butschster/mcp-research/internal/domain"
+	"github.com/dovod-app/app/internal/domain"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )

@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/butschster/mcp-research/internal/auth"
-	"github.com/butschster/mcp-research/internal/domain"
-	"github.com/butschster/mcp-research/internal/storage"
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
+	"github.com/dovod-app/app/internal/storage"
 	"github.com/google/uuid"
 )
 
@@ -1199,13 +1199,20 @@ func (s *EntryService) missingRequiredFor(ctx context.Context, entry *domain.Ent
 // renders as a list of everything the team decided to track, which is the same
 // disclosure with the answers removed.
 func redactEntryForShare(ctx context.Context, entry *domain.Entry) {
-	if entry == nil || auth.ShareFromContext(ctx) == nil {
+	sc := auth.ShareFromContext(ctx)
+	if entry == nil || sc == nil {
 		return
 	}
 	entry.Metadata = nil
 	entry.MetaStatus = nil
 	entry.MetaReport = nil
 	entry.SpecVersion = 0
+	// Which session produced a document is a session fact. On a link that
+	// excludes sessions the id alone says one exists and what it did — the
+	// same thing the graph's "produced" edge is withheld for.
+	if !sc.Include.Sessions {
+		entry.SessionID = ""
+	}
 }
 
 func redactEntriesForShare(ctx context.Context, entries []*domain.Entry) {

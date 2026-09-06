@@ -3,7 +3,7 @@ package ws
 import (
 	"time"
 
-	"github.com/butschster/mcp-research/internal/auth"
+	"github.com/dovod-app/app/internal/auth"
 	"github.com/gorilla/websocket"
 )
 
