@@ -166,7 +166,7 @@ defineExpose({ fitAll })
 /* Crossref tooltip */
 .xref-tooltip {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-toast);
   background: var(--color-surface);
   border: 1px solid rgba(var(--hue-5-rgb), 0.3);
   border-radius: var(--radius-sm);

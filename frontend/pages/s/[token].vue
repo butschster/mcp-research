@@ -28,6 +28,7 @@
   </div>
 
   <div v-else class="share-shell">
+    <a href="#main" class="skip-link">Skip to content</a>
     <ShareBanner
       v-if="screen !== 'loading'"
       :owner-name="ownerName"
@@ -38,7 +39,7 @@
 
     <!-- tabindex="-1" so the skip link and a page's own focus() have a landing
          place, as the app shell's main does. -->
-    <main class="container share-main" tabindex="-1">
+    <main id="main" class="container share-main" tabindex="-1">
       <div v-if="screen === 'loading'" class="skeleton-page">
         <div class="skeleton-card skeleton-header"></div>
         <div class="layout-sidebar">

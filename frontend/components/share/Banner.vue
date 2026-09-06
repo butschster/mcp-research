@@ -10,7 +10,7 @@
         <span class="share-dot" aria-hidden="true"></span>
         <span class="share-banner-text">
           <strong>Read-only shared view</strong>{{ ' ' }}
-          <span v-if="ownerName" class="share-by">&mdash; shared by {{ ownerName }}</span>
+          <span v-if="ownerName" class="share-by">&mdash; shared by {{ ownerName }}</span>{{ ' ' }}
           <span class="share-contents">&middot; {{ contents }}</span>
         </span>
         <svg

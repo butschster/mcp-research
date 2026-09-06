@@ -96,7 +96,7 @@ function openNode(node: GraphNode) {
   const code = node.code || node.id
   if (node.type === 'entry') navigateTo(entryPath(researchSlug, code))
   else if (node.type === 'session') navigateTo(sessionPath(researchSlug, code))
-  else if (node.type === 'task') navigateTo(tasksPath(researchSlug))
+  else if (node.type === 'task') navigateTo(taskPath(researchSlug, code))
 }
 
 onMounted(() => { void fetchGraph() })
@@ -114,7 +114,7 @@ useResearchRealtime(() => researchSlug, () => void fetchGraph(), { onResync: () 
   inset: 0;
   display: flex;
   background: var(--color-bg-deep);
-  z-index: 100;
+  z-index: var(--z-overlay);
 }
 
 /* Styles for back link in sidebar slot */

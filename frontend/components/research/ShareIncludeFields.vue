@@ -28,6 +28,8 @@ function set(key: keyof ShareInclude, e: Event) {
 </script>
 
 <style scoped>
-.share-fieldset { border: none; padding: 0; margin: var(--space-4) 0; }
-.check-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--type-sm); padding: var(--space-1) 0; min-height: var(--control-h-sm); }
+/* `.check-row` is the product's checkbox line (system.css); a scoped copy here
+   would put the include rows on a different beat from the password row that
+   sits under them in the same dialog. */
+.share-fieldset { border: none; padding: 0; margin: var(--space-4) 0; font-size: var(--type-sm); }
 </style>

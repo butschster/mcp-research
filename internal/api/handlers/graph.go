@@ -121,7 +121,9 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// 2. Entries (with tags)
+	// 2. Entries (with tags). This is a raw repository read; the access check
+	// for this whole handler is the SectionService.List call above, which is
+	// why the sections come first. Reordering these two would remove the gate.
 	allEntries, err := h.entries.FindByResearch(ctx, researchID, storage.EntryFilter{})
 	if err != nil {
 		writeServiceError(w, err)
@@ -141,8 +143,10 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 			Source: e.SectionID, Target: e.ID,
 			Type: "section",
 		})
-		// Entry -> Session edge
-		if e.SessionID != "" {
+		// Entry -> Session edge. Gated with the session nodes: the edge alone
+		// names the session's id and says which documents it produced, which
+		// on a link without sessions is exactly the thing being withheld.
+		if e.SessionID != "" && include.Sessions {
 			edges = append(edges, graphEdge{
 				Source: e.SessionID, Target: e.ID,
 				Type: "session", Label: "produced",

@@ -55,7 +55,9 @@ export function useResearchGraph(researchId: string, options: { fetcher?: GraphF
    * include flags cover, and the sidebar builds its rows from this rather
    * than repeating the server's mapping.
    */
-  const availableNodeTypes = ref<string[]>([...ALL_GRAPH_NODE_TYPES])
+  // Narrow until the server says otherwise: a row for a type a share link
+  // withholds must never appear, not even for a frame.
+  const availableNodeTypes = ref<string[]>(['section', 'entry'])
 
   // Filter toggles
   const visibleEdgeTypes = ref<Set<string>>(new Set(['crossref', 'section']))
@@ -77,7 +79,7 @@ export function useResearchGraph(researchId: string, options: { fetcher?: GraphF
       const res = await fetcher<GraphData>(`/researches/${researchId}/graph`)
       nodes.value = res.nodes ?? []
       edges.value = res.edges ?? []
-      if (res.available_node_types?.length) availableNodeTypes.value = res.available_node_types
+      availableNodeTypes.value = res.available_node_types?.length ? res.available_node_types : [...ALL_GRAPH_NODE_TYPES]
     } catch (e: any) {
       error.value = e?.message ?? 'Failed to load graph'
       errorStatus.value = e?.response?.status ?? e?.statusCode ?? null

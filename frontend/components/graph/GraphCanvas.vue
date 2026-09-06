@@ -15,10 +15,11 @@
       role="img"
       :aria-label="ariaLabel"
       tabindex="-1"
-      @mousedown="onMouseDown"
-      @mousemove="onMouseMove"
-      @mouseup="onMouseUp"
-      @mouseleave="onMouseUp"
+      @pointerdown="onMouseDown"
+      @pointermove="onMouseMove"
+      @pointerup="onMouseUp"
+      @pointercancel="onMouseUp"
+      @pointerleave="onMouseUp"
       @wheel="onWheel"
       @dblclick="onDblClick"
       @contextmenu.prevent="onContextMenu"
@@ -79,7 +80,9 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 let viewportPlaced = false
 // Whether the first layout has been fitted to the panel; see fit().
 let fitted = false
-let fitTimer: ReturnType<typeof setTimeout> | undefined
+// Set the moment the reader pans or zooms. The fit that runs when the
+// simulation settles must not undo a viewport somebody chose.
+let readerMoved = false
 
 function getNodeColor(type: string): string {
   const colors: Record<string, string> = {
@@ -218,10 +221,17 @@ function buildSimulation() {
     }
   }
 
-  // Copy nodes (filter orphans if needed)
+  // Copy nodes (filter orphans if needed). A node that was already on the
+  // canvas keeps its position, so a rebuild — a filter change, a realtime
+  // event — continues from the layout the reader is looking at instead of
+  // starting again from random positions.
+  const previous = new Map(simNodes.map(n => [n.id, n]))
   simNodes = filteredNodes
     .filter(n => !connectedNodeIds || connectedNodeIds.has(n.id))
-    .map(n => ({ ...n }))
+    .map((n) => {
+      const was = previous.get(n.id)
+      return was ? { ...n, x: was.x, y: was.y, vx: 0, vy: 0 } : { ...n }
+    })
 
   // Re-filter node IDs after orphan removal
   nodeIds = new Set(simNodes.map(n => n.id))
@@ -252,12 +262,17 @@ function buildSimulation() {
     .force('link', d3Force.forceLink(simEdges).id((d: any) => d.id).distance(linkDist).strength(0.15))
     .force('charge', d3Force.forceManyBody().strength(chargeStrength).distanceMax(1200))
     .force('center', d3Force.forceCenter(0, 0).strength(0.03))
-    .force('collision', d3Force.forceCollide().radius((d: any) => getNodeRadius(d.type, d.id) + 30).strength(0.7))
+    // The label hangs off the right of a node and is not a body the collision
+    // force knows about; the extra room keeps neighbouring labels apart.
+    .force('collision', d3Force.forceCollide().radius((d: any) => getNodeRadius(d.type, d.id) + 44).strength(0.7))
     .force('x', d3Force.forceX(0).strength(0.02))
     .force('y', d3Force.forceY(0).strength(0.02))
     .alphaDecay(0.015)
     .velocityDecay(0.3)
     .on('tick', render)
+    // The remaining settle is short after the synchronous ticks; fit once
+    // more when it ends — unless the reader has taken the viewport.
+    .on('end', () => { if (!readerMoved) fit() })
 
   // Update focus sets with new edges
   updateFocusSets()
@@ -271,13 +286,23 @@ function buildSimulation() {
     transform = { x: canvas.width / 2, y: canvas.height / 2, k: 1 }
     viewportPlaced = true
   }
-  // The first layout is fitted once it has spread out. At zoom 1 a
-  // thirty-node graph is wider than a 900px panel and the reader's first
-  // sight of it is a corner. The rebuilds after that keep the viewport, for
-  // the reason above.
+  // The first layout is settled before it is shown. Left to animate from
+  // random positions, the graph spends its first seconds expanding and
+  // contracting, and any fit taken during that is wrong a moment later.
+  // Advancing the simulation synchronously costs a few milliseconds for a
+  // few hundred nodes and gives a first frame that is already the graph.
+  // Rebuilds after that keep the viewport, for the reason above.
   if (!fitted) {
-    clearTimeout(fitTimer)
-    fitTimer = setTimeout(() => { if (!fitted) { fit(); fitted = true } }, 900)
+    fitted = true
+    simulation.tick(200)
+    fit()
+    render()
+  } else if (!readerMoved) {
+    // The reader has not taken the viewport yet, so a rebuild keeps the
+    // graph fitted rather than letting it drift out of the panel.
+    simulation.tick(60)
+    fit()
+    render()
   }
 }
 
@@ -285,8 +310,13 @@ function buildSimulation() {
 function fit() {
   const canvas = canvasRef.value
   if (!canvas || !simNodes.length) return
+  // Fit to the connected part of the graph. Orphans are pushed to the rim by
+  // the charge force, and a box that includes them shrinks the cluster the
+  // reader came for to a smudge in the middle.
+  const connected = simNodes.filter(n => (connectionCounts.get(n.id) || 0) > 0)
+  const box = connected.length ? connected : simNodes
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const n of simNodes) {
+  for (const n of box) {
     if (n.x == null || n.y == null) continue
     minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x)
     minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y)
@@ -296,7 +326,7 @@ function fit() {
   const pad = 60
   const w = Math.max(1, maxX - minX + 220)
   const h = Math.max(1, maxY - minY)
-  const k = Math.max(0.15, Math.min(1.6, Math.min((canvas.width - pad * 2) / w, (canvas.height - pad * 2) / h)))
+  const k = Math.max(0.5, Math.min(1.6, Math.min((canvas.width - pad * 2) / w, (canvas.height - pad * 2) / h)))
   const cx = (minX + maxX) / 2 + 80
   const cy = (minY + maxY) / 2
   transform = { x: canvas.width / 2 - cx * k, y: canvas.height / 2 - cy * k, k }
@@ -498,8 +528,11 @@ function onMouseDown(e: MouseEvent) {
     simulation?.alphaTarget(0.3).restart()
   } else {
     isPanning = true
+    readerMoved = true
     panStart = { x: e.clientX, y: e.clientY, tx: transform.x, ty: transform.y }
   }
+  // Keep receiving moves when a drag leaves the canvas, and on touch.
+  ;(e.target as Element).setPointerCapture?.((e as PointerEvent).pointerId)
 }
 
 function onMouseMove(e: MouseEvent) {
@@ -561,6 +594,7 @@ function onWheel(e: WheelEvent) {
   if (!canvas) return
   const { sx: mx, sy: my } = canvasPoint(e)
 
+  readerMoved = true
   const factor = e.deltaY < 0 ? 1.1 : 0.9
   const newK = Math.max(0.1, Math.min(5, transform.k * factor))
 
@@ -636,7 +670,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (simulation) simulation.stop()
-  clearTimeout(fitTimer)
   window.removeEventListener('resize', resizeCanvas)
 })
 </script>
@@ -653,6 +686,8 @@ onUnmounted(() => {
   flex: 1;
   width: 100%;
   cursor: default;
+  /* A finger on the canvas pans the graph, not the page. */
+  touch-action: none;
 }
 
 .graph-loading {
@@ -669,7 +704,7 @@ onUnmounted(() => {
   width: 20px;
   height: 20px;
   border: 2px solid var(--color-border-strong);
-  border-top-color: var(--color-border-strong);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -680,7 +715,7 @@ onUnmounted(() => {
 
 .graph-tooltip {
   position: fixed;
-  z-index: 100;
+  z-index: var(--z-overlay);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: 8px;

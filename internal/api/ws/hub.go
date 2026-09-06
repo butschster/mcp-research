@@ -195,7 +195,18 @@ func (h *Hub) credentialStillValid(c *Client) bool {
 		// A link that now opens onto a different research is not a renewal. It
 		// cannot happen today — a share's research never changes — but the
 		// connection was authorized for one id and must not silently follow it.
-		return scope != nil && scope.ResearchID == c.share.ResearchID
+		if scope == nil || scope.ResearchID != c.share.ResearchID {
+			return false
+		}
+		// The link's include flags can change while the socket is open — an
+		// owner narrowing what it shows. The socket filters by the flags it was
+		// opened with, so without this a visitor whose link no longer includes
+		// tasks kept hearing about them until they reconnected. Written under
+		// the hub lock, because deliver reads it under the same lock.
+		h.mu.Lock()
+		c.share = scope
+		h.mu.Unlock()
+		return true
 	}
 
 	if !authEnabled {
@@ -285,8 +296,13 @@ func (h *Hub) deliver(event Event) {
 	h.mu.RLock()
 	authz, authEnabled, codes := h.auth, h.authEnabled, h.codes
 	clients := make([]*Client, 0, len(h.clients))
+	// The share capability is snapshotted here, under the lock, because the
+	// re-check on the client's own goroutine replaces it when the link's flags
+	// change.
+	shares := make(map[*Client]*auth.Share, len(h.clients))
 	for c := range h.clients {
 		clients = append(clients, c)
+		shares[c] = c.share
 	}
 	h.mu.RUnlock()
 
@@ -310,8 +326,8 @@ func (h *Hub) deliver(event Event) {
 
 	for _, c := range clients {
 		payload := data
-		if c.share != nil {
-			if !visibleToShare(c.share, event) {
+		if share := shares[c]; share != nil {
+			if !visibleToShare(share, event) {
 				continue
 			}
 			if shareData == nil {

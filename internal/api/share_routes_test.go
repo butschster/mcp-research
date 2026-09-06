@@ -150,6 +150,16 @@ func newShareServer(t *testing.T) *shareServer {
 		t.Fatalf("set session notes: %v", err)
 	}
 
+	// A document the session produced. Its session_id and the graph's
+	// "produced" edge are the two ways a session's existence can reach a link
+	// that excludes sessions.
+	if _, err := entrySvc.Create(ctx, service.CreateEntryRequest{
+		ResearchID: research.ID, SectionID: sections[0].ID, SessionID: sess.ID,
+		Title: "Written during the interview", Content: "what was said",
+	}); err != nil {
+		t.Fatalf("create session entry: %v", err)
+	}
+
 	roadmap, err := roadmapSvc.Create(ctx, service.CreateRoadmapRequest{
 		ResearchID: research.ID, Title: "Plan",
 		Nodes: []service.CreateRoadmapNodeRequest{
@@ -452,6 +462,15 @@ func TestShareRoutes_IncludeFlagsGateTheirRoutes(t *testing.T) {
 		if code, body := s.get(path); code != http.StatusOK {
 			t.Errorf("%s: got %d (%s), want 200", path, code, body)
 		}
+	}
+
+	// The documents list must not name the session that produced one either;
+	// with sessions included it may.
+	if _, body := s.get("/api/shared/" + token + "/researches/" + s.research.ID + "/entries"); strings.Contains(body, s.sessionID) {
+		t.Errorf("a content-only link's documents carry the session id: %s", body)
+	}
+	if _, body := s.get("/api/shared/" + s.newShare(allIn()) + "/researches/" + s.research.ID + "/entries"); !strings.Contains(body, s.sessionID) {
+		t.Error("a link including sessions lost the document's session_id")
 	}
 
 	// What the flags hold back — and they answer 404, so a link without
@@ -1150,9 +1169,16 @@ func TestShareRoutes_GraphObeysTheIncludeFlags(t *testing.T) {
 		}
 	}
 	raw, _ := json.Marshal(contentOnly)
-	for _, leak := range []string{"Initial exploration", "internal todo"} {
+	// The session's id is as good as its title: an edge "SS1 produced E2"
+	// says a session exists and what it did.
+	for _, leak := range []string{"Initial exploration", "internal todo", s.sessionID} {
 		if strings.Contains(string(raw), leak) {
 			t.Errorf("the graph of a content-only link carries %q", leak)
+		}
+	}
+	for _, e := range contentOnly.Edges {
+		if e["type"] == "session" {
+			t.Errorf("a content-only link drew a session edge: %v", e)
 		}
 	}
 	if strings.Join(contentOnly.AvailableNodeTypes, ",") != "section,entry" {

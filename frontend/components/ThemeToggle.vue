@@ -40,11 +40,11 @@ const label = computed(() => `Switch to ${theme.value === 'light' ? 'dark' : 'li
   min-height: var(--control-h-sm);
   min-width: var(--control-h-sm);
 }
-/* 32px visual, 44px target: the overlay reaches 6px above and below. */
+/* 32px visual, 44px target: the overlay reaches 6px past every edge. */
 .theme-toggle--sm::before {
   content: '';
   position: absolute;
-  inset: -6px 0;
+  inset: -6px;
 }
 @media (max-width: 768px) {
   /* system.css grows every .btn-icon to --control-h-touch here; the small

@@ -186,15 +186,18 @@ A revocable, read-only capability over **one** research, addressed by an unguess
 
 **Include flags.** The zero value is the safe one: a flag has to be set to reveal something, so nothing leaks by being forgotten. `roadmaps` defaults to true at creation because roadmaps are part of the research proper; `sessions`, `tasks` and `export` default to false, being working state rather than a result.
 
-**Owner routes.** Creating, listing and revoking all need **write** access — an editor or an owner. A viewer cannot republish what the team owns; an editor could already export the whole research to a file and send it, so a link is not a capability they lacked.
+**Owner routes.** Creating, listing, changing and revoking all need **write** access — an editor or an owner. A viewer cannot republish what the team owns; an editor could already export the whole research to a file and send it, so a link is not a capability they lacked.
 
 | Method | Path | Returns |
 |--------|------|---------|
 | `POST` | `/api/researches/{id}/shares` | `201` with `share`, `token` (the only time it exists) and `url` — the page a visitor opens, `https://<host>/s/<token>` |
 | `GET` | `/api/researches/{id}/shares` | every share of that research, live and dead, metadata only |
+| `PUT` | `/api/shares/{id}` | changes a live link's `label` and `include` in place — same token, same address |
 | `DELETE` | `/api/shares/{id}` | revokes it |
 
 The create body takes `label`, `include` (any subset of the four booleans), `expires_in_days` (omit for a link that never expires; clamped to 1–3650) and `password` (optional, at least 6 characters). `GET /api/researches/{id}` carries `active_share_count` beside the research — `0` for anyone who could not manage the links anyway, a share visitor reading through one of them included.
+
+**Changing a live link.** `PUT /api/shares/{id}` takes `label`, `include`, or both, and answers `200` with the whole share in the shape the list returns — never the token, which no route can read back. The address is what survives, and that is the point: a published link is one people have already saved, so revoking it in order to show something more breaks every place it was pasted. **`include` is a complete replacement, not a patch** — send all four booleans. A flag left out of the object is `false`, so a body naming one flag takes the other three away; omit `include` entirely to leave the flags alone, and omit `label` to leave the label. A body with neither is `400`. Widening reaches everyone already holding the URL at once, on their next request. A revoked or expired link answers `409` — this is the owner's own management surface, where "the link died while you had this open" is the useful answer, unlike the visitor prefix where every refusal must look the same. An unknown id, or one belonging to another team, is `404`. Neither the token, the password nor the expiry can be changed: those need a new link.
 
 **Visitor routes** live under their own prefix, `/api/shared/{token}/…`, behind their own middleware. The token is checked once, at the prefix; there is no path by which it reaches a route built for an owner. Inside the prefix the paths are the ones the authenticated API uses, so `/api/shared/{token}/researches/R1/entries` is served by the ordinary entries handler.
 
@@ -205,12 +208,15 @@ The create body takes `label`, `include` (any subset of the four booleans), `exp
 | `/researches/{id}`, `/researches/{id}/entries`, `/researches/{id}/sections/{sectionId}/entries`, `/researches/{id}/tags` | `GET` | — |
 | `/researches/{id}/entries/{entryId}`, `/researches/{id}/entries/by-code/{code}`, `/entries/{id}`, `/entries/{id}/related` | `GET` | — |
 | `/researches/{id}/crossrefs`, `/entries/{id}/crossrefs`, `/researches/{id}/links`, `/entries/{id}/links` | `GET` | — |
+| `/researches/{id}/graph` | `GET` | — the route always answers; the nodes the flags do not cover are left out of it (below) |
 | `/researches/{id}/roadmaps`, `/researches/{id}/roadmaps/{roadmapId}`, `/roadmaps/{id}` | `GET` | `include.roadmaps` |
 | `/researches/{id}/sessions`, `/researches/{id}/sessions/{sessionId}` | `GET` | `include.sessions` |
 | `/researches/{id}/tasks` | `GET` | `include.tasks` |
 | `/researches/{id}/export` | `GET` | `include.export` |
 
 That list is the whole surface. Anything else under the prefix — another method, another path, a route whose flag is off — answers the same `404 this link is no longer available` that a revoked, expired or invented token gets. A link without sessions is meant to look like a research that has none.
+
+**The graph gates itself, inside the handler.** `…/researches/{id}/graph` is mounted ungated because sections and documents are always in a link; what a flag decides is which nodes it draws. Session, question and task nodes appear only when `include.sessions` / `include.tasks` allow them, and nothing below the handler would have refused them — a share resolves to `viewer` on this very research, and this is the one route that assembles every entity into a single payload. The body carries `available_node_types` beside `nodes` and `edges`: the types this caller *could* have received — `section` and `entry` always, `session` and `question` with sessions, `task` with tasks — so a client builds its filter list from that rather than repeating the mapping. It never names what was withheld: a type the flags do not cover is absent from `nodes` and from `available_node_types` alike, rather than present and empty. The same field is on the authenticated route, where it lists every type. The visitor's own pages sit under the link's address: `/s/<token>` for the research, `/s/<token>/graph` and `/s/<token>/mindmap` for the two views.
 
 **What a visitor never sees:**
 
@@ -220,7 +226,7 @@ That list is the whole surface. Anything else under the prefix — another metho
 - Any other research. There is no list route under the prefix, and the listing service itself answers empty for a share rather than falling through to "no user in context, so no filter" — which would have returned every research on the server.
 - The portable JSON: its route is not mounted. The Obsidian vault is available when `include.export` allows it, with memory and private skills excluded; revisions and provenance are refused. See [Export](/llms/export.md#export-through-a-share-link).
 - Any [template](#template) — no list, no body, and no stamp. `TemplateService` refuses a share context before it resolves anything, and `template_slug` / `template_version` are blanked on the research alongside memory: a slug is a name a team chose, and it would read back as that name.
-- Revision history, the knowledge graph, the mindmap and search — none of those routes exist under the prefix.
+- Revision history and search — neither route exists under the prefix. The knowledge graph does, with the node types the flags do not cover withheld inside the handler as described above. The mindmap is not a route in either direction: it is assembled in the browser from the research, its sections and documents, its sessions, tasks and cross-references, so a link narrows the mind map by narrowing those.
 - The continuation summary. `/api/researches/{id}/resume` is not mounted under the prefix, and `ResumeService` refuses a share context before it resolves anything — ahead of `Access.Read`, which would allow it, since a share does resolve to `viewer` on this very research. What is unfinished, what a person disputed and what the agent should do next is working process, like private skills.
 - Every write, without exception. `Access.Write` refuses a share context before it looks at any role, so this does not depend on the `viewer` it resolves to.
 
@@ -871,7 +877,7 @@ A revision has no short code: it is a plain number, 1-based per entry. A [share]
 | `team.created`, `team.updated`, `team.deleted`, `team.invited`, `team.invite_revoked`, `team.member_added`, `team.member_removed`, `team.member_role_changed` | `team` | team | no `research_id` |
 | `access.changed` | `team` | team | directed. `reason: role_changed`. The new role is deliberately not in the event — read it back from the API rather than trusting a value pushed at you |
 | `access.revoked` | `team` or `research` | team or research | directed. `reason: removed_from_team` (entity `team`) or `research_transferred` (entity `research`, with `research_id`) |
-| `share.created`, `share.revoked` | `share` | share | a read-only link was handed out or taken back. Delivered by the ordinary research rule, so any member who may read the research learns a link exists — and never to a share visitor, who has no use for the news and, in the revoked case, is being disconnected by it |
+| `share.created`, `share.updated`, `share.revoked` | `share` | share | a read-only link was handed out, changed or taken back. `share.updated` is a `label` or `include` change on a link that goes on working — the token is unchanged, so a manage list re-reads the row rather than expecting a new one. Delivered by the ordinary research rule, so any member who may read the research learns a link exists — and never to a share visitor, who has no use for the news and, in the revoked case, is being disconnected by it |
 
 There is no `template.*` event of any kind: a [template](#template) belongs to a team rather than to a research, is read once at kickoff, and nothing on screen goes stale when one changes — re-read `GET /api/templates`. The skills a template attaches at `research_create` are written without a `skill.attached` event too.
 

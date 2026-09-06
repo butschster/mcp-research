@@ -9,62 +9,29 @@
         </NuxtLink>
         <span v-if="researchName" class="toolbar-title">{{ researchName }}</span>
       </div>
-      <div class="toolbar-right">
-        <!-- Filter chips -->
-        <button
-          v-for="group in filterGroups"
-          :key="group.key"
-          :class="['btn btn-sm filter-chip', { active: visibleGroups.has(group.key) }]"
-          @click="toggleGroup(group.key)"
-        >{{ group.label }}</button>
-
-        <button
-          :class="['btn btn-sm filter-chip crossref-chip', { active: showCrossrefs }]"
-          @click="toggleCrossrefs"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          Crossrefs
-        </button>
-
-        <span class="toolbar-sep"></span>
-
-        <!-- Layout toggle -->
-        <button
-          :class="['btn btn-sm', { active: layoutDirection === 'LR' }]"
-          @click="setLayoutDirection('LR')"
-          title="Left to right"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </button>
-        <button
-          :class="['btn btn-sm', { active: layoutDirection === 'TB' }]"
-          @click="setLayoutDirection('TB')"
-          title="Top to bottom"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
-        </button>
-
-        <span class="toolbar-sep"></span>
-
-        <!-- Expand/collapse -->
-        <button class="btn btn-sm" @click="expandAll">Expand all</button>
-        <button class="btn btn-sm" @click="collapseAll">Collapse</button>
-
-        <!-- Fit view -->
-        <button class="btn btn-sm" @click="fitAll" title="Fit view">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
-        </button>
-      </div>
+      <MindmapToolbar
+        :groups="filterGroups"
+        :visible-groups="visibleGroups"
+        :show-crossrefs="showCrossrefs"
+        :layout-direction="layoutDirection"
+        @toggle-group="toggleGroup"
+        @toggle-crossrefs="toggleCrossrefs"
+        @set-direction="setLayoutDirection"
+        @expand-all="expandAll"
+        @collapse-all="collapseAll"
+        @fit="fitAll"
+      />
     </div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="mindmap-loading">
+    <!-- Loading: first load only. Later refreshes swap the nodes under the
+         mounted canvas so the reader keeps their pan and zoom. -->
+    <div v-if="!ready" class="mindmap-loading">
       <div class="skeleton-card" style="width: 200px; height: 80px;"></div>
       <p class="card-meta mt-4">Loading mindmap...</p>
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="mindmap-loading">
+    <div v-else-if="error && !nodes.length" class="mindmap-loading">
       <p class="card-meta">{{ error }}</p>
       <button class="btn btn-sm mt-4" @click="refresh">Retry</button>
     </div>
@@ -109,6 +76,7 @@ const researchName = computed(() => researchData.value?.data?.research?.name ?? 
 const researchSlug = computed(() => researchData.value?.data?.research?.code || id)
 
 const canvas = ref<{ fitAll: () => void } | null>(null)
+const ready = ref(false)
 
 function fitAll() {
   canvas.value?.fitAll()
@@ -122,8 +90,9 @@ function onNodeClick({ node }: { node: any }) {
 }
 
 // Initial load
-onMounted(() => {
-  refresh()
+onMounted(async () => {
+  await refresh()
+  ready.value = true
 })
 
 // Real-time updates
@@ -175,33 +144,6 @@ useResearchRealtime(() => id, reloadMindmap, {
   color: var(--color-text);
   letter-spacing: -0.01em;
 }
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-.toolbar-sep {
-  width: 1px;
-  height: 20px;
-  background: var(--color-border-strong);
-  margin: 0 var(--space-1);
-}
-
-.filter-chip {
-  color: var(--color-text-muted);
-  border-color: var(--color-border);
-}
-.filter-chip.active {
-  color: var(--color-primary);
-  border-color: rgba(var(--color-primary-rgb), 0.3);
-  background: var(--color-primary-muted);
-}
-.crossref-chip.active {
-  color: var(--hue-5);
-  border-color: rgba(var(--hue-5-rgb), 0.3);
-  background: rgba(var(--hue-5-rgb), 0.1);
-}
 
 .mindmap-canvas {
   flex: 1;
@@ -223,11 +165,6 @@ useResearchRealtime(() => id, reloadMindmap, {
     padding: var(--space-2) var(--space-3);
     gap: var(--space-2);
   }
-  .toolbar-right {
-    flex-wrap: wrap;
-    gap: var(--space-1);
-  }
   .toolbar-title { display: none; }
-  .toolbar-sep { display: none; }
 }
 </style>

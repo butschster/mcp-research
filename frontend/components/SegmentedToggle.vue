@@ -32,11 +32,13 @@ const emit = defineEmits<{ 'update:modelValue': [string] }>()
 <style scoped>
 .seg-toggle {
   flex-shrink: 0;
-  /* Box to the toolbar's .btn-sm height (~26px) so it doesn't bulge above the
-     button row it sits in: 22 + 1px padding ×2 + 1px border ×2 = 26. */
+  /* Box to the toolbar's .btn-sm height. That is `--control-h-sm` (32px),
+     not the 26px its padding derives to — every .btn-sm carries the
+     min-height, and this used to sit 6px short of the buttons beside it:
+     28 + 1px padding ×2 + 1px border ×2 = 32. */
   padding: 1px;
 }
 .seg-toggle > button {
-  height: 22px;
+  height: calc(var(--control-h-sm) - 4px);
 }
 </style>

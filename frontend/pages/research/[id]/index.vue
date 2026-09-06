@@ -221,6 +221,7 @@
       @revoke="askRevokeShare"
       @update="updateShare"
       @refresh="refreshSharesAfterFailure"
+      @clear-error="shareSaveError = ''"
       @dismiss-reveal="issuedShareUrl = ''"
       @close="closeShares"
     />

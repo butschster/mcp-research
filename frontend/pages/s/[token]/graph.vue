@@ -6,7 +6,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           Back to project
         </NuxtLink>
-        <span class="toolbar-title">Knowledge graph</span>
+        <h1 class="toolbar-title">Knowledge graph</h1>
         <span v-if="researchCode" class="toolbar-code">{{ researchCode }}</span>
       </div>
       <div class="toolbar-right">
@@ -20,6 +20,12 @@
         />
       </div>
     </div>
+
+    <!-- The canvas is mouse-first and says nothing about itself; this is the
+         one line that does. The List view needs no instructions. -->
+    <p v-if="view === 'graph'" class="card-meta graph-hint">
+      Drag to pan, scroll to zoom, double-click a node to open it, right-click to focus on its neighbours.
+    </p>
 
     <p v-if="largeNotice" class="card-meta large-notice" role="status">
       Large project — showing documents and sections. Add more from the panel.
@@ -61,25 +67,30 @@
       <!-- Errors first, then the two empties, then the views. A 404 is not an
            error here: it means the whole link has gone, and the shell owns
            that screen. -->
-      <div v-if="!loading && error" class="view-state">
+      <!-- `ready` is the first load; `loading` after that is a refetch behind
+           a view that stays mounted. Without the distinction every realtime
+           event unmounted the list a visitor was scrolling. -->
+      <div v-if="ready && error" class="view-state">
         <EmptyState
           title="Couldn't draw the graph"
           description="The server didn't answer. The link is fine — try again in a moment."
         >
-          <button class="btn btn-primary" @click="fetchGraph()">Try again</button>
+          <button class="btn btn-primary" @click="ready ? reload() : load()">Try again</button>
         </EmptyState>
       </div>
 
-      <div v-else-if="!loading && isEmptyProject" class="view-state">
+      <div v-else-if="ready && isEmptyProject" class="view-state">
         <EmptyState
           title="Nothing to connect yet"
-          description="This project has one document and no cross-references between documents, so there is no graph to draw. It fills in as the project grows — you can leave this page open."
+          :description="documentCount
+            ? 'This project has one document and no cross-references between documents, so there is no graph to draw. It fills in as the project grows — you can leave this page open.'
+            : 'This project has no documents yet, so there is no graph to draw. It fills in as the project grows — you can leave this page open.'"
         >
           <NuxtLink class="btn btn-primary" :to="researchPath(slug)">Back to project</NuxtLink>
         </EmptyState>
       </div>
 
-      <div v-else-if="!loading && nothingVisible" class="view-state">
+      <div v-else-if="ready && nothingVisible" class="view-state">
         <EmptyState
           title="Nothing matches these filters"
           description="Every node type is switched off. Turn one back on in the panel."
@@ -89,11 +100,12 @@
       </div>
 
       <GraphNodeList
-        v-else-if="view === 'list' && !loading"
+        v-else-if="view === 'list' && ready"
         :nodes="nodes"
         :edges="edges"
         :node-types="nodeTypeFilters"
         :visible-node-types="visibleNodeTypes"
+        :visible-edge-types="visibleEdgeTypes"
         :href-for="hrefFor"
       />
 
@@ -103,7 +115,7 @@
         v-model:focused-node-id="focusedNodeId"
         :nodes="nodes"
         :edges="edges"
-        :loading="loading"
+        :loading="!ready"
         :visible-node-types="visibleNodeTypes"
         :visible-edge-types="visibleEdgeTypes"
         :hide-orphans="hideOrphans"
@@ -147,7 +159,11 @@ watch(errorStatus, (status) => { if (status === 404) markGone() })
 const nodeTypeFilters = computed(() =>
   GRAPH_NODE_TYPE_FILTERS.filter(nt => availableNodeTypes.value.includes(nt.key)),
 )
-const edgeTypeFilters = GRAPH_EDGE_TYPE_FILTERS
+// The edge rows follow the node rows: a "Session links" row on a link with no
+// session nodes would advertise the type the server withheld.
+const edgeTypeFilters = computed(() =>
+  GRAPH_EDGE_TYPE_FILTERS.filter(et => et.key !== 'session' || availableNodeTypes.value.includes('session')),
+)
 
 // The phone is where a canvas is least useful and a list most; and a 240px
 // panel inside a 375px viewport leaves 100px of graph.
@@ -160,6 +176,8 @@ const focusDepth = ref(1)
 const focusedNodeId = ref<string | null>(null)
 const largeNotice = ref(false)
 const canvas = ref<{ fit: () => void } | null>(null)
+/** The first fetch has answered. Later fetches refresh the data in place. */
+const ready = ref(false)
 
 const nodeCountByType = computed(() => {
   const counts: Record<string, number> = {}
@@ -172,15 +190,28 @@ const edgeCountByType = computed(() => {
   return counts
 })
 
-const filteredNodeCount = ref(0)
-const filteredEdgeCount = ref(0)
+// The canvas reports how many nodes and edges survived the filters; in List
+// view it is not mounted, so the same numbers are computed here — the header
+// used to read "0 nodes" over a list of thirty.
+const canvasCounts = ref<{ nodes: number; edges: number } | null>(null)
 function onCounts(n: number, e: number) {
-  filteredNodeCount.value = n
-  filteredEdgeCount.value = e
+  canvasCounts.value = { nodes: n, edges: e }
 }
+const listCounts = computed(() => {
+  const ids = new Set(nodes.value.filter(n => visibleNodeTypes.value.has(n.type)).map(n => n.id))
+  const edgeCount = edges.value.filter((e) => {
+    const src = typeof e.source === 'string' ? e.source : e.source.id
+    const tgt = typeof e.target === 'string' ? e.target : e.target.id
+    return visibleEdgeTypes.value.has(e.type) && ids.has(src) && ids.has(tgt)
+  }).length
+  return { nodes: ids.size, edges: edgeCount }
+})
+const filteredNodeCount = computed(() => (view.value === 'graph' && canvasCounts.value ? canvasCounts.value : listCounts.value).nodes)
+const filteredEdgeCount = computed(() => (view.value === 'graph' && canvasCounts.value ? canvasCounts.value : listCounts.value).edges)
 
 // One document and nothing to connect it to is not a graph; distinct from
 // "you switched everything off", which is the reader's own doing.
+const documentCount = computed(() => nodes.value.filter(n => n.type === 'entry').length)
 const isEmptyProject = computed(() =>
   nodes.value.filter(n => n.type !== 'section').length <= 1
   && !edges.value.some(e => e.type === 'crossref'),
@@ -206,7 +237,7 @@ function hrefFor(node: GraphNode): string {
   const code = node.code || node.id
   if (node.type === 'entry') return entryPath(slug.value, code)
   if (node.type === 'session' && include.value.sessions) return sessionPath(slug.value, code)
-  if (node.type === 'task' && include.value.tasks) return tasksPath(slug.value)
+  if (node.type === 'task' && include.value.tasks) return taskPath(slug.value, code)
   return ''
 }
 
@@ -215,28 +246,52 @@ function openNode(node: GraphNode) {
   if (href) navigateTo(href)
 }
 
+// Above this the simulation freezes a phone: narrow the view and say so.
+// Checked after every fetch, not only the first — a project can cross the
+// line while the visitor reads, and a retried first load must get the same
+// guard the successful one would have.
+let guarded = false
+function guardLargeProject() {
+  if (guarded || nodes.value.length <= 600) return
+  guarded = true
+  visibleNodeTypes.value = new Set(['entry', 'section'])
+  hideOrphans.value = true
+  largeNotice.value = true
+}
+
+async function reload() {
+  await fetchGraph()
+  guardLargeProject()
+}
+
 async function load() {
   await fetchGraph()
-  // Above this the simulation freezes a phone; start narrow and say so.
-  if (nodes.value.length > 600) {
-    visibleNodeTypes.value = new Set(['entry', 'section'])
-    hideOrphans.value = true
-    largeNotice.value = true
-    return
-  }
+  guardLargeProject()
   // A visitor starts with everything the link carries switched on. The
   // owner's default leaves sessions off — noise on a busy workspace — but a
   // link was made to show something, and a row unticked by default is a row
-  // most people never tick.
-  visibleNodeTypes.value = new Set(availableNodeTypes.value)
+  // most people never tick. Decided before `ready`, so the first build is
+  // the one the visitor sees.
+  if (!guarded) visibleNodeTypes.value = new Set(availableNodeTypes.value)
+  ready.value = true
 }
 
-onMounted(() => { void load() })
+// Escape leaves focus mode, which is entered by right-click and otherwise
+// exits only through a sidebar button that is collapsed away on a phone.
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && focusedNodeId.value) focusedNodeId.value = null
+}
+
+onMounted(() => {
+  void load()
+  window.addEventListener('keydown', onKeydown)
+})
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 useResearchRealtime(
   () => slug.value,
-  () => void fetchGraph(),
-  { onResync: () => void fetchGraph(), researchId: () => researchId.value },
+  () => void reload(),
+  { onResync: () => void reload(), researchId: () => researchId.value },
 )
 
 useHead({ title: () => (researchCode.value ? `${researchCode.value} — graph` : 'Knowledge graph') })
@@ -253,9 +308,10 @@ useHead({ title: () => (researchCode.value ? `${researchCode.value} — graph` :
   margin-bottom: var(--space-4);
 }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.toolbar-title { font-size: var(--type-sm); font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
+.toolbar-title { margin: 0; font-size: var(--type-sm); font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
 .toolbar-code { font-family: 'JetBrains Mono', monospace; font-size: var(--type-xs); color: var(--color-text-muted); }
 .large-notice { margin: 0 0 var(--space-3); display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.graph-hint { margin: 0 0 var(--space-3); font-size: var(--type-xs); }
 
 /* The shared roadmap page's panel, verbatim, so the shared canvases are one
    family: a definite height, a border, and its own scrolling. */
@@ -270,6 +326,9 @@ useHead({ title: () => (researchCode.value ? `${researchCode.value} — graph` :
 .view-panel--list { background: var(--color-surface); }
 .view-state {
   flex: 1;
+  /* The panel clips; on a landscape phone the action under the copy would
+     otherwise be cut off with nothing to scroll. */
+  overflow: auto;
   display: flex;
   align-items: center;
   justify-content: center;

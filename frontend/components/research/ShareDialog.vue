@@ -197,6 +197,8 @@ const emit = defineEmits<{
   update: [payload: { id: string; label: string; include: ShareInclude }]
   /** The list is stale — after a link died under an open edit. */
   refresh: []
+  /** An edit was opened or abandoned; a save error from before it is stale. */
+  clearError: []
   close: []
   dismissReveal: []
 }>()
@@ -377,6 +379,7 @@ const backToListEl = ref<HTMLButtonElement | null>(null)
 const saveError = computed(() => props.saveError || '')
 
 async function startEdit(share: ShareRow) {
+  emit('clearError')
   editing.value = share
   editForm.label = share.label || ''
   editForm.include = { ...share.include }
@@ -425,6 +428,7 @@ function submitEdit() {
 }
 
 async function cancelEdit() {
+  emit('clearError')
   editing.value = null
   view.value = 'list'
   await nextTick()
@@ -467,7 +471,6 @@ async function showLink(share: ShareRow) {
 
 <style scoped>
 .share-list-head { display: flex; justify-content: flex-end; margin: var(--space-3) 0; }
-.check-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--type-sm); padding: var(--space-1) 0; }
 .share-skeletons { display: flex; flex-direction: column; gap: var(--space-2); }
 /* .warning-banner is the product's amber strip (system.css). Amber belongs here
    and nowhere else in this feature: this is the one moment where something is
