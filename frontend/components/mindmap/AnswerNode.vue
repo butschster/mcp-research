@@ -35,7 +35,7 @@ function renderInline(text: string, len: number): string {
 
 function navigate() {
   if (props.data.researchSlug && props.data.sessionId && props.data.questionCode) {
-    window.open(`/research/${props.data.researchSlug}/session/${props.data.sessionId}/question/${props.data.questionCode}`, '_blank')
+    navigateTo(questionPath(props.data.researchSlug, props.data.sessionId, props.data.questionCode))
   }
 }
 </script>

@@ -333,6 +333,9 @@ func TestShareRoutes_OwnerRoutesRejectAShareToken(t *testing.T) {
 		{http.MethodPut, "/api/shared/" + token + "/researches/" + s.research.ID, `{"name":"hacked"}`},
 		{http.MethodDelete, "/api/shared/" + token + "/entries/" + s.entry.ID, ``},
 		{http.MethodPost, "/api/shared/" + token + "/researches/" + s.research.ID + "/shares", `{}`},
+		// Widening the link through the link itself would hand a visitor the
+		// owner's most sensitive control.
+		{http.MethodPut, "/api/shared/" + token + "/shares/whatever", `{"include":{"sessions":true,"tasks":true,"roadmaps":true,"export":true}}`},
 		{http.MethodPost, "/api/shared/" + token + "/researches/" + s.research.ID + "/crossrefs/rebuild", ``},
 		// Importing a markdown file is the newest write and the only one
 		// addressed by a bare section id, so the sub-mux has never seen the
@@ -577,7 +580,10 @@ func TestShareRoutes_UnmountedRoutesAreNotReachable(t *testing.T) {
 		"/api/shared/" + token + "/search?q=secret",
 		"/api/shared/" + token + "/teams",
 		"/api/shared/" + token + "/auth/me",
-		"/api/shared/" + token + "/researches/" + s.research.ID + "/graph",
+		// The graph is mounted now, and gated inside its handler rather than at
+		// the route — TestShareRoutes_GraphObeysTheIncludeFlags is what holds
+		// that boundary. The list of a research's links stays out: which links
+		// exist is the owner's business, not a visitor's.
 		"/api/shared/" + token + "/researches/" + s.research.ID + "/shares",
 		"/api/shared/" + token + "/entries/" + s.entry.ID + "/revisions",
 		// A session's change list is the same revision history in a different
@@ -1094,5 +1100,183 @@ func TestShareRoutes_EntryMarkdownIsNotReachable(t *testing.T) {
 	code, _ := s.get("/api/shared/" + token + "/entries/" + s.entry.ID + "/markdown")
 	if code != http.StatusNotFound {
 		t.Fatalf("a share reached the per-document download: %d", code)
+	}
+}
+
+// The graph is the first route under the prefix that assembles every entity
+// into one payload, so it is the first place a link's include flags can be
+// bypassed by accident: the session and task services do not refuse a share
+// visitor on their own, because Access resolves a share to a viewer on this
+// research. What proves the flags hold is the body, not the status.
+func TestShareRoutes_GraphObeysTheIncludeFlags(t *testing.T) {
+	s := newShareServer(t)
+
+	type graphBody struct {
+		Nodes              []map[string]any `json:"nodes"`
+		Edges              []map[string]any `json:"edges"`
+		AvailableNodeTypes []string         `json:"available_node_types"`
+	}
+	fetch := func(token string) graphBody {
+		t.Helper()
+		code, body := s.get("/api/shared/" + token + "/researches/" + s.research.ID + "/graph")
+		if code != http.StatusOK {
+			t.Fatalf("graph: %d %s", code, body)
+		}
+		var g graphBody
+		if err := json.Unmarshal([]byte(body), &g); err != nil {
+			t.Fatalf("graph body: %v", err)
+		}
+		return g
+	}
+	types := func(g graphBody) map[string]int {
+		counts := map[string]int{}
+		for _, n := range g.Nodes {
+			counts[n["type"].(string)]++
+		}
+		return counts
+	}
+
+	// Content only. Sessions, questions and tasks must be absent — not present
+	// with a flag, not empty-labelled, absent — and the list of what this
+	// caller could have received must not name them either.
+	contentOnly := fetch(s.newShare(domain.ShareInclude{}))
+	got := types(contentOnly)
+	if got["entry"] < 2 || got["section"] < 1 {
+		t.Errorf("documents and sections are always in a link, got %v", got)
+	}
+	for _, withheld := range []string{"session", "question", "task"} {
+		if got[withheld] != 0 {
+			t.Errorf("a content-only link drew %d %s nodes", got[withheld], withheld)
+		}
+	}
+	raw, _ := json.Marshal(contentOnly)
+	for _, leak := range []string{"Initial exploration", "internal todo"} {
+		if strings.Contains(string(raw), leak) {
+			t.Errorf("the graph of a content-only link carries %q", leak)
+		}
+	}
+	if strings.Join(contentOnly.AvailableNodeTypes, ",") != "section,entry" {
+		t.Errorf("available_node_types = %v, want [section entry]", contentOnly.AvailableNodeTypes)
+	}
+
+	// Everything in: the same research draws its session and its task, and
+	// says so up front.
+	everything := fetch(s.newShare(allIn()))
+	got = types(everything)
+	if got["session"] != 1 || got["task"] != 1 {
+		t.Errorf("a link with sessions and tasks drew %v", got)
+	}
+	if strings.Join(everything.AvailableNodeTypes, ",") != "section,entry,session,question,task" {
+		t.Errorf("available_node_types = %v", everything.AvailableNodeTypes)
+	}
+
+	// One flag at a time, so a mix-up between the two cannot pass.
+	sessionsOnly := types(fetch(s.newShare(domain.ShareInclude{Sessions: true})))
+	if sessionsOnly["session"] != 1 || sessionsOnly["task"] != 0 {
+		t.Errorf("sessions-only link drew %v", sessionsOnly)
+	}
+	tasksOnly := types(fetch(s.newShare(domain.ShareInclude{Tasks: true})))
+	if tasksOnly["task"] != 1 || tasksOnly["session"] != 0 {
+		t.Errorf("tasks-only link drew %v", tasksOnly)
+	}
+
+	// And the graph of the research the link does not reach is not reachable.
+	if code, _ := s.get("/api/shared/" + s.newShare(allIn()) + "/researches/" + s.other.ID + "/graph"); code != http.StatusNotFound {
+		t.Errorf("the graph of another research answered %d", code)
+	}
+}
+
+// Changing what a link shows is an owner's action on the owner's surface. The
+// address stays the same — which is the point, and also why the prefix must
+// not carry the route: a visitor who could widen their own link would own the
+// research.
+func TestShareRoutes_UpdateChangesALiveLinkInPlace(t *testing.T) {
+	s := newShareServer(t)
+	issued, err := s.shares.Create(s.ownerCtx, s.research.ID, service.CreateShareRequest{
+		Label: "Client review", Include: domain.ShareInclude{Export: true},
+	})
+	if err != nil {
+		t.Fatalf("create share: %v", err)
+	}
+	token, id := issued.Token, issued.Share.ID
+	graph := "/api/shared/" + token + "/researches/" + s.research.ID + "/graph"
+	sessions := "/api/shared/" + token + "/researches/" + s.research.ID + "/sessions"
+
+	if code, _ := s.get(sessions); code != http.StatusNotFound {
+		t.Fatalf("sessions before widening: %d", code)
+	}
+
+	// Widen. The response is the whole share, so a row can repaint from it.
+	code, body := s.do(http.MethodPut, "/api/shares/"+id,
+		`{"label":"Website demo","include":{"sessions":true,"tasks":true,"roadmaps":true,"export":true}}`)
+	if code != http.StatusOK {
+		t.Fatalf("update: %d %s", code, body)
+	}
+	var updated struct {
+		Data struct {
+			Share domain.Share `json:"share"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &updated); err != nil {
+		t.Fatalf("update body: %v", err)
+	}
+	if updated.Data.Share.ID != id || updated.Data.Share.Label != "Website demo" || !updated.Data.Share.Include.Sessions {
+		t.Errorf("update returned %+v", updated.Data.Share)
+	}
+	if strings.Contains(body, token) {
+		t.Error("the update response carried the token")
+	}
+
+	// The same address now reaches what it did not a moment ago.
+	if code, _ := s.get(sessions); code != http.StatusOK {
+		t.Errorf("sessions after widening: %d", code)
+	}
+	if _, body := s.get(graph); !strings.Contains(body, "Initial exploration") {
+		t.Error("the graph did not pick up the widened flags")
+	}
+
+	// Narrow again. `include` is a complete replacement, so an object naming
+	// only export takes the other three away.
+	if code, body := s.do(http.MethodPut, "/api/shares/"+id, `{"include":{"export":true}}`); code != http.StatusOK {
+		t.Fatalf("narrow: %d %s", code, body)
+	}
+	if code, _ := s.get(sessions); code != http.StatusNotFound {
+		t.Errorf("sessions after narrowing: %d", code)
+	}
+	if _, body := s.get(graph); strings.Contains(body, "Initial exploration") {
+		t.Error("the graph kept the session after narrowing")
+	}
+
+	// An empty body changes nothing and says so.
+	if code, _ := s.do(http.MethodPut, "/api/shares/"+id, `{}`); code != http.StatusBadRequest {
+		t.Errorf("empty update: %d, want 400", code)
+	}
+
+	// Through the prefix, in the two shapes the sub-mux could be handed.
+	for _, path := range []string{
+		"/api/shared/" + token + "/shares/" + id,
+		"/api/shared/" + token + "/researches/" + s.research.ID + "/shares/" + id,
+	} {
+		if code, _ := s.do(http.MethodPut, path, `{"include":{"sessions":true,"tasks":true,"roadmaps":true,"export":true}}`); code < 400 {
+			t.Errorf("%s widened a link through the link itself: %d", path, code)
+		}
+	}
+
+	// A revoked link cannot be edited back to life, and — on this surface — the
+	// refusal says why.
+	if err := s.shares.Revoke(s.ownerCtx, id); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	if code, body := s.do(http.MethodPut, "/api/shares/"+id, `{"label":"Back from the dead"}`); code != http.StatusConflict {
+		t.Errorf("update of a revoked link: %d %s, want 409", code, body)
+	}
+	if code, _ := s.get("/api/shared/" + token); code != http.StatusNotFound {
+		t.Errorf("the revoked link still answers: %d", code)
+	}
+
+	// An unknown id is a plain 404: there is nothing to confirm about a row
+	// that does not exist.
+	if code, _ := s.do(http.MethodPut, "/api/shares/"+uuid.New().String(), `{"label":"x"}`); code != http.StatusNotFound {
+		t.Errorf("update of an unknown share: %d, want 404", code)
 	}
 }

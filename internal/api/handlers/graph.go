@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/dovod-app/app/internal/auth"
+	"github.com/dovod-app/app/internal/domain"
 	"github.com/dovod-app/app/internal/service"
 	"github.com/dovod-app/app/internal/storage"
 )
@@ -71,6 +73,27 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	var edges []graphEdge
 	nodeSet := map[string]bool{}
 
+	// What this caller may be shown. A share visitor gets the node types the
+	// link's include flags cover and nothing else; the services would not refuse
+	// the session or task listing on their own, because Access resolves a share
+	// to a viewer on this research — so the withholding has to happen here, in
+	// the one handler that assembles every entity into a single payload.
+	//
+	// `available` names what the caller *could* receive, so the client can build
+	// its filter rows without repeating this mapping. It never names what was
+	// withheld: a link without sessions must look like a research that has none.
+	include := domain.ShareInclude{Sessions: true, Tasks: true, Roadmaps: true, Export: true}
+	if sc := auth.ShareFromContext(ctx); sc != nil {
+		include = sc.Include
+	}
+	available := []string{"section", "entry"}
+	if include.Sessions {
+		available = append(available, "session", "question")
+	}
+	if include.Tasks {
+		available = append(available, "task")
+	}
+
 	// Helper to register a node
 	addNode := func(n graphNode) {
 		if !nodeSet[n.ID] {
@@ -132,7 +155,7 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Sessions & Questions
-	if h.session != nil {
+	if h.session != nil && include.Sessions {
 		sessionList, err := h.session.ListByResearch(ctx, researchID)
 		if err == nil {
 			for _, sess := range sessionList {
@@ -160,7 +183,7 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 4. Tasks
-	if h.task != nil {
+	if h.task != nil && include.Tasks {
 		tasks, err := h.task.List(ctx, researchID, storage.TaskFilter{})
 		if err == nil {
 			for _, t := range tasks {
@@ -218,7 +241,8 @@ func (h *GraphHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"nodes": nodes,
-		"edges": edges,
+		"nodes":                nodes,
+		"edges":                edges,
+		"available_node_types": available,
 	})
 }

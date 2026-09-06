@@ -24,6 +24,16 @@
       </div>
 
       <div class="share-cell share-cell--actions">
+        <!-- Only a live link can be edited; a dead row keeps its record and
+             none of its controls. -->
+        <button
+          v-if="isLive(share)"
+          class="link-btn"
+          :disabled="busyId === share.id"
+          @click="emit('edit', share)"
+        >
+          Edit
+        </button>
         <button
           v-if="isLive(share) && recoverableLinks[share.id]"
           class="link-btn"
@@ -75,7 +85,7 @@ defineProps<{
   recoverableLinks: Record<string, string>
 }>()
 
-const emit = defineEmits<{ revoke: [share: ShareRow]; showLink: [share: ShareRow] }>()
+const emit = defineEmits<{ revoke: [share: ShareRow]; showLink: [share: ShareRow]; edit: [share: ShareRow] }>()
 
 const isLive = isShareLive
 

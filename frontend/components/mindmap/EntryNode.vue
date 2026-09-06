@@ -39,8 +39,12 @@ const extraTagCount = computed(() => Math.max(0, (props.data.tags ?? []).length 
 
 
 
+// Through the path helper, never a template literal: under a share link the
+// same node has to land inside `/s/{token}/…`, and a hand-written `/research/`
+// path opened a new tab on the login wall. Same tab, too — a reader who was
+// panning the canvas and gets a second window has lost their place in both.
 function navigate() {
-  window.open(`/research/${props.data.researchSlug}/entry/${props.data.entrySlug}`, '_blank')
+  navigateTo(entryPath(props.data.researchSlug, props.data.entrySlug))
 }
 </script>
 

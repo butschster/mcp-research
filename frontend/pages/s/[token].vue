@@ -9,6 +9,7 @@
   />
 
   <div v-else-if="screen === 'dead'" class="share-standalone">
+    <div class="share-standalone-tools"><ThemeToggle size="sm" /></div>
     <EmptyState
       icon="&#x1F517;"
       title="This link isn't available"
@@ -17,6 +18,7 @@
   </div>
 
   <div v-else-if="screen === 'unreachable'" class="share-standalone">
+    <div class="share-standalone-tools"><ThemeToggle size="sm" /></div>
     <EmptyState
       title="Couldn't open this link"
       description="The server didn't answer. The link is probably fine — try again in a moment."
@@ -34,7 +36,9 @@
       :live="hasRecentUpdate"
     />
 
-    <main class="container share-main">
+    <!-- tabindex="-1" so the skip link and a page's own focus() have a landing
+         place, as the app shell's main does. -->
+    <main class="container share-main" tabindex="-1">
       <div v-if="screen === 'loading'" class="skeleton-page">
         <div class="skeleton-card skeleton-header"></div>
         <div class="layout-sidebar">
@@ -77,9 +81,16 @@ const route = useRoute()
 const token = route.params.token as string
 
 const {
-  claim, setPayload, setUnlock, release, shareFetch,
+  claim, setPayload, setUnlock, release, shareFetch, gone,
   include, ownerName, expiresAt, researchId, researchCode, research, unlock: unlockValue,
 } = useShare()
+
+// A child page that meets a 404 under the prefix has learned the link is dead
+// before the shell has: the socket close and the payload refetch that would
+// tell the shell can be a minute away. The child says so through the shared
+// flag rather than inventing its own "not available" screen, so the whole
+// content area is replaced by the one dead screen the product has.
+watch(gone, (dead) => { if (dead) screen.value = 'dead' })
 
 // Claimed before anything is fetched. The read-only lock and the path helpers
 // have to be right while the payload is still in flight — a page that turns
@@ -229,10 +240,16 @@ useHead({ title: () => (research.value?.name ? `${research.value.name} — share
 .share-shell { min-height: 100dvh; display: flex; flex-direction: column; }
 .share-main { flex: 1; padding-top: var(--space-4); padding-bottom: var(--space-4); }
 .share-standalone {
+  position: relative;
   min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-6);
+}
+.share-standalone-tools {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
 }
 </style>
